@@ -1,0 +1,353 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — the non-gold currency legs (user item 2.4)
+#
+# NEW IN v2. Effects E30, E31, E32, continuing the numbering of
+# 10-CONTRACT §6.1 (v1 ended at E29) as amended by 30-V2-DESIGN §10 A-7.
+#
+# Companion files:
+#   tnt_30_effects.txt  — window lifecycle + reset (E1, E2, E3, E13).
+#                         The six offer variables read here are removed there.
+#   tnt_32_apply.txt    — the master apply effect and the v1 exec legs.
+#                         Its "1b" block is what calls the three effects below.
+#   tnt_33_currency_apply.txt (this file) — prestige, piety, influence.
+#
+# Root is always THE PLAYER, exactly as in tnt_32_apply.txt: the six offer
+# variables live on the player for both sides, every guard reads
+# `var:tnt_<item>_<side>` in root scope, and only the effects are re-scoped.
+# Side suffixes (contract R0.1): _p = the PLAYER gives it, _r = the PARTNER
+# gives it. $PARAM$ substitution is textual, which is why
+# `var:tnt_prestige_$SIDE$` resolves.
+#
+#=======================================================================
+# 1. THERE IS NO ATOMIC TRANSFER EFFECT. THAT IS NOT AN OVERSIGHT.
+#=======================================================================
+# Gold has `pay_short_term_gold = { gold = X  target = Y }` — one call, both
+# tooltips, and it respects the AI's short-term budget. NOTHING equivalent
+# exists for prestige, piety or influence. Searched across all of GAME:
+#   pay_short_term_prestige · pay_long_term_prestige · transfer_prestige ·
+#   pay_prestige · remove_short_term_prestige · pay_short_term_influence ·
+#   add_influence · remove_influence · remove_prestige · pay_piety ·
+#   pay_influence            ->  ZERO script hits, every one of them.
+# (The only `pay_prestige` hits anywhere are localisation keys for a diarchy
+# send-option FLAG named diarch_interaction_pay_prestige_partial, e.g.
+# GAME\common\character_interactions\00_diarch_interactions.txt:2845 — a flag
+# name, not an effect.) All eleven are on the R4 blacklist. If a future
+# author "simplifies" this file by reaching for one of them, the parse fails.
+#
+# Vanilla's own answer is TWO INDEPENDENT CALLS, and this is the shape we
+# copy — GAME\common\character_interactions\00_invite_agent_to_scheme.txt:166-183,
+# verbatim:
+#
+#           # Prestige
+#           if = {
+#               limit = { always = scope:prestige }
+#               add_prestige = {
+#                   value = prestige_bribe_value
+#                   multiply = -1
+#               }
+#               scope:recipient = { add_prestige = prestige_bribe_value }
+#           }
+#           # Influence
+#           if = {
+#               limit = { always = scope:influence }
+#               change_influence = {
+#                   value = influence_bribe_value
+#                   multiply = -1
+#               }
+#               scope:recipient = { change_influence = influence_bribe_value }
+#           }
+#
+# Note the asymmetry in that vanilla block: the GIVER is the implicit scope
+# (it is the actor's own effect body) and only the receiver is re-scoped.
+# Ours re-scopes both, because for SIDE = r the giver is the partner.
+#
+# CONSEQUENCES OF NON-ATOMICITY THAT THE IMPLEMENTER MUST ACCEPT:
+#   * Not conserved. Nothing links the two calls; if the giver cannot pay,
+#     the receiver is still credited and the giver simply goes negative —
+#     prestige and piety CAN go negative in CK3, silently, with no warning.
+#   * Therefore AFFORDABILITY MUST BE GATED BEFORE THE OFFER IS SENT, in
+#     tnt_send_offer.is_valid, exactly as vanilla gates its own bribe
+#     (`scope:actor.prestige >= prestige_bribe_value`,
+#     00_invite_agent_to_scheme.txt:673). The six values and six loc keys the
+#     sgui author needs are listed in NOTES2-effects.md; this file cannot do
+#     it, because by the time an exec effect runs the offer has been accepted.
+#   * No short-term budget is respected (unlike gold). The AI does not
+#     budget-manage prestige, so this is fine.
+#
+#=======================================================================
+# 2. `add_prestige` vs `add_prestige_no_experience`
+#=======================================================================
+# Both exist. Plain `add_prestige` also grants prestige EXPERIENCE, i.e. it
+# moves the fame LEVEL, and the negative leg moves it back down. We use the
+# plain form because that is what vanilla's own currency bribe uses
+# (00_invite_agent_to_scheme.txt:169) and because a treaty that raises your
+# renown is thematically right for this mod.
+# DOCUMENTED FALLBACK (30-V2-DESIGN §1 row 2.4): if level progress from a
+# trade turns out to feel wrong, swap all four calls to
+# `add_prestige_no_experience` / `add_piety_no_experience` — identical key
+# set, pure currency, no other change anywhere.
+#
+#=======================================================================
+# 3. WHY THESE LEGS ARE **NOT** WRAPPED IN hidden_effect
+#=======================================================================
+# The retired tribute leg (E16) had to be wrapped, because a MODIFIER's
+# `scale` block resolves against the modifier holder and is evaluated at
+# tooltip-build time, when the set_variable feeding it has not run — that was
+# defect D5. Nothing of that kind happens here. These effects read
+# `root.var:tnt_<c>_$SIDE$`, root is the player, and the variable is still
+# on the player while the tooltip is being built (it is cleared only at the
+# very end of tnt_apply_deal_effect). So the tooltip resolves correctly and
+# the player SHOULD see "Lose 300 Prestige / Gain 300 Prestige" — which is
+# exactly what we want and why there are no custom_tooltip lines here.
+# DO NOT add hidden_effect to these three effects: it would silently delete
+# those lines from the confirmation tooltip.
+#
+#=======================================================================
+# 4. INFLUENCE IS DIFFERENT FROM THE OTHER TWO. READ E32'S HEADER.
+#=======================================================================
+########################################################################
+
+
+########################################################################
+# E30 — tnt_exec_prestige_effect     params: SIDE, GIVER, RECEIVER
+#
+# The giver's leg is a block with `multiply = -1`; the receiver's leg is the
+# same figure, positive. Two calls, one variable, no double-counting.
+#
+# `value = <scope>.var:x` inside an add_prestige block is vanilla, verbatim:
+#   GAME\events\war_events\raid_events.txt:681-685
+#       add_prestige = {
+#           value = root.var:raid_loot
+#           multiply = not_tribal_raid_prestige_multiplier
+#           multiply = -1
+#       }
+# and the flat receiver form `add_prestige = <script value>` is
+# 00_invite_agent_to_scheme.txt:173. We keep the receiver leg as a BLOCK
+# rather than the flat form only because `add_prestige = root.var:x` as a
+# bare right-hand side is not a shape vanilla writes; the block form is.
+#
+# Reading root.var inside a re-scoped block is the same idiom the gold leg
+# already ships (`gold = root.var:tnt_gold_$SIDE$`, tnt_32_apply.txt E15):
+# `root` is absolute and does not follow the scope change.
+#
+# NEVER: remove_prestige (does not exist), transfer_prestige (does not
+# exist), pay_prestige (does not exist).
+#
+#=======================================================================
+# *** W2 - THIS LEG IS STILL UNGATED, AND FOR THE FIRST TIME THAT IS AN
+# *** OPEN RULING RATHER THAN A PROVEN SAFETY. READ BEFORE "FIXING" IT.
+#
+# WHAT CHANGED. tnt_trade_prestige and tnt_trade_piety stopped being on/off
+# switches and became ladders (common\game_rules\tnt_80_game_rules.txt):
+# prestige is off / peers-and-below / always, piety is off / same faith /
+# same religion / always. All three OTHER positions were converted in the
+# same round - the two bridge writes (tnt_30_effects.txt E1 and
+# tnt_ai_offer_counter_effect), the four tnt_show_ gates (tnt_41_gates.txt)
+# and all twelve auto-balance rungs (tnt_39_autobalance.txt) - and they now
+# call tnt_trade_prestige_trigger / tnt_trade_piety_trigger (T2b / T2c,
+# tnt_40_triggers.txt).
+#
+# WHY THE OLD SAFETY ARGUMENT NO LONGER COVERS THIS LEG. Both CLAUDE.md and
+# _docs\tools\tnt_rule_conformance.ps1 (its NOTE C) call the apply legs "safe
+# by unreachability", and the whole of that argument was: a game rule cannot
+# change mid-campaign, so with the rule off the variable is never non-zero
+# and this `if` is never entered. That is still airtight for `off` and for
+# `on`. It is NOT airtight for a middle rung, because FAITH and PRESTIGE
+# LEVEL change mid-campaign constantly. The one reachable case is a stale AI
+# letter: a letter composed while the pair matched, left unanswered for
+# years - which its own design allows, see the untimed tnt_ai_letter marker -
+# and accepted after the player has converted or been raised a prestige
+# level. The currency would then be paid under a rung that now forbids it.
+#
+# WHY NOTHING WAS CHANGED HERE ANYWAY, i.e. what a later round must decide.
+# The gate needs a partner handle, and THIS LEG DOES NOT HAVE ONE IT CAN
+# TRUST: tnt_apply_deal_effect reaches the partner as the permanent scope
+# tnt_deal_partner, not as var:tnt_partner, and the letter-accept path has no
+# window and therefore no guarantee about the variable. Guessing wrong here
+# is not a cosmetic slip - a wrong handle silently stops EVERY prestige and
+# piety payment in the mod, on every path, which is far worse than the leak
+# it would close. The precedent for doing it properly is directly below:
+# tnt_exec_influence_effect (E32) asks its OWN structural question at its own
+# time, `government_has_flag = government_has_influence` on BOTH sides.
+# THE SHAPE, IF IT IS EVER RULED IN: add
+#   tnt_trade_prestige_trigger = { A = $GIVER$  B = $RECEIVER$ }
+# to the limit (and the piety twin in E31) - the parameters are already the
+# two characters, so no new handle is needed, and both are absolute by the
+# call site's own contract. VERIFY FIRST that $GIVER$/$RECEIVER$ are the
+# player and the partner in that order on BOTH call paths, and decide the
+# player-facing half: with the row gone the confirmation tooltip simply loses
+# its "Lose N Prestige" line, which is honest, but the letter the player is
+# answering still promises the prestige in prose.
+#=======================================================================
+########################################################################
+tnt_exec_prestige_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_prestige_$SIDE$
+			var:tnt_prestige_$SIDE$ > 0
+		}
+
+		$GIVER$ = {
+			add_prestige = {
+				value = root.var:tnt_prestige_$SIDE$
+				multiply = -1
+			}
+		}
+
+		$RECEIVER$ = {
+			add_prestige = {
+				value = root.var:tnt_prestige_$SIDE$
+			}
+		}
+	}
+}
+
+
+########################################################################
+# E31 — tnt_exec_piety_effect        params: SIDE, GIVER, RECEIVER
+#
+# Identical in every respect to E30 with `add_piety` in place of
+# `add_prestige`. The block-with-multiply form is vanilla:
+#   GAME\common\scripted_effects\00_interaction_effects.txt:4221-4224
+#       add_piety = {
+#           value = claim_piety_value
+#           multiply = -1
+#       }
+#   also GAME\common\character_interactions\00_invite_agent_to_scheme.txt:71
+#   and GAME\common\character_interactions\10_tgp_interactions.txt:3309.
+#
+# Piety is NOT gated on anything. Every faith has piety, including
+# unreformed pagans, so there is no equivalent of E32's government test.
+# Item 2.4 ships piety as optional-by-row-count (30-V2-DESIGN §3.2): if the
+# GUI author drops the piety row, this effect simply never fires — the
+# variable is never set, the guard fails, nothing happens. No coordination
+# needed in either direction.
+#
+# NEVER: pay_piety, remove_piety, pay_short_term_piety — none exist.
+#
+# W2 - UNGATED FOR THE SAME REASON AS E30, AND THE RULING IS OPEN IN THE SAME
+# WAY. tnt_trade_piety is a four-rung ladder now (off / same faith / same
+# religion / always) and a faith changes mid-campaign, so "safe by
+# unreachability" no longer covers this leg either. The full argument, the one
+# reachable case (a stale letter accepted after a conversion) and the exact
+# shape a later round should add are written out once, in E30's header above.
+# Do not implement one leg without the other.
+########################################################################
+tnt_exec_piety_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_piety_$SIDE$
+			var:tnt_piety_$SIDE$ > 0
+		}
+
+		$GIVER$ = {
+			add_piety = {
+				value = root.var:tnt_piety_$SIDE$
+				multiply = -1
+			}
+		}
+
+		$RECEIVER$ = {
+			add_piety = {
+				value = root.var:tnt_piety_$SIDE$
+			}
+		}
+	}
+}
+
+
+########################################################################
+# E32 — tnt_exec_influence_effect    params: SIDE, GIVER, RECEIVER
+#
+# *** THE THREE THINGS THAT MAKE INFLUENCE DIFFERENT ***
+#
+# 1. THE EFFECT IS `change_influence`, AND IT IS SIGNED. There is no
+#    add_influence and no remove_influence — both are blacklisted and both
+#    have zero hits in GAME. One effect, negative for the giver, positive
+#    for the receiver:
+#      GAME\common\character_interactions\00_invite_agent_to_scheme.txt:175-183
+#    and, closer to our case because the amount comes out of a VARIABLE and
+#    both directions are written next to each other,
+#      GAME\events\scheme_events\scheme_critical_moments_events.txt:2470-2482:
+#        scope:target = {
+#            change_influence = {
+#                value = scope:target.var:challenge_status_influence_loss
+#                multiply = -1
+#            }
+#        }
+#        ...
+#        scope:owner = {
+#            change_influence = {
+#                value = scope:target.var:challenge_status_influence_loss
+#            }
+#        }
+#
+# 2. IT IS GOVERNMENT-GATED ON BOTH SIDES. Influence is the Roads to Power
+#    (EP3) administrative currency, not a general resource. A ruler whose
+#    government has no influence pool cannot pay and cannot receive, and the
+#    transfer would silently evaporate — the worst possible failure for a
+#    treaty term. The gate is `government_has_flag = government_has_influence`,
+#    which is the test VANILLA ITSELF uses for its influence send-option:
+#      GAME\common\character_interactions\00_character_interactions.txt:1311-1319
+#        send_option = { # EP3 Influence
+#            is_shown = {
+#                scope:actor = {
+#                    government_has_flag = government_has_influence
+#                }
+#            }
+#    The flag is declared on administrative_government
+#    (GAME\common\governments\00_government_types.txt:490),
+#    celestial_government (:816), steppe_admin_government (:1116), one more
+#    at (:1235), and japan_administrative_government
+#    (GAME\common\governments\01_japan_government_types.txt:73).
+#    PDX's comment two lines above each declaration says the flags "only
+#    exist for loc and in-game descriptions" — that comment is stale: the
+#    call site above is logic, in vanilla, in 1.19. Eight further logic uses
+#    exist across common\character_interactions\.
+#    Testing BOTH sides is required, not belt-and-braces: the row can be
+#    shown for the player and still target a partner who has no pool.
+#    `$GIVER$ = { <trigger> }` where $GIVER$ expands to `root` is a legal
+#    scope change inside a trigger —
+#    GAME\common\scripted_effects\00_death_management_effects.txt:35
+#    (`limit = { is_alive = yes  root = { is_ai = yes } }`).
+#
+# 3. IT IS REALM-INTERNAL BY DESIGN. Vanilla's influence bribe additionally
+#    requires the same top liege (00_invite_agent_to_scheme.txt:689-690).
+#    We deliberately do NOT require that, because user item 1.1 opens
+#    negotiation with one's own vassals and liege, which is precisely the
+#    relationship where trading influence makes sense. Mechanically
+#    change_influence has no such check. Flagged as a BALANCE decision, not
+#    a mechanism risk, in NOTES2-effects.md.
+#
+# STATUS NOTE FOR THE NEXT AUTHOR: 30-V2-DESIGN §1 row 2.4 declares
+# "influence and renown are out of v2". This build implements the influence
+# LEG anyway, on instruction, because it is nine lines and it is the same
+# shape as the other two. It is inert until somebody creates tnt_influence_p
+# or tnt_influence_r, so shipping it costs nothing and changes no behaviour.
+# RENOWN REMAINS OUT, and should stay out: add_dynasty_prestige is a
+# DYNASTY-scope effect, and between two partners of the same dynasty a
+# transfer would be a literal no-op on one shared pool.
+########################################################################
+tnt_exec_influence_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_influence_$SIDE$
+			var:tnt_influence_$SIDE$ > 0
+			$GIVER$ = { government_has_flag = government_has_influence }
+			$RECEIVER$ = { government_has_flag = government_has_influence }
+		}
+
+		$GIVER$ = {
+			change_influence = {
+				value = root.var:tnt_influence_$SIDE$
+				multiply = -1
+			}
+		}
+
+		$RECEIVER$ = {
+			change_influence = {
+				value = root.var:tnt_influence_$SIDE$
+			}
+		}
+	}
+}

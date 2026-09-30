@@ -1,0 +1,459 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE - LIST ORDER            (user item 3)
+#
+# Owner: multiselect. Companions:
+#   common/scripted_effects/tnt_35_multiselect.txt   M1..M5, the MOVE
+#   common/scripted_effects/tnt_31_lists.txt         the title / artifact fills
+#   common/scripted_effects/tnt_3a_people.txt        the courtier fills
+#   common/scripted_guis/tnt_22b_multiselect.txt     the title / artifact entries
+#   common/scripted_guis/tnt_24_people.txt           the courtier entries
+#
+# WHY A NEW FILE AND NOT A BLOCK IN tnt_35_multiselect.txt: CLAUDE.md cites
+# that file at :579 and every line inserted above :579 moves the citation.
+# Nothing in this file moves a line number anywhere.
+#
+# ROOT IS THE PLAYER AT EVERY CALL SITE. Every list of the multiselect
+# subsystem lives on the player whichever side it describes
+# (tnt_35_multiselect.txt:11-13), and the effects below bind the CURRENT
+# scope as the list owner on their first line. Called from any other scope
+# they would sort twelve lists that are not there.
+#
+#=======================================================================
+# THE DEFECT, AND WHY THE ORDER MOVES AT ALL
+#=======================================================================
+# add_to_variable_list APPENDS. Every list in this subsystem is therefore in
+# the order its writer happened to write it:
+#   * a candidate list is in FILL order  (tnt_31_lists.txt, tnt_3a_people.txt)
+#   * a selection list is in CLICK order (the six add handlers)
+#   * and the hand-back at tnt_35_multiselect.txt:252 can only put an object
+#     back at the END of the candidate list, never where it came from.
+# That last one is what the player reports: a county taken off the table
+# reappears at the bottom of the other column, and everything he had lined
+# up beside it has shifted.
+#
+# The cure is to stop deriving a row's position from history. After every
+# mutation the list is rewritten in a canonical key order, so an object sits
+# in the same relative place whichever side of the gap it is on and crossing
+# the gap does not disturb its neighbours.
+#
+#=======================================================================
+# THE SHAPE: SNAPSHOT, EMPTY, WRITE BACK IN KEY ORDER
+#=======================================================================
+# Two passes over the list itself. No world walk, and no giver handle:
+#
+#   PASS A   every_in_list = { variable = <list>  add_to_list = <buf> }
+#            clear_variable_list = <list>
+#   PASS B   ordered_in_list = { list = <buf>  order_by = <key>
+#                max = 99  check_range_bounds = no
+#                <owner> = { add_to_variable_list = { name = <list> ... } } }
+#
+# Both halves are vanilla verbatim:
+#   every_in_list = { variable = X  add_to_list = Y }
+#     GAME\common\secret_types\00_secret_types.txt:737-740
+#     already shipped here at tnt_12_marriage_picker.txt:416-419
+#   ordered_in_list over a TEMP list, writing a variable list in sorted order
+#   through another scope - i.e. pass B exactly, including target = prev:
+#     GAME\common\activities\activity_types\coronation.txt:1982-1991
+#   max = 99 + check_range_bounds = no, vanilla's "all of them, in order":
+#     GAME\common\scripted_effects\00_war_effects.txt:683-687
+#     GAME\common\important_actions\00_title_actions.txt:72-75
+#   save_temporary_scope_as inside an ordered iterator:
+#     GAME\common\scripted_effects\00_war_effects.txt:692
+#     already shipped here at tnt_35_multiselect.txt:294
+#
+# *** WHY NOT REMOVE-AND-RE-APPEND EACH ELEMENT IN KEY ORDER. *** That is the
+# shorter form, one pass instead of two, and it was rejected on evidence.
+# remove_list_variable has NO documented positional contract. Vanilla proves
+# that removing DURING iteration is safe
+# (GAME\common\story_cycles\story_cycle_infidelity_confrontation.txt:45-64,
+# the shape this mod copies at tnt_35_multiselect.txt:292-301) and proves
+# nothing at all about whether the SURVIVORS keep their relative places. If
+# the container swaps the removed element with the last one instead of
+# erasing in place, a rotate-to-tail pass ends in the wrong order - worked
+# through on paper, it does, from the third element on. This shape performs
+# every removal (one clear) BEFORE any addition, so the final order is the
+# order of pass B and of nothing else.
+#
+# *** IT CANNOT DROP ANYTHING. *** The buffer is a copy of the WHOLE list, so
+# an object that has gone stale since it was picked - a county sold, a
+# courtier who left the court - is written back exactly like the rest. That
+# is deliberate, and it is the standing ruling at tnt_35_multiselect.txt:201-220:
+# a title that has become uncedeable "should not be silently dropped from the
+# player's view". A sort is not a validator. This is also why the shape is
+# NOT "clear the list and rebuild it from the world", which would look
+# tidier and would silently delete exactly those objects.
+#
+# *** IT IS IDEMPOTENT, WHICH IS WHY THE CALL SITES NEED NO REASONING. *** A
+# temporary list does not self-clear, so a second call in the SAME execution
+# finds the buffer already populated and doubles it. That is harmless here
+# and the reason is worth writing down: duplicates of one element share one
+# key, so the ordered walk visits them adjacently, and the duplicate guard on
+# the re-add - the shipped shape of tnt_35_multiselect.txt:154-162 - lets the
+# first through and refuses the rest. The result is the same list in the same
+# order. Two different elements with an EQUAL key interleave instead, and
+# the same guard keeps the first occurrence of each, which is still key
+# order. So no call site has to know whether another one has already run.
+#
+#=======================================================================
+# THE KEYS - NO NEW SCRIPT VALUE, EVERY TERM IS VANILLA'S OWN
+#=======================================================================
+# order_by takes an INLINE script value block, evaluated in the ELEMENT's
+# scope. Vanilla writes an inline order_by carrying an if and a limit at
+# GAME\common\scripted_effects\00_accolades_scripted_effects.txt:10154-10170.
+# It sorts DESCENDING (position 0 = highest); three unambiguous vanilla
+# sites: GAME\common\decisions\dlc_decisions\mpo\mpo_decisions.txt:3288-3292
+# (the strongest defender), :4696-4699 (the most developed capital),
+# GAME\common\character_interactions\10_tgp_interactions.txt:8454-8464 (the
+# rarest artifact). There is no `order =` or `ascending =` parameter anywhere
+# in vanilla, so ascending would have to be spelled by negating the key.
+#
+# NO NEW SCRIPT VALUE IS DEFINED FOR THESE, deliberately: the keys are
+# inline, so common/script_values/ is not touched at all.
+#
+# Each key is built from figures the player already reads and this mod
+# already prices on, and every term has a call site:
+#   LAND      tier, then development. `value = tier` in a title scope:
+#             GAME\common\script_values\07_ep3_values.txt:978-982;
+#             order_by = tier on a player-facing title list:
+#             GAME\common\important_actions\00_title_actions.txt:72-75.
+#             development_level as an order_by on a title element:
+#             GAME\common\decisions\dlc_decisions\mpo\mpo_decisions.txt:4696-4699.
+#             Tier is what the price is built on too
+#             (common\script_values\tnt_54_multiselect_values.txt), so a
+#             tier-ordered column is a price-ordered column. The ladder is
+#             NOT flattened to "county" even though T3
+#             tnt_can_cede_title_trigger admits counties only
+#             (tnt_40_triggers.txt:404) - so widening T3 later can never
+#             silently file a duchy below a county.
+#   ARTIFACT  rarity, then durability. Rarity IS this mod's artifact price,
+#             and it is what vanilla itself orders artifacts by when it asks
+#             "which one do I take" (10_tgp_interactions.txt:8462-8464).
+#             artifact_rarity is a vanilla SCRIPT VALUE, 2/3/4/5, not an
+#             engine field: GAME\common\script_values\00_artifact_values.txt:105-123.
+#             artifact_durability as a bare value:
+#             GAME\common\script_values\00_ep1_artifact_values.txt:322-325.
+#   PERSON    total skill, then age. sum_of_all_skills_value is the vanilla
+#             figure the people prices already lean on:
+#             GAME\common\script_values\00_basic_values.txt:599-605. age is
+#             the engine's own documented order_by example for a character
+#             list: GAME\common\script_values\_script_values.info:105-112.
+#             So the column reads "your ablest men first".
+# min / max / floor inside an add block: 81 vanilla sites, e.g.
+# GAME\common\script_values\00_activity_values.txt:2815-2818, and
+# `floor = yes` at GAME\common\script_values\00_basic_values.txt:460. The
+# clamps are what keep a tie-break term inside its own band, so a modded
+# durability of 5000 cannot promote an artifact past a rarer one.
+#
+# THE ONE HONEST LIMIT. CK3 exposes no unique numeric identity for a title,
+# an artifact or a character in script, so no key can be made total and an
+# exact tie falls back to the buffer's order - i.e. to the order the list was
+# already in. It is bounded rather than hand-waved: a tie can only permute
+# objects that are equal on every term of the key, it can never move any
+# other row, and both columns of a family use the SAME key, so the two
+# columns stay consistent with each other. Do NOT close it by writing a
+# sequence number onto the title or the artifact: R-CLEAN-2
+# (tnt_35_multiselect.txt:46-51) forbids that absolutely, because no
+# on_action ever runs for a title and such a variable would be permanent
+# save pollution with no removal path.
+#
+#=======================================================================
+# THE PERFORMANCE LAW IS SATISFIED BY CONSTRUCTION
+#=======================================================================
+# Every sort runs inside an EFFECT, once per click or once per composed
+# offer. Zero rows are added to any scripted_gui is_valid, to any .gui
+# `visible` and to any datamodel. The cost of tnt_sort_all_effect is two
+# passes over each of twelve SHORT lists - never a realm walk - which is a
+# fraction of what tnt_refill_all_lists_effect already pays on every window
+# open, every _show transition and every applied deal.
+#
+# THE GUARD IS ALSO THE OPTIMISATION: a list of 0 or 1 element is already
+# sorted, so nothing runs, no buffer is created, and no empty temporary list
+# is ever walked. has_variable_list in front of variable_list_size is the
+# pairing the whole subsystem uses (tnt_35_multiselect.txt:76-80).
+#
+# EVERY BUF MUST BE UNIQUE TO ITS LIST. The buffer is passed in rather than
+# spelled out of $LIST$ so that it is visible at the call site: twelve lists
+# sharing one buffer inside one execution would cross-contaminate. The
+# fan-out at the foot of this file is the only place that pairing is made.
+#=======================================================================
+########################################################################
+
+
+########################################################################
+# S1 - tnt_sort_title_list_effect        params: LIST, BUF
+# One list of the land family. LIST is a variable list of LANDED TITLES on
+# the current scope; BUF is a temporary list name used by nothing else.
+########################################################################
+tnt_sort_title_list_effect = {
+	if = {
+		limit = {
+			has_variable_list = $LIST$
+			variable_list_size = { name = $LIST$  value >= 2 }
+			# *** THE REBUILD CAP IS PART OF THE ENTRY GUARD, AND IT IS NOT COSMETIC. ***
+			# PASS A clears the list; PASS B writes it back through an ordered_in_list
+			# capped at max = 99. So a list of 100 or more elements would come back
+			# TRUNCATED - the elements ranked 100th and beyond are cleared and never
+			# re-added, i.e. the sort DELETES them from the player's selection. The
+			# "IT CANNOT DROP ANYTHING" argument at the top of this file is about
+			# staleness and does not cover this; check_range_bounds = no only silences
+			# the short-list error and does not lift the cap.
+			# REFUSING TO SORT IS THE CORRECT FAILURE. An unsorted list is exactly the
+			# behaviour that shipped before this file existed; a truncated one is data
+			# loss the player cannot see until his deal applies without the term.
+			# IF THE CAP IS EVER RAISED, RAISE IT HERE IN THE SAME EDIT - the two
+			# numbers are one fact written twice, and they may not disagree.
+			variable_list_size = { name = $LIST$  value <= 99 }
+		}
+
+		save_temporary_scope_as = tnt_sort_owner
+
+		# PASS A - snapshot, then empty. The walk mutates nothing.
+		every_in_list = {
+			variable = $LIST$
+			add_to_list = $BUF$
+		}
+		clear_variable_list = $LIST$
+
+		# PASS B - write it back, biggest and richest first.
+		ordered_in_list = {
+			list = $BUF$
+			order_by = {
+				value = tier
+				multiply = 1000
+				if = {
+					limit = { tier = tier_county }
+					add = {
+						value = development_level
+						min = 0
+						max = 999
+						floor = yes
+					}
+				}
+			}
+			max = 99
+			check_range_bounds = no
+
+			save_temporary_scope_as = tnt_sort_one
+			scope:tnt_sort_owner = {
+				if = {
+					limit = {
+						trigger_if = {
+							limit = { has_variable_list = $LIST$ }
+							NOT = {
+								is_target_in_variable_list = {
+									name = $LIST$
+									target = scope:tnt_sort_one
+								}
+							}
+						}
+					}
+					add_to_variable_list = {
+						name = $LIST$
+						target = scope:tnt_sort_one
+					}
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# S2 - tnt_sort_artifact_list_effect     params: LIST, BUF
+# One list of the artifact family. Rarest first, then the better kept of two
+# of equal rarity.
+########################################################################
+tnt_sort_artifact_list_effect = {
+	if = {
+		limit = {
+			has_variable_list = $LIST$
+			variable_list_size = { name = $LIST$  value >= 2 }
+			# *** THE REBUILD CAP IS PART OF THE ENTRY GUARD, AND IT IS NOT COSMETIC. ***
+			# PASS A clears the list; PASS B writes it back through an ordered_in_list
+			# capped at max = 99. So a list of 100 or more elements would come back
+			# TRUNCATED - the elements ranked 100th and beyond are cleared and never
+			# re-added, i.e. the sort DELETES them from the player's selection. The
+			# "IT CANNOT DROP ANYTHING" argument at the top of this file is about
+			# staleness and does not cover this; check_range_bounds = no only silences
+			# the short-list error and does not lift the cap.
+			# REFUSING TO SORT IS THE CORRECT FAILURE. An unsorted list is exactly the
+			# behaviour that shipped before this file existed; a truncated one is data
+			# loss the player cannot see until his deal applies without the term.
+			# IF THE CAP IS EVER RAISED, RAISE IT HERE IN THE SAME EDIT - the two
+			# numbers are one fact written twice, and they may not disagree.
+			variable_list_size = { name = $LIST$  value <= 99 }
+		}
+
+		save_temporary_scope_as = tnt_sort_owner
+
+		every_in_list = {
+			variable = $LIST$
+			add_to_list = $BUF$
+		}
+		clear_variable_list = $LIST$
+
+		ordered_in_list = {
+			list = $BUF$
+			order_by = {
+				value = artifact_rarity
+				multiply = 1000
+				add = {
+					value = artifact_durability
+					min = 0
+					max = 999
+					floor = yes
+				}
+			}
+			max = 99
+			check_range_bounds = no
+
+			save_temporary_scope_as = tnt_sort_one
+			scope:tnt_sort_owner = {
+				if = {
+					limit = {
+						trigger_if = {
+							limit = { has_variable_list = $LIST$ }
+							NOT = {
+								is_target_in_variable_list = {
+									name = $LIST$
+									target = scope:tnt_sort_one
+								}
+							}
+						}
+					}
+					add_to_variable_list = {
+						name = $LIST$
+						target = scope:tnt_sort_one
+					}
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# S3 - tnt_sort_person_list_effect       params: LIST, BUF
+# One list of a people family. Ablest first, then the elder of two equals.
+########################################################################
+tnt_sort_person_list_effect = {
+	if = {
+		limit = {
+			has_variable_list = $LIST$
+			variable_list_size = { name = $LIST$  value >= 2 }
+			# *** THE REBUILD CAP IS PART OF THE ENTRY GUARD, AND IT IS NOT COSMETIC. ***
+			# PASS A clears the list; PASS B writes it back through an ordered_in_list
+			# capped at max = 99. So a list of 100 or more elements would come back
+			# TRUNCATED - the elements ranked 100th and beyond are cleared and never
+			# re-added, i.e. the sort DELETES them from the player's selection. The
+			# "IT CANNOT DROP ANYTHING" argument at the top of this file is about
+			# staleness and does not cover this; check_range_bounds = no only silences
+			# the short-list error and does not lift the cap.
+			# REFUSING TO SORT IS THE CORRECT FAILURE. An unsorted list is exactly the
+			# behaviour that shipped before this file existed; a truncated one is data
+			# loss the player cannot see until his deal applies without the term.
+			# IF THE CAP IS EVER RAISED, RAISE IT HERE IN THE SAME EDIT - the two
+			# numbers are one fact written twice, and they may not disagree.
+			variable_list_size = { name = $LIST$  value <= 99 }
+		}
+
+		save_temporary_scope_as = tnt_sort_owner
+
+		every_in_list = {
+			variable = $LIST$
+			add_to_list = $BUF$
+		}
+		clear_variable_list = $LIST$
+
+		ordered_in_list = {
+			list = $BUF$
+			order_by = {
+				value = sum_of_all_skills_value
+				multiply = 1000
+				add = {
+					value = age
+					min = 0
+					max = 999
+					floor = yes
+				}
+			}
+			max = 99
+			check_range_bounds = no
+
+			save_temporary_scope_as = tnt_sort_one
+			scope:tnt_sort_owner = {
+				if = {
+					limit = {
+						trigger_if = {
+							limit = { has_variable_list = $LIST$ }
+							NOT = {
+								is_target_in_variable_list = {
+									name = $LIST$
+									target = scope:tnt_sort_one
+								}
+							}
+						}
+					}
+					add_to_variable_list = {
+						name = $LIST$
+						target = scope:tnt_sort_one
+					}
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# S4 - tnt_sort_all_effect               no params.  ROOT = THE PLAYER.
+#
+# THE ONLY NAME A CALL SITE EVER USES, and that is the design. It exists for
+# the same reason M4 tnt_multi_prune_all_effect does
+# (tnt_35_multiselect.txt:306-325): so the ORDER never has to be reasoned
+# about again at a call site. One line, no parameters, nothing to get the
+# wrong way round - a per-family, per-side call would give thirty-one call
+# sites thirty-one chances to pass SIDE = p where r was meant, and sorting a
+# list that did not change costs one guard that fails.
+#
+# TWELVE LISTS: the three families that have BOTH a candidate column and a
+# selection column, on both sides. The buffer names mirror the list names,
+# one each, and this is the only place the pairing is written.
+#
+# NOT HERE, and each absence is a decision:
+#   * tnt_list_spouse_p / _r and tnt_list_hostage_p / _r have NO selection
+#     list, so they have no mid-session mutation and no reorder path at all -
+#     they are rebuilt from the world on every refresh and nothing else ever
+#     touches them.
+#   * tnt_wed_list is appended at commit and shortened at drop, never
+#     rebuilt, and it is a list of characters with no world superset. It is
+#     out of scope here: see the note in the hand-off, not a silent omission.
+#   * tnt_ab_added_* / tnt_ab_veto_* are never rendered - no .gui datamodel
+#     reads them - so ordering them would be pure cost.
+########################################################################
+tnt_sort_all_effect = {
+	tnt_sort_title_list_effect    = { LIST = tnt_list_title_p     BUF = tnt_sortbuf_list_title_p }
+	tnt_sort_title_list_effect    = { LIST = tnt_sel_title_p      BUF = tnt_sortbuf_sel_title_p }
+	tnt_sort_title_list_effect    = { LIST = tnt_list_title_r     BUF = tnt_sortbuf_list_title_r }
+	tnt_sort_title_list_effect    = { LIST = tnt_sel_title_r      BUF = tnt_sortbuf_sel_title_r }
+
+	tnt_sort_artifact_list_effect = { LIST = tnt_list_artifact_p  BUF = tnt_sortbuf_list_artifact_p }
+	tnt_sort_artifact_list_effect = { LIST = tnt_sel_artifact_p   BUF = tnt_sortbuf_sel_artifact_p }
+	tnt_sort_artifact_list_effect = { LIST = tnt_list_artifact_r  BUF = tnt_sortbuf_list_artifact_r }
+	tnt_sort_artifact_list_effect = { LIST = tnt_sel_artifact_r   BUF = tnt_sortbuf_sel_artifact_r }
+
+	tnt_sort_person_list_effect   = { LIST = tnt_list_courtier_p  BUF = tnt_sortbuf_list_courtier_p }
+	tnt_sort_person_list_effect   = { LIST = tnt_sel_courtier_p   BUF = tnt_sortbuf_sel_courtier_p }
+	tnt_sort_person_list_effect   = { LIST = tnt_list_courtier_r  BUF = tnt_sortbuf_list_courtier_r }
+	tnt_sort_person_list_effect   = { LIST = tnt_sel_courtier_r   BUF = tnt_sortbuf_sel_courtier_r }
+
+	# V26 - THE THIRD PEOPLE TERM. Sixteen lists now, not twelve. A transferred
+	# vassal is a CHARACTER, so it takes the person sorter and not the title one:
+	# ablest first, then the elder of two equals. One buffer name per list,
+	# mirroring the list names, and this is still the only place the pairing is
+	# written.
+	tnt_sort_person_list_effect   = { LIST = tnt_list_subject_p   BUF = tnt_sortbuf_list_subject_p }
+	tnt_sort_person_list_effect   = { LIST = tnt_sel_subject_p    BUF = tnt_sortbuf_sel_subject_p }
+	tnt_sort_person_list_effect   = { LIST = tnt_list_subject_r   BUF = tnt_sortbuf_list_subject_r }
+	tnt_sort_person_list_effect   = { LIST = tnt_sel_subject_r    BUF = tnt_sortbuf_sel_subject_r }
+}

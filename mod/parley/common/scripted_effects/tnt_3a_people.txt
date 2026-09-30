@@ -1,0 +1,974 @@
+﻿########################################################################
+# PARLEY — THE PEOPLE TERMS: candidate lists and apply legs. V26 ADDED A FIFTH,
+# `subject` (transfer a vassal), at the END of this file — P21/P22/P23 there.
+#
+# Integration contract v1 §1.B (item 19). Owner: build B3 (apply + bodies).
+# ONE FILE, ONE OWNER: the six fill effects and the four exec effects live
+# together because they share one law — the trigger that BUILT a candidate
+# list is the trigger that must RE-VALIDATE the term at apply time, and two
+# files is how those two copies drift apart. tnt_31_lists.txt states the
+# same rule for the captives ("a captive who appears in this list is a
+# captive who will be priced and who will actually walk free",
+# tnt_31_lists.txt:144-147); this file obeys it for people.
+#
+# WHO CALLS WHAT
+#   * the six fills      <- tnt_refill_all_lists_effect (tnt_31_lists.txt),
+#                           appended by the gates/lists owner (B2)
+#   * the four execs     <- tnt_apply_deal_effect (tnt_32_apply.txt), slots
+#                           14, 15, 16 and 19 of the contract's §6 order
+#   * the candidate/gate triggers used here are B2's, in
+#     common\scripted_triggers\tnt_42_people_gates.txt
+#
+# ROOT IS ALWAYS THE PLAYER, on the manual path and on the AI-letter path
+# alike (tnt_32_apply.txt's header). Every list and every term variable
+# lives on the player whichever side it describes, so the GUI reads them
+# off GetPlayer — the rule tnt_31_lists.txt:13-15 states for the shipped
+# picker lists and tnt_35_multiselect.txt:11-13 for the selection lists.
+#
+# *** THE CANDIDATE TRIGGERS ARE EVALUATED IN THE CANDIDATE'S OWN SCOPE. ***
+# tnt_hostage_candidate_trigger /
+# tnt_courtier_candidate_trigger take { SENDER RECEIVER } — the two RULERS —
+# and are asked of the character being considered, exactly as
+#   every_prisoner = { limit = { tnt_prisoner_relevant_trigger = { PARTY = … } } }
+# is asked of the prisoner (tnt_31_lists.txt:162-163) and exactly as vanilla
+# asks bp2_valid_to_offer_as_hostage_trigger = { SENDER = scope:actor } of
+# each close family member inside populate_actor_list
+# (GAME\common\character_interactions\05_bp2_interactions.txt:17-27).
+# Both the fills below and the exec legs below call them that way, so fill,
+# price and execution agree with each other by construction. If B2's
+# triggers are written for a ruler scope instead, all ten call sites are in
+# this one file and change together.
+#
+# SIDE SUFFIXES (contract R0.1): _p = the PLAYER gives, _r = the PARTNER
+# gives. For these four terms that reads:
+#   hostage   _p  a member of the player's close family enters the partner's court as a hostage
+#   ward      *** RETIRED V16, USER ITEM 5 *** — was: a child of the player's is
+#                 fostered by the partner. P3, P4 and P8 below are tombstones; the
+#                 term was too abusable on points and the hostage rows cover the
+#                 same immersive ground. Full tombstone: tnt_32_apply.txt.
+#   courtier  _p  chosen courtiers of the player's move to the partner's court
+#                 (the cap of three was retired in V11 - see tnt_24_people.txt
+#                  group D; the list is now uncapped like every other one)
+#   indep     _p  the PLAYER, as liege, releases the PARTNER from his fealty
+# The independence direction is fixed by contract §1.B and may not be
+# inverted: _p is the player GIVING something up, which for this term means
+# giving up a vassal — and the vassal in question is the partner himself,
+# because independence is the exact inverse of the shipped fealty term
+# (tnt_exec_vassal_effect) and is guarded against appearing beside it by
+# tnt_no_indep_and_vassal_trigger.
+#
+# EVERY EXEC LEG IS A SILENT NO-OP UNLESS ITS OWN VARIABLE IS SET, so all
+# eight call lines in tnt_apply_deal_effect are already correct while the
+# GUI rows are still being built, and none of them needs a guard at the call
+# site. Every leg ALSO re-tests its own precondition, because a treaty can
+# be signed long after it was composed: a hostage can have died, a child can
+# have come of age, a courtier can have been granted land, a vassal can have
+# rebelled. A term that can no longer be honoured is SKIPPED SILENTLY —
+# never half-applied (tnt_32_apply.txt:98-99).
+#
+# TEMPORARY SCOPES, NOT PERMANENT ONES, WITH ONE NAMED EXCEPTION. Every
+# CHARACTER scope saved here is save_temporary_scope_as: it is dereferenced
+# only inside the same effect invocation, and a permanent tnt_*-named scope
+# would serialise into the savegame with no tnt_ path able to remove it —
+# tnt_31_lists.txt:25-31 states that rule. (E20/E21/E25 in tnt_32_apply.txt
+# use save_scope_as; they predate the rule and are not a licence to repeat
+# it.) THE EXCEPTION is the title-and-vassal CHANGE object in P10, which
+# vanilla saves with save_scope_as at every one of its call sites and which
+# resolve_title_and_vassal_change consumes in the same breath — E20 and E26
+# do the same and for the same reason. All of these names carry the side
+# suffix so the _p and _r calls can never collide, which is E20's own reason
+# for suffixing scope:tnt_ceded_$SIDE$.
+########################################################################
+
+
+########################################################################
+# P1 — tnt_fill_hostage_p_effect
+#
+# The people the PLAYER could hand over as a hostage. Iterator and filter
+# shape are vanilla's own for this exact question:
+#   GAME\common\character_interactions\05_bp2_interactions.txt:17-27
+#     scope:actor = { every_close_family_member = {
+#         limit = { bp2_valid_to_offer_as_hostage_trigger = { SENDER = scope:actor } }
+#         add_to_list = characters } }
+# — unlanded, at the sender's court, child / sibling / nibling / grandchild.
+# We build a variable list instead of an interaction's actor list because a
+# scripted_gui picker cannot read populate_actor_list.
+#
+# `target = prev` inside the re-scoped block resolves to the iterated
+# character: inside every_close_family_member the scope is the CANDIDATE, so
+# a bare add_to_variable_list would build the list on him instead of on the
+# player (tnt_31_lists.txt:149-152).
+########################################################################
+tnt_fill_hostage_p_effect = {
+	clear_variable_list = tnt_list_hostage_p
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_receiver }
+
+		every_close_family_member = {
+			limit = {
+				tnt_hostage_candidate_trigger = {
+					SENDER = scope:tnt_list_owner
+					RECEIVER = scope:tnt_list_receiver
+				}
+			}
+			scope:tnt_list_owner = {
+				add_to_variable_list = {
+					name = tnt_list_hostage_p
+					target = prev
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# P2 — tnt_fill_hostage_r_effect
+#
+# The mirror: iterated on the PARTNER, stored on the PLAYER, because the GUI
+# can only read lists off GetPlayer. Same split as tnt_fill_title_r_effect
+# (tnt_31_lists.txt:197-218), including the two-scope dance — the owner of
+# the list and the giver of the hostage are different characters here.
+########################################################################
+tnt_fill_hostage_r_effect = {
+	clear_variable_list = tnt_list_hostage_r
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_giver }
+
+		var:tnt_partner ?= {
+			every_close_family_member = {
+				limit = {
+					tnt_hostage_candidate_trigger = {
+						SENDER = scope:tnt_list_giver
+						RECEIVER = scope:tnt_list_owner
+					}
+				}
+				scope:tnt_list_owner = {
+					add_to_variable_list = {
+						name = tnt_list_hostage_r
+						target = prev
+					}
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# RETIRED V16, USER ITEM 5 — P3 AND P4, THE TWO WARD CANDIDATE FILLS.
+#
+# THE USER'S REASON: the ward term was too abusable on points, and the hostage
+# term (P1/P2 above, P9 below) already covers the same immersive ground. The audit
+# agreed and found the abuse STRUCTURAL rather than a single number; the full WARD
+# TOMBSTONE with the worked pricing case is in
+# common\scripted_effects\tnt_32_apply.txt.
+#
+# CALLERLESS AFTER THE RETIREMENT — all four call sites went in the same pass: the
+# two openers (tnt_24_people.txt tnt_pick_ward_p/_r_open) and the two refill lines
+# (tnt_31_lists.txt:264-265). The candidate trigger they called,
+# tnt_ward_candidate_trigger, is likewise commented out and callerless
+# (tnt_42_people_gates.txt P5).
+#
+# tnt_list_ward_p / tnt_list_ward_r therefore have no writer left. Their two
+# clear_variable_list lines in tnt_31_lists.txt are deliberately KEPT for one cycle
+# (clear_variable_list on a list that was never created is silent), so a save that
+# still holds them is cleaned; see the note there.
+########################################################################
+# ########################################################################
+# # P3 — tnt_fill_ward_p_effect
+# #
+# # The player's own children who could be fostered out. every_child rather
+# # than every_close_family_member: fosterage is a CHILD leaving his father's
+# # court, and vanilla's educate-child interaction is built on the same
+# # parent/child pair (GAME\common\character_interactions\00_education_interactions.txt:528,
+# # scope:guardian / scope:ward). Everything else — adulthood, already having
+# # a guardian, being landed — is tnt_ward_candidate_trigger's business, which
+# # is also what prices the term.
+# ########################################################################
+# tnt_fill_ward_p_effect = {
+# 	clear_variable_list = tnt_list_ward_p
+#
+# 	if = {
+# 		limit = { exists = var:tnt_partner }
+#
+# 		save_temporary_scope_as = tnt_list_owner
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_receiver }
+#
+# 		every_child = {
+# 			limit = {
+# 				tnt_ward_candidate_trigger = {
+# 					SENDER = scope:tnt_list_owner
+# 					RECEIVER = scope:tnt_list_receiver
+# 				}
+# 			}
+# 			scope:tnt_list_owner = {
+# 				add_to_variable_list = {
+# 					name = tnt_list_ward_p
+# 					target = prev
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+#
+#
+# ########################################################################
+# # P4 — tnt_fill_ward_r_effect
+# # The partner's children, stored on the player. Mirror of P3.
+# ########################################################################
+# tnt_fill_ward_r_effect = {
+# 	clear_variable_list = tnt_list_ward_r
+#
+# 	if = {
+# 		limit = { exists = var:tnt_partner }
+#
+# 		save_temporary_scope_as = tnt_list_owner
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_giver }
+#
+# 		var:tnt_partner ?= {
+# 			every_child = {
+# 				limit = {
+# 					tnt_ward_candidate_trigger = {
+# 						SENDER = scope:tnt_list_giver
+# 						RECEIVER = scope:tnt_list_owner
+# 					}
+# 				}
+# 				scope:tnt_list_owner = {
+# 					add_to_variable_list = {
+# 						name = tnt_list_ward_r
+# 						target = prev
+# 					}
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+
+
+########################################################################
+# P5 — tnt_fill_courtier_p_effect
+#
+# The player's courtiers who could change court. every_courtier is the
+# iterator vanilla uses to reach exactly this population — e.g.
+# GAME\common\scripted_effects\00_ai_conqueror_effects.txt:346 — and its
+# random_courtier twin is what the tgp "request a knight / a scholar"
+# interaction picks from (10_tgp_interactions.txt:8412-8423), filtering out
+# the landed, the spouse and close family. Those refusals live in
+# tnt_courtier_candidate_trigger, together with the two vanilla rows that
+# integration ruling R5 turned from negative PRICES into refusals: a
+# councillor and a rival are not cheap courtiers, they are courtiers the
+# term may not move at all.
+#
+# THIS IS THE ONE PEOPLE TERM WITH A SELECTION LIST. The candidates go into
+# tnt_list_courtier_p and the player MOVES whichever of them he chooses into
+# tnt_sel_courtier_p; the two-list invariant is tnt_35_multiselect.txt's,
+# unchanged. THE CAP OF 3 IS GONE (V11, user item 2 - tnt_24_people.txt group D):
+# it was hand-written into the two add-entries and enforced invisibly, and it was
+# the last survivor of a cap V4 had already removed everywhere else. That is also why this fill must be
+# followed by a prune on every refill path — M4 tnt_multi_prune_all_effect
+# carries the courtier pair for that reason.
+########################################################################
+tnt_fill_courtier_p_effect = {
+	clear_variable_list = tnt_list_courtier_p
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_receiver }
+
+		every_courtier = {
+			limit = {
+				tnt_courtier_candidate_trigger = {
+					SENDER = scope:tnt_list_owner
+					RECEIVER = scope:tnt_list_receiver
+				}
+			}
+			scope:tnt_list_owner = {
+				add_to_variable_list = {
+					name = tnt_list_courtier_p
+					target = prev
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# P6 — tnt_fill_courtier_r_effect
+# The partner's courtiers, stored on the player. Mirror of P5.
+########################################################################
+tnt_fill_courtier_r_effect = {
+	clear_variable_list = tnt_list_courtier_r
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_giver }
+
+		var:tnt_partner ?= {
+			every_courtier = {
+				limit = {
+					tnt_courtier_candidate_trigger = {
+						SENDER = scope:tnt_list_giver
+						RECEIVER = scope:tnt_list_owner
+					}
+				}
+				scope:tnt_list_owner = {
+					add_to_variable_list = {
+						name = tnt_list_courtier_r
+						target = prev
+					}
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# P7 — tnt_exec_courtier_multi_effect    params: SIDE, GIVER, RECEIVER
+#
+# The chosen courtiers change court - however many, the cap of three having been
+# retired in V11. Called FIRST of the four people legs
+# (contract §6 slot 14) for one reason worth stating where it can be read:
+# courtiers must move while both courts are still TWO courts. Put this after
+# the fealty leg and a "transfer" between a liege and his brand-new vassal
+# moves nobody anywhere.
+#
+# VANILLA'S OWN SHAPE, verbatim, from the tgp "request a scholar" branch —
+# GAME\common\character_interactions\10_tgp_interactions.txt:8430-8450:
+#     scope:actor = { add_courtier = scope:scholar
+#         scope:scholar = { add_opinion = { modifier = recruited_me_opinion … }
+#             hidden_effect = { every_traveling_family_member = {
+#                 limit = { NOT = { is_courtier_of = scope:actor } }
+#                 save_temporary_scope_as = family_to_bring
+#                 scope:actor = { add_courtier = scope:family_to_bring } } } } }
+# add_courtier RUNS IN THE RECEIVING COURT'S SCOPE and moves the character
+# out of wherever he was; 40+ vanilla sites, and the classic one for a
+# consensual transfer between two rulers is invite_to_court's
+# GAME\common\character_interactions\00_courtier_and_guest_interactions.txt:717-722,
+# which performs the same family sweep for the same reason.
+#
+# THE FAMILY SWEEP IS NOT DECORATION. every_traveling_family_member is the
+# engine's own "spouse and minor children" set. Without it this term splits
+# families across two realms — a consort left behind in a court her husband
+# no longer belongs to — and vanilla never moves an adult courtier without
+# it. It is hidden_effect'd because the confirm tooltip should read "N
+# courtiers change court", not name six children.
+#
+# THE TWO OPINION ROWS, and their directions:
+#   * traded_me_away_opinion (-50, decaying) on the moved courtier towards
+#     the GIVER. He was handed over as a clause in a treaty. Verbatim
+#     direction — GAME\events\dlc\ep3\ep3_laamp_decision_events.txt:3930-3935
+#     (scope:payment_child adds it towards root, the man who traded him),
+#     definition GAME\common\opinion_modifiers\06_dlc_ep3_opinions.txt:122.
+#   * recruited_me_opinion (+30, decaying, 10 years) towards the RECEIVER,
+#     his new lord, exactly as vanilla grants it to a recruited scholar
+#     (10_tgp_interactions.txt:8433-8435; definition
+#     GAME\common\opinion_modifiers\00_travel_opinions.txt:23).
+# Net: a courtier who arrives useful and resentful of the man who sold him.
+# Both are vanilla modifiers with their own decay, so this mod owes them no
+# garbage collection and 10-CONTRACT §1's ban on new opinion_modifiers is
+# untouched.
+#
+# RE-VALIDATION IS IN TWO PARTS, AND IT USED TO BE ONE.
+# THE PAIR: tnt_can_courtier_trigger, in the outer limit. The candidate trigger
+# below is about the PERSON and knows nothing about war, and a treaty can be
+# signed years after it was composed — an AI letter accepted after war has
+# broken out was still moving courtiers between two belligerents. V11, user
+# item 2: tnt_42_people_gates.txt:778-782 states that THIS call site is the
+# whole reason the at-war row exists in that trigger ("B3's exec leg re-tests
+# this trigger at apply time, and a war can be declared between the send and
+# the accept"), and the call was simply never written. The precedents it names
+# do it: tnt_exec_alliance_effect re-tests T18 and tnt_exec_truce_effect
+# re-tests T19 in their own limits (tnt_32_apply.txt), and tnt_exec_indep_effect
+# re-tests tnt_can_release_trigger further down this file.
+# The trigger is PURE — no custom_description anywhere in it
+# (tnt_42_people_gates.txt:784-796) — so it is safe in the leg that
+# tnt_diplomacy.0001 renders as a tooltip. Cost is four flat lookups per side,
+# once per applied deal.
+# THE PERSON: tnt_courtier_candidate_trigger, the same trigger that built the
+# list and priced the selection, is asked again of every selected courtier.
+# Between the tick and the signature he can have died, been granted a county,
+# married into the receiving court or become a councillor. `is_alive` is the
+# cheap half and comes first, for the reason tnt_exec_prisoner_multi_effect
+# gave for testing is_imprisoned first. One stale courtier skips one move; the
+# others still happen. A failed PAIR gate correctly skips the whole term,
+# because it is a fact about the treaty and not about one man.
+########################################################################
+tnt_exec_courtier_multi_effect = {
+	if = {
+		limit = {
+			exists = scope:tnt_deal_partner
+			has_variable_list = tnt_sel_courtier_$SIDE$
+			tnt_can_courtier_trigger = {
+				GIVER = $GIVER$
+				RECEIVER = $RECEIVER$
+			}
+		}
+		every_in_list = {
+			variable = tnt_sel_courtier_$SIDE$
+			limit = {
+				is_alive = yes
+				tnt_courtier_candidate_trigger = {
+					SENDER = $GIVER$
+					RECEIVER = $RECEIVER$
+				}
+			}
+			save_temporary_scope_as = tnt_moved_courtier_$SIDE$
+
+			add_opinion = {
+				target = $GIVER$
+				modifier = traded_me_away_opinion
+			}
+			add_opinion = {
+				target = $RECEIVER$
+				modifier = recruited_me_opinion
+			}
+
+			$RECEIVER$ = { add_courtier = scope:tnt_moved_courtier_$SIDE$ }
+
+			hidden_effect = {
+				every_traveling_family_member = {
+					limit = { NOT = { is_courtier_of = $RECEIVER$ } }
+					save_temporary_scope_as = tnt_moved_kin_$SIDE$
+					$RECEIVER$ = { add_courtier = scope:tnt_moved_kin_$SIDE$ }
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# RETIRED V16, USER ITEM 5 — P8, THE WARD APPLY LEG.
+#
+# Its only two call sites are commented out with it, in
+# common\scripted_effects\tnt_32_apply.txt (the two tnt_exec_ward_effect lines in
+# slot 15 of tnt_apply_deal_effect), which is where the full WARD TOMBSTONE lives.
+#
+# THE SCOPE NAME scope:tnt_ward_child_$SIDE$ exists NOWHERE ELSE in the mod, so it
+# dies with this block and nothing has to be checked for it.
+#
+# WHAT THE RETIREMENT GIVES UP, and P9 below does NOT inherit: the EDUCATION. The
+# `set_relation_ward` line below is the whole mechanism by which a guardian shapes a
+# child's education trait, and vanilla's hostage_depart_effect REMOVES exactly that
+# relation as its first act
+# (GAME\common\scripted_effects\05_bp2_hostage_effects.txt:436-465) — vanilla treats
+# warden and guardian as mutually exclusive states. A hostage is therefore not
+# educated by his warden, and after this retirement no treaty term can place a child
+# with a better tutor. The full accounting of what was and was not inherited is in
+# the WARD TOMBSTONE in tnt_32_apply.txt.
+########################################################################
+# ########################################################################
+# # P8 — tnt_exec_ward_effect          params: SIDE, WARD_LIEGE, GUARDIAN
+# #
+# # PARAMETER NAMES — one deliberate deviation from the contract's register,
+# # stated here so nobody "fixes" it back. Contract §1.B writes the signature
+# # as { SIDE CHILD GUARDIAN }, but the CHILD cannot be a parameter: he is
+# # read out of var:tnt_ward_$SIDE$ at apply time, which is the whole point of
+# # re-validating rather than trusting the composition. The slot that actually
+# # varies by side is the child's own ruler, so it carries vanilla's name for
+# # it — WARD_LIEGE, the third argument guardian_add_opinion_effect wants
+# # (GAME\common\scripted_effects\00_education_effects.txt:1670-1675).
+# #
+# # THE THREE-EFFECT NO-TRAVEL BRANCH, and nothing else — integration ruling
+# # R8. educate_child_interaction_effect is FORBIDDEN here: it reads two bool
+# # scopes we would have to fake and then starts a travel plan we do not want,
+# # because a treaty term must take effect when the treaty is signed. Vanilla
+# # has the no-travel form already and this is it, verbatim from
+# # GAME\common\scripted_effects\00_education_effects.txt:3314-3346
+# # ("# No travel necessary"):
+# #     hidden_effect = { if = { limit = { NOT = { scope:guardian = { has_relation_ward = scope:ward } } }
+# #                              scope:guardian = { set_relation_ward = scope:ward } } }
+# #     guardian_add_opinion_effect = { GUARDIAN = … WARD_LIEGE = … WARD = … }
+# # with add_courtier in front of it to put the child in the guardian's court
+# # (vanilla's own branch relies on the two already sharing a host, which a
+# # negotiated fosterage between two realms never does).
+# #
+# # THE hidden_effect AROUND set_relation_ward IS VANILLA'S AND IT STAYS. Its
+# # comment there reads "#to prevent doubling of 'becomes guardian of x'
+# # effect in the interaction confirmation window" — this effect is likewise
+# # rendered as a tooltip by tnt_diplomacy.0001's options, so the duplicate it
+# # prevents is the same duplicate. The NOT test also makes the leg idempotent
+# # if a ward relation somehow already exists.
+# #
+# # There is NO guardian sub-picker: the partner ruler IS the guardian
+# # (contract §1.B). One character per side, so no list and no cap.
+# ########################################################################
+# tnt_exec_ward_effect = {
+# 	if = {
+# 		limit = {
+# 			exists = var:tnt_ward_$SIDE$
+# 			var:tnt_ward_$SIDE$ ?= {
+# 				is_alive = yes
+# 				tnt_ward_candidate_trigger = {
+# 					SENDER = $WARD_LIEGE$
+# 					RECEIVER = $GUARDIAN$
+# 				}
+# 			}
+# 		}
+#
+# 		var:tnt_ward_$SIDE$ ?= { save_temporary_scope_as = tnt_ward_child_$SIDE$ }
+#
+# 		if = {
+# 			limit = { exists = scope:tnt_ward_child_$SIDE$ }
+#
+# 			$GUARDIAN$ = { add_courtier = scope:tnt_ward_child_$SIDE$ }
+#
+# 			hidden_effect = {
+# 				if = {
+# 					limit = {
+# 						NOT = { $GUARDIAN$ = { has_relation_ward = scope:tnt_ward_child_$SIDE$ } }
+# 					}
+# 					$GUARDIAN$ = { set_relation_ward = scope:tnt_ward_child_$SIDE$ }
+# 				}
+# 			}
+#
+# 			guardian_add_opinion_effect = {
+# 				GUARDIAN = $GUARDIAN$
+# 				WARD_LIEGE = $WARD_LIEGE$
+# 				WARD = scope:tnt_ward_child_$SIDE$
+# 			}
+# 		}
+# 	}
+# }
+
+
+########################################################################
+# P9 — tnt_exec_hostage_effect      params: SIDE, HOME_COURT, WARDEN
+#
+# LAST OF THE PEOPLE LEGS (contract §6 slot 16) because it is the only one
+# that does not finish here: hostage_depart_effect ends in a one-way
+# start_travel_plan and the hostage becomes a hostage ON ARRIVAL, through
+# vanilla's on_hostage_arrive_at_warden. Everything the treaty settles up
+# has therefore already happened before the traveller leaves.
+#
+# *** take_hostage IS FORBIDDEN — integration ruling R7, and it is a trap,
+# *** not a preference. A vanilla SCRIPTED EFFECT of the same name exists
+# (GAME\common\scripted_effects\05_dlc_bp2_effects.txt:1-4) and resolves to
+# add_visiting_courtier, so `$WARDEN$ = { take_hostage = … }` silently
+# produces a visiting courtier and no hostage at all. The lifecycle entry
+# point is hostage_depart_effect and this leg uses nothing else.
+#
+# hostage_depart_effect = { HOSTAGE WARDEN HOME_COURT }
+#   definition   GAME\common\scripted_effects\05_bp2_hostage_effects.txt:433
+#   call site    GAME\common\character_interactions\05_bp2_interactions.txt:249-253
+#                (offer_hostage_interaction's on_accept, actor = HOME_COURT,
+#                 recipient = WARDEN, secondary_actor = HOSTAGE)
+# It strips any existing guardian/ward relation, sends both courts their
+# toast inside its own hidden_effect, prints the warden's income lines as
+# custom_description (so this leg is tooltip-safe, which matters because
+# tnt_diplomacy.0001 renders the whole apply effect as a tooltip), sets
+# vanilla's own hostage_travelling_to_warden variable with a 2-year timer
+# and starts the travel plan. Every variable it writes is VANILLA'S and
+# expires on its own — this mod owes it no cleanup, exactly as it owes none
+# for the grand-wedding variables (tnt_32_apply.txt:361-364).
+#
+# NO DLC GUARD (V11, USER ITEM 2). One stood here — has_bp2_dlc_trigger
+# (GAME\common\scripted_triggers\00_has_dlc_scripted_triggers.txt:55-57,
+# has_dlc_feature = wards_and_wardens) — and it is REMOVED, because it was the
+# worst instance in the mod of a term offered on one rule and executed on
+# another. The row was never added to the show gates, so for a player without
+# Wards & Wardens the hostage row was shown, entered tnt_gain_total_value /
+# tnt_loss_total_value, was paid for in the treaty, and then did nothing at
+# all. The old note here said as much in its last sentence and the fix went
+# the wrong way for two versions.
+#
+# VANILLA SIDES WITH THE GATE, VERIFIED AGAINST THE INSTALL: none of the five
+# hostage interactions is DLC-gated — GAME\common\character_interactions\
+# 05_bp2_interactions.txt declares offer_hostage :7, demand_hostage :593,
+# exchange_hostage :1279, return_hostage :2040, recall_hostage :2277, and the
+# ONLY has_bp2_dlc_trigger in that whole file is :2750, inside
+# influence_child_personality_interaction. hostage_depart_effect itself
+# (GAME\common\scripted_effects\05_bp2_hostage_effects.txt:433) carries no DLC
+# row either. tnt_can_hostage_trigger reached the same finding independently
+# and records it at tnt_42_people_gates.txt:248-256.
+#
+# IF a live run without Wards & Wardens ever shows hostage_depart_effect
+# erroring, the coherent fix is to add the DLC row to BOTH show gates
+# (tnt_42_people_gates.txt tnt_show_hostage_p_trigger and _r_trigger) AND back
+# here — never here alone, which is the arrangement that charged the player
+# for a hostage who never left home.
+#
+# is_hostage = no (the boolean form, GAME\common\casus_belli_types\00_claim.txt:73
+# and GAME\common\character_interactions\00_education_interactions.txt:845)
+# keeps the one-hostage-per-person rule true at apply time:
+# the candidate trigger tests it when the list is built, but a treaty signed
+# a year later can name a man who has since been handed to somebody else.
+########################################################################
+tnt_exec_hostage_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_hostage_$SIDE$
+			var:tnt_hostage_$SIDE$ ?= {
+				is_alive = yes
+				is_hostage = no
+				tnt_hostage_candidate_trigger = {
+					SENDER = $HOME_COURT$
+					RECEIVER = $WARDEN$
+				}
+			}
+		}
+
+		var:tnt_hostage_$SIDE$ ?= { save_temporary_scope_as = tnt_hostage_sent_$SIDE$ }
+
+		if = {
+			limit = { exists = scope:tnt_hostage_sent_$SIDE$ }
+			hostage_depart_effect = {
+				HOSTAGE = scope:tnt_hostage_sent_$SIDE$
+				WARDEN = $WARDEN$
+				HOME_COURT = $HOME_COURT$
+			}
+		}
+	}
+}
+
+
+########################################################################
+# P10 — tnt_exec_indep_effect       params: SIDE, LIEGE, VASSAL
+#
+# The liege releases his vassal. THIS IS THE SECOND-HIGHEST-RISK EFFECT IN
+# THE MOD after tnt_exec_vassal_effect, and for the same reason: it rewrites
+# the realm graph. It is a copy of vanilla's own
+# grant_vassal_independence_interaction on_accept — verbatim,
+# GAME\common\character_interactions\00_character_interactions.txt:2299-2319,
+# every statement of it, in the VASSAL's scope:
+#     add_opinion = { target = <liege>  modifier = granted_independence_opinion }
+#     add_truce_both_ways = { character = <liege>  days = 3650  name = TRUCE_GRANT_INDEPENDENCE }
+#     create_title_and_vassal_change = { type = independency  save_scope_as = change  add_claim_on_loss = yes }
+#     becomes_independent = { change = scope:change }
+#     resolve_title_and_vassal_change = scope:change
+# with scope:actor -> $LIEGE$, scope:recipient -> $VASSAL$ and the change
+# scope renamed tnt_indep_change_$SIDE$ so the two calls cannot collide —
+# the same rename E26 makes for the fealty change.
+#
+# *** IT RUNS BEFORE THE FEALTY LEG *** — contract ruling C5, and the order
+# in tnt_apply_deal_effect is by that ruling, NOT by the frozen item
+# indices. tnt_no_indep_and_vassal_trigger already refuses to send a treaty
+# carrying both, but if one ever slips through, running fealty first and
+# independence second would hand the partner a vassal and free him in the
+# same tick.
+#
+# THREE THINGS VANILLA DOES THAT THIS DELIBERATELY DOES NOT:
+#   * the two struggle catalysts (:2322-2382). They are inline
+#     any_character_struggle blocks with no parameterised wrapper — unlike
+#     fp3_struggle_apply_independent_vassalage_catalyst_effect, which E26
+#     can call because vanilla packaged it. Copying 60 lines of struggle
+#     plumbing into a scripted effect that is also rendered as a tooltip
+#     buys one regional DLC catalyst and risks the whole leg. The cost of
+#     the omission is a missing catalyst, never a corrupt realm graph.
+#   * the notification events to third-party lieges and fellow vassals
+#     (:2247-2297): they are trigger_event calls, and this effect is
+#     rendered in tooltip mode by tnt_diplomacy.0001's refusal option.
+#   * stress_impact (:2211-2215) — ambitious 40 / arrogant 20 / greedy 20 for
+#     this act specifically. IT IS OMITTED BY RULING, NOT BY MECHANISM, and
+#     the distinction is the whole of this bullet. V18 corrected what stood
+#     here: it claimed stress_impact "is an INTERACTION field and would be a
+#     silent no-op in a scripted effect", which is FALSE — vanilla writes it
+#     at the top level of scripted effects, e.g.
+#     GAME\common\scripted_effects\00_decisions_effects.txt:3457 and :3483,
+#     GAME\common\scripted_effects\00_diarchy_scripted_effects.txt:199-210,
+#     and ck3.exe documents it as a general effect ("Stress impact according
+#     to specified traits (trait = value), use base = value for a base value
+#     that's always added"). The real reason is user item 21: stress stays
+#     NARROW and is charged AT MOST ONCE PER TREATY, in one place —
+#     tnt_3c_stress.txt — which imports these very three trait rows from this
+#     very site. A second charge here would be a second stress source, which
+#     R12 forbids. HONEST CONSEQUENCE, SO NOBODY THINKS IT IS FREE: a lone
+#     grant of independence is charged only if the WHOLE treaty clears the
+#     200-point one-sidedness rung, which one release rarely does. Whether to
+#     charge it on its own is a user ruling, not a cleanup.
+#
+# THE TRUCE IS KEPT, and the values owner must know it is there: releasing a
+# vassal hands both sides a 10-year truce for free. Dropping it would be worse —
+# vanilla attaches it so that "independence" cannot mean "independent until my
+# army turns around next month" — so it stays and the note lives here.
+#
+# *** V13, USER ITEM 1 — AND THE OVERLAP IS GONE, WHICH MATTERS HERE. *** This
+# note used to end "...which is a term this mod also sells (tnt_val_truce_*)".
+# THE MOD NO LONGER SELLS IT. The ten-year non-aggression pact is RETIRED as a
+# design refusal (TOMBSTONE B in tnt_32_apply.txt) because vanilla gates
+# truce-making behind a Diplomacy lifestyle investment. THIS TRUCE IS UNTOUCHED
+# AND MUST STAY: it is VANILLA'S OWN, attached by vanilla's independence grant
+# under the name TRUCE_GRANT_INDEPENDENCE, not our retired term. Do not remove it
+# while tidying up after that retirement — it is a different thing that happens to
+# use the same engine effect.
+#
+# RE-VALIDATION through tnt_can_release_trigger = { LIEGE VASSAL }, the same
+# gate the row was shown by. Between composition and signature the vassal
+# can have been released already, have changed liege, or have won an
+# independence war; every one of those makes becomes_independent nonsense.
+########################################################################
+tnt_exec_indep_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_indep_$SIDE$
+			var:tnt_indep_$SIDE$ > 0
+			tnt_can_release_trigger = {
+				LIEGE = $LIEGE$
+				VASSAL = $VASSAL$
+			}
+		}
+
+		$VASSAL$ = {
+			add_opinion = {
+				target = $LIEGE$
+				modifier = granted_independence_opinion
+			}
+
+			# THE TRUCE NAME NEEDS A SCOPE CALLED `recipient`, AND NOTHING ON THIS
+			# PATH PROVIDES ONE. Vanilla's own key reads
+			#   "[SCOPE.sC('recipient').GetUINameNotMe|U] was granted independence"
+			#   (GAME\localization\english\realm_window_l_english.yml:74)
+			# and vanilla's only caller is grant_independence_interaction, where the
+			# ENGINE supplies scope:recipient because it is an interaction. This leg
+			# runs from tnt_apply_deal_effect, which is only ever reached from events
+			# — so without this line the player would get the truce with an
+			# unresolved scope where its name should be. Vanilla itself uses exactly
+			# this precaution: 00_interaction_effects.txt:2256-2257 saves the two
+			# names it needs immediately before its own add_truce_both_ways.
+			save_scope_as = recipient
+
+			add_truce_both_ways = {
+				character = $LIEGE$
+				days = 3650
+				name = TRUCE_GRANT_INDEPENDENCE
+			}
+
+			create_title_and_vassal_change = {
+				type = independency
+				save_scope_as = tnt_indep_change_$SIDE$
+				add_claim_on_loss = yes
+			}
+			becomes_independent = {
+				change = scope:tnt_indep_change_$SIDE$
+			}
+
+			resolve_title_and_vassal_change = scope:tnt_indep_change_$SIDE$
+		}
+	}
+}
+
+
+########################################################################
+# P21 — tnt_fill_subject_p_effect       *** THE THIRD PEOPLE TERM (V26) ***
+#
+# The direct vassals the PLAYER could hand over. `every_vassal` is vanilla's
+# own iterator for exactly this pool: grant_vassal_interaction's
+# populate_actor_list is
+#   scope:actor = { every_vassal = { add_to_list = characters } }
+#   GAME\common\character_interactions\00_vassal_interactions.txt:11-17
+# and everything else — tier, rank gap, the three war rows, the regent, the
+# two heir rows and the ping-pong latch — is P21
+# tnt_subject_candidate_trigger's business, which is also what prices the term.
+#
+# THIS IS THE SECOND PEOPLE TERM WITH A SELECTION LIST. Candidates go into
+# tnt_list_subject_p and the player MOVES whichever of them he chooses into
+# tnt_sel_subject_p; the two-list invariant is tnt_35_multiselect.txt's,
+# unchanged. NO CAP — the cap of three was retired everywhere in V4/V11 and a
+# new term inherits the rule that survived, not the one that was removed
+# (tnt_35_multiselect.txt M1). That is also why this fill must be followed by a
+# PRUNE on every refill path: M4 tnt_multi_prune_all_effect carries the subject
+# pair for that reason, and so does each of the two openers.
+#
+# `target = prev` inside the re-scoped block resolves to the iterated
+# character, exactly as in P1/P5 above.
+########################################################################
+tnt_fill_subject_p_effect = {
+	clear_variable_list = tnt_list_subject_p
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_receiver }
+
+		every_vassal = {
+			limit = {
+				tnt_subject_candidate_trigger = {
+					GIVER = scope:tnt_list_owner
+					RECEIVER = scope:tnt_list_receiver
+				}
+			}
+			scope:tnt_list_owner = {
+				add_to_variable_list = {
+					name = tnt_list_subject_p
+					target = prev
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# P22 — tnt_fill_subject_r_effect
+# The partner's direct vassals, stored on the PLAYER because the GUI can only
+# read lists off GetPlayer. Mirror of P21, same two-scope dance as P2/P6.
+########################################################################
+tnt_fill_subject_r_effect = {
+	clear_variable_list = tnt_list_subject_r
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_giver }
+
+		var:tnt_partner ?= {
+			every_vassal = {
+				limit = {
+					tnt_subject_candidate_trigger = {
+						GIVER = scope:tnt_list_giver
+						RECEIVER = scope:tnt_list_owner
+					}
+				}
+				scope:tnt_list_owner = {
+					add_to_variable_list = {
+						name = tnt_list_subject_r
+						target = prev
+					}
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# P23 — tnt_exec_subject_multi_effect   params: SIDE, GIVER, RECEIVER
+#
+# *** THIS IS THE THIRD EFFECT IN THE MOD THAT CAN CORRUPT A SAVE, after
+# *** tnt_exec_vassal_effect and tnt_exec_indep_effect: it rewrites the realm
+# *** graph. Read M6's header (tnt_35_multiselect.txt) before touching it — this
+# *** leg is M6 with change_liege where M6 has change_title_holder.
+#
+# ONE CHANGE OBJECT, N HAND-OVERS, ONE RESOLVE, and the N-form is VANILLA'S OWN
+# PRIMITIVE rather than an extrapolation of the single-vassal interaction.
+# Verbatim, GAME\common\casus_belli_types\00_subjugation.txt:317-386:
+#     create_title_and_vassal_change = { type = swear_fealty  save_scope_as = change  add_claim_on_loss = no }
+#     ...
+#     every_vassal = { limit = { … }  change_liege = { liege = scope:attacker  change = scope:change } }
+#     ...
+#     resolve_title_and_vassal_change = scope:change
+# — an ITERATOR full of change_liege calls sharing ONE change, resolved ONCE
+# (the iterator itself is :363-374). So a one-vassal-per-treaty form would have
+# been this same code with an artificial limit of one, which is why the term is
+# multi-select: the N-form costs the apply leg nothing extra.
+# WHAT WOULD BE WRONG: a create/resolve pair PER VASSAL. Resolving twice, or
+# resolving a change another change is still open over, is precisely the
+# mis-sequencing that produces corrupt vassal states.
+#
+# THE TWO KEYS, AND BOTH ARE THE NEGOTIATED VALUES, NOT THE CONQUEST ONES:
+#   type = granted        vanilla's own value for grant_vassal_interaction
+#                         (GAME\common\character_interactions\
+#                          00_vassal_interactions.txt:229). NOT swear_fealty,
+#                         which is the subjugation-war value above.
+#   add_claim_on_loss = no  vanilla's value at the same site (:231). The giver
+#                         does NOT keep a claim on a vassal he sold — that is
+#                         what makes the term irreversible and what the price
+#                         is charged for. M6 passes `yes` for a CEDED TITLE,
+#                         which is a different question about a different
+#                         object; do not "harmonise" the two.
+#
+# NO TRUCE, DELIBERATELY. Vanilla attaches TRUCE_GRANT_INDEPENDENCE only in the
+# one case where the giver is handing a vassal UP to his own liege (:213-225),
+# i.e. where the giver could otherwise reconquer him next month from inside the
+# same realm. Between two independent realms vanilla attaches nothing, and the
+# player is told so in tnt_item_subject_desc.
+#
+# NO granted_vassal OPINION, AND THIS IS A RULING RATHER THAN AN OMISSION.
+# Vanilla's on_accept gives the receiver +40 toward the giver (:242-247) because
+# vanilla's transfer is a GIFT. Here it is bought, and that same +40/10 years is
+# the very number tnt_subject_head_value is derived from
+# (tnt_58_person_values.txt) — paying the partner in points AND in opinion for
+# one fact is the double count P25 exists to prevent.
+#
+# RE-VALIDATION IS IN TWO PARTS, exactly as P7's:
+#   THE PAIR — tnt_can_subject_trigger, in the outer limit. A treaty can be
+#     signed years after it was composed and a war can be declared in between.
+#     A failed PAIR gate correctly skips the whole term, because it is a fact
+#     about the treaty and not about one man.
+#   THE PERSON — tnt_subject_candidate_trigger, the same trigger that built the
+#     list and priced the selection, asked again of every selected vassal.
+#     Between the tick and the signature he can have died, been retracted, lost
+#     his last county, gone to war with his liege or become the regent. One
+#     stale vassal skips one hand-over; the others still happen.
+# Both triggers are PURE — tnt_42_people_gates.txt's whole-file rule — so this
+# leg stays safe on the paths that render tnt_apply_deal_effect as a tooltip.
+#
+# THE PING-PONG LATCH. Each moved vassal is stamped tnt_subject_moved for three
+# years and P21 refuses a flagged man, so the same duke cannot be sold back and
+# forth between two rulers for points. It is vanilla's own device under our own
+# name: retract_vassal_interaction's on_send stamps ai_should_not_transfer with
+# `years = 3` (GAME\common\character_interactions\00_vassal_interactions.txt
+# :441-456) and the grant refuses a flagged man (:79-81). Timed, so it needs no
+# garbage collection; the uninstall decision sweeps it anyway.
+#
+# THE CHANGE SCOPE CARRIES THE SIDE SUFFIX so the _p and _r calls can never
+# collide, and it is a PERMANENT save_scope_as because
+# create_title_and_vassal_change requires one — the same named exception this
+# file's header grants P10.
+########################################################################
+tnt_exec_subject_multi_effect = {
+	if = {
+		limit = {
+			exists = scope:tnt_deal_partner
+			has_variable_list = tnt_sel_subject_$SIDE$
+			variable_list_size = {
+				name = tnt_sel_subject_$SIDE$
+				value >= 1
+			}
+			tnt_can_subject_trigger = {
+				GIVER = $GIVER$
+				RECEIVER = $RECEIVER$
+			}
+		}
+
+		$GIVER$ = {
+			create_title_and_vassal_change = {
+				type = granted
+				save_scope_as = tnt_subject_change_$SIDE$
+				add_claim_on_loss = no
+			}
+		}
+
+		every_in_list = {
+			variable = tnt_sel_subject_$SIDE$
+			limit = {
+				is_alive = yes
+				tnt_subject_candidate_trigger = {
+					GIVER = $GIVER$
+					RECEIVER = $RECEIVER$
+				}
+			}
+
+			change_liege = {
+				liege = $RECEIVER$
+				change = scope:tnt_subject_change_$SIDE$
+			}
+
+			add_character_flag = {
+				flag = tnt_subject_moved
+				years = 3
+			}
+		}
+
+		$GIVER$ = {
+			resolve_title_and_vassal_change = scope:tnt_subject_change_$SIDE$
+		}
+	}
+}

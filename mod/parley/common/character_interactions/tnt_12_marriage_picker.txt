@@ -1,0 +1,1004 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — THE BORROWED MARRIAGE PANEL.
+#
+# THE USER: "can we integrate the classic beautiful marriage-arranging panel into
+# our deal? So that we choose the line, the grand wedding and so on there, but the
+# 'arrange marriage' button is replaced with 'add to deal', and the deal's points
+# are counted from there."
+#
+# THE ANSWER, AND IT IS THE WHOLE POINT OF THIS FILE:
+#   special_interaction  and  interface  ARE TWO SEPARATE KEYS.
+#     special_interaction = arrange_marriage_interaction   <- THE THING THAT MARRIES
+#     interface           = marriage                       <- ONLY the C++ matchmaker panel
+# We set the second and we do NOT set the first, so the player gets the vanilla
+# picker with NOBODY GETTING MARRIED, and our own on_accept receives the two
+# chosen people as real script scopes. Paradox says so in as many words in their
+# own shipped schema, GAME\common\character_interactions\_character_interactions.info:576-580:
+#
+#	Q:	What does the special interaction type arrange_marriage_interaction do?
+#	A:	special_interaction = arrange_marriage_interaction will add extra marriage info ...
+#		It automatically marries/betroths the secondary participants and sets up
+#		alliances and hands out prestige.
+#
+# and again at .info:376-378, where the marriage is called out by name as a
+# HARD-CODED side effect that the special hooks bring with them:
+#	# Only executes if the interaction was auto accepted. Done before any other
+#	# side effect (E.G., hard coded ones like marriage)
+#	pre_auto_accept = effect
+#
+# Research: _docs\90-MARRIAGE-PANEL-BORROW.md (Route A). Full proof-of-no-marriage
+# in the THIS INTERACTION MARRIES NOBODY block further down.
+#
+# ===========================================================================
+# THE TRAP THAT WOULD HAVE KILLED THIS FEATURE SILENTLY
+# ===========================================================================
+# The C++ panel is PINNED BESIDE THE INTERACTION CONFIRMATION WINDOW. Our front
+# door (tnt_10_interaction.txt:300) deliberately suppresses that window with
+# needs_confirmation = { always = no } to get its one-click open. THIS
+# INTERACTION MUST DO THE OPPOSITE: there is NO needs_confirmation key anywhere
+# below, and adding one would delete the very window the panel hangs on. If a
+# future author "harmonises" the two interactions by copying that line here, the
+# panel stops appearing and on_accept starts staging whatever the scopes happen
+# to hold. Do not.
+#
+# ===========================================================================
+# ONE CORRECTION TO THE BRIEF, AND IT IS AN R2 MATTER
+# ===========================================================================
+# The brief said "set interface = marriage plus the two secondary participant
+# keys". The two secondary participant keys DO NOT EXIST ANY MORE and are not
+# written below. .info:582-587 documents secondary_actor = marriage /
+# secondary_recipient = marriage, but:
+#   * grep `^\s*secondary_(actor|recipient)\s*=` over the whole of
+#     GAME\common\character_interactions\  -> ZERO matches, and
+#   * Paradox's own files carry the syntax COMMENTED OUT — three separate
+#     leftovers survive in the 1.19 tree that WGoA2 forked
+#     (00_education_interactions.txt:13, :15, :818; 05_bp2_interactions.txt:6,
+#     :599; 06_ep3_interactions.txt:4961, all `# secondary_actor = ...`).
+# That is a removed key with stale documentation, exactly the class of thing
+# Law R3 exists for. THE LIVE MECHANISM IS populate_actor_list /
+# populate_recipient_list, which is what vanilla's own arrange_marriage_interaction
+# actually uses (00_marriage_interactions.txt:162, :252) and what the one shipping
+# mod that already borrows this panel uses
+# (mod 3037969445 zz_00_lmfmod_interactions.txt:1304, :1411, with
+# `#special_interaction = arrange_marriage_interaction` commented out at :1245).
+# Both are written below. Do not add the dead keys.
+#
+# ===========================================================================
+# WHAT THE PANEL DELIVERS, AND WHAT IT DOES NOT
+# ===========================================================================
+#   scope:secondary_actor      OUR side's spouse       <- the player's household
+#   scope:secondary_recipient  THEIR side's spouse     <- the partner's household
+#     Vanilla's own comment names them, 00_marriage_interactions.txt:330-331:
+#       # actor, recipient ... characters arranging the marriage
+#       # secondary_actor, secondary_recipient ... characters that should marry
+#     and the direction is confirmed independently by vanilla's cost block at
+#     :281, `scope:secondary_actor = { is_close_family_of = scope:actor }`.
+#     GETTING THESE TWO BACKWARDS WOULD INVERT EVERY MATCH IN THE DEAL, so the
+#     staging effect takes them as named parameters P and R and never guesses.
+#   scope:matrilineal          THE LINE                <- send_option flag, below
+#   scope:grand_wedding_promise THE GRAND WEDDING      <- send_option flag, below
+#
+# WHAT IT DOES NOT DELIVER, and our own iteration-4 controls must keep providing:
+#   * per-pair line flipping AFTER the pair is committed (tnt_wed_row_line_flip)
+#   * which committed pair is the principal        (tnt_wed_set_principal)
+#   * removing a committed pair / clearing the deal (tnt_wed_remove, tnt_wed_clear)
+#   * the pair list itself, its prices, and every other term in the treaty
+#   * the words on the big confirm button. interaction_marriage.gui:229 hardcodes
+#     text = "send_marriage_proposal_button_name" ("Send Proposal"). We cannot
+#     change it without overriding a vanilla .gui, which Law R1 forbids. What we
+#     CAN set is the window HEADER, which is
+#     [CharacterInteractionConfirmationWindow.GetSendName] (interaction_marriage.gui:44)
+#     and therefore reads our send_name key. So the header says "add to the deal"
+#     and the button says "Send Proposal". Localization must not promise otherwise.
+###############################################################################
+
+tnt_stage_marriage_interaction = {
+
+	# --- identity ------------------------------------------------------------
+	category = interaction_category_diplomacy	# .info:18 (Required!)
+	icon = icon_marriage				# REAL: 00_marriage_interactions.txt:13, :1199
+	interface_priority = 98				# .info:10 — tnt_open_negotiations is 100, the three AI replies are 99
+	desc = tnt_stage_marriage_desc			# .info:182
+
+	### THE LINE THAT SITS OVER THE CANDIDATE LIST — the one place in vanilla's window
+	### where our text lands NEXT TO its alliance grids.
+	###
+	### `prompt` is a field of the interaction (_character_interactions.info:195,
+	### `prompt = loc_key`) and vanilla uses it in the same spirit at
+	### 00_vassal_interactions.txt:21 and 00_diarch_interactions.txt:75. The matchmaker
+	### draws it at interaction_marriage.gui:338-345: a centred text_single, above the
+	### divider and the candidate list, visible as soon as the list has items - which is
+	### exactly where the "Potential alliance" strength bars are drawn per candidate.
+	###
+	### IT MUST BE ONE SHORT LINE. The widget is a `text_single` with
+	### `autoresize = no`, so it does not wrap and a long sentence is simply cut. The
+	### full wording - including the advice to use the game's own marriage interaction
+	### for an alliance - is carried by the two places that CAN hold a paragraph: the
+	### interaction's own desc and the effects block (tnt_stage_no_alliance_tt below).
+	prompt = tnt_stage_marriage_prompt
+	send_name = tnt_stage_marriage_send		# .info:123 — THIS IS THE PANEL'S HEADER TEXT (interaction_marriage.gui:44)
+
+	# =========================================================================
+	# THE ONE LINE THIS WHOLE FILE EXISTS FOR.
+	#
+	# interface = marriage summons MatchmakerInteractionWindow — the two big
+	# portraits, the two candidate lists with all sixteen filters, the marriage-type
+	# icon, the matrilineal checkbox and the grand-wedding checkbox. Nothing else.
+	# REAL: 00_marriage_interactions.txt:21 (arrange_marriage_interaction) and
+	#       :1208 (marry_off_interaction); mod 3037969445 :1244 and :2092.
+	#
+	# *** THERE IS NO special_interaction KEY IN THIS FILE AND THERE MUST NEVER BE
+	# *** ONE. Nor special_ai_interaction. See THIS INTERACTION MARRIES NOBODY.
+	# =========================================================================
+	interface = marriage
+
+	# --- MANDATORY. Defaults to YES (.info:108). Omit and the interaction
+	#     silently vanishes for every ruler outside diplomatic range. Our front
+	#     door sets it too (tnt_10_interaction.txt:86) and the two must agree, or
+	#     the negotiation opens and the picker refuses to. -----------------------
+	use_diplomatic_range = no
+
+	# --- the recipient gets no say. This stages a pair into OUR OWN deal sheet;
+	#     the partner's consent is bought later, once, by the whole treaty.
+	#     .info:272; 284 exact `auto_accept = yes` lines in vanilla. --------------
+	auto_accept = yes
+
+	# --- DELIBERATELY ABSENT KEYS, each for a stated reason -------------------
+	# needs_confirmation      would delete the window the panel is pinned to (see
+	#                         THE TRAP at the head of this file)
+	# special_interaction     would marry people (see THIS INTERACTION MARRIES NOBODY)
+	# special_ai_interaction  the AI marriage planner. We are not the AI's business.
+	# recipient_recieve_cooldown / ignore_recipient_recieve_cooldown
+	#                         vanilla carries these (:33-42) to stop proposal spam.
+	#                         WE MUST NOT: a deal with nine marriages in it means
+	#                         opening this panel nine times in a row, and a cooldown
+	#                         would refuse the second one.
+	# ai_targets              without it the engine has no candidate recipient at
+	#                         all (.info:490-495), which is one of the three locks
+	#                         keeping the AI out. The other two are ai_frequency = 0
+	#                         and is_ai = no in is_shown, both below.
+	# secondary_actor / secondary_recipient   removed syntax, see the header.
+	# cost                    the price of a marriage is the DEAL's price, computed
+	#                         by tnt_50_values.txt / tnt_52_marriage_values.txt off
+	#                         the committed list. Charging prestige here would
+	#                         charge for merely staging a pair.
+
+	# =========================================================================
+	# is_shown — TWO JOBS: keep the AI out, and make this openable ONLY from an
+	# open negotiation with THE SAME PARTNER.
+	#
+	# Only scope:actor and scope:recipient exist here (.info:225-233); `root` does
+	# not, and the secondary scopes may not exist yet, which is why nothing below
+	# mentions them.
+	#
+	# THE PARTNER LOCK IS THE SECOND ROW PAIR AND IT IS THE SAFETY PROPERTY OF THE
+	# WHOLE FEATURE. Without it a player with a negotiation open could right-click
+	# any other ruler in the world, pick two people out of this panel and have them
+	# staged into a deal with somebody else entirely — a marriage promise made to
+	# the wrong man. So: the actor must have a live window (var:tnt_open) and the
+	# recipient must BE the partner that window is about (var:tnt_partner).
+	# Law R10 satisfied twice: `exists` in front, and `?=` at the dereference. The
+	# `var:x ?= { this = <scope> }` read-back is this mod's own shipped idiom
+	# (tnt_70_on_actions.txt:174) and is preferred to `var:x ?= <scope>`.
+	#
+	# THE LAST ROW IS DELIBERATE REUSE, NOT BELT AND BRACES. T26
+	# (tnt_show_marriage_p_trigger, tnt_41_gates.txt) is the very trigger that
+	# decides whether the marriage row appears in our own window at all: the Tier-4
+	# game rule plus both candidate lists being non-empty. Delegating to it means
+	# the picker can never be offerable for a negotiation whose marriage row is
+	# hidden — ONE gate, two consumers. T26 reads only the current scope and
+	# $OTHER$, so entering scope:actor is what makes it correct here.
+	# =========================================================================
+	is_shown = {
+		scope:actor = {
+			is_ai = no			# REAL: 00_alliance.txt:1129, :2103. Lock 1 of 3.
+			is_landed = yes			# REAL: 00_character_interactions.txt:26. Also what makes the actor his own matchmaker, which the redirect below relies on.
+			exists = var:tnt_open
+			exists = var:tnt_partner
+			var:tnt_partner ?= { this = scope:recipient }
+		}
+	}
+
+	# *** V3: THE THREE GATES MOVED OUT OF is_shown, AND THIS IS THE BUG FIX. ***
+	#
+	# tnt_show_marriage_p_trigger used to sit in is_shown above. That made the
+	# whole term silently unavailable: the launch button in our own panel is
+	# `enabled = IsPlayerInteractionValid` with
+	# `tooltip_when_disabled = GetPlayerInteractionValidBlockers`, and blockers are
+	# collected from THIS block - which was empty. So a player whose game rule for
+	# advanced terms is off, or who simply has nobody eligible to marry, got a grey
+	# button whose tooltip resolved to an empty string. Reported, twice, as "the
+	# button is not clickable and does not even hover": the mouse was arriving all
+	# along, the button was correctly disabled, and the explanation was blank.
+	#
+	# is_shown now keeps only "is this our negotiation, with this partner" - the
+	# conditions under which the interaction has no business existing at all. Every
+	# condition a player could ACT on is here instead, each with its own reason, so
+	# the button either works or says why.
+	is_valid_showing_failures_only = {
+		scope:actor = {
+			custom_description = {
+				text = tnt_err_advanced_off
+				exists = var:tnt_advanced
+			}
+			custom_description = {
+				text = tnt_err_no_wed_cand_p
+				has_variable_list = tnt_list_spouse_p
+				variable_list_size = {
+					name = tnt_list_spouse_p
+					value > 0
+				}
+			}
+			custom_description = {
+				text = tnt_err_no_wed_cand_r
+				has_variable_list = tnt_list_spouse_r
+				variable_list_size = {
+					name = tnt_list_spouse_r
+					value > 0
+				}
+			}
+		}
+	}
+
+	# =========================================================================
+	# redirect — NORMALISE THE SCOPES. COPIED FROM VANILLA, WITH ONE DELETION.
+	#
+	# .info:281-289: "Effect changes character interaction scopes - replace any of
+	# actor, secondary actor, recipient, secondary recipient and intermediary with
+	# any other character". Vanilla's own version is 00_marriage_interactions.txt:94-160
+	# and its comment at :137-140 is why this block is not optional:
+	#	# marriage interactions are special, and code sets scopes in an unusual way
+	#	# secondary recipient must always be set for marriage script,
+	#	# but marriage UI only sets primary recipient
+	#	# make sure redirect solves this issue
+	# i.e. the person the player clicks on the right can arrive as the PRIMARY
+	# recipient, and script has to push it down into secondary_recipient itself.
+	#
+	# BOTH BLOCKS BELOW ARE IDEMPOTENT, AND THAT IS THE POINT. Whether the C++
+	# sets the secondary scope directly or hands us the pick as the primary, the
+	# same code produces the same end state:
+	#   * secondary_recipient already set -> block 1 is guarded off, block 2 finds
+	#     a ruler who is his own matchmaker and does nothing. No change.
+	#   * recipient = the picked daughter -> block 1 promotes her to
+	#     secondary_recipient, block 2 restores recipient = her matchmaker = the
+	#     partner. Correct.
+	#   * nothing picked yet -> the partner RULER is promoted into
+	#     secondary_recipient by block 1, i.e. he arrives pre-selected. The user
+	#     reported this and the report was accurate - the panel opens with the
+	#     partner already in the right-hand spouse slot instead of empty. CLOSED AS
+	#     WON'T-FIX BY HIS OWN EXPLICIT RULING ("Оставить как есть", 2026-08-22):
+	#     the only real fix is an out-of-band flag whose failure mode cannot be
+	#     tested statically, while the defect is cosmetic - one click on any other
+	#     candidate replaces the ruler. V20 tried to close it in-band by negating
+	#     block 1's `this = matchmaker` row and that broke picking a ruler at all.
+	#     The full record - both purposes of the vanilla block, the V20 regression
+	#     and the ruling - is in the box on block 1 below, and it must be kept.
+	#     REOPENING THIS REQUIRES A NEW USER RULING, not a tidy-up.
+	#
+	# WHAT IS DELETED FROM VANILLA'S VERSION, and it must stay deleted:
+	#   * the betrothal branches (:107-114, :118-135). They exist so that vanilla's
+	#     interaction can FULFIL an existing betrothal. Our candidates are
+	#     is_betrothed = no by construction (can_be_picked below, and
+	#     tnt_spouse_try_add_effect in tnt_34_marriage.txt) — a pending betrothal is
+	#     not ours to trade away — so those branches are dead code here.
+	#
+	# WHAT IS KEPT AND WHY IT LOOKS DANGEROUS BUT IS NOT: `matchmaker = { save_scope_as = actor }`
+	# in block 0 can move scope:actor. Our actor is a LANDED RULER (is_shown), and a
+	# landed ruler is his own matchmaker, so `NOT = { this = matchmaker }` is false
+	# and block 0 never fires. It is here only for the hypothetical where the C++
+	# hands us the LEFT-side pick as the primary actor — then it restores the player
+	# and files the pick where it belongs. If it ever fires with a character whose
+	# matchmaker is NOT the player, is_shown fails on the next pass and the Send
+	# button goes dark. THAT IS THE CORRECT FAILURE: loud and harmless, never a
+	# variable written onto a courtier.
+	#
+	# MARRIAGE_OWNER_IS_MATCHMAKER is the define behind all of this —
+	# GAME\common\defines\ai\00_ai.txt:270-275.
+	# =========================================================================
+	redirect = {
+		# --- block 0: OUR SIDE. A no-op for a landed ruler; see above. -------
+		scope:actor = {
+			if = {
+				limit = {
+					exists = matchmaker
+					NOT = { this = matchmaker }
+				}
+				save_scope_as = secondary_actor
+				matchmaker = { save_scope_as = actor }
+			}
+		}
+
+		# --- THEIR SIDE ------------------------------------------------------
+		scope:recipient = {
+			# block 1: promote a pick who IS his own matchmaker, i.e. a landed ruler.
+			# Vanilla 00_marriage_interactions.txt:141-148, copied positively.
+			#
+			# *** V20: THIS ROW WAS NEGATED TO KILL THE PRE-SELECTION AND THE NEGATION
+			# *** BROKE PICKING A RULER ALTOGETHER. IT IS RESTORED. DO NOT NEGATE IT.
+			# *** THE PRE-SELECTION ITSELF IS CLOSED AS WON'T-FIX - USER RULING,
+			# *** "Оставить как есть", 2026-08-22. REOPENING IT REQUIRES A NEW USER
+			# *** RULING, NOT A TIDY-UP. The analysis below is kept in full because
+			# *** it is the map that stops a later round from re-breaking ruler-
+			# *** picking the way V20 did while "cleaning up" the default.
+			# The behaviour he reported is real - the panel opens with the partner ruler
+			# already in the spouse slot and an empty slot would be the better default -
+			# but this row is not the place to fix it, because vanilla's block serves
+			# TWO purposes at once and the comment at 00_marriage_interactions.txt:137-140
+			# says so: "marriage UI only sets primary recipient / make sure redirect
+			# solves this issue".
+			#   purpose 1  first open: recipient IS the partner ruler and no secondary
+			#              exists, so this block promotes him - that is the unwanted default.
+			#   purpose 2  the user deliberately picks a ruler out of the grid: the C++
+			#              hands the pick back as the PRIMARY recipient (vanilla says so at
+			#              :551, "not the secondary characters, because none exist yet"),
+			#              and this is the ONLY leg that files him into secondary_recipient.
+			# Negating the row makes block 1 and block 2 carry the same condition, so for a
+			# self-matchmaker NEITHER fires and scope:secondary_recipient is never written.
+			# That scope is the whole picker's handle - this file :483-484, :523-524,
+			# :730-731, :750-751 - so the pair cannot be staged and its legality cannot be tested:
+			# the partner ruler stops being marriageable at all. A cosmetic wrong default
+			# was traded for a functional loss.
+			# THE TWO STATES ARE INDISTINGUISHABLE HERE. On first open and on a deliberate
+			# pick of that same ruler, scope:recipient is the ruler and secondary_recipient
+			# is unset - identical. Any real fix therefore needs a signal from OUTSIDE the
+			# redirect (a flag written by the button that opens the panel and cleared on the
+			# first redirect pass). THAT DESIGN IS WHY THE THREAD IS CLOSED RATHER THAN
+			# FIXED: its failure mode cannot be tested statically - if the clear ever
+			# fails to happen, the ruler becomes permanently unpickable, which looks
+			# exactly like the V20 regression above - while the defect it would cure is
+			# cosmetic, since the pre-selected ruler is replaced by one click on any
+			# other candidate. Weighing exactly that trade, the user ruled on
+			# 2026-08-22: "Оставить как есть" - it stays as it is. CLOSED AS
+			# WON'T-FIX; reopening requires a NEW user ruling, not a tidy-up.
+			# The per-row filter stays in can_be_picked below, and T51 door 1
+			# (tnt_41_gates.txt:2129) keeps admitting the ruler, as it must.
+			if = {
+				limit = {
+					NOT = { exists = scope:secondary_recipient }
+					exists = matchmaker				# REAL: 00_marriage_interactions.txt:143
+					this = matchmaker				# REAL: :144
+				}
+				save_scope_as = secondary_recipient
+			}
+
+			# block 2: put the ruler back in the recipient slot. Vanilla :149-158.
+			if = {
+				limit = {
+					exists = matchmaker
+					NOT = { this = matchmaker }
+				}
+				save_scope_as = secondary_recipient
+				matchmaker = { save_scope_as = recipient }
+			}
+		}
+	}
+
+	# =========================================================================
+	# populate_actor_list / populate_recipient_list — THE TWO CANDIDATE LISTS.
+	#
+	# .info:291-299: "Everyone sorted into the list 'characters' has the potential
+	# of being shown to be selected."
+	#
+	# *** THESE DO NOT COPY VANILLA'S FOUR-PASS HOUSEHOLD WALK, AND THAT IS THE
+	# *** MOST IMPORTANT DECISION IN THIS FILE. ***
+	# The mod ALREADY has the answer: tnt_list_spouse_p and tnt_list_spouse_r,
+	# built by tnt_fill_spouse_p_effect / tnt_fill_spouse_r_effect
+	# (tnt_34_marriage.txt) on every window open, from four passes (the ruler,
+	# children, close family, court) filtered by tnt_spouse_try_add_effect —
+	# vanilla's marriage_interaction_can_be_picked_trigger plus is_betrothed = no
+	# plus the permissive matchmaker rule, de-duplicated. Re-deriving the candidate
+	# set here would create a SECOND definition of "who may be offered", and the
+	# two would drift: the panel would show a courtier our own picker refuses, or
+	# hide one it allows, and the T26/T27 visibility gate (which counts those very
+	# lists) would be describing a different panel from the one on screen.
+	# So the panel is fed the mod's own lists, and there is exactly ONE candidate
+	# rule in the mod.
+	#
+	# *** BOTH LISTS LIVE ON THE PLAYER — INCLUDING THE PARTNER'S. *** That is the
+	# shipped storage model (tnt_34_marriage.txt header, and tnt_fill_title_r_effect
+	# at tnt_31_lists.txt:109-130 is the same shape), so BOTH blocks enter
+	# scope:actor. Do not "fix" the second one to enter scope:recipient; it would
+	# find nothing and the right-hand list would come up empty.
+	#
+	# has_variable_list guards the read — an absent list is the "Failed to fetch
+	# variable" class of error (defect D5, 90 000 log lines).
+	# REAL: 00_alliance.txt:3305; 06_ce1_wars.txt:22.
+	# `every_in_list = { variable = X  add_to_list = Y }` — REAL, verbatim shape:
+	# GAME\common\secret_types\00_secret_types.txt:737-740; also
+	# GAME\common\casus_belli_types\10_tgp_china_wars.txt:3073-3076.
+	# `add_to_list = characters` is the list name the engine reads — REAL:
+	# 00_marriage_interactions.txt:164, :254.
+	# =========================================================================
+	populate_actor_list = {
+		scope:actor = {
+			if = {
+				limit = { has_variable_list = tnt_list_spouse_p }
+				every_in_list = {
+					variable = tnt_list_spouse_p
+					add_to_list = characters
+				}
+			}
+			# Parley-owned compatibility hook; its frozen body is a no-op
+			# (tnt_1f_addon_hooks.txt). MCA 2.0 derives the visible grade from
+			# GUI context and ScriptValues, so it neither stamps nor re-orders
+			# this list. Keep the call at the tail and keep its SIDE contract:
+			# older integrations may know the ABI, while current native order
+			# remains untouched. The empty-list case is therefore also a no-op.
+			tnt_ma_grade_order_effect = { SIDE = p }
+		}
+	}
+
+	populate_recipient_list = {
+		scope:actor = {
+			if = {
+				limit = { has_variable_list = tnt_list_spouse_r }
+				every_in_list = {
+					variable = tnt_list_spouse_r
+					add_to_list = characters
+				}
+			}
+			# The r-side twin of the frozen Parley-owned no-op above. MCA 2.0
+			# displays a derived value and preserves native candidate order.
+			tnt_ma_grade_order_effect = { SIDE = r }
+		}
+	}
+
+	# =========================================================================
+	# can_be_picked — the per-row filter for the FIRST of the two picks.
+	#
+	# .info:702-706 is precise about what this is and is not:
+	#	If we're haven't picked a character already ...
+	#		- Trigger: can_be_picked with the current interaction scipe and the
+	#		  tested character set as root
+	#	Note: can_be_picked is only there to filter out the first character we need
+	#	to select and is not part of the Can Send test.
+	# So: the CANDIDATE is root here, which is why both rows are unqualified —
+	# vanilla's own body is the same single unqualified row (:552-561).
+	#
+	# It is a second line of defence, not the gate: the lists above were already
+	# filtered by the same two triggers when they were built. It is written anyway
+	# because the lists are a snapshot taken at window open and a candidate can
+	# marry or die while the window sits there.
+	# =========================================================================
+	can_be_picked = {
+		marriage_interaction_can_be_picked_trigger = yes
+		is_betrothed = no
+	}
+
+	# =========================================================================
+	# has_valid_target_showing_failures_only — THE PAIR GATE, WITH REASONS.
+	#
+	# Vanilla's comment at :563: "Is evaluated only after secondary_recipient and
+	# secondary_actor are both chosen", and .info:686 puts it in the Can Send
+	# chain. A scripted trigger whose rows are custom_descriptions, called from
+	# here, is vanilla's own exact shape — :564 calls
+	# marriage_interaction_valid_target_trigger, which is nothing but
+	# custom_description rows (00_marriage_triggers.txt:362-441).
+	#
+	# THIS IS WHERE THE R-10 PROBLEM DISAPPEARS. Our own Add button cannot run
+	# vanilla's can_marry_character_trigger, because that trigger needs
+	# CHARACTER = <scope> and a scripted_gui is_valid may not run
+	# save_temporary_scope_as — which is the entire reason the tnt_marriage_legal
+	# mirror exists (tnt_34_marriage.txt header). HERE the two spouses ARE real
+	# scopes, handed over by the C++, so the real trigger is called directly and no
+	# mirror is involved. Same three refusals as the Add button, computed live.
+	#
+	# T43 is entered through scope:actor because it reads tnt_wed_list, which lives
+	# on the player. It reuses the Add button's own four loc keys, so the panel and
+	# the panel-less path cannot give the player two different explanations.
+	# =========================================================================
+	has_valid_target_showing_failures_only = {
+		scope:actor = {
+			tnt_stage_pair_available_trigger = {
+				P = scope:secondary_actor
+				R = scope:secondary_recipient
+			}
+		}
+	}
+
+	# =========================================================================
+	# THE TWO CHECKBOXES. These are the panel's own controls
+	# (interaction_marriage.gui:261 MarriageInfo.ToggleMatrilineal, :322
+	# MarriageInfo.ToggleGrandWeddingPromise) and they are driven by ORDINARY
+	# send_options — the C++ toggles the flag, script reads it back as a scope.
+	# Vanilla declares the same two at :759-761 and :877-879 and reads them back at
+	# :660 (scope:grand_wedding_promise) and :809, :1092 (scope:matrilineal).
+	#
+	# Both `localization` values are VANILLA loc keys, referenced not overridden, so
+	# they are already translated into every language: MATRILINEAL_OFFER (:879,
+	# :1687) and GRAND_WEDDING_PROMISE (:761, :1619).
+	# =========================================================================
+
+	# --- THE LINE ------------------------------------------------------------
+	# is_shown is vanilla's verbatim NAND (:880-885). Note it is NAND and not
+	# "opposite sex": two women CAN marry matrilineally and vanilla lets you choose.
+	#
+	# *** starts_enabled IS THE ANSWER TO "TWO SOURCES OF TRUTH FOR THE LINE". ***
+	# The deal already has a line control — the staging toggle tnt_marriage_matri,
+	# which tnt_wed_add_pair_effect freezes onto each committed pair. Now the panel
+	# has one too. THE RULE, and it is one rule and not a precedence table:
+	# tnt_marriage_matri IS THE LINE CURSOR, and whoever last expressed a line owns
+	# it. This checkbox OPENS in the cursor's state, so the panel never contradicts
+	# our own toggle on the way in; and the staging effect writes the checkbox back
+	# into the cursor on the way out, so the panel wins for the pair it stages and
+	# the next pair inherits it. The player therefore always sees, in the panel he
+	# is looking at, the line he is going to get.
+	# starts_enabled — REAL: 00_marriage_interactions.txt:934, :1694.
+	send_option = {
+		flag = matrilineal
+		localization = MATRILINEAL_OFFER
+
+		is_shown = {
+			NAND = {
+				scope:secondary_actor ?= { is_male = yes }
+				scope:secondary_recipient ?= { is_male = yes }
+			}
+		}
+
+		starts_enabled = {
+			scope:actor = { exists = var:tnt_marriage_matri }
+		}
+	}
+
+	# --- THE GRAND WEDDING ---------------------------------------------------
+	# is_shown copies vanilla's four DLC/tier rows (:764-776) minus the AI branch.
+	#
+	# is_valid IS THE HOST GATE PLUS THE PAIR GATE, AND IT IS NOT A FOURTH COPY.
+	# The seven host rows used to be copied three times by hand
+	# (tnt_wed_grand_toggle's is_valid, tnt_exec_marriage_pair_effect, and
+	# tnt_marriage_grand_value) with a comment begging the three to agree. They are
+	# now a named trigger, tnt_wed_host_gate_trigger (tnt_41_gates.txt T44), and
+	# this file calls it rather than copying it. The other two sites should be
+	# switched to the call as well — that is in the handoff, and until they are, the
+	# trigger is authoritative.
+	#
+	# The pair half is vanilla's own two custom_tooltips, :799-824, simplified: the
+	# matrilinear_betrothal rows are dropped because our candidates are
+	# is_betrothed = no. Reading another option's flag inside is_valid is vanilla's
+	# own shape at :809 and :815.
+	#
+	# THE LAST ROW IS OURS AND IT IS A REFUSAL. A deal has ONE grand wedding, held
+	# by one host for one principal pair (tnt_wed_principal / tnt_wed_grand). If the
+	# player has already promised one, this checkbox is refused with a reason
+	# instead of silently re-designating the principal pair to whatever was staged
+	# last. To move the grand wedding, untick it in our own panel first.
+	send_option = {
+		flag = grand_wedding_promise
+		localization = GRAND_WEDDING_PROMISE
+
+		is_shown = {
+			scope:actor = {
+				highest_held_title_tier > tier_barony			# REAL: 00_marriage_interactions.txt:765
+				is_landed_or_landless_administrative = yes		# REAL: :766, :1624
+				has_dlc_feature = tours_and_tournaments			# REAL: :774, :1632
+				has_dlc_feature = advanced_activities			# REAL: :775, :1633
+			}
+		}
+
+		### V4: THE OPTION NOW PRICES ITSELF, and this field is the reason it can.
+		### The user's report was that ticking this box did not move the displayed
+		### points. A send_option's current_description is the one piece of text the
+		### engine is obliged to rebuild when the option is toggled - that is what
+		### the field exists for - whereas nothing promises the same for the
+		### interaction's effect description, where our points line lives. So the
+		### figure is hung here as well. tnt_stage_grand_info opens with vanilla's
+		### own GRAND_WEDDING_PROMISE_INFO (:780, :1638) through $KEY$ inclusion, so
+		### no vanilla wording is lost.
+		current_description = {
+			desc = tnt_stage_grand_info
+		}
+
+		is_valid = {
+			custom_tooltip = {
+				text = tnt_err_grand_host
+				scope:actor = { tnt_wed_host_gate_trigger = yes }
+			}
+			custom_tooltip = {
+				text = grand_wedding_only_dominant_side			# REAL vanilla loc key: :800, :1657
+				trigger_if = {
+					limit = { scope:secondary_actor ?= { is_female = yes } }
+					scope:matrilineal = yes
+				}
+				trigger_else = {
+					NOT = { scope:matrilineal = yes }
+				}
+			}
+			custom_tooltip = {
+				text = grand_wedding_only_family			# REAL vanilla loc key: :820, :1677
+				scope:secondary_actor ?= {
+					is_close_or_extended_family_of = scope:actor	# REAL: :822, :1679
+				}
+			}
+			custom_tooltip = {
+				text = tnt_err_grand_taken
+				scope:actor = { NOT = { exists = var:tnt_wed_grand } }
+			}
+		}
+	}
+
+	send_options_exclusive = no		# REAL: 00_marriage_interactions.txt:1068, :1773
+	show_effects_in_notification = no	# REAL: :1070, :1775
+
+	# =========================================================================
+	# ###################################################################
+	# ##  THIS INTERACTION MARRIES NOBODY. HERE IS HOW WE KNOW.        ##
+	# ###################################################################
+	#
+	# 1. WHICH KEY WOULD HAVE MARRIED THEM: special_interaction =
+	#    arrange_marriage_interaction. Paradox's own schema, .info:576-580: "It
+	#    automatically marries/betroths the secondary participants and sets up
+	#    alliances and hands out prestige." IT IS NOT IN THIS FILE. Nor is
+	#    special_ai_interaction.
+	#
+	# 2. THE MARRIAGE IS C++, AND THE C++ IS KEYED ON THAT KEY, NOT ON `interface`.
+	#    .info's own Can Send walkthrough names the hook points twice, at :685 and
+	#    :690, and both say the same thing:
+	#	- make special is shown checks decided by special_interaction =
+	#	- make special can send checks decided by special_interaction =
+	#    `interface` is documented, three lines away at .info:67-68, as nothing more
+	#    than "What interface does the interaction use?". And .info:376-378 calls
+	#    the wedding a "hard coded" side effect that pre_auto_accept runs BEFORE —
+	#    a side effect of the special hook, not of the window.
+	#
+	# 3. VANILLA'S OWN SCRIPT MARRIES NOBODY EITHER, WHICH IS THE PROOF THAT THE
+	#    WEDDING LIVES BEHIND THAT KEY AND NOWHERE ELSE. I read the whole effect
+	#    region of arrange_marriage_interaction — pre_auto_accept :628, on_send
+	#    :657, on_accept :694-725, on_decline :727 — and there is no marry,
+	#    marry_matrilineal, create_betrothal or create_alliance in any of them. Its
+	#    on_accept delegates to marriage_interaction_on_accept_effect, so I read
+	#    that too: GAME\common\scripted_effects\00_marriage_interaction_effects.txt,
+	#    1786 lines, and grep for
+	#	\b(marry|marry_matrilineal|create_betrothal|create_betrothal_matrilineal|create_alliance)\s*=
+	#    over the whole file returns ZERO MATCHES. It does hooks, lowborn
+	#    legitimacy, consort opinions and toasts. Nothing weds.
+	#
+	# 4. A SHIPPING MOD ALREADY DOES EXACTLY THIS. mod 3037969445, "Love Marriage
+	#    Family": zz_00_lmfmod_interactions.txt:1244 `interface = marriage`, :1245
+	#    `#special_interaction = arrange_marriage_interaction` — commented out — and
+	#    its on_accept (:1674-1687) reads scope:secondary_recipient and fires
+	#    events. Nobody gets married. The pattern is in real users' hands.
+	#
+	# 5. AND OUR OWN CHAIN CANNOT MARRY EVEN BY ACCIDENT. on_accept below calls
+	#    exactly one effect, tnt_wed_stage_pair_effect, whose entire body is
+	#    variable writes plus tnt_wed_add_pair_effect — the same list-append the Add
+	#    button uses. The four engine effects that DO wed
+	#    (marry / marry_matrilineal / create_betrothal / create_betrothal_matrilineal)
+	#    appear in this mod at exactly four places, all inside
+	#    tnt_wed_plain_pair_effect and tnt_wed_grand_pair_effect, and both are
+	#    reachable only from tnt_exec_marriage_pair_effect, which is called only by
+	#    tnt_apply_deal_effect (tnt_32_apply.txt:129) when the WHOLE TREATY IS
+	#    APPLIED. Staging and marrying are two different call trees with no edge
+	#    between them.
+	#
+	# WHAT TO WATCH FOR ON THE FIRST TEST RUN, in case any of the above is wrong:
+	# stage a pair, then DO NOT send the treaty — check the two characters' spouse
+	# and betrothed status immediately. If either changed, this interaction has a
+	# key it should not have; delete the file and say so. There is no halfway.
+	# =========================================================================
+	######################################################################
+	### THE POINTS SHOWN IN THE VANILLA WINDOW (V4 request 3) LIVE HERE, AND
+	### NOT IN A .gui FILE.
+	###
+	### THE REQUEST. "It does not print the points when both spouses are chosen,
+	### add the points, this is very important for judging a match before it goes
+	### into the deal." The window is vanilla's own matchmaker
+	### (interface = marriage) and this mod overrides no vanilla file, so the only
+	### way in is through text the ENGINE asks us for.
+	###
+	### WHERE THE LINE APPEARS. GAME\gui\interaction_marriage.gui:180-217:
+	###     name = "marriage_info_and_send_offer"
+	###     visible = "[MatchmakerInteractionWindow.HasPickedCharacters]"     :182
+	###       ... datacontext = "[CharacterInteractionConfirmationWindow.GetEffectsDescription]"  :197
+	###           vbox_character_interaction_effects_contents = {}            :216
+	### That block exists only while BOTH characters are picked - exactly the
+	### moment the request names - and :216 renders THIS interaction's effect
+	### description. A custom_tooltip in on_accept is therefore printed there,
+	### and re-printed whenever the selection changes.
+	###
+	### WHY A SCOPE ALIAS PROLOGUE. The price of a couple is
+	### tnt_marriage_pair_gain_value / tnt_marriage_pair_loss_value, and those
+	### read scope:tnt_sp, scope:tnt_sr and scope:tnt_p - the aliases every
+	### tnt_5x value in this mod is written against. The engine gives this window
+	### scope:secondary_actor / scope:secondary_recipient instead, so three lines
+	### re-alias them. That is the whole bridge: NOT ONE NUMBER IS RECOMPUTED FOR
+	### THE PREVIEW - every figure delegates to the deal's own formula. *** BUT THE
+	### SENTENCE THAT STOOD HERE - "the same figure tnt_wed_add_pair_effect stores
+	### as tnt_wed_net" - IS FALSE SINCE V4 FIX 2, V15 AND THE MULTIPLIER, AND IS
+	### WITHDRAWN: the correction is in tnt_52_marriage_values.txt:2370-2400. ***
+	###
+	### A SCOPE SAVED ONE LINE ABOVE A custom_tooltip IS VISIBLE TO THAT
+	### TOOLTIP'S LOCALIZATION - vanilla's own proof, and it is what makes this
+	### legal rather than hopeful:
+	###     GAME\common\scripted_effects\00_building_effects.txt:2616-2617
+	###         save_scope_as = building_scope
+	###         custom_tooltip = random_economic_building_tt
+	###     GAME\localization\english\effects_l_english.yml:3330
+	###         random_economic_building_tt: "Holding of [building_scope.GetName] …"
+	###
+	### AND THE LOC READS THE VALUE THROUGH `SCOPE`, which is vanilla's token for
+	### "the script context this text is being resolved in", the one form that
+	### carries the saved scopes into a script value:
+	###     GAME\localization\english\council_tasks_l_english.yml:83-84
+	###         [SCOPE.ScriptValue('chancellor_domestic_affairs_opinion_scale')|1]
+	###     and that value reads scope:councillor_liege. 39 vanilla script values
+	###     called from localization reference scope: this way.
+	###
+	### THE ALIASES ARE TEMPORARY, so nothing survives into the save, and they are
+	### re-written by tnt_wed_add_pair_effect anyway when the pair is really added.
+	######################################################################
+	on_accept = {
+		scope:actor = {
+			var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+			### V14, USER ITEM 4 - THE FOURTH ALIAS, AND IT IS THE PLAYER HIMSELF.
+			### Value 8 of tnt_52_marriage_values.txt (the rank gulf) prices the
+			### distance between the two RULERS, so it needs both sides of the table
+			### by name. It MUST be saved here as well as in tnt_wed_add_pair_effect,
+			### or this preview and the number stored one click later would disagree -
+			### which is the single promise this whole bridge exists to keep.
+			### scope:actor is the player here, so a bare save is the right one.
+			save_temporary_scope_as = tnt_gulf_me
+			scope:secondary_actor ?= { save_temporary_scope_as = tnt_sp }
+			scope:secondary_recipient ?= { save_temporary_scope_as = tnt_sr }
+			### THE NUMBER GOES FIRST (V5 item 20) AND THIS BLOCK PRINTS NOTHING, SO IT STILL DOES:
+			### custom_tooltips render in EFFECT ORDER into vanilla's info column (interaction_marriage.gui:216).
+			### WHY T54 IS ASKED HERE TOO, AND WHY THIS CONDITIONAL SAVE NEEDS NO `else`, NO DEFAULT AND NO CLEAR: tnt_52_marriage_values.txt, the delta's header - vanilla's own house_relation_is_valid_to_start_trigger proves a temporary scope dies with the evaluation that made it, so a stale `yes` cannot cross into the next preview build. DO NOT harden this: it would move no number and would rot every citation naming a line below it.
+			if = {																	# a second CALL SITE of T54, never a second copy of the rule
+				limit = {															# a limit body is never described - law 10c holds
+					exists = scope:tnt_p											# R13 - tnt_p is an object-variable alias
+					tnt_pair_yields_alliance_trigger = { P = scope:tnt_sp  R = scope:tnt_sr  ME = scope:tnt_gulf_me  OTHER = scope:tnt_p }
+				}
+				save_temporary_scope_as = tnt_stage_ally_ok							# the bridge tnt_stage_alliance_offer_value reads
+			}
+			custom_tooltip = tnt_stage_pair_points_line
+
+			### THE VERDICT ON *THIS* PAIR, AND IT GOES SECOND FOR THE SAME REASON
+			### THE NUMBER GOES FIRST.
+			###
+			### ROUND 11, 2026-08-23 - THE VERDICT IS NOW THE ENGINE'S OWN ANSWER,
+			### NOT A FORECAST OF ONE. The user ruled that a deal marriage must
+			### behave like a vanilla one, so tnt_wed_one_pair_effect
+			### (tnt_34_marriage.txt) now GRANTS the alliance on exactly the pairs
+			### the engine says qualify. This line and that grant therefore CANNOT
+			### DISAGREE: they call ONE trigger, T54
+			### tnt_pair_yields_alliance_trigger (tnt_41_gates.txt), with the same
+			### four handles. What the player reads here is what the game will do,
+			### by construction rather than by care.
+			###
+			### WHAT WAS HERE BEFORE, AND WHY IT WENT. T52
+			### tnt_pair_opens_alliance_trigger answered a DIFFERENT question -
+			### "may I later ASK for an alliance", i.e. negotiate_alliance's four
+			### kinship doors - and that question is now dead text twice over:
+			### negotiate_alliance HIDES itself once the pair is allied
+			### (GAME\common\character_interactions\00_alliance.txt:1123), and every
+			### T52 door sits inside the engine's own marriage rule
+			### (MAX_ALLIANCE_FAMILY_DISTANCE_SUM = 4,
+			### GAME\common\defines\00_defines.txt:436), so T52-true is a strict
+			### SUBSET of T54-true. T52 keeps its body as an orphan - its row-by-row
+			### derivation of vanilla's doors is the record - and MUST NOT regain a
+			### call site. Its tombstone is in tnt_41_gates.txt.
+			###
+			### THE GRAND-WEDDING ROW WENT WITH IT. `NOT = { scope:grand_wedding_promise
+			### = yes }` used to stand in this limit, because a betrothed pair cannot
+			### satisfy T52's any_spouse doors. A BETROTHAL NOW CARRIES THE ALLIANCE
+			### IN ITS OWN RIGHT, so the row would only suppress a true verdict:
+			### is_alliance_valid accepts `betrothed = scope:second`
+			### (GAME\common\scripted_rules\00_rules.txt:354), on_alliance_broken
+			### breaks the betrothal of each reason pair
+			### (GAME\common\on_action\alliance_on_actions.txt:331-338), and vanilla's
+			### own combined site grants the alliance in BOTH branches of
+			### marry-or-betroth (GAME\events\dlc\fp1\fp1_trade_events.txt:2231-2247).
+			### T54 asks the engine and the engine already knows which it will be.
+			###
+			### T54 IS A WRAPPER, NOT A DERIVATION. The rule is C++ and has no script
+			### reader; the predicate `yields_alliance` is simply exposed to script,
+			### documented in the binary (EXE 70954656) as "would get an alliance ...
+			### through such a marriage". That tense is why it is asked HERE, at
+			### staging, and again at apply time before the bond exists.
+			###
+			### THE FOUR HANDLES ARE THE ONES SAVED ABOVE AND ARE UNCHANGED, all
+			### absolute, which is what T51's header requires of everything on this
+			### path: scope:tnt_sp / scope:tnt_sr are the two picked people
+			### (:751-752), scope:tnt_gulf_me is the player (:750) and scope:tnt_p is
+			### the partner ruler (:742). `exists = scope:tnt_p` is R13 discipline
+			### rather than a live case - is_shown already demands
+			### `exists = var:tnt_partner` (:197) - and the trigger carries its own
+			### existence wrapper besides.
+			###
+			### THE SHAPE IS VANILLA'S: `if = { limit = { ... } custom_tooltip = ... }`
+			### inside a character_interaction's on_accept is exactly what
+			### gift_artifact_interaction does at
+			### GAME\common\character_interactions\00_artifact_interactions.txt:397-431,
+			### inside the on_accept opened at :122. Law 10a does not reach here -
+			### this is an interaction, not a BuildTooltip path.
+			### *** AND LAW 10c IS WHY THE CALL SITS INSIDE THE `limit` AND NOWHERE
+			### *** ELSE: yields_alliance is a block-form, parameter-bearing engine
+			### *** trigger with ZERO common\trigger_localization entries, so T54 must
+			### *** never be reachable by the description walker. A `limit` body is
+			### *** never described. Do not move this row into the custom_tooltip.
+			if = {
+				limit = {
+					exists = scope:tnt_p
+
+					tnt_pair_yields_alliance_trigger = {
+						P     = scope:tnt_sp
+						R     = scope:tnt_sr
+						ME    = scope:tnt_gulf_me
+						OTHER = scope:tnt_p
+					}
+					### V32 SKEPTIC: THE VERDICT AND THE PRICE MUST AGREE, AND THEY
+					### DISAGREED ON EXACTLY THIS INPUT. The price bridge written by
+					### tnt_wed_reprice_all_effect refuses to pay for an alliance the two
+					### rulers ALREADY have; without this row the verdict said "this opens
+					### a door" while the sheet charged nothing for it, and the player
+					### would read the mismatch as a pricing bug. The engine agrees with
+					### the price side: an existing pact is not opened twice. `?=` because
+					### tnt_p is an object-variable alias (R13), so a partnerless
+					### evaluation falls through instead of throwing.
+					scope:tnt_p ?= { NOT = { is_allied_to = scope:tnt_gulf_me } }
+				}
+				custom_tooltip = tnt_stage_alliance_opens_tt
+			}
+			### THE THIRD BRANCH, AND IT IS HERE BECAUSE THE `if` ABOVE NOW HAS TWO
+			### WAYS TO FAIL. Until the already-allied row joined that limit, `else`
+			### could only mean ONE thing - the kinship sum is too wide - and
+			### tnt_stage_alliance_shut_tt says exactly that in all nine languages:
+			### it explains the sum of the two family distances and then tells the
+			### player to marry his own blood to the partner's. On an ALREADY-ALLIED
+			### pair that string is a wrong-reason tooltip of the worst kind,
+			### because its advice is to do the very thing he has just done. He
+			### stages his own son against the partner's daughter - a pair T54
+			### passes outright - reads "this match creates no alliance, marry your
+			### own blood to his", and re-picks through closer and closer kin
+			### getting the same refusal with the same false explanation every
+			### time. THE VERDICT WAS SPLIT RATHER THAN THE STRING WIDENED, so each
+			### branch states one reason and states it truthfully.
+			###
+			### THE ROW IS THE MIRROR OF THE `NOT = { is_allied_to }` ROW IN THE
+			### `limit` ABOVE AND MUST STAY ITS MIRROR: the price bridge in
+			### tnt_wed_reprice_all_effect refuses to pay for a pact the two rulers
+			### already have, so the verdict, the price and this line all turn on
+			### exactly the same input. `exists` beside `?=` is the shape the `if`
+			### uses (R13 - reading an unset object variable throws, and inside a
+			### tooltip build the throw is printed to the player as a raw
+			### identifier); it also pins the partnerless case to the shut line,
+			### which is the safe under-report this whole surface is built around,
+			### rather than resting on whatever `?=` returns for a missing scope.
+			###
+			### THE KEY IS TRUE IN BOTH SUB-CASES, WHICH IS WHY IT IS CONDITIONAL.
+			### This branch fires whether or not the couple passes T54, so the
+			### string asserts only what is certain - no new pact, no treaty points
+			### for one, no second charge - and puts the kinship half behind an "if
+			### the couple qualifies". It may NOT assert that they qualify. That
+			### wording is also the shipped asymmetry said in words: the GRANT
+			### carries no already-allied guard, because every qualifying marriage
+			### is registered as one more reason the pact stands
+			### (tnt_34_marriage.txt:2274-2290), while the PRICE carries one, so
+			### nobody is charged twice. Two questions, two guards - do not
+			### harmonise them.
+			else_if = {
+				limit = {
+					exists = scope:tnt_p
+
+					scope:tnt_p ?= { is_allied_to = scope:tnt_gulf_me }
+				}
+				custom_tooltip = tnt_stage_alliance_already_tt
+			}
+			else = {
+				custom_tooltip = tnt_stage_alliance_shut_tt
+			}
+
+			### THE STANDING RULE PARAGRAPH, and it follows the number rather than
+			### preceding it. It is still in full, because unlike `prompt` this block
+			### may be a paragraph, and it still lands beside the pair's portraits.
+			### THE KEY NAME IS NOW A LEGACY NAME AND THE TEXT BEHIND IT IS THE
+			### OPPOSITE OF WHAT IT WAS. Round 11 rewrote tnt_stage_no_alliance_tt in
+			### all nine languages: it used to say that no match written into a treaty
+			### ever brings an alliance, which stopped being true the moment
+			### tnt_wed_one_pair_effect started granting one. It now states the RULE -
+			### a treaty match carries the same alliance vanilla's own Arrange
+			### Marriage carries, the window's own alliance signs may be believed, and
+			### the pact rests on the couple so it lasts as long as the match does.
+			### The key was deliberately NOT renamed: renaming costs nine files and
+			### the loc gate's key-set identity check for zero player-visible gain,
+			### and the mod already carries the same trade-off elsewhere (house law
+			### 11). Read the key, never its name.
+			custom_tooltip = tnt_stage_no_alliance_tt
+
+			tnt_wed_stage_pair_effect = {
+				P = scope:secondary_actor
+				R = scope:secondary_recipient
+			}
+		}
+	}
+
+	# --- the AI must never send this -----------------------------------------
+	# Lock 2 of 3 (lock 1 is is_ai = no above, lock 3 is the total absence of an
+	# ai_targets block, .info:490-495). .info:533 — 0 means never considered.
+	# The loader may log "'ai_frequency' ... but no 'ai_targets', won't be used"
+	# (EXE:282548); that is the outcome we want and vanilla is in the same position
+	# at 00_tribal_interactions.txt:207, :369 and 06_ep3_interactions.txt:1126.
+	ai_frequency = 0
+	ai_will_do = {
+		base = 0
+	}
+	ai_accept = {
+		base = 0
+	}
+}
+
+###############################################################################
+# R2 AUDIT — EVERY NON-tnt_ IDENTIFIER IN THIS FILE, WITH A REAL CALL SITE.
+# Nothing here is justified by trigger_localization or effect_localization.
+# Paths are relative to
+#   D:\install\games\Crusader.Kings.III.Royal.Edition-InsaneRamZes\game
+# and MI = common\character_interactions\00_marriage_interactions.txt.
+#
+#   KEYS
+#   auto_accept                     MI:748 (trigger form); .info:272; 284 `= yes` lines game-wide
+#   ai_accept / ai_will_do / ai_frequency   MI:752; .info:533, :564, :570
+#   can_be_picked                   MI:552; .info:254, :702-706
+#   category                        MI:14; .info:18
+#   current_description             MI:779, :1637; .info:329
+#   desc                            MI:44, :1203; .info:182
+#   has_valid_target_showing_failures_only  MI:564, :1474; .info:248
+#   icon                            MI:13, :1199; .info:36
+#   interface                       MI:21, :1208; .info:68
+#   interface_priority              MI:270, :1412; .info:10
+#   is_shown (interaction)          MI:333, :1417
+#   is_shown / is_valid (send_option)   MI:763, :783; .info:314, :321
+#   is_valid_showing_failures_only   MI:420, :1457
+#   localization (send_option)      MI:761, :879
+#   on_accept                       MI:694, :1547
+#   populate_actor_list             MI:162; .info:296
+#   populate_recipient_list         MI:252, :1230; .info:299
+#   redirect                        MI:94, :1209, :1965; .info:289
+#   send_name                       MI:1205; .info:123
+#   send_option / flag              MI:759-761
+#   send_options_exclusive          MI:1068, :1773
+#   show_effects_in_notification    MI:1070, :1775
+#   starts_enabled                  MI:934, :1694
+#   use_diplomatic_range            MI:1905 (break_betrothal, `= no`); .info:108
+#
+#   EFFECTS
+#   add_to_list                     MI:164, :254
+#   every_in_list (variable form)   common\secret_types\00_secret_types.txt:737-740;
+#                                   common\casus_belli_types\10_tgp_china_wars.txt:3073-3076
+#   save_scope_as (inside redirect)  MI:102, :128, :147
+#
+#   TRIGGERS
+#   custom_tooltip (in send_option is_valid)   MI:787, :799, :819
+#   exists                          common\combat_phase_events\00_commander_phase_events.txt:47
+#   has_dlc_feature                 MI:774, :775
+#   has_variable_list               00_alliance.txt:3305; 06_ce1_wars.txt:22
+#   highest_held_title_tier         MI:765; 00_alliance.txt:1180
+#   is_ai                           00_alliance.txt:1129, :2103
+#   is_betrothed                    common\scripted_triggers\00_marriage_triggers.txt:188;
+#                                   common\activities\intents\wedding_intents.txt:72
+#   is_close_or_extended_family_of  MI:822, :1679
+#   is_female / is_male             MI:882, :930
+#   is_landed                       00_character_interactions.txt:26
+#   is_landed_or_landless_administrative    MI:766, :1624
+#   matchmaker (link)               MI:99, :121, :350
+#   NAND / NOT / trigger_if / trigger_else  MI:881, :795, :812
+#   tier_barony                     MI:765
+#
+#   VANILLA SCRIPTED TRIGGERS CALLED BY NAME
+#   marriage_interaction_can_be_picked_trigger   defined 00_marriage_triggers.txt:354-360,
+#                                                called MI:354 (is_shown) and MI:554 (can_be_picked)
+#
+#   VANILLA LOC KEYS REFERENCED (not overridden — R1 intact)
+#   MATRILINEAL_OFFER, GRAND_WEDDING_PROMISE, GRAND_WEDDING_PROMISE_INFO,
+#   grand_wedding_only_dominant_side, grand_wedding_only_family
+#
+#   OURS, ALL DEFINED IN THIS MOD
+#   tnt_show_marriage_p_trigger        tnt_41_gates.txt (T26)
+#   tnt_stage_pair_available_trigger   tnt_41_gates.txt (T43, this iteration)
+#   tnt_wed_host_gate_trigger          tnt_41_gates.txt (T44, this iteration)
+#   tnt_wed_stage_pair_effect          tnt_34_marriage.txt (this iteration)
+#
+#   COULD NOT PROVE — NOTHING. Every key and identifier above has a call site.
+#   The two things this file cannot prove are BEHAVIOURAL, not lexical, and both
+#   are named in the handoff: (a) whether `auto_accept = yes` behaves on a
+#   matchmaker interface, and (b) which slot the C++ writes the picks into, which
+#   the idempotent redirect above is built to survive either way.
+###############################################################################

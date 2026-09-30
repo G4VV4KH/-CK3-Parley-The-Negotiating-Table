@@ -1,0 +1,115 @@
+﻿########################################################################
+# PARLEY - THE GAME-START LETTER (USER ITEM 23)
+#
+# One visible event, once per campaign, to every human player: the mod is
+# active, this is how a negotiation is opened, and - reading the two AI game
+# rules - this is how often to expect envoys. Fired from
+# common/on_action/tnt_73_intro.txt (on_game_start_after_lobby, which vanilla
+# documents as "good for anything where you need to know who the players are,
+# or what the game rules are" - GAME\common\on_action\game_start.txt:2590);
+# the once-per-campaign global guard lives there, next to the firing loop.
+#
+# THE DESC IS A CONCATENATED LADDER. Both halves of the shape are proven:
+# a fixed desc followed by TWO first_valid blocks in a row is vanilla verbatim
+# (GAME\events\birth_events.txt:1845-1863, birth.1006), and a fixed desc
+# TRAILING a first_valid is the shipped shape of tnt_ai_offer.0002's outro
+# (events/tnt_ai_events.txt). Assembled here: a fixed opening paragraph; one
+# paragraph built from the TWO first_valid blocks (the offer-rate sentence,
+# then the world-treaties sentence appended to the same paragraph); and a
+# fixed closing line that names the right-click interaction plainly - the one
+# place UI words are allowed; the body keeps to envoys, seals and scales, the
+# letter prose's own register.
+#
+# EVERY BRANCH TESTS ONE SETTING ID of the two rules in
+# common/game_rules/tnt_81_ai_rules.txt, so the prose can never promise a
+# rate the lobby has switched off. The numbers in the loc keys are the lock
+# durations E-AI-1 actually writes at each setting (tnt_37_ai_offer.txt,
+# quoted in tnt_81's "THE FIVE SETTINGS" table): normal = one letter a year
+# at most / three-year proposer brood; frequent = six-month player lock /
+# one-year proposer; rare = three-year player lock / six-year proposer;
+# test = 30-day proposer lock and no player lock at all. If a setting's
+# durations are ever retuned, retune the matching _desc key in the same
+# commit. The FALLTHROUGH of each ladder is that rule's declared default
+# (normal, rare) - but the branches are per-SETTING, not per-default, so a
+# change of shipped default (user item 16) needs no edit here.
+# `has_game_rule = <SETTING id>`: real sites cited in tnt_81's header
+# (GAME\common\character_interactions\00_culture_interactions.txt:181,
+# GAME\common\character_interactions\00_adoption.txt:16).
+#
+# The trigger's is_ai row is belt-and-braces under the hook's every_player
+# loop, and it keeps this event correct if a future file ever fires it wider.
+#
+# ENCODING: UTF-8 WITH BOM (new .txt, re-written per the BOM recipe).
+########################################################################
+
+namespace = tnt_intro
+
+########################################################################
+# tnt_intro.0001 - "the new fashion of treating". root = a human player.
+# theme = diplomacy: GAME\common\event_themes\00_event_themes.txt:209.
+# animation = happiness: GAME\events\birth_events.txt:2433.
+# No left portrait: no sender - the player's own chancery is speaking.
+########################################################################
+tnt_intro.0001 = {
+	type = character_event
+	title = tnt_intro_title
+	theme = diplomacy
+
+	right_portrait = {
+		character = root
+		animation = happiness
+	}
+
+	trigger = {
+		is_ai = no
+	}
+
+	desc = {
+		# Paragraph 1 - the proclamation. The key ends in \n\n.
+		desc = tnt_intro_desc_main
+
+		# Paragraph 2, first half - how often the world will write to YOU.
+		first_valid = {
+			triggered_desc = {
+				trigger = { has_game_rule = tnt_ai_offer_rate_off }
+				desc = tnt_intro_desc_rate_off
+			}
+			triggered_desc = {
+				trigger = { has_game_rule = tnt_ai_offer_rate_rare }
+				desc = tnt_intro_desc_rate_rare
+			}
+			triggered_desc = {
+				trigger = { has_game_rule = tnt_ai_offer_rate_frequent }
+				desc = tnt_intro_desc_rate_frequent
+			}
+			triggered_desc = {
+				trigger = { has_game_rule = tnt_ai_offer_rate_test }
+				desc = tnt_intro_desc_rate_test
+			}
+			# tnt_ai_offer_rate_normal - the remaining setting.
+			desc = tnt_intro_desc_rate_normal
+		}
+
+		# Paragraph 2, second half - what foreign courts do among themselves.
+		# Each key opens with a space and continues the paragraph above.
+		first_valid = {
+			triggered_desc = {
+				trigger = { has_game_rule = tnt_ai_treaties_off }
+				desc = tnt_intro_desc_world_off
+			}
+			triggered_desc = {
+				trigger = { has_game_rule = tnt_ai_treaties_common }
+				desc = tnt_intro_desc_world_common
+			}
+			# tnt_ai_treaties_rare - the remaining setting.
+			desc = tnt_intro_desc_world_rare
+		}
+
+		# The closing line - opens with \n\n and names the interaction.
+		desc = tnt_intro_desc_close
+	}
+
+	option = {
+		name = tnt_intro_opt_ok
+	}
+}

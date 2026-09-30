@@ -1,0 +1,827 @@
+######################################################################
+### PARLEY - THE PEOPLE PANELS   (integration contract v1, item 19)
+###
+### A types-only file. NO registration in gui/scripted_widgets is needed, and
+### adding one would be wrong: only a WINDOW is registered there (see the
+### header of gui/tnt_diplomacy_window.gui). Same standing as gui/tnt_types.gui,
+### gui/tnt_panels.gui, gui/tnt_panel_multiselect.gui and
+### gui/tnt_panel_contract.gui, none of which is registered either.
+###
+### WHAT IS IN HERE
+###   1. HOSTAGES   overlay index 16, sides 0 and 1 - two tnt_picker_panel
+###                 derivatives over tnt_list_hostage_p / _r.
+###   2. WARD       *** RETIRED V16, USER ITEM 5 *** - the two derivatives are
+###                 commented out and overlay index 17 is DORMANT. Was: sides 0
+###                 and 1 over tnt_list_ward_p / _r.
+###   3. COURTIERS  overlay 18, both sides - tnt_panel_multi over
+###                 tnt_list_courtier_* (available) / tnt_sel_courtier_* (chosen).
+###   4. SUBJECTS   overlay 19, both sides (V26) - tnt_panel_multi over tnt_list_subject_* / tnt_sel_subject_*.
+### GRANT INDEPENDENCE HAS NO PANEL AND NO OVERLAY INDEX, by the contract: it
+### is a bool pair, and the fealty row already proves a bool needs only
+### tnt_item_row_toggle plus a tnt_show_ gate. Nothing about it is in this file.
+###
+### THE INDICES ARE THE CONTRACT'S, NOT THIS FILE'S CHOICE. 16 / 17 / 18 are
+### allocated in section 3 of the integration contract; 14 and 15 were left
+### alone although technically free, because the frozen table still names them
+### as the PIETY and INFLUENCE row identities and that table is quoted from four
+### files. Overlay 13 is now RETIRED with the captive picker (user item 7), and
+### side 1 of it - once RESERVED for the partner-side captive panel - is released
+### with it. Neither half is reused. Indices 8 and 11 are likewise RETIRED, not
+### free, with the prisoner terms and the third-party non-aggression promise.
+### V13 USER ITEM 1 ADDS THREE MORE: 3 (alliance), 4 (truce) and 7 (the granted
+### claim - both overlay sides, and the row index too). A DESIGN REFUSAL, not a
+### bug fix: all three let a player buy at this table what vanilla deliberately
+### gates behind a lifestyle investment - the two pacts behind the Diplomacy perk
+### defensive_negotiations_perk
+### (GAME\common\character_interactions\00_alliance.txt:1184,
+### GAME\common\scripted_triggers\03_fp2_scripted_triggers.txt:732), the claim
+### behind Learning and a Court Chaplain's council task
+### (GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088). NEVER reused,
+### NEVER renumbered.
+### V16 USER ITEM 5 ADDS ONE MORE: 17 (the ward / fosterage picker), retired
+### because the term was too abusable on points and the hostage picker in section 1
+### covers the same immersive ground.
+### The frozen table now reads: in use 5, 6, 10, 12, 16, 18, 19 (V26); free 1,
+### 9, 14, 15, 20+; RETIRED, not free 2, 3, 4, 7, 8, 11, 13, 17.
+###
+### WHY DERIVED TYPES RATHER THAN SIX BODIES OF BLOCKOVERRIDES IN THE WINDOW.
+### That is the shipped pattern and the reason is recorded at
+### gui/tnt_panel_multiselect.gui section 5: an instantiation written from a
+### naming contract alone gets block bodies wrong across an agent boundary, so
+### the panel author ships working defaults and the window instantiates with one
+### line. These six are that same deal - each carries its own `visible`, its own
+### title, its own lists and its own setters.
+###
+### CROSS-FILE DERIVATION IS PROVEN IN THIS MOD, and load order does not matter:
+### gui/tnt_panel_contract.gui loads BEFORE gui/tnt_panels.gui alphabetically and
+### still derives `type tnt_panel_contract = tnt_editor_panel` and
+### `type tnt_contract_right_row = tnt_toggle_line` from it. tnt_picker_panel
+### lives in gui/tnt_types.gui and tnt_panel_multi / tnt_multi_row_char in
+### gui/tnt_panel_multiselect.gui; both are resolved the same way.
+###
+### R-LAYOUT (this project's own law, one debugging session each):
+###   * no `position` / `parentanchor` on a direct child of hbox / vbox /
+###     flowcontainer - the rule row texts below are plain expanding children
+###     and carry neither;
+###   * every decorative widget carries alwaystransparent = yes, because a
+###     non-transparent sibling over a button kills the click AND the hover;
+###   * every text that prints GAME text is autoresize = no with the inherited
+###     elide (the rule lines are the documented exception - they print OUR loc
+###     and use the text_multi + max_width recipe the non-aggression panels
+###     shipped, before user item 1 retired them; the recipe is unchanged);
+###   * every datamodel item carries a FIXED size (PDX: "required for
+###     performance reasons", GAME\gui\window_epidemics.gui:449-450).
+###   * NO GetScriptedGui in any `visible` or `down` (Law R11). Every test below
+###     is a variable read or a datamodel emptiness test.
+###
+### THE PANELS' OWN `parentanchor = center` is inherited from the two base types
+### and stays legal: their parent is tnt_picker_overlay, a plain widget, which
+### arranges nothing.
+###
+### IDENTIFIERS USED HERE THAT THIS FILE DOES NOT OWN (all from the contract's
+### register, section 1.B): the variables tnt_hostage_p/_r,
+### the lists tnt_list_hostage_p/_r, tnt_list_courtier_p/_r,
+### the selections tnt_sel_courtier_p/_r, the scripted guis
+### tnt_pick_hostage_<side>_open/_set/_clear
+### and tnt_sel_courtier_<side>_add/_remove/_clear, and the two prices
+### tnt_val_courtier_multi_p_value / _r_value.
+### RETIRED V16, USER ITEM 5 - this file no longer names tnt_ward_p/_r,
+### tnt_list_ward_p/_r or tnt_pick_ward_<side>_open/_set/_clear on any live line;
+### all of them are gone from their owning files too.
+###
+### ONE NAME IS NOT IN THE REGISTER AND IS FLAGGED IN THE BUILD REPORT:
+### tnt_multi_courtier_p_open / tnt_multi_courtier_r_open, the panel OPENERS for
+### the two courtier panels. The contract lists courtier's add / remove / clear
+### but no opener. The name follows the only shipped precedent -
+### tnt_multi_<item>_<side>_open (tnt_multi_title_p_open, and
+### tnt_multi_prisoner_p_open until user item 7 retired it - the precedent it set
+### stands) - and the distinction is load-bearing rather than
+### cosmetic: the tnt_multi_* opener runs the PRUNE after the fill, so the
+### already-chosen courtiers leave the available column. The tnt_pick_* form
+### would show every candidate in both columns at once, and in a two-list panel
+### a row's column IS its selection state.
+######################################################################
+
+types TwdPeople
+{
+
+	####################################################################
+	### 1. HOSTAGES - overlay index 16
+	###
+	### ONE hostage per side, so this is a single-object picker and not a
+	### multi-select: tnt_hostage_p is a character VARIABLE, and the row's
+	### filled state is that character's own head (tnt_chosen_char).
+	###
+	### THE RULE LINE IS NOT DECORATION. The non-aggression panels gained one
+	### because "the old picker never said who qualified and nobody could tell
+	### what the list meant", and a hostage list is the worst case of that: the
+	### candidates come from tnt_hostage_candidate_trigger and a player looking
+	### at four of his children has no way to know why the fifth is missing.
+	### Same text_multi recipe as those panels.
+	###
+	### `down` is answerable here and IS answered, unlike in the multi-select
+	### panels: with one slot, "is this the chosen one" is ObjectsEqual against
+	### the stored variable - the shipped tnt_picker_row_char default.
+	####################################################################
+
+	### 16 / side 0 - the hostage the PLAYER sends.
+	type tnt_panel_hostage_p = tnt_picker_panel
+	{
+		name = "tnt_panel_hostage_p"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)16' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+
+		blockoverride "tnt_picker_panel_title" { text = "tnt_picker_title_hostage_p" }
+
+		blockoverride "tnt_picker_panel_empty"
+		{
+			text = "tnt_picker_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_hostage_p') )]"
+		}
+
+		blockoverride "tnt_picker_panel_list"
+		{
+			vbox = {
+				name = "tnt_rows_hostage_p_outer"
+				layoutpolicy_horizontal = expanding
+				spacing = 6
+
+				text_multi = {
+					name = "tnt_rule_hostage_p"
+					layoutpolicy_horizontal = expanding
+					text = "tnt_picker_rule_hostage"
+					autoresize = yes
+					max_width = 430
+					default_format = "#weak"
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Size_Small
+				}
+
+				vbox = {
+					name = "tnt_rows_hostage_p"
+					layoutpolicy_horizontal = expanding
+					spacing = 3
+					datamodel = "[TntList('tnt_list_hostage_p')]"
+
+					item = {
+						tnt_picker_row_char = {
+							datacontext = "[Scope.Char]"
+							size = { 0 45 }
+
+							blockoverride "tnt_row_onclick" { onclick = "[TntPickChar('tnt_pick_hostage_p_set')]" }
+							blockoverride "tnt_row_down"    { down = "[ObjectsEqual( TntVar('tnt_hostage_p').Char, Character.Self )]" }
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	### 16 / side 1 - the hostage the PARTNER sends. Same panel, his list.
+	type tnt_panel_hostage_r = tnt_picker_panel
+	{
+		name = "tnt_panel_hostage_r"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)16' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+
+		blockoverride "tnt_picker_panel_title" { text = "tnt_picker_title_hostage_r" }
+
+		blockoverride "tnt_picker_panel_empty"
+		{
+			text = "tnt_picker_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_hostage_r') )]"
+		}
+
+		blockoverride "tnt_picker_panel_list"
+		{
+			vbox = {
+				name = "tnt_rows_hostage_r_outer"
+				layoutpolicy_horizontal = expanding
+				spacing = 6
+
+				text_multi = {
+					name = "tnt_rule_hostage_r"
+					layoutpolicy_horizontal = expanding
+					text = "tnt_picker_rule_hostage"
+					autoresize = yes
+					max_width = 430
+					default_format = "#weak"
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Size_Small
+				}
+
+				vbox = {
+					name = "tnt_rows_hostage_r"
+					layoutpolicy_horizontal = expanding
+					spacing = 3
+					datamodel = "[TntList('tnt_list_hostage_r')]"
+
+					item = {
+						tnt_picker_row_char = {
+							datacontext = "[Scope.Char]"
+							size = { 0 45 }
+
+							blockoverride "tnt_row_onclick" { onclick = "[TntPickChar('tnt_pick_hostage_r_set')]" }
+							blockoverride "tnt_row_down"    { down = "[ObjectsEqual( TntVar('tnt_hostage_r').Char, Character.Self )]" }
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 2. WARD / FOSTERAGE - *** RETIRED V16, USER ITEM 5 ***
+	###
+	### Both picker panels below are commented out. ATOMIC PAIR with their two
+	### instantiations at gui/tnt_diplomacy_window.gui:3240-3246: an instantiation
+	### of a type that is not declared is a .gui LOAD error, so the declarations
+	### and the instantiations went in one edit. Precedent for the pairing: the
+	### retired claim panels, declarations commented at
+	### gui/tnt_panel_multiselect.gui:1274 and :1355, instantiations at
+	### gui/tnt_diplomacy_window.gui:2930, :2969.
+	###
+	### REASON (user item 5): the term was too abusable on points, and the hostage
+	### term - section 1 above - already covers the same immersive ground. The
+	### audit found the abuse STRUCTURAL rather than a single number; the full WARD
+	### TOMBSTONE is in common/scripted_effects/tnt_32_apply.txt.
+	###
+	### OVERLAY INDEX 17 IS NOW DORMANT and must not be reassigned - the two
+	### `tnt_picker` == 17 tests below were its only readers. Index 8 from the
+	### retired prisoner picker was left dormant the same way
+	### (common/scripted_guis/tnt_21_pickers.txt:304).
+	###
+	### The shared types these panels derived from - tnt_picker_panel and
+	### tnt_picker_row_char in gui/tnt_types.gui - STAY LIVE: sections 1 and 3
+	### still use them.
+	####################################################################
+#	####################################################################
+#	### 2. WARD / FOSTERAGE - overlay index 17
+#	###
+#	### ONE child per side, and NO guardian sub-picker: the contract fixes the
+#	### partner ruler as the guardian, so there is exactly one thing to choose
+#	### and this is the same single-object shape as the hostage panels above.
+#	###
+#	### `_p` MEANS THE PLAYER'S CHILD GOES TO THE PARTNER'S COURT. That reading
+#	### is fixed by the contract and may not be inverted here - the panel title
+#	### keys are per-side for exactly that reason, because "choose a ward" with
+#	### no owner named is the one sentence that could quietly swap them.
+#	####################################################################
+#
+#	### 17 / side 0 - the child the PLAYER sends into the partner's care.
+#	type tnt_panel_ward_p = tnt_picker_panel
+#	{
+#		name = "tnt_panel_ward_p"
+#		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)17' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+#
+#		blockoverride "tnt_picker_panel_title" { text = "tnt_picker_title_ward_p" }
+#
+#		blockoverride "tnt_picker_panel_empty"
+#		{
+#			text = "tnt_picker_empty"
+#			visible = "[IsDataModelEmpty( TntList('tnt_list_ward_p') )]"
+#		}
+#
+#		blockoverride "tnt_picker_panel_list"
+#		{
+#			vbox = {
+#				name = "tnt_rows_ward_p_outer"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 6
+#
+#				text_multi = {
+#					name = "tnt_rule_ward_p"
+#					layoutpolicy_horizontal = expanding
+#					text = "tnt_picker_rule_ward"
+#					autoresize = yes
+#					max_width = 430
+#					default_format = "#weak"
+#					alwaystransparent = yes
+#					fontsize_min = 12
+#					using = Font_Size_Small
+#				}
+#
+#				vbox = {
+#					name = "tnt_rows_ward_p"
+#					layoutpolicy_horizontal = expanding
+#					spacing = 3
+#					datamodel = "[TntList('tnt_list_ward_p')]"
+#
+#					item = {
+#						tnt_picker_row_char = {
+#							datacontext = "[Scope.Char]"
+#							size = { 0 45 }
+#
+#							blockoverride "tnt_row_onclick" { onclick = "[TntPickChar('tnt_pick_ward_p_set')]" }
+#							blockoverride "tnt_row_down"    { down = "[ObjectsEqual( TntVar('tnt_ward_p').Char, Character.Self )]" }
+#						}
+#					}
+#				}
+#			}
+#		}
+#	}
+#
+#
+#	### 17 / side 1 - the child the PARTNER sends into the player's care.
+#	type tnt_panel_ward_r = tnt_picker_panel
+#	{
+#		name = "tnt_panel_ward_r"
+#		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)17' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+#
+#		blockoverride "tnt_picker_panel_title" { text = "tnt_picker_title_ward_r" }
+#
+#		blockoverride "tnt_picker_panel_empty"
+#		{
+#			text = "tnt_picker_empty"
+#			visible = "[IsDataModelEmpty( TntList('tnt_list_ward_r') )]"
+#		}
+#
+#		blockoverride "tnt_picker_panel_list"
+#		{
+#			vbox = {
+#				name = "tnt_rows_ward_r_outer"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 6
+#
+#				text_multi = {
+#					name = "tnt_rule_ward_r"
+#					layoutpolicy_horizontal = expanding
+#					text = "tnt_picker_rule_ward"
+#					autoresize = yes
+#					max_width = 430
+#					default_format = "#weak"
+#					alwaystransparent = yes
+#					fontsize_min = 12
+#					using = Font_Size_Small
+#				}
+#
+#				vbox = {
+#					name = "tnt_rows_ward_r"
+#					layoutpolicy_horizontal = expanding
+#					spacing = 3
+#					datamodel = "[TntList('tnt_list_ward_r')]"
+#
+#					item = {
+#						tnt_picker_row_char = {
+#							datacontext = "[Scope.Char]"
+#							size = { 0 45 }
+#
+#							blockoverride "tnt_row_onclick" { onclick = "[TntPickChar('tnt_pick_ward_r_set')]" }
+#							blockoverride "tnt_row_down"    { down = "[ObjectsEqual( TntVar('tnt_ward_r').Char, Character.Self )]" }
+#						}
+#					}
+#				}
+#			}
+#		}
+#	}
+
+
+	####################################################################
+	### 3. COURTIER TRANSFER - overlay index 18, MULTI-SELECT
+	###
+	### Up to three people move court, so this is the two-list shape and not a
+	### single-object picker: a click MOVES a row between tnt_list_courtier_*
+	### (available) and tnt_sel_courtier_* (chosen), and the COLUMN a row is in
+	### IS its selection state. That is why there is no `down` anywhere below -
+	### the engine has no membership datafunction, which is the whole reason the
+	### two-list shape exists (gui/tnt_panel_multiselect.gui, section header).
+	###
+	### THE ROWS ARE tnt_multi_row_char, author:multiselect's own character row -
+	### portrait, name, primary title, and a glyph block the chosen column swaps
+	### from plus to minus. A courtier is a Character, so the title and artifact
+	### rows would unwrap the wrong thing.
+	###
+	### THE CAP WARNING IS SWITCHED OFF, and the cap is real. The contract caps
+	### the selection at three, but it enforces that in SCRIPT
+	### (tnt_can_courtier_trigger / the add gui), and there is no
+	### tnt_cap_hit_courtier_<side>_value in the register for this panel to read.
+	### Printing tnt_err_too_many off a value that does not exist would log on
+	### every evaluation, so the line stays hidden. Since the artifact-picker fix
+	### NO derived type wires the warning any more (the base default is hidden;
+	### see gui\tnt_panel_multiselect.gui section 2) - the explicit `visible = no`
+	### below is kept as the documented wiring point should a cap flag ever land,
+	### and it is the DERIVED-TYPE level, which is the only level that can still
+	### fill the block (an instance-level blockoverride matches nothing once a
+	### derived type has consumed the slot).
+	###
+	### THE POINTS FIGURE READS tnt_val_courtier_multi_<side>_value DIRECTLY.
+	### The _p panels of the older terms pass a SCALED wrapper
+	### (tnt_shown_title_multi_p_value) so the number matches the scales; no such
+	### wrapper is registered for courtiers, and inventing one here would be a
+	### second price for one term. The figure is therefore the raw term price on
+	### both sides, which is the number that enters the totals.
+	###
+	### THE RULE LINE LIVES IN block "tnt_multi_domain". That block is EMPTY by
+	### default since user item 17(b) made the domain counter title-panel-only,
+	### it sits between the two columns and the footer, and a panel-wide note is
+	### precisely what a free full-width slot there is good for. Nothing about
+	### domains is printed by these two panels - moving courtiers moves no land.
+	####################################################################
+
+	### 18 / side 0 - courtiers the PLAYER hands over.
+	type tnt_panel_courtier_p = tnt_panel_multi
+	{
+		name = "tnt_panel_courtier_p"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)18' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+
+		blockoverride "tnt_multi_title"        { text = "tnt_picker_title_courtier_p" }
+		blockoverride "tnt_multi_counter"      { text = "tnt_sel_count_courtier_p" }
+		# THE SCALED WRAPPER, NEVER THE BASE. Every other _p picker quotes its
+		# tnt_shown_* name; this one quoted the raw price, so the number under the
+		# courtier list disagreed with the headline whenever the deal multiplier
+		# was not exactly 1. The wrapper's own header states the rule
+		# (tnt_58_person_values.txt:516-527).
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_shown_courtier_multi_p_value')|+=0]" }
+		blockoverride "tnt_multi_cap_visible"  { visible = no }
+		blockoverride "tnt_multi_clear_click"  { onclick = "[TntExec('tnt_sel_courtier_p_clear')]"  tooltip = "tnt_btn_none" }
+
+		blockoverride "tnt_multi_available_empty"
+		{
+			text = "tnt_picker_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_courtier_p') )]"
+		}
+		blockoverride "tnt_multi_chosen_empty"
+		{
+			text = "tnt_picker_chosen_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_sel_courtier_p') )]"
+		}
+
+		blockoverride "tnt_multi_available_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_avail_courtier_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_list_courtier_p')]"
+
+				item = {
+					tnt_multi_row_char = {
+						name = "tnt_multi_avail_courtier_p_row"
+						datacontext = "[Scope.Char]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click"   { onclick = "[TntPickChar('tnt_sel_courtier_p_add')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_add_term" }
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_chosen_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_chosen_courtier_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_sel_courtier_p')]"
+
+				item = {
+					tnt_multi_row_char = {
+						name = "tnt_multi_chosen_courtier_p_row"
+						datacontext = "[Scope.Char]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click"   { onclick = "[TntPickChar('tnt_sel_courtier_p_remove')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_remove_term" }
+						blockoverride "tnt_multi_row_glyph"
+						{
+							button_minus_small = {
+								name = "tnt_multi_row_glyph_icon"
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_domain"
+		{
+			text_multi = {
+				name = "tnt_rule_courtier_p"
+				layoutpolicy_horizontal = expanding
+				text = "tnt_picker_rule_courtier"
+				autoresize = yes
+				max_width = 700
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+		}
+	}
+
+
+	### 18 / side 1 - courtiers the PARTNER hands over.
+	type tnt_panel_courtier_r = tnt_panel_multi
+	{
+		name = "tnt_panel_courtier_r"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)18' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+
+		blockoverride "tnt_multi_title"        { text = "tnt_picker_title_courtier_r" }
+		blockoverride "tnt_multi_counter"      { text = "tnt_sel_count_courtier_r" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_val_courtier_multi_r_value')|+=0]" }
+		blockoverride "tnt_multi_cap_visible"  { visible = no }
+		blockoverride "tnt_multi_clear_click"  { onclick = "[TntExec('tnt_sel_courtier_r_clear')]"  tooltip = "tnt_btn_none" }
+
+		blockoverride "tnt_multi_available_empty"
+		{
+			text = "tnt_picker_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_courtier_r') )]"
+		}
+		blockoverride "tnt_multi_chosen_empty"
+		{
+			text = "tnt_picker_chosen_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_sel_courtier_r') )]"
+		}
+
+		blockoverride "tnt_multi_available_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_avail_courtier_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_list_courtier_r')]"
+
+				item = {
+					tnt_multi_row_char = {
+						name = "tnt_multi_avail_courtier_r_row"
+						datacontext = "[Scope.Char]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click"   { onclick = "[TntPickChar('tnt_sel_courtier_r_add')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_add_term" }
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_chosen_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_chosen_courtier_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_sel_courtier_r')]"
+
+				item = {
+					tnt_multi_row_char = {
+						name = "tnt_multi_chosen_courtier_r_row"
+						datacontext = "[Scope.Char]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click"   { onclick = "[TntPickChar('tnt_sel_courtier_r_remove')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_remove_term" }
+						blockoverride "tnt_multi_row_glyph"
+						{
+							button_minus_small = {
+								name = "tnt_multi_row_glyph_icon"
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_domain"
+		{
+			text_multi = {
+				name = "tnt_rule_courtier_r"
+				layoutpolicy_horizontal = expanding
+				text = "tnt_picker_rule_courtier"
+				autoresize = yes
+				max_width = 700
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+		}
+	}
+
+
+	####################################################################
+	### 4. TRANSFER A VASSAL - overlay index 19, MULTI-SELECT   (V26)
+	###
+	### THE THIRD PEOPLE TERM, and the second one with a selection list. A click
+	### MOVES a row between tnt_list_subject_* (available) and tnt_sel_subject_*
+	### (chosen), and the COLUMN a row is in IS its selection state - which is
+	### why there is no `down` anywhere below (the engine has no membership
+	### datafunction; gui/tnt_panel_multiselect.gui, section header).
+	###
+	### INDEX 19 WAS THE FIRST STILL-FREE ENTRY of this file's frozen table. The
+	### table now reads: in use 5, 6, 10, 12, 16, 18, 19; still free 1, 9, 14,
+	### 15, 20+; RETIRED, not free 2, 3, 4, 7, 8, 11, 13, 17.
+	###
+	### THE ROWS ARE tnt_multi_row_char, the same character row the courtier
+	### panels use: a transferred vassal is a Character, so the title and
+	### artifact rows would unwrap the wrong thing. The row prints his primary
+	### title, which is exactly the information this term is bought for.
+	###
+	### THE CAP WARNING IS SWITCHED OFF AT THE DERIVED-TYPE LEVEL, and it must
+	### be: this term has NO cap and therefore no tnt_cap_hit_subject_<side>_value
+	### for the warning to read, and a widget bound to a script value that does
+	### not exist logs on EVERY evaluation (gui\tnt_diplomacy_window.gui, the
+	### instantiation block's note). An instance-level blockoverride would match
+	### nothing once a derived type has consumed the slot, so it is written here.
+	###
+	### THE POINTS FIGURE: the _p panel quotes the SCALED WRAPPER
+	### tnt_shown_subject_multi_p_value and never the base, because the base is a
+	### member of tnt_gain_total_value, which the headline multiplies by
+	### tnt_deal_mult_value - quoting the base is defect D4, the one the courtier
+	### _p panel carried until it was found (tnt_58_person_values.txt). The _r
+	### side deliberately has no wrapper: demands are unscaled (I5), so the raw
+	### _r value is already in the right currency.
+	###
+	### THE RULE LINE LIVES IN block "tnt_multi_domain", empty by default since
+	### user item 17(b) made the domain counter title-panel-only. Nothing about
+	### domains is printed here - moving a vassal moves no HOLDING into anyone's
+	### personal demesne, it moves a subject; the receiver's vassal limit is a
+	### different ledger and is deliberately NOT priced (user item 13's ruling
+	### against limit discounts, restated for this term in tnt_58_person_values.txt).
+	####################################################################
+
+	### 19 / side 0 - the vassals the PLAYER hands over.
+	type tnt_panel_subject_p = tnt_panel_multi
+	{
+		name = "tnt_panel_subject_p"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)19' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+
+		blockoverride "tnt_multi_title"        { text = "tnt_picker_title_subject_p" }
+		blockoverride "tnt_multi_counter"      { text = "tnt_sel_count_subject_p" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_shown_subject_multi_p_value')|+=0]" }
+		blockoverride "tnt_multi_cap_visible"  { visible = no }
+		blockoverride "tnt_multi_clear_click"  { onclick = "[TntExec('tnt_sel_subject_p_clear')]"  tooltip = "tnt_btn_none" }
+
+		blockoverride "tnt_multi_available_empty"
+		{
+			text = "tnt_picker_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_subject_p') )]"
+		}
+		blockoverride "tnt_multi_chosen_empty"
+		{
+			text = "tnt_picker_chosen_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_sel_subject_p') )]"
+		}
+
+		blockoverride "tnt_multi_available_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_avail_subject_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_list_subject_p')]"
+
+				item = {
+					tnt_multi_row_char = {
+						name = "tnt_multi_avail_subject_p_row"
+						datacontext = "[Scope.Char]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click"   { onclick = "[TntPickChar('tnt_sel_subject_p_add')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_add_term" }
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_chosen_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_chosen_subject_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_sel_subject_p')]"
+
+				item = {
+					tnt_multi_row_char = {
+						name = "tnt_multi_chosen_subject_p_row"
+						datacontext = "[Scope.Char]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click"   { onclick = "[TntPickChar('tnt_sel_subject_p_remove')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_remove_term" }
+						blockoverride "tnt_multi_row_glyph"
+						{
+							button_minus_small = {
+								name = "tnt_multi_row_glyph_icon"
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_domain"
+		{
+			text_multi = {
+				name = "tnt_rule_subject_p"
+				layoutpolicy_horizontal = expanding
+				text = "tnt_picker_rule_subject"
+				autoresize = yes
+				max_width = 700
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+		}
+	}
+
+
+	### 19 / side 1 - the vassals the PARTNER hands over.
+	type tnt_panel_subject_r = tnt_panel_multi
+	{
+		name = "tnt_panel_subject_r"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)19' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+
+		blockoverride "tnt_multi_title"        { text = "tnt_picker_title_subject_r" }
+		blockoverride "tnt_multi_counter"      { text = "tnt_sel_count_subject_r" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_val_subject_multi_r_value')|+=0]" }
+		blockoverride "tnt_multi_cap_visible"  { visible = no }
+		blockoverride "tnt_multi_clear_click"  { onclick = "[TntExec('tnt_sel_subject_r_clear')]"  tooltip = "tnt_btn_none" }
+
+		blockoverride "tnt_multi_available_empty"
+		{
+			text = "tnt_picker_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_subject_r') )]"
+		}
+		blockoverride "tnt_multi_chosen_empty"
+		{
+			text = "tnt_picker_chosen_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_sel_subject_r') )]"
+		}
+
+		blockoverride "tnt_multi_available_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_avail_subject_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_list_subject_r')]"
+
+				item = {
+					tnt_multi_row_char = {
+						name = "tnt_multi_avail_subject_r_row"
+						datacontext = "[Scope.Char]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click"   { onclick = "[TntPickChar('tnt_sel_subject_r_add')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_add_term" }
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_chosen_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_chosen_subject_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_sel_subject_r')]"
+
+				item = {
+					tnt_multi_row_char = {
+						name = "tnt_multi_chosen_subject_r_row"
+						datacontext = "[Scope.Char]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click"   { onclick = "[TntPickChar('tnt_sel_subject_r_remove')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_remove_term" }
+						blockoverride "tnt_multi_row_glyph"
+						{
+							button_minus_small = {
+								name = "tnt_multi_row_glyph_icon"
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_domain"
+		{
+			text_multi = {
+				name = "tnt_rule_subject_r"
+				layoutpolicy_horizontal = expanding
+				text = "tnt_picker_rule_subject"
+				autoresize = yes
+				max_width = 700
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+		}
+	}
+}

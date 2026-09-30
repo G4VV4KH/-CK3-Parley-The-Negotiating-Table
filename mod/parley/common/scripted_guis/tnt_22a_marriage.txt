@@ -1,0 +1,826 @@
+﻿######################################################################################
+# PARLEY: THE NEGOTIATING TABLE — SCRIPTED GUIS FOR THE EXTENDED MARRIAGE (user item 2.1)
+#
+# Owner: marriage (wave 3d). Ten entries, one file, per 30-V2-DESIGN §7.1(i):
+# "one file per item — CK3 loads every file in a DB directory, so splitting is
+# free and this is the recommended route". Nothing here collides with
+# tnt_20_scripted_guis.txt (33 entries), tnt_21_pickers.txt (27) or
+# tnt_22_v2.txt (the currency steppers).
+#
+#   GROUP C  openers    tnt_pick_marriage_open  <-- THE ONE THE WINDOW CALLS
+#                       tnt_pick_spouse_p_open, tnt_pick_spouse_r_open
+#   GROUP D  setters    tnt_pick_spouse_p_set, tnt_pick_spouse_r_set
+#   GROUP E  clearers   tnt_spouse_p_clear, tnt_spouse_r_clear
+#   GROUP F  the line   tnt_marriage_matri_toggle  <-- THE ONE THE WINDOW CALLS
+#                       tnt_marriage_set_patri, tnt_marriage_set_matri
+#   GROUP G  the LIST   tnt_wed_add  <-- THE NEW PRIMARY ACTION (iteration 4)
+#                       tnt_wed_remove, tnt_wed_clear, tnt_wed_row_line_flip,
+#                       tnt_wed_set_principal, tnt_wed_grand_toggle
+#
+# *** ITERATION 4 CHANGED WHAT GROUPS C-F MEAN WITHOUT CHANGING ONE LINE OF THEM. ***
+# The single pair tnt_spouse_p / tnt_spouse_r is now a STAGING CURSOR, not the
+# offer: nothing prices it and nothing executes it. The offer is the list
+# tnt_wed_list, which GROUP G maintains. Note 3 below — "choosing the pair IS
+# putting the marriage on the table" — is therefore SUPERSEDED: choosing the pair
+# now fills the cursor, and tnt_wed_add is what puts a marriage on the table.
+# The two mutual flags tnt_marriage_p / _r survive with their original meaning
+# ("marriage is on the table") and are now raised by the first successful add and
+# lowered when the list empties, which is what let a list replace a pair without
+# editing one foreign file. The two setters therefore no longer raise them; see
+# tnt_wed_sync_effect.
+#
+# *** WHY TEN AND NOT SEVEN: THE GUI IS ALREADY WIRED. ***
+# gui\tnt_diplomacy_window.gui (author: gui) landed its half of item 2.1 in
+# parallel with this file, and it calls two names that 42-marriage-extended.md
+# §5.1 did not list:
+#   :499 and :1076   onclick = "[TntExec('tnt_pick_marriage_open')]"
+#                    — ONE opener on BOTH marriage rows, because overlay index
+#                      5 is a single panel holding both candidate lists, so
+#                      there is nothing per-side to open. Correct call, and it
+#                      is now the primary entry point.
+#   :1502            onclick = "[TntExec('tnt_marriage_matri_toggle')]"
+#                    — the line rendered as ONE labelled checkbox
+#                      (tnt_toggle_line, tnt_panels.gui) rather than as a radio
+#                      pair.
+# Both exist below. The five contract-named entries the report DID list are
+# kept as well: tnt_pick_spouse_p_open / _r_open are thin per-side aliases of
+# the shared opener (so a future author can split the editor in two without
+# touching any GUI), and tnt_marriage_set_patri / _set_matri drive the RADIO
+# PAIR that gui\tnt_panel_marriage.gui ships as the default content of
+# block "tnt_marriage_line_toggle". A radio pair names both states, which a
+# lone checkbox cannot; if the gui owner ever drops their blockoverride the
+# panel's own control takes over with no script change. Every one of the ten
+# therefore has a real call site.
+#
+# Legal keys only: scope, saved_scopes, effect, is_valid. No shown-gate is used
+# anywhere in this mod.
+#
+# ---------------------------------------------------------------------------
+# HOW THIS PICKER DIFFERS FROM THE OTHER SEVEN
+# ---------------------------------------------------------------------------
+# 1. ONE PANEL, TWO LISTS. Overlay index 5 was reserved for marriage by
+#    10-CONTRACT R0.8 and 30-V2-DESIGN §4.1 puts the whole compound editor
+#    there: both candidate lists side by side, the line control and the
+#    summary in one panel. So both openers write tnt_picker = 5 and differ
+#    only in tnt_picker_side, which the panel does NOT test — it is written
+#    anyway so that tnt_picker_close and tnt_reset_offer_effect keep their one
+#    uniform cleanup, and so a future author can split the editor in two
+#    without touching the scripted guis.
+#
+# 2. THE SETTERS DO NOT CLOSE THE PANEL. Every other setter ends with
+#    `remove_variable = tnt_picker` because one click finishes the job
+#    (tnt_21_pickers.txt:301-303). Here the player has TWO choices to make
+#    plus a line to pick, so the panel must survive the click. It is dismissed
+#    by the header's close button and by the footer's Done button, both of
+#    which call the shipped tnt_picker_close.
+#
+# 3. CHOOSING THE PAIR *IS* PUTTING THE MARRIAGE ON THE TABLE.
+#    ** DELIBERATE REFINEMENT OF 42-marriage-extended.md §5.3 — READ THIS. **
+#    That report keeps tnt_marriage_p/_r as two checkboxes the player ticks
+#    after choosing the spouses. Shipping it that way would make marriage the
+#    only item in the window where choosing an object is not enough: a title,
+#    a claim, an artifact and a third party all count as offered the moment
+#    they are picked (`exists = var:tnt_title_p` IS the selection test,
+#    tnt_50_values.txt:3972). Two silent checkboxes behind a modal panel is
+#    exactly the shape of a "this feature does nothing" bug report.
+#    So: the two SETTERS raise both flags as soon as a complete LEGAL pair
+#    exists, and tnt_marriage_sync_effect lowers them the moment it stops
+#    being one. The flags survive as an OFF switch — the row toggles in the
+#    columns still work and, because sync only ever CLEARS, a player who
+#    switches the marriage back off stays switched off.
+#    The two values keep their asymmetric meaning either way (W-10): _p prices
+#    the blood and fertility we offer, _r the lineality and attachment they
+#    surrender, which is what makes the scales move when only the line changes.
+#
+# 4. NO PER-PAIR TEST IN ANY ROW. Law R11 forbids GetScriptedGui in a per-row
+#    visible or down, and a per-row "could this candidate marry the one chosen
+#    opposite" test would be exactly that. The split is vanilla's own: the ROW
+#    filter is marriage_interaction_can_be_picked_trigger, applied once at
+#    fill time inside tnt_spouse_try_add_effect; the PAIR gate is
+#    can_marry_character_trigger, applied by tnt_marriage_sync_effect after
+#    each pick and again from scratch at apply time. Vanilla splits it the
+#    same way — can_be_picked at
+#    GAME\common\character_interactions\00_marriage_interactions.txt:554
+#    versus has_valid_target at :564.
+#
+# 5. THE ROW'S SELECTED STATE IS OURS, never an engine datafunction:
+#    down = "[ObjectsEqual( TntVar('tnt_spouse_p').Char, Character.Self )]".
+#    Character.IsSelected means MAP selection.
+#
+# is_valid COST: the two openers carry two custom_description rows each, both
+# a single `exists` on a variable — a map lookup (00-ARCHITECTURE §3.4). The
+# six other entries carry none. Nothing in this file is on a per-row path.
+######################################################################################
+
+
+######################################################################################
+# GROUP C — THE THREE OPENERS
+#
+# All three call tnt_fill_spouse_lists_effect, which rebuilds BOTH lists and
+# refreshes the three mirrors. Rebuilding both from any opener is deliberate:
+# MakeScope.GetList reads a saved variable list, not a live query, so a list
+# that was built ten in-game years ago would still be showing the dead.
+#
+# THE DEFAULT LINE is set only while nothing has been chosen yet, so the
+# player's own choice is never overwritten. tnt_marriage_default_line_effect
+# mirrors the default branch of vanilla's ai_wants_matrilineal_marriage
+# (GAME\common\scripted_rules\00_rules.txt:678-684) — see its own header.
+#
+# Marriage is one of the three Tier-4 terms behind the tnt_advanced game rule
+# (betrothal / ceded title / fealty), so unlike the claim and artifact openers
+# these DO carry the rule gate — same shape as tnt_pick_title_p_open
+# (tnt_21_pickers.txt:85-90).
+######################################################################################
+
+# THE PRIMARY ENTRY POINT. Both marriage rows of the window call this one
+# (tnt_diplomacy_window.gui:499 and :1076), because index 5 is a single panel.
+# tnt_picker_side is written to 0 rather than left alone so that the state the
+# overlay carries is always fully defined; the panel does not test it.
+tnt_pick_marriage_open = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+		custom_description = {
+			text = tnt_err_no_partner
+			exists = var:tnt_partner
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 5
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+
+		if = {
+			limit = {
+				NOT = { exists = var:tnt_spouse_p }
+				NOT = { exists = var:tnt_spouse_r }
+			}
+			tnt_marriage_default_line_effect = yes
+		}
+
+		tnt_fill_spouse_lists_effect = yes
+	}
+}
+
+tnt_pick_spouse_p_open = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+		custom_description = {
+			text = tnt_err_no_partner
+			exists = var:tnt_partner
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 5
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+
+		if = {
+			limit = {
+				NOT = { exists = var:tnt_spouse_p }
+				NOT = { exists = var:tnt_spouse_r }
+			}
+			tnt_marriage_default_line_effect = yes
+		}
+
+		tnt_fill_spouse_lists_effect = yes
+	}
+}
+
+tnt_pick_spouse_r_open = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+		custom_description = {
+			text = tnt_err_no_partner
+			exists = var:tnt_partner
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 5
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 1
+		}
+
+		if = {
+			limit = {
+				NOT = { exists = var:tnt_spouse_p }
+				NOT = { exists = var:tnt_spouse_r }
+			}
+			tnt_marriage_default_line_effect = yes
+		}
+
+		tnt_fill_spouse_lists_effect = yes
+	}
+}
+
+
+######################################################################################
+# GROUP D — THE TWO SETTERS
+#
+# saved_scopes = { tnt_picked }: the clicked row arrives through exactly ONE
+# .AddScope( 'tnt_picked', Character.MakeScope ), i.e. the shipped macro
+# TntPickChar (data_binding\tnt_macros.txt). Never two chained AddScope
+# calls (Law R8).
+#
+# `exists = scope:tnt_picked` costs nothing and keeps error.log clean if the
+# row's character died between the frame being drawn and the click landing.
+#
+# THE CROSS-CLEAR is the one piece of logic beyond "store it". Both lists can
+# legitimately contain the SAME character — when the partner is the player's
+# own brother he appears in the player's close family and in his own household
+# — and a person cannot marry themselves. Rather than leaving an impossible
+# pair on screen with a red summary line, the opposite side is cleared, so the
+# click always produces a sensible half-chosen state.
+######################################################################################
+
+tnt_pick_spouse_p_set = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = { exists = scope:tnt_picked }
+
+			# the same person cannot stand on both sides of the altar
+			if = {
+				limit = {
+					exists = var:tnt_spouse_r
+					var:tnt_spouse_r ?= { this = scope:tnt_picked }
+				}
+				remove_variable = tnt_spouse_r
+			}
+
+			set_variable = {
+				name = tnt_spouse_p
+				value = scope:tnt_picked
+			}
+		}
+
+		# ITERATION 4: the flag-raising block that used to sit here is GONE, and
+		# this is the deliberate reversal of note 3 in the file header. Staging a
+		# pair no longer puts anything on the table — tnt_wed_add does, once the
+		# player says so. Leaving it in would have made every half-finished pick
+		# a phantom offer of a marriage that the exec loop, which reads only
+		# tnt_wed_list, would never perform. tnt_marriage_sync_effect still runs
+		# because it refreshes the four mirrors the add gate reads, including the
+		# new tnt_wed_dup.
+		tnt_marriage_sync_effect = yes
+	}
+}
+
+tnt_pick_spouse_r_set = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = { exists = scope:tnt_picked }
+
+			if = {
+				limit = {
+					exists = var:tnt_spouse_p
+					var:tnt_spouse_p ?= { this = scope:tnt_picked }
+				}
+				remove_variable = tnt_spouse_p
+			}
+
+			set_variable = {
+				name = tnt_spouse_r
+				value = scope:tnt_picked
+			}
+		}
+
+		# see the note in tnt_pick_spouse_p_set: staging is not offering
+		tnt_marriage_sync_effect = yes
+	}
+}
+
+
+######################################################################################
+# GROUP E — THE TWO CLEARERS
+#
+# Bound to the small round X on each pair slot. Deliberately dumber than a
+# toggle, exactly like the seven shipped clearers (tnt_21_pickers.txt:447-509):
+# no object-equality test is ever needed.
+#
+# tnt_marriage_sync_effect is what takes the marriage off the table, because
+# an incomplete pair is not an offer. That is the anti-phantom rule inherited
+# from the effect this feature replaces (tnt_30_effects.txt:397-406).
+######################################################################################
+
+tnt_spouse_p_clear = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_spouse_p
+		tnt_marriage_sync_effect = yes
+	}
+}
+
+tnt_spouse_r_clear = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_spouse_r
+		tnt_marriage_sync_effect = yes
+	}
+}
+
+
+######################################################################################
+# GROUP F — THE LINE
+#
+# THREE entries for one choice, and each has a live caller:
+#   tnt_marriage_matri_toggle   one flip, for the labelled CHECKBOX the window
+#                               currently renders (tnt_diplomacy_window.gui:1502,
+#                               a tnt_toggle_line from tnt_panels.gui)
+#   tnt_marriage_set_patri      the two halves of the RADIO PAIR that
+#   tnt_marriage_set_matri      gui\tnt_panel_marriage.gui ships as the default
+#                               content of block "tnt_marriage_line_toggle"
+#
+# Two setters rather than only a toggle, because the player is choosing between
+# two named things and a radio pair says so; a lone checkbox labelled
+# "matrilineal" leaves the unchecked state unnamed. The panel renders them as
+# two buttons whose `down` state reads TntOn('tnt_marriage_matri'), so the
+# chosen line is always visible without a second variable.
+#
+# ABSENT tnt_marriage_matri == PATRILINEAL. That is why the patrilineal setter
+# REMOVES rather than writing 0: absent-means-zero keeps TntOn() honest and
+# the savegame smaller, and it is the convention the whole mod already uses
+# (tnt_30_effects.txt:171).
+#
+# WHAT THE CHOICE ACTUALLY DOES, in two places and only two:
+#   * tnt_exec_marriage_pair_effect picks marry_matrilineal /
+#     create_betrothal_matrilineal instead of marry / create_betrothal —
+#     which decides whose house the children are born into
+#     (GAME\localization\english\game_concepts_l_english.yml:554).
+#   * tnt_marriage_lineality_cost_value charges the partner 10..1000 points
+#     when the line is the wrong one for THEIR candidate, which is vanilla's
+#     own penalty ladder (00_marriage_scripted_modifiers.txt:1026-1174).
+# Nothing else in the mod reads tnt_marriage_matri, and the two setters need
+# no is_valid: they are reachable only from inside the editor panel, which is
+# reachable only through the game-rule-gated openers above, and the panel
+# hides the control entirely when tnt_marriage_line_shown is absent (both
+# candidates male — vanilla's own is_shown at
+# GAME\common\character_interactions\00_marriage_interactions.txt:880-885).
+#
+# No sync call is needed: the line changes no mirror. It changes only the
+# price, and the price is recomputed every frame by the balance panel.
+######################################################################################
+
+# ONE FLIP. Bound to the window's labelled checkbox, whose `checked` reads
+# TntOn('tnt_marriage_matri') — so the two halves cannot disagree.
+tnt_marriage_matri_toggle = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_marriage_matri }
+			remove_variable = tnt_marriage_matri
+		}
+		else = {
+			set_variable = {
+				name = tnt_marriage_matri
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_marriage_set_patri = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_marriage_matri
+	}
+}
+
+tnt_marriage_set_matri = {
+	scope = character
+
+	effect = {
+		set_variable = {
+			name = tnt_marriage_matri
+			value = 1
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP G — THE PAIR LIST (v3 iteration 4). SIX NEW ENTRIES.
+#
+# The user asked for an UNLIMITED number of marriages in one deal. Groups C-F above
+# did not change one line: they still stage ONE pair into tnt_spouse_p /
+# tnt_spouse_r, and that pair is now a CURSOR rather than the offer. This group
+# turns the cursor into a list.
+#
+#   tnt_wed_add              commit the staged pair                (no saved_scopes)
+#   tnt_wed_remove           uncommit one pair                     (tnt_picked = the row)
+#   tnt_wed_clear            uncommit all pairs                    (no saved_scopes)
+#   tnt_wed_row_line_flip    flip ONE pair's line                  (tnt_picked = the row)
+#   tnt_wed_set_principal    choose the grand-wedding couple       (tnt_picked = the row)
+#   tnt_wed_grand_toggle     promise a grand wedding, or stop      (no saved_scopes)
+#
+# *** WHY THE ADD BUTTON TAKES NO ROW OBJECT AT ALL — DO NOT "IMPROVE" THIS. ***
+# Law R8 forbids chaining two .AddScope() calls, and TntPickChar
+# (data_binding\tnt_macros.txt:92-96) passes exactly ONE row object as
+# scope:tnt_picked. Two characters therefore CANNOT reach a scripted_gui in a
+# single click — not with a cleverer macro, not with a nested datacontext. The
+# only legal shape is: click a left row (tnt_pick_spouse_p_set, one AddScope),
+# click a right row (tnt_pick_spouse_r_set, one AddScope), then click a third
+# button that reads what those two stored. That is this group.
+#
+# THE FOUR ROW-SCOPED ENTRIES all take the PAIR'S KEY — the player-side spouse,
+# which is the object actually stored in tnt_wed_list — so the GUI must bind them
+# to the pair row's own datacontext and never to the groom's portrait. The exact
+# datafunction chains are in the handoff; the short version is that a row over
+# TntList('tnt_wed_list') is a Scope, Scope.Char is the bride or groom on our
+# side, and the other half is Scope.Char.MakeScope.Var('tnt_wed_partner').Char.
+#
+# is_valid COST. tnt_wed_add carries five custom_description rows, every one a
+# plain `exists` or a `>` on a variable — a map lookup each (00-ARCHITECTURE
+# §3.4) — because Law R9 forbids anything cleverer on a path the mouse can sit
+# on. NOT ONE of them calls a vanilla trigger: the expensive pair test
+# (can_marry_character_trigger) was already run by tnt_marriage_sync_effect at
+# pick time and is read here as the 0/1 mirror tnt_marriage_legal. That is
+# R-10's own named fallback and the reason the mirror exists at all.
+# tnt_wed_grand_toggle is the one exception and is discussed at its own header.
+######################################################################################
+
+
+######################################################################################
+# tnt_wed_add — THE BUTTON THE USER ASKED FOR
+#
+# FIVE REASONS A PAIR MAY NOT BE ADDED, each its own custom_description so the
+# player is told which one it is instead of facing a dead button:
+#   tnt_err_advanced_off   the Tier-4 game rule is off (same row as every other
+#                          marriage entry in this file)
+#   tnt_err_no_spouse_p    nobody chosen on our side
+#   tnt_err_no_spouse_r    nobody chosen on theirs
+#   tnt_err_pair_illegal   vanilla's can_marry_character_trigger says no — read
+#                          as the mirror, see the cost note above
+#   tnt_err_pair_dup       NEW. One of the two is already in another pair of this
+#                          same deal, on either side. Nobody may stand at two
+#                          altars, and a variable list would happily hold the
+#                          same character twice. The mirror tnt_wed_dup is
+#                          computed by tnt_marriage_sync_effect because an
+#                          is_valid may not run save_temporary_scope_as and
+#                          `is_target_in_variable_list` needs `target = <scope>`.
+#
+# THERE IS NO CAP. The user's word was "unlimited" and no cap is enforced —
+# neither here nor in the values. The cost of that honesty is worth stating: each
+# committed pair writes TWO variables onto a character who is not the player, so
+# a fifty-pair deal is a hundred variables to strip. Every one of them is
+# stripped by tnt_wed_clear_all_effect, which is reached by five paths including
+# a yearly one, so the size is a performance question and never a leak.
+#
+# The effect does NOT close the panel — the whole point is adding another pair —
+# and it does not touch tnt_marriage_matri, so a run of matrilineal matches is
+# three clicks and not six.
+######################################################################################
+tnt_wed_add = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+		custom_tooltip = {
+			text = tnt_err_no_spouse_p
+			exists = var:tnt_spouse_p
+		}
+		custom_tooltip = {
+			text = tnt_err_no_spouse_r
+			exists = var:tnt_spouse_r
+		}
+		custom_tooltip = {
+			text = tnt_err_pair_illegal
+			exists = var:tnt_marriage_legal
+			var:tnt_marriage_legal > 0
+		}
+		custom_tooltip = {
+			text = tnt_err_pair_dup
+			NOT = { exists = var:tnt_wed_dup }
+		}
+	}
+
+	effect = {
+		tnt_wed_add_pair_effect = yes
+	}
+}
+
+
+######################################################################################
+# tnt_wed_remove — the small round X on a pair row.
+#
+# Deliberately dumber than a toggle, exactly like the seven shipped clearers
+# (tnt_21_pickers.txt:447-509): the row hands over its own key and the effect
+# strips that member's two variables, drops it from the list and re-syncs. No
+# object-equality test is needed and none is written.
+#
+# `exists = scope:tnt_picked` costs nothing and keeps error.log clean if the row's
+# character died between the frame being drawn and the click landing — the same
+# guard the two setters in GROUP D carry.
+######################################################################################
+tnt_wed_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = { exists = scope:tnt_picked }
+			tnt_wed_drop_pair_effect = { WHO = scope:tnt_picked }
+		}
+	}
+}
+
+
+######################################################################################
+# tnt_wed_clear — the footer's "no marriages after all".
+#
+# One call, because tnt_wed_clear_all_effect already does the whole job in the
+# mandated order: strip every member, THEN empty the list, then drop the
+# principal, the grand-wedding toggle and both mutual flags. It is idempotent, so
+# this needs no is_valid and no guard.
+######################################################################################
+tnt_wed_clear = {
+	scope = character
+
+	effect = {
+		tnt_wed_clear_all_effect = yes
+	}
+}
+
+
+######################################################################################
+# tnt_wed_row_line_flip — the per-pair line, after the fact.
+#
+# A matrilineal match and a patrilineal one are different bargains — the children
+# are born into a different house (GAME\localization\english\game_concepts_l_english.yml:554)
+# — so the choice belongs to the PAIR, not to the deal. The line is copied off the
+# staging toggle when the pair is committed; this flips one committed row without
+# disturbing the others.
+#
+# ABSENT tnt_wed_matri == PATRILINEAL, so the "off" branch REMOVES rather than
+# writing 0 (tnt_30_effects.txt:171 is the mod-wide convention, and the row's own
+# `down` state can then read the variable directly).
+#
+# WRITING A VARIABLE ONTO scope:tnt_picked IS THE POINT, not a slip: that row IS
+# the character the variable lives on. It is stripped by tnt_wed_strip_effect like
+# every other per-member write — this entry creates no new cleanup obligation,
+# which is exactly why it may exist.
+#
+# THE GRAND WEDDING CAN LOSE ITS GATE HERE. Vanilla only lets the dominant side
+# host (00_marriage_interactions.txt:799-818), so flipping the PRINCIPAL pair's
+# line can make the promise illegal. Nothing needs to be recomputed for that: the
+# gate is re-read live by tnt_wed_grand_toggle's is_valid, by
+# tnt_marriage_grand_value and again at apply time. The toggle simply stops being
+# valid, the +40 stops being priced, and the promise is not made.
+######################################################################################
+tnt_wed_row_line_flip = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = { exists = scope:tnt_picked }
+			scope:tnt_picked = {
+				if = {
+					limit = { exists = var:tnt_wed_matri }
+					remove_variable = tnt_wed_matri
+				}
+				else = {
+					set_variable = {
+						name = tnt_wed_matri
+						value = 1
+					}
+				}
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# tnt_wed_set_principal — which couple gets the celebration.
+#
+# ONE grand wedding per deal, applied to ONE designated pair. That is not a
+# simplification for our convenience: vanilla allows the host exactly one
+# outstanding promise at a time (00_marriage_interactions.txt:789-792, the
+# `NOR` on promised_grand_wedding_marriage_countdown and
+# grand_wedding_promise_pending), and activity_wedding is on a cooldown after
+# each one (wedding.txt:27). A deal that promised five grand weddings would be
+# promising four things the engine cannot deliver.
+#
+# HOW THE PRINCIPAL IS CHOSEN, and the localization must be able to say this
+# plainly: the FIRST pair added becomes the principal automatically, and this
+# entry lets the player move the honour to any other pair. If the principal is
+# removed, tnt_wed_sync_effect designates an arbitrary surviving pair — a
+# variable list has no index access, so "the next one" is not expressible — and
+# with no pairs left the grand-wedding toggle switches itself off.
+#
+# The guard is is_target_in_variable_list, so a row that is somehow not in the
+# list cannot become the principal and strand the toggle.
+######################################################################################
+tnt_wed_set_principal = {
+	scope = character
+
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+				has_variable_list = tnt_wed_list
+				is_target_in_variable_list = {
+					name = tnt_wed_list
+					target = scope:tnt_picked
+				}
+			}
+			set_variable = {
+				name = tnt_wed_principal
+				value = scope:tnt_picked
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# tnt_wed_grand_toggle — PROMISE A GRAND WEDDING (user request, iteration 4)
+#
+# WHAT THIS ACTUALLY DOES, so the localization cannot overpromise: switched on, the
+# deal's PRINCIPAL pair is BETROTHED rather than married and the player becomes the
+# promised HOST of a grand wedding through vanilla's own promise mechanism
+# (set_grand_wedding_betrothal_variables, GAME\common\scripted_effects\04_dlc_ep2_wedding_effects.txt:6-31).
+# NO ACTIVITY IS STARTED BY US AND NONE IS SCHEDULED. The player must still plan
+# and pay for the wedding himself before the promise times out — 3 years plus the
+# younger spouse's years to adulthood (grand_wedding_timeout,
+# GAME\common\script_values\00_age_values.txt:90-102) — and vanilla itself fires
+# ep2_wedding.0001 when the promise is about to expire and charges
+# broke_betrothal_grand_wedding_opinion if it is broken
+# (00_marriage_interactions.txt:2321). The full research is in
+# tnt_wed_grand_pair_effect's header (tnt_34_marriage.txt). THE LOC MUST SAY
+# "PROMISE", NOT "HOLD".
+#
+# THIS IS THE ONE is_valid IN THE FILE THAT IS NOT ALL VARIABLE READS, and it is
+# allowed for one reason: it is on a single footer control, not on a per-row path,
+# so Law R9 does not apply to it. It is COPY 1 OF 3 of the host gate — the other
+# two are in tnt_exec_marriage_pair_effect and tnt_marriage_grand_value, and all
+# three must agree or the player pays for a wedding that never happens. Every row
+# is cited in the HOST GATE block of tnt_34_marriage.txt; the sources are
+# 00_marriage_interactions.txt:763-793 (the host half) and :799-824 (the pair half).
+#
+# THE TWO DLC ROWS ARE NOT OPTIONAL. Grand weddings are Tours & Tournaments
+# content; without them the promise variables would be written and nothing would
+# ever read them. has_dlc_feature = tours_and_tournaments / advanced_activities is
+# vanilla's own gate at :774-775, and a player without the DLC gets an honest
+# tooltip instead of a mystery.
+#
+# THE PAIR HALF READS THE PRINCIPAL THROUGH `var:x ?= { … }` INSIDE A TRIGGER,
+# which is legal and vanilla's own shape at :790 — the same line this gate copies
+# its "already promised" row from. That is why no scope is needed and why R-10
+# does not bite here.
+######################################################################################
+tnt_wed_grand_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+
+		# --- there must be a couple to honour --------------------------
+		custom_tooltip = {
+			text = tnt_err_no_pairs
+			exists = var:tnt_wed_principal
+		}
+
+		# --- the DLC (:774-775) ---------------------------------------
+		custom_tooltip = {
+			text = tnt_err_grand_no_dlc
+			has_dlc_feature = tours_and_tournaments
+			has_dlc_feature = advanced_activities
+		}
+
+		# --- can this ruler host at all? (:765-766, :786) -------------
+		custom_tooltip = {
+			text = tnt_err_grand_no_host
+			highest_held_title_tier > tier_barony
+			is_landed_or_landless_administrative = yes
+			is_available = yes
+		}
+
+		# --- the money (:785, base_wedding_cost) ----------------------
+		custom_tooltip = {
+			text = tnt_err_grand_no_gold
+			gold >= base_wedding_cost
+		}
+
+		# --- one outstanding promise per host (:789-792) --------------
+		custom_tooltip = {
+			text = tnt_err_grand_promised
+			NOR = {
+				var:promised_grand_wedding_marriage_countdown ?= { is_alive = yes }
+				has_variable = grand_wedding_promise_pending
+			}
+		}
+
+		# --- our candidate must be family (:819-824) ------------------
+		custom_tooltip = {
+			text = tnt_err_grand_not_family
+			var:tnt_wed_principal ?= { is_close_or_extended_family_of = root }
+		}
+
+		# --- and must be the DOMINANT partner (:799-818) --------------
+		custom_tooltip = {
+			text = tnt_err_grand_not_dominant
+			var:tnt_wed_principal ?= {
+				OR = {
+					AND = {
+						is_female = yes
+						exists = var:tnt_wed_matri
+					}
+					AND = {
+						is_male = yes
+						NOT = { exists = var:tnt_wed_matri }
+					}
+				}
+			}
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_wed_grand }
+			remove_variable = tnt_wed_grand
+		}
+		else = {
+			set_variable = {
+				name = tnt_wed_grand
+				value = 1
+			}
+		}
+	}
+}
+
+
+########################################################################
+# THE GRAND-WEDDING ZEROER (V5, user item 15a).
+#
+# tnt_wed_grand_toggle above is the ONLY other off-switch, and its is_valid reads
+# gold >= base_wedding_cost plus two DLC rows — gates that are right for making
+# the promise and wrong for withdrawing it: a ruler who has gone broke since
+# ticking the box could not untick it. A removal must never be refused, so this
+# entry is gate-free and does exactly what the toggle's "on" branch does —
+# remove the flag — plus voiding the auto-balance verdict, via the shared
+# tnt_cur_clear_effect (tnt_39_autobalance.txt) so the rule lives in one place.
+#
+# No reprice call is needed: the grand wedding's worth is not baked into the
+# stored per-pair prices — tnt_marriage_grand_value reads var:tnt_wed_grand live,
+# so the headline reacts the moment the flag is gone (same reason the toggle
+# itself carries no reprice).
+########################################################################
+tnt_wed_grand_clear = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_wed_grand
+		}
+	}
+}

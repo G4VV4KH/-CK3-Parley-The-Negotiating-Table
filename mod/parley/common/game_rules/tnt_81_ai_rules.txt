@@ -1,0 +1,395 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — THE AI SANDBOX GAME RULE
+# USER ITEM 4, PHASE C-2 (30-V2-DESIGN §6.3 phase AI-3)
+#
+# Owner: ai-sandbox.  ONE rule, three settings, gating exactly one thing:
+# the silent AI<->AI treaty pulse in
+#   common\on_action\tnt_72_ai_world.txt      (the host + the trigger)
+#   common\scripted_effects\tnt_38_ai_world.txt (tnt_ai_world_pulse_effect)
+#
+# ======================================================================
+# *** V17: THE "WHAT THIS RULE DOES NOT GATE" SECTION IS TOMBSTONED. IT
+# *** ARGUED ABOUT A FILE THAT WAS NEVER SHIPPED.
+# ======================================================================
+# The section below built its whole argument on "the three AI-usable character
+# interactions in common\character_interactions\tnt_11_ai_interactions.txt".
+# THAT FILE DOES NOT EXIST and never did: common\character_interactions\ ships
+# exactly tnt_10_interaction.txt and tnt_12_marriage_picker.txt, and CLAUDE.md
+# lists tnt_11_ai_interactions.txt among the paths that no longer exist. So
+# there is no phase-B / phase-C-1 interaction set to exempt, and the only thing
+# this rule has ever gated is the thing named at the top of this file.
+#
+# WHAT IS BEHIND THE RULE, and it is the whole of it: the one mechanism with no
+# player-visible consent beat at all - a periodic pulse that pairs two AI rulers
+# up and applies a package to them directly, with no interaction, no window and
+# no answer. 43-ai-participation.md section 3.C.4 names that shape as "the most
+# common shape of a 'this mod broke my game' complaint" and rules it must be
+# rule-gated. That ruling stands and is the reason this rule exists.
+#
+# The retired argument, kept because its vanilla citation is still good evidence
+# about auto_accept and because deleting a wrong argument hides that it was
+# made:
+# # The three AI-usable character interactions in
+# # common\character_interactions\tnt_11_ai_interactions.txt are PHASE B and
+# # PHASE C-1 and they are deliberately NOT behind this rule. They are
+# # ordinary vanilla-shaped interactions: the engine schedules them, the
+# # player sees the normal acceptance window with the normal
+# # GetAcceptanceBreakdown, and AI<->AI resolution happens through
+# #   auto_accept = { custom_description = { ... scope:recipient = { is_ai = yes } } }
+# # which is vanilla's own idiom (GAME\common\character_interactions\00_gift.txt:494-502)
+# # and carries no more risk than negotiate_alliance_interaction does. Putting
+# # them behind a rule would mean the user's actual request — "a full sandbox
+# # for the AI, in which it can conclude value-fair deals, including with
+# # another AI" — shipped switched off. It does not.
+#
+# ======================================================================
+# WHY THE DEFAULT IS `common`  (USER ITEM 16 — it shipped as `rare` first)
+# ======================================================================
+# The original brief said the rule "must default to a conservative setting"
+# and the first release shipped `rare`, the lowest non-zero rate. USER
+# ITEM 16 overrides that ruling: having played it, the user wants the busy
+# map out of the box — `common` is the mod's own pitch ("a map that feels
+# like a Total War diplomacy screen") — so the shipped default is now
+# `common`, and `rare` stays in the list as the quiet option.
+#
+# The three reasons a NON-OFF default is safe at all are unchanged:
+#
+#  1. VANILLA'S OWN PRECEDENT FOR EXACTLY THIS KIND OF RULE DEFAULTS ON.
+#     hybrid_culture_ai_frequency (GAME\common\game_rules\00_game_rules.txt)
+#     gates ai_cultural_hybridization_interaction — an autonomous, silent,
+#     gamestate-mutating AI behaviour, i.e. our exact class — and its three
+#     settings are default_hybrid_culture_ai_frequency (the DEFAULT),
+#     less_common_hybrid_culture_ai_frequency and
+#     none_hybrid_culture_ai_frequency. PDX ships that one on.
+#
+#  2. *** V17 REWROTE THIS REASON, BECAUSE IT HAD BECOME THE OPPOSITE OF THE
+#     *** TRUTH AND IT IS A SAFETY ARGUMENT. It used to say the C-2 item set was
+#     items 1/2/3/4/9 - gold, alliance, truce, hook - that "not one of them
+#     touches the realm graph", and that "titles, vassalage and marriage are
+#     FORBIDDEN in the C-2 path and are absent from tnt_38_ai_world.txt".
+#     MEASURED IN tnt_38_ai_world.txt: the seven live legs are do_hook,
+#     do_ultimatum, do_hookcall, do_title, do_artifact, do_wed and do_vassal;
+#     the realm-graph effects create_title_and_vassal_change and
+#     change_title_holder are both live; and create_alliance and
+#     add_truce_both_ways have ZERO occurrences - both families are retired
+#     mod-wide. Title (weight 22) and artifact (22) are the two LARGEST entries
+#     in the sandbox draw.
+#     THE HONEST REASON THE DEFAULT IS STILL SAFE: the sandbox uses THE SAME
+#     APPLY LEGS AS THE PLAYER-FACING WINDOW, including
+#     `take_baronies = no` + `is_capital_barony = no` on every transfer, so a
+#     realm-graph mutation here is the same operation the player performs by
+#     hand and is no more dangerous than his own accepted treaty. Titles are
+#     also county-only (T3 is `tier = tier_county`), so no duchy or kingdom can
+#     move. What a bug here CAN do is move a county nobody meant to move - which
+#     is why the sandbox is rule-gated at all and why `off` exists.
+#     THE ONE OLD PROHIBITION THAT STILL HOLDS, and it is stated in the file
+#     itself: create_betrothal and marry DO NOT APPEAR in tnt_38_ai_world.txt
+#     and must not. do_wed stages a marriage the mod's own way; the engine's two
+#     marriage effects are never called silently between two AI rulers.
+#
+#  3. THE WORLD RATE IS BOUNDED AT EVERY SETTING. The budget in
+#     tnt_72_ai_world.txt's header works out to roughly 3 to 8 concluded
+#     treaties per year across the whole map at `rare` and about three
+#     times that at `common`, each announced to any player who borders,
+#     allies or fights one of the two parties — and the three-year
+#     per-character cooldown holds at every rate, so neither setting can
+#     run away.
+#
+# IF THE USER WANTS IT QUIETER THERE IS NOTHING TO EDIT: it is a lobby rule.
+# If a FUTURE MAINTAINER wants a different shipped default, change the one
+# `default =` line below. Nothing else in the mod depends on which setting
+# is the default.
+#
+# ======================================================================
+# GRAMMAR AND THE LOC KEYS IT IMPLIES
+# ======================================================================
+# GAME\common\game_rules\_game_rules.info:1-19, quoted verbatim:
+#   game_rule = {
+#       default = setting_name
+#       categories = { category_1 category_2 }
+#       setting_name = { apply_modifier = category:modifier_key   flag = flag_key }
+#   }
+#   rule_<key>              will be used as the key for game rule names
+#   setting_<key>           will be used as the key for game rule setting names
+#   setting_<key>_desc      will be used as the key for game rule setting descs
+#   game_rule_category_<category> will be used as the key for game rule category names
+#
+# So this file requires SEVEN loc keys and no more:
+#   rule_tnt_ai_treaties
+#   setting_tnt_ai_treaties_off      + _desc
+#   setting_tnt_ai_treaties_rare     + _desc
+#   setting_tnt_ai_treaties_common   + _desc
+# and NO game_rule_category_* key, because both categories below already
+# exist in vanilla. Measured over GAME\common\game_rules\*.txt in this
+# session, the shipped category set is exactly:
+#   ai · culture · difficulty · faith · flavor · game_modes · health ·
+#   historicity · multiplayer · titles · tweaks
+# `ai` is used by hybrid_culture_ai_frequency (`categories = { ai culture }`)
+# and `tweaks` by the mod's own tnt_80_game_rules.txt, so the pairing below
+# introduces nothing new. The existing rule's loc keys prove the naming
+# convention is right: MOD\localization\english\tnt_l_english.yml:335-339
+# carries rule_tnt_advanced_terms / setting_tnt_advanced_terms_on(+_desc) /
+# setting_tnt_advanced_terms_off(+_desc) and renders correctly in the lobby.
+#
+# `apply_modifier` and `flag` are deliberately absent: the only two things
+# this rule does are be read by has_game_rule and be listed in the lobby.
+# The flag set is closed (_game_rules.info:21-29 lists all nine) and none of
+# them is relevant to us.
+#
+# WHO READS IT:
+#   common\on_action\tnt_72_ai_world.txt   tnt_ai_world_pulse's trigger, as
+#       NOT = { has_game_rule = tnt_ai_treaties_off }
+#   common\scripted_effects\tnt_38_ai_world.txt  tnt_ai_world_pulse_effect,
+#       as has_game_rule = tnt_ai_treaties_common for the higher rate.
+#   events\tnt_intro_events.txt   the intro letter's world paragraph, one
+#       triggered_desc per setting — reads the lobby's ACTUAL choice, so it
+#       stays correct whatever the shipped default is.
+# `has_game_rule = <setting>` — note the argument is the SETTING id, not the
+# rule id. REAL call sites: GAME\common\character_interactions\00_culture_interactions.txt:181
+# (has_game_rule = less_common_hybrid_culture_ai_frequency),
+# GAME\common\character_interactions\00_adoption.txt:16 (has_game_rule = no_adoption),
+# GAME\common\scripted_triggers\00_game_rule_triggers.txt:288.
+#
+# THIS FILE IS ADDITIVE. GAME\common\game_rules\ contains 00_game_rules.txt
+# and _game_rules.info; neither is named tnt_81_ai_rules.txt, so R1 holds.
+# The mod already ships tnt_80_game_rules.txt into the same directory and it
+# loads, which is the strongest possible proof that a second file here is
+# fine.
+#
+# ENCODING: UTF-8 WITH BOM (R16). This is a NEW .txt — it is reported in
+# new_txt_files_needing_bom.
+########################################################################
+
+tnt_ai_treaties = {
+	categories = { ai tweaks }
+
+	# See "WHY THE DEFAULT IS `common`" above (user item 16). One-line change
+	# to switch the shipped default; nothing else in the mod depends on it.
+	default = tnt_ai_treaties_common
+
+	# Declaration order is lobby display order, so these read off / rare /
+	# common from top to bottom, which is the order a user expects.
+
+	# The pulse's trigger fails outright. Zero cost: one has_game_rule
+	# lookup per AI ruler per year and nothing else ever runs. The three
+	# Phase-B interactions are unaffected and keep working.
+	tnt_ai_treaties_off = { }
+
+	# The quiet option — and the shipped default before user item 16.
+	# Tier-scaled per-pulse chance 3 / 7 / 14 percent (county / duchy /
+	# kingdom+), three-year per-character cooldown on both parties. Numbers
+	# and the arithmetic behind them: tnt_72_ai_world.txt header, and
+	# tnt_ai_world_chance_value in tnt_56_ai_values.txt.
+	tnt_ai_treaties_rare = { }
+
+	# THE SHIPPED DEFAULT (user item 16). Roughly three times `rare`:
+	# 8 / 18 / 35 percent, for a map that feels like a Total War diplomacy
+	# screen — the mod's own pitch. Still bounded by the same per-character
+	# cooldown, so it cannot run away.
+	tnt_ai_treaties_common = { }
+}
+
+
+########################################################################
+# RULE 2 — HOW OFTEN AN AI RULER WRITES TO **THE PLAYER**
+# v3 ITERATION 1, USER ITEM 1: "I have never once seen a letter from an AI."
+#
+# ======================================================================
+# THE MACHINERY IS NOT BROKEN. THE RATE WAS.
+# ======================================================================
+# tnt_ai_offer_try_effect fires trigger_event = tnt_ai_offer.0001 from inside
+# scope:tnt_ai_target, which IS the human player, and that path was verified
+# end to end. What the player was hitting was four independent rate limits
+# multiplying together:
+#
+#   1. the PROPOSER's lock      tnt_ai_offer_cooldown, years = 3, on the AI
+#   2. the PLAYER's lock        tnt_ai_offer_cooldown, years = 1, on the player
+#                               -- and this one blocks EVERY ruler in the world
+#                               at once, so it, not (1), is the real ceiling
+#   3. the event's own cooldown = { years = 1 } on tnt_ai_offer.0001
+#                               (events\tnt_ai_events.txt -- NOT this author's
+#                               file; reported upward, because a TEST setting
+#                               cannot beat an engine-side floor)
+#   4. ai_character_pulse's delay = { days = 75 } in
+#                               common\on_action\tnt_71_ai.txt (also not this
+#                               author's file)
+# Net effect: at most ONE offer per year reaches a given player, wherever he is
+# and however many neighbours he has. A one-hour test session sees nothing, and
+# the user reasonably concluded the feature did not work.
+#
+# ======================================================================
+# WHAT THIS RULE CHANGES, AND WHAT IT CANNOT
+# ======================================================================
+# It sets (1) and (2) -- the two set_variable durations in
+# common\scripted_effects\tnt_37_ai_offer.txt E-AI-1 -- and, at the TEST
+# setting, it removes (2) altogether so that the world is not locked out by one
+# letter. It cannot touch (3) or (4) from here; both are in other authors' files
+# and both are reported in this iteration's handoff. At `test` the effective rate
+# is therefore bounded by the event cooldown until that line is changed too.
+#
+# `years`, `months` and `days` on set_variable are LITERALS -- `years = var:x`
+# has zero vanilla call sites (00-ARCHITECTURE section 6 item 3) -- so E-AI-1
+# reads this rule with an if / else_if ladder of literal durations rather than
+# by arithmetic. That is why the settings are DURATIONS and not a multiplier.
+#   months = 6 on set_variable: REAL,
+#     GAME\common\court_positions\tasks\00_wet_nurse_tasks.txt:215-217
+#   days on set_variable: already shipped in this mod at tnt_37_ai_offer.txt
+#     (tnt_ai_offer_arch, days = 200)
+#
+# ======================================================================
+# THE FIVE SETTINGS
+# ======================================================================
+#   off        no AI ever composes an offer for the player. E-AI-1 returns
+#              immediately. (The AI<->AI pulse of rule 1 is untouched.)
+#   rare       proposer 6 years, player 3 years
+#   normal     proposer 3 years, player 1 year -- exactly what build 3
+#              hardcoded before this rule existed
+#   frequent   proposer 1 year, player 6 months          <-- THE DEFAULT
+#   test       proposer 30 days, PLAYER LOCK REMOVED ENTIRELY -- both the
+#              set_variable and the three eligibility rows that read it. This is
+#              a debugging setting and it says so in its own desc: it is the only
+#              way to see the letter arrive within a few in-game months, and it
+#              is deliberately the LAST entry in the lobby list.
+#
+# WHY `frequent` IS THE DEFAULT (USER ITEM 16 -- it shipped as `normal` first):
+# the original brief said keep it at normal, the rate the mod was tuned at.
+# The user's item-1 complaint ("I have never once seen a letter from an AI")
+# outlived that tuning -- at `normal` the player-side lock still throttles the
+# whole world to one letter a year -- and item 16 makes `frequent` the shipped
+# default. THE HONEST CAVEAT STAYS: the two remaining floors (3) and (4) live
+# in other authors' files, so until those lines move too the practical ceiling
+# stays about one letter a year; `frequent` reaches that ceiling far more
+# reliably, because the proposer- and player-side locks no longer add years on
+# top of it.
+#
+# ======================================================================
+# GRAMMAR AND LOC — same as rule 1 above
+# ======================================================================
+# GAME\common\game_rules\_game_rules.info:1-19. ELEVEN loc keys, all reported:
+#   rule_tnt_ai_offer_rate
+#   setting_tnt_ai_offer_rate_off      + _desc
+#   setting_tnt_ai_offer_rate_rare     + _desc
+#   setting_tnt_ai_offer_rate_normal   + _desc
+#   setting_tnt_ai_offer_rate_frequent + _desc
+#   setting_tnt_ai_offer_rate_test     + _desc
+# No game_rule_category_* key: `ai` and `tweaks` both already exist in vanilla
+# (see rule 1's header for the measured category set).
+# `apply_modifier` and `flag` are absent for the same reason as rule 1 -- the
+# only thing this rule does is answer has_game_rule.
+#
+# WHO READS IT: common\scripted_effects\tnt_37_ai_offer.txt E-AI-1, five
+# has_game_rule tests; the telemetry rate label (tnt_3b_log.txt, the rate=
+# field of the TRY line) and the intro letter's rate paragraph
+# (events\tnt_intro_events.txt) — both branch per setting, so they are
+# correct whatever the default. Nothing else. `has_game_rule = <SETTING id>`,
+# not the rule id: GAME\common\character_interactions\00_culture_interactions.txt:181,
+# GAME\common\character_interactions\00_adoption.txt:16.
+# `trigger_if = { limit = { has_game_rule = X } ... }` inside a trigger:
+# GAME\common\scripted_triggers\00_game_rule_triggers.txt:56-57, :107-108.
+########################################################################
+
+tnt_ai_offer_rate = {
+	categories = { ai tweaks }
+
+	# USER ITEM 16. See "WHY `frequent` IS THE DEFAULT" above.
+	default = tnt_ai_offer_rate_frequent
+
+	# Declaration order is lobby display order: off, then the three real rates
+	# from slowest to fastest, then the debugging setting last.
+	tnt_ai_offer_rate_off = { }
+	tnt_ai_offer_rate_rare = { }
+	tnt_ai_offer_rate_normal = { }
+	tnt_ai_offer_rate_frequent = { }
+	tnt_ai_offer_rate_test = { }
+}
+
+
+########################################################################
+# RULE 3 - AI TELEMETRY. A DIAGNOSTIC, DEFAULTING TO OFF.
+# v3 ITERATION 7.
+#
+# Turns on the instrumentation in common\scripted_effects\tnt_3b_log.txt, which
+# writes one line per AI decision to the game's ERROR LOG so that a whole run can
+# be read back afterwards. The line grammar, every field, every event kind and
+# ready-made PowerShell queries are in _docs\91-AI-TELEMETRY-FORMAT.md.
+#
+# ======================================================================
+# WHICH FILE THE USER SENDS, AND WHETHER DEBUG MODE IS NEEDED
+# ======================================================================
+#   FILE:        ...\Documents\Paradox Interactive\Crusader Kings III\logs\error.log
+#                (the same lines are mirrored into game.log; either will do, and
+#                error.log is the smaller of the two for this purpose)
+#   DEBUG MODE:  NOT required. The mechanism is the `error_log` effect, which is
+#                error severity and is used unconditionally by vanilla on
+#                ordinary gameplay paths. The full evidence, and the honest limit
+#                of that evidence, is in tnt_3b_log.txt's header under STEP ONE.
+#                `debug_log` was rejected precisely because it cannot be shown to
+#                write outside debug mode and cannot interpolate values inline.
+#
+# ======================================================================
+# WHY OFF BY DEFAULT - AND IT IS NOT THE SAME REASONING AS RULE 1
+# ======================================================================
+# Rule 1 defaults to `rare` because it is a FEATURE and shipping a feature
+# switched off would not answer the user's request. This is not a feature. It
+# writes several hundred lines per game year into the file modders read to find
+# real bugs, and it makes the AI path evaluate named script values it would not
+# otherwise touch. Both are costs with no gameplay benefit, so the shipped state
+# is off and the user turns it on for a measurement run.
+#
+# AT `off` THE COST IS ONE has_game_rule LOOKUP PER LOG SITE AND NOTHING ELSE.
+# Every helper in tnt_3b_log.txt opens with the rule test; no datafunction is
+# evaluated, no value chain is walked, no string is built.
+#
+# ======================================================================
+# THE TWO ON SETTINGS, AND WHY THERE ARE TWO
+# ======================================================================
+#   on        Every real decision: attempt start, every rejection reason, the
+#            composed package term by term, the acceptance arithmetic, and each
+#            concluded or abandoned treaty. Roughly 700 to 1,600 lines per half
+#            game year on a 1066 start - the budget is worked through in the
+#            reader's guide. This is the setting for the half-year run.
+#
+#   verbose   Adds ONE extra kind, WPULSE, emitted once per AI ruler per year
+#            BEFORE the AI-to-AI probability gate. That is on the order of two
+#            thousand lines per game year by itself and it swamps everything
+#            else, which is exactly why it is not in `on`.
+#            IT BUYS ONE THING AND ONLY ONE: it separates "the AI-to-AI pulse
+#            never ran" from "it ran and the dice said no". At `on` a WTRY count
+#            of zero cannot distinguish those two. Use it for a short
+#            confirmation run, not for the half-year run.
+#
+# ======================================================================
+# GRAMMAR AND LOC - same as rules 1 and 2 above
+# ======================================================================
+# GAME\common\game_rules\_game_rules.info:1-19. SEVEN loc keys, all reported in
+# this iteration's loc_keys_needed and NOT written here (the .yml files belong to
+# another owner):
+#   rule_tnt_ai_telemetry
+#   setting_tnt_ai_telemetry_off      + _desc
+#   setting_tnt_ai_telemetry_on       + _desc
+#   setting_tnt_ai_telemetry_verbose  + _desc
+# No game_rule_category_* key: `ai` and `tweaks` both already exist in vanilla
+# (rule 1's header carries the measured category set).
+#
+# IT SHIPS CORRECTLY WITHOUT THOSE KEYS. A missing rule key renders as the raw
+# identifier in the lobby list - ugly, harmless, and this is a diagnostic the
+# user turns on deliberately and already knows the name of. Nothing else breaks.
+#
+# WHO READS IT: every helper in common\scripted_effects\tnt_3b_log.txt, as
+# `has_game_rule = tnt_ai_telemetry_on` / `..._verbose`. Nothing else in the mod
+# reads it, and nothing in the mod's behaviour branches on it - only whether a
+# line is written.
+########################################################################
+
+tnt_ai_telemetry = {
+	categories = { ai tweaks }
+
+	# See "WHY OFF BY DEFAULT" above. This is the one rule in this file whose
+	# default must stay off.
+	default = tnt_ai_telemetry_off
+
+	# Declaration order is lobby display order.
+	tnt_ai_telemetry_off = { }
+	tnt_ai_telemetry_on = { }
+	tnt_ai_telemetry_verbose = { }
+}

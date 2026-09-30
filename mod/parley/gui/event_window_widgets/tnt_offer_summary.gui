@@ -1,0 +1,1650 @@
+######################################################################
+### PARLEY: THE NEGOTIATING TABLE - THE AI'S OFFER, WEIGHED ON OUR OWN SCALES
+###
+### Embedded into tnt_ai_offer.0002 (events/tnt_ai_events.txt) by ONE line:
+###     widget = { gui = "tnt_offer_summary" container = "custom_widgets_container" }
+### 43-ai-participation.md 3.A.4 ruling A-1; 30-V2-DESIGN 6.3 phase AI-1;
+### risk R-13.
+###
+### THE FILE NAME IS THE WIDGET NAME. GAME\events\_events.info:247-251: "GUI
+### files must be placed at the event_window_widgets path (see paths.settings).
+### The name of the file must match the widget name." The path is registered by
+### the base game at GAME\paths_checksummed.settings:3
+###     event_window_widgets = "gui/event_window_widgets"
+### so this file needs NO entry in gui/scripted_widgets/ - unlike
+### tnt_diplomacy_window.gui, which does. Nothing in
+### GAME\gui\event_window_widgets\ is shadowed: no vanilla file is called
+### tnt_offer_summary.gui.
+###
+### THE ROOT ELEMENT MUST BE A vbox, NOT A window.
+### The decisive precedent is the whole reason Option A won:
+###   GAME\gui\event_window_widgets\child_examination_success_chance.gui:1
+### - a controller-less, mod-copyable event widget whose root element is a vbox,
+### embedded by a one-liner at
+###   GAME\events\dlc\tgp\tgp_china_decision_events.txt:92.
+### 555 of the 685 embedded widgets in GAME\events have no controller at all.
+### Writing `window = { }` here is failure mode 5 of 43-...md 3.A.9.
+###
+### WHY THIS WIDGET CAN BE THIS SHORT.
+### The AI's package lives on THE PLAYER, in the same variables the negotiation
+### window edits, so every macro in data_binding/tnt_macros.txt already points at
+### the right character. No datacontext plumbing, no scopes, nothing new:
+###   TntSV        -> GetPlayer.MakeScope.ScriptValue(V)
+###   TntNum       -> GetPlayer.MakeScope.Var(V).GetValue
+###   TntOn        -> that variable is above zero
+###   TntBreakdown -> GuiScope.SetRoot( GetPlayer.MakeScope ).GetScriptValueBreakdown(V)
+###   TntPos / TntNeg -> a named value against zero
+###   TntVar       -> GetPlayer.MakeScope.Var(V)      (the hostage row's character)
+###   TntList      -> GetPlayer.MakeScope.GetList(V)  (user item 2's object lists)
+### and every one of the seven is ALREADY SHIPPED AND RUNNING in
+### gui/tnt_types.gui and gui/tnt_panel_multiselect.gui. This widget is a fifth
+### rendering of the same number the window shows, not a second implementation
+### of it.
+###
+### DELIBERATELY NO tnt_ TYPE IS INSTANTIATED HERE, even though tnt_types.gui
+### defines a perfectly good tnt_balance_scales. Two reasons: this file must not
+### depend on a file another author is rebuilding for items 3.2/3.3/3.4 in the
+### same build, and an event widget that fails to resolve a type renders as
+### nothing at all with no error the player can see. Everything below is either
+### an engine base type (vbox, hbox, icon, expand), a vanilla shared type used
+### by the exemplar itself (text_single, divider_light), or - since user item 2
+### put the object lists into the letter - a vanilla shared type this mod
+### already ships elsewhere, re-verified on disk for this file:
+###   scrollbox                    GAME\gui\shared\lists.gui:3185
+###   portrait_head_tiny           GAME\gui\window_ledger.gui:6867-6869
+###                                (natively 64x64, so it is NEVER instantiated
+###                                 here without an explicit size - user item 4)
+###   container_character_tooltip  GAME\gui\cooltip.gui:1340, used exactly this
+###                                way at GAME\gui\window_army.gui:2038
+###
+### USER ITEM 1.2 IS OBEYED HERE TOO: the headline, the scales' frame and the
+### breakdown tooltip all read tnt_ai_accept_value - the DECIDING value, with the
+### threshold already folded in - so "the number is positive" and "they will
+### sign" are the same statement in the letter exactly as in the window.
+###
+### LAYOUT LAW (R5), and this file was written to it from the first line:
+### NO widget below carries `position` or `parentanchor` AS A CHILD OF AN HBOX
+### OR A VBOX - the engine's own message is "Unsupported property: parentanchor
+### on widgets that are a child of a hbox/vbox. Hboxes/vboxes arrange their
+### children automatically.", and 0 of 13650 such children in the 373 vanilla
+### .gui files carry one. Cross-axis centring is `expand = {}`; the only
+### anchors in the file are on icons and one portrait INSIDE plain-widget
+### holders (user item 2's object rows), which is the licence every row in
+### tnt_types.gui uses, because a plain widget arranges nothing. R6: the only
+### container here is vanilla's own container_character_tooltip, hosted by a
+### tooltipwidget on the hostage row - tooltip content is not a flow child of
+### anything, so the (flow)container rule has nothing to bite. (The retired ward
+### row, V16 user item 5, was the other host of it.)
+######################################################################
+
+vbox = {
+	name = "tnt_offer_summary"
+	layoutpolicy_horizontal = expanding
+
+	### Invisible children take no space. It is what lets the five money rows at
+	### the bottom be declared unconditionally and cost nothing: a package sets at
+	### most two of them, so this widget is about 90 px tall in practice.
+	### Shipped in this mod at gui/tnt_types.gui (tnt_column, the picker panels).
+	ignoreinvisible = yes
+
+	spacing = 4
+
+	divider_light = {
+		layoutpolicy_horizontal = expanding
+	}
+
+	####################################################################
+	### THE VERDICT LINE. Scales on the left, then the header, the signed
+	### headline number and the accept/reject word.
+	####################################################################
+	hbox = {
+		name = "tnt_offer_verdict_line"
+		layoutpolicy_horizontal = expanding
+		margin_left = 3
+		spacing = 8
+
+		### icon_strength_balance.dds is 300x60 = exactly five 60x60 frames, and
+		### 3 is level. Usage pattern verbatim from
+		### GAME\gui\interaction_declare_war.gui:101-107; the frame value buckets
+		### tnt_ai_accept_value (tnt_50_values.txt, tnt_balance_frame_value).
+		### FixedPointToInt is the CFixedPoint -> int32 bridge and is already
+		### shipped on the window's own scales.
+		### The datacontext + tooltip_visible + tooltipwidget-with-its-own-
+		### datacontext triple is verbatim from
+		### GAME\gui\activity_window_widgets\hunt_success_chance.gui:24-31, and
+		### widget_value_breakdown_tooltip recurses
+		### (GAME\gui\shared\value_breakdown.gui:1942-1945, `recursive = yes`) -
+		### so hovering this one icon opens the four figures, then the eight
+		### relationship rows, then every per-item price. That recursion is why
+		### this widget needs no figure rows of its own.
+		icon = {
+			name = "tnt_offer_scales"
+			size = { 60 60 }
+			texture = "gfx/interface/icons/icon_strength_balance.dds"
+			framesize = { 60 60 }
+			frame = "[FixedPointToInt( TntSV('tnt_balance_frame_value') )]"
+			alwaystransparent = no
+
+			datacontext = "[TntBreakdown('tnt_ai_accept_value')]"
+			tooltip_visible = "[ValueBreakdown.HasTooltip]"
+
+			tooltipwidget = {
+				widget_value_breakdown_tooltip = {
+					datacontext = "[TntBreakdown('tnt_ai_accept_value')]"
+				}
+			}
+		}
+
+		vbox = {
+			layoutpolicy_horizontal = expanding
+			spacing = 2
+
+			hbox = {
+				layoutpolicy_horizontal = expanding
+				spacing = 6
+
+				### A fixed loc label, so autoresize may stay as text_single
+				### inherits it (GAME\gui\preload\labels.gui:6-16). The
+				### anti-spill recipe (autoresize = no) is for widgets that
+				### display GAME text - a title or a character name - and there
+				### is none in this widget.
+				text_single = {
+					name = "tnt_offer_header"
+					text = "tnt_balance_header"
+					align = nobaseline
+					default_format = "#high"
+				}
+
+				### THE NUMBER. Same value, same format token and same meaning as
+				### the window's headline. `|+=0` prints a signed integer.
+				text_single = {
+					name = "tnt_offer_headline"
+					text = "[TntSV('tnt_ai_accept_value')|+=0]"
+					align = nobaseline
+					default_format = "#high"
+				}
+
+				expand = {}
+			}
+
+			hbox = {
+				layoutpolicy_horizontal = expanding
+				spacing = 6
+
+				### The only acceptance test in this mod is
+				### tnt_ai_accept_value > 0, and exactly 0 declines
+				### (GAME\gui\interaction_templates.gui:3089,
+				### GAME\localization\english\interactions_l_english.yml:23).
+				### TntNeg is the exact negation of TntPos, so precisely one
+				### of these two is ever visible.
+				text_single = {
+					name = "tnt_offer_verdict_yes"
+					visible = "[TntPos('tnt_ai_accept_value')]"
+					text = "tnt_balance_accept"
+					align = nobaseline
+				}
+
+				text_single = {
+					name = "tnt_offer_verdict_no"
+					visible = "[TntNeg('tnt_ai_accept_value')]"
+					text = "tnt_balance_reject"
+					align = nobaseline
+				}
+
+				expand = {}
+			}
+		}
+	}
+
+	####################################################################
+	### THE MONEY, IN FULL, WITH REAL NUMBERS.
+	###
+	### The letter's prose (tnt_ai_offer_desc_a1 .. a16) names the terms of the
+	### archetype it was written for, but WHICH SIDE PAYS is decided after the
+	### archetype is chosen, by tnt_ai_offer_settle_effect - so no fixed piece of
+	### prose can name it. These five rows can, and they are the reason the player
+	### is never asked to accept an unstated sum.
+	###
+	### One row per numeric term an archetype can write. Each is a plain variable
+	### read - two map lookups - and NEVER a GetScriptedGui call: Law R11 forbids
+	### that in a per-row visible, and this is exactly the shape that rule exists
+	### for. Under `ignoreinvisible = yes` above, the four or five rows that do not
+	### apply take no space at all.
+	###
+	### The number itself is printed by the LOC STRING, not here: a loc value may
+	### contain a datafunction, which is proven all over vanilla, e.g.
+	###   GAME\localization\english\activities\coronation_activity_l_english.yml:697
+	###     "#V [GetPlayer.MakeScope.Var('install_claimants_oath_counter').GetValue|0]/3#! ..."
+	### That keeps every word AND every currency icon in the .yml where the
+	### localisation author can edit them, and keeps this file free of wording.
+	### The keys are listed for that author in this build's notes file.
+	###
+	### F5 - EVERY PROSE ROW IN THIS BLOCK WRAPS; IT DOES NOT ELIDE.
+	### Measured on temp/screen3.png, the courtier head rendered as
+	###   "Partner zabiraet ... iz vashego dvora - on nazvan n ..."
+	### - cut mid-word at about 71 characters. The cause is the type, not the
+	### string: text_single carries `elide = right` AND `autoresize = yes` from its
+	### own definition (GAME\gui\preload\labels.gui:6-16), and every row here then
+	### switched autoresize back OFF, which pins the box to one line and hands the
+	### overflow to the elider. The row whose whole job is to warn that the deal
+	### has soured (tnt_offer_row_word_kept, 76 rendered characters in Russian and
+	### 84 in English) and the row that explains a deliberate gift
+	### (tnt_offer_row_gift, 110 and 113) were both losing their tails this way.
+	### That breaks this block's own stated invariant - the player must never
+	### accept a term he was not shown - so the ROWS are fixed here rather than the
+	### sentences, and no future translation can re-open the hole.
+	###
+	### THE SHAPE IS text_multi + autoresize = yes + max_width, vanilla's own idiom
+	### for a paragraph inside an expanding column: 213 of the 222 text_multi call
+	### sites under GAME\gui pair exactly those three. Exemplars re-read on disk:
+	###   GAME\gui\frontend_bookmarks.gui:2009   expanding + autoresize + max_width
+	###   GAME\gui\frontend_ingame_menu.gui:136  the same three in a flow box
+	###   GAME\gui\window_dynasty_legacy.gui:124-135  text_multi children of an
+	###     expanding vbox, carrying fontsize_min - this block's shape exactly
+	### `align = nobaseline|left` survives the type change untouched: text_multi
+	### takes nobaseline at GAME\gui\cooltip.gui:2663 and
+	### GAME\gui\multiplayer_types.gui:1699. `multiline = yes` is deliberately NOT
+	### restated - text_multi's own type already sets it
+	### (GAME\gui\preload\labels.gui:19-30), and a restated default is a lie
+	### waiting to drift.
+	###
+	### max_width IS LOAD-BEARING, NOT DECORATION, and this is the one line of the
+	### change that could have gone wrong. `autoresize = no` gives a row a DESIRED
+	### width of 0, which is the only reason this widget has never fought the event
+	### window for space. Turning autoresize on would make each row desire its full
+	### UNWRAPPED text - roughly 760 px for the gift line - inside a host that is
+	### 510 px wide: character_event.gui:624-627 sizes the option grid
+	### `addcolumn = 500` in an hbox with `margin_left = 10`, and
+	### character_event.gui:470-489 hangs custom_widgets_container in that same flow
+	### vbox with `margin = { 15 0 }`. 510 - 15 - 15 - this vbox's own
+	### margin_left = 3 leaves 477 px of text. The screenshot confirms the
+	### arithmetic: the rows start at x=452 and the 500 px option buttons span
+	### 444..944. 470 is that 477 with seven pixels of slack, so the wrap width can
+	### never exceed the space the row is actually handed. The nine contract lines
+	### carry 458 instead, because they sit under `margin_left = 12`.
+	###
+	### WHAT DELIBERATELY DOES NOT WRAP - and the rule is a real distinction, not a
+	### shortcut. The object NAME rows inside the datamodel items below (a title, an
+	### artifact, a courtier, a marriage pair) stay single-line: their height is
+	### pinned by PDX's fixed-size datamodel rule
+	### (GAME\gui\window_epidemics.gui:449-450) and the scrollbox cap is arithmetic
+	### on it (124 = five 24 px rows plus four 1 px spacings), so a wrapped name
+	### would silently break the list. A NAME is an identifier the player can hover
+	### for the full form; a TERM is a statement he is being asked to sign. Only the
+	### statement has to arrive whole.
+	### The hostage line is prose but stays single-line for a second
+	### reason: it is the text half of a 30 px person row (`size = { 0 30 }`,
+	### `maximumsize = { -1 30 }`) whose portrait holder is sized `100%`, so letting
+	### the text grow means re-sizing a holder that would then chase a parent which
+	### sizes to content. Its length is bounded in the .yml instead - the note on
+	### that row says what budget the translator has. (The retired ward row, V16
+	### user item 5, was the other line under this rule.)
+	####################################################################
+	vbox = {
+		name = "tnt_offer_terms"
+		layoutpolicy_horizontal = expanding
+		margin_left = 3
+		spacing = 1
+
+		### EVERY TERM AN ARCHETYPE OR THE BALANCER CAN WRITE HAS A ROW HERE, and
+		### that completeness is the point of this block, not a nicety. The letter
+		### used to carry only five rows - two of them a since-retired term - so a package
+		### containing an ALLIANCE, a non-aggression pact, a favor or the freedom of
+		### prisoners was accepted by a player who had never been shown it. The prose
+		### above names the archetype's headline term, but an archetype writes more
+		### than one variable and the balancer adds currencies afterwards, so prose
+		### can never be the full statement of the deal.
+		###
+		### WHEN A NEW ARCHETYPE IS ADDED, ADD ITS ROW HERE. The rule is mechanical:
+		### one row per `set_variable` (or selection-list write) an AI path can put
+		### into the offer. The current writers are tnt_37_ai_offer.txt (the
+		### archetypes, including the ruling-supersession wave: titles, claims,
+		### artifacts, fealty, and A16's marriage pair via tnt_wed_list - the ward
+		### was in that wave too until V16 user item 5 retired it, row and all)
+		### and tnt_39_autobalance.txt's sweeten/pay
+		### ladders - four currencies each side. Only the obligation sheet has no
+		### AI writer; when one appears, this block grows with it.
+		###
+		### V13 USER ITEM 2 CLOSED THAT LAST GAP AND THREE OTHERS. Four archetypes
+		### were added so that no surviving term is unreachable by the AI, and this
+		### block grew the four rows they need:
+		###   A17 unbind   -> tnt_indep_p        (a line, beside the fealty line)
+		###   A18 surety   -> tnt_hostage_r      (a person row; it was the ward row's
+		###                                       shape, and since V16 retired the
+		###                                       ward it OWNS that shape's note)
+		###   A19 talent   -> tnt_sel_courtier_p (an object group over people)
+		###   A20 fealty-on-terms -> tnt_vassal_r PLUS the nine tnt_ob_* rows of the
+		###       contract sheet, which is why the contract block prints a head plus
+		###       one small line per obligation.
+		### The obligations are NOT independently offerable and that is a property of
+		### the machinery, not a choice: tnt_ob_sign_value returns 0 unless a fealty
+		### term is on the table, so a sheet with no fealty term prices exactly zero
+		### and applies nothing. One archetype carries both, which is also vanilla's
+		### shape - offer_vassalization_interaction ships its obligations as five
+		### presets on ONE interaction.
+		###
+		### THE RULE CUTS BOTH WAYS, WHICH IS WHY THE PRISONER ROW BELOW IS
+		### COMMENTED OUT (user item 7): archetype A5, the ransom letter, was its
+		### only writer, and a row whose writer is gone reads as a MISSING WRITER
+		### rather than as a retired term. When a term retires, retire its row.
+		### A5 and goal code 3 are retired and must never be reused, the same
+		### standing rule that keeps arch 4 and arch 7 dead.
+		### V13 USER ITEM 1 APPLIED THE SAME RULE THREE MORE TIMES: the alliance row,
+		### the truce row and the claim group are commented out below with their
+		### writers A1, A2, A6 and A11. Burnt archetype indices are now 1, 2, 4, 5,
+		### 6, 7, 11 and 12; live are 3, 8, 9, 10, 13, 14, 15, 16 and the four new
+		### ones, 17 to 20.
+		###
+		### ORDER IS MEANING: what binds both of us, then what he hands over, then
+		### what he wants from me, then the leverage he is applying. Under
+		### `ignoreinvisible = yes` the rows that do not apply cost no space at all,
+		### so a two-term letter is still two lines tall.
+
+		### --- mutual: neither side "gives" these, they are sworn together --------
+		### THE MUTUAL SECTION NOW CARRIES THE MARRIAGE PAIR GROUP ALONE, and it is
+		### drawn further down (tnt_offer_list_marriage) because a couple is people
+		### and needs the person shape. The two lines that stood HERE - the alliance
+		### and the non-aggression truce - are retired by V13 user item 1 and
+		### commented out immediately below. Nothing else is mutual today.
+		####################################################################
+		### RETIRED - THE ALLIANCE AND TRUCE LINES OF THE AI LETTER.
+		### V13 USER ITEM 1.
+		###
+		### Both pacts were built, shipped and played, then CONSIDERED AND WITHDRAWN
+		### FOR AN INDEFINITE PERIOD on the user's ruling. THIS IS A DESIGN REFUSAL,
+		### NOT A BUG FIX: vanilla gates both behind the SAME Diplomacy lifestyle
+		### perk, defensive_negotiations_perk - the alliance at
+		### GAME\common\character_interactions\00_alliance.txt:1184, the purchased
+		### truce through fp2_purchase_truce_interaction_soft_requirements_trigger
+		### (GAME\common\scripted_triggers\03_fp2_scripted_triggers.txt:725-735),
+		### whose OR opens with `always = no`. Buying either here short-circuits an
+		### investment the player never made.
+		###
+		### THESE ROWS MUST GO RATHER THAN STAY, by this block's own stated
+		### invariant above: ONE ROW PER set_variable AN AI PATH CAN PUT INTO THE
+		### OFFER. Archetypes A1 (plain pact), A2 (alliance) and A6 (proud pact paid
+		### in prestige) were the only writers of tnt_alliance_p / tnt_truce_p, and
+		### all three retire with the terms - so a live row here would read as a
+		### MISSING WRITER, the exact defect that invariant exists to catch, instead
+		### of as a retired term.
+		###
+		### Nothing is deleted; do not re-enable one half. ARCHETYPE INDICES 1, 2 AND
+		### 6 ARE RETIRED and must never be reused, beside 4, 5, 7, 11 and 12. The
+		### loc keys tnt_ai_offer_row_alliance and tnt_ai_offer_row_truce STAY
+		### DEFINED on purpose - the key set is pinned at 553 and an undefined key
+		### prints raw.
+		### Full tombstones: TOMBSTONE A and TOMBSTONE B in
+		### gui\tnt_diplomacy_window.gui, and common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		text_single = {
+#			name = "tnt_offer_row_alliance"
+#			visible = "[TntOn('tnt_alliance_p')]"
+#			layoutpolicy_horizontal = expanding
+#			autoresize = no
+#			align = nobaseline|left
+#			fontsize_min = 12
+#			text = "tnt_ai_offer_row_alliance"
+#		}
+#
+#		text_single = {
+#			name = "tnt_offer_row_truce"
+#			visible = "[TntOn('tnt_truce_p')]"
+#			layoutpolicy_horizontal = expanding
+#			autoresize = no
+#			align = nobaseline|left
+#			fontsize_min = 12
+#			text = "tnt_ai_offer_row_truce"
+#		}
+
+		### --- what HE gives (_r) -------------------------------------------------
+		text_multi = {
+			name = "tnt_offer_row_gold_r"
+			visible = "[TntOn('tnt_gold_r')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_gold_r"
+		}
+
+		text_multi = {
+			name = "tnt_offer_row_prestige_r"
+			visible = "[TntOn('tnt_prestige_r')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_prestige_r"
+		}
+
+		text_multi = {
+			name = "tnt_offer_row_piety_r"
+			visible = "[TntOn('tnt_piety_r')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_piety_r"
+		}
+
+		text_multi = {
+			name = "tnt_offer_row_influence_r"
+			visible = "[TntOn('tnt_influence_r')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_influence_r"
+		}
+
+		### --- what he ASKS of me (_p) --------------------------------------------
+		text_multi = {
+			name = "tnt_offer_row_gold_p"
+			visible = "[TntOn('tnt_gold_p')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_gold_p"
+		}
+
+		text_multi = {
+			name = "tnt_offer_row_prestige_p"
+			visible = "[TntOn('tnt_prestige_p')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_prestige_p"
+		}
+
+		text_multi = {
+			name = "tnt_offer_row_piety_p"
+			visible = "[TntOn('tnt_piety_p')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_piety_p"
+		}
+
+		text_multi = {
+			name = "tnt_offer_row_influence_p"
+			visible = "[TntOn('tnt_influence_p')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_influence_p"
+		}
+
+		text_multi = {
+			name = "tnt_offer_row_hook_p"
+			visible = "[TntOn('tnt_hook_p')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_hook_p"
+		}
+
+		####################################################################
+		### RETIRED - THE PRISONER ROW OF THE AI LETTER.  USER ITEM 7.
+		###
+		### The prisoner terms were built, shipped and played, then CONSIDERED AND
+		### WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling; archetype A5, the
+		### ransom letter that was this row's only AI writer, is retired with them.
+		### A revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+		### ransom interactions and the release on_actions) rather than on this mod's
+		### own bookkeeping.
+		###
+		### THIS ROW MUST GO RATHER THAN STAY: the block's stated invariant above is
+		### ONE ROW PER set_variable AN AI PATH CAN PUT INTO THE OFFER. With no writer
+		### left, a live row here would read as a missing writer - the exact defect
+		### that invariant exists to catch - instead of as a retired term.
+		### Nothing is deleted; do not re-enable one half.
+		### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		text_single = {
+#			name = "tnt_offer_row_prisoners_p"
+#			visible = "[TntOn('tnt_prisoners_p')]"
+#			layoutpolicy_horizontal = expanding
+#			autoresize = no
+#			align = nobaseline|left
+#			fontsize_min = 12
+#			text = "tnt_ai_offer_row_prisoners_p"
+#		}
+
+		### --- land, claims, artifacts (the ruling-supersession wave) -------------
+		### USER ITEM 2 - THE LETTER NAMES WHAT CHANGES HANDS. Each term is the
+		### shipped head line (the loc key, which prints the count) plus one small
+		### row PER OBJECT, so "claims on land: 2" stopped being the whole
+		### statement. Each group is gated on the same TntPos-on-a-count the deal
+		### sheet's own group heads use (tnt_panel_multiselect.gui), so an unset
+		### list renders nothing and its datamodel is never walked for a term that
+		### is not in the offer.
+		###
+		### THE DATAMODEL is the same selection list the window edits - TntList is
+		### GetPlayer.MakeScope.GetList (data_binding/tnt_macros.txt), and the
+		### Scope.Title / Scope.Artifact unwrap plus the restated fixed item size
+		### are exactly the deal sheet groups' shape (tnt_sheet_sel_title_p and
+		### friends; PDX's fixed-size rule, GAME\gui\window_epidemics.gui:449-450).
+		###
+		### THE NAME IS THE LINKED FORM - Title.GetName / Artifact.GetName, the
+		### tooltipped twins of the NoTooltip calls this mod uses wherever a name
+		### must not fight a button. Here a row hosts no control, so the full form
+		### is correct and the engine hangs the object's own hover tooltip on the
+		### name. Call sites of the full form in ordinary text widgets:
+		###   [Title.GetName]     GAME\gui\window_epidemics.gui:553 (a hoverable
+		###                       text_single with no alwaystransparent, as here)
+		###   [Title.GetName|U]   GAME\gui\window_migration.gui:1656
+		###   [Artifact.GetName]  GAME\gui\interaction_confirmation.gui:110
+		### The name texts therefore do NOT carry alwaystransparent = yes: a
+		### transparent widget cannot receive the hover that opens that tooltip
+		### (this mod's own doctrine, tnt_types.gui's V5 headline note).
+		###
+		### FIVE ROWS ARE VISIBLE, THE REST SCROLL, like the pickers: the vanilla
+		### ledger pattern (autoresizescrollarea + size 0 + cap,
+		### GAME\gui\window_ledger.gui:9405-9408), capped at 124 = five 24 px rows
+		### plus four 1 px spacings, so a short list stays short and a nine-county
+		### cession cannot flood the letter. scrollbox_empty is pinned invisible:
+		### the group only exists while its count is positive, so the list can
+		### never be empty while shown, and the vanilla default must not flash.
+		###
+		### The per-object icons are the deal sheet groups' own three textures, so
+		### the letter and the sheet speak one iconography.
+		vbox = {
+			name = "tnt_offer_list_title_p"
+			layoutpolicy_horizontal = expanding
+			spacing = 1
+			visible = "[TntPos('tnt_count_sel_title_p_value')]"
+
+			text_multi = {
+				name = "tnt_offer_row_title_p"
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 470
+				align = nobaseline|left
+				fontsize_min = 12
+				text = "tnt_ai_offer_row_title_p"
+			}
+
+			scrollbox = {
+				name = "tnt_offer_scroll_title_p"
+				layoutpolicy_horizontal = expanding
+				autoresizescrollarea = yes
+				size = { 0 0 }
+				maximumsize = { -1 124 }
+
+				blockoverride "scrollbox_margins"
+				{
+					margin_left = 12
+					margin_right = 26
+					margin_top = 0
+					margin_bottom = 0
+				}
+
+				blockoverride "scrollbox_empty"
+				{
+					visible = no
+				}
+
+				blockoverride "scrollbox_content"
+				{
+					vbox = {
+						name = "tnt_offer_objects_title_p"
+						layoutpolicy_horizontal = expanding
+						spacing = 1
+						datamodel = "[TntList('tnt_sel_title_p')]"
+
+						item = {
+							hbox = {
+								name = "tnt_offer_object_title_p"
+								datacontext = "[Scope.Title]"
+								layoutpolicy_horizontal = expanding
+								size = { 0 24 }
+								maximumsize = { -1 24 }
+								spacing = 6
+								margin = { 2 2 }
+
+								widget = {
+									name = "tnt_offer_object_title_p_icon_holder"
+									size = { 20 100% }
+									alwaystransparent = yes
+
+									icon = {
+										name = "tnt_offer_object_title_p_icon"
+										size = { 18 18 }
+										parentanchor = center
+										texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds"
+										alwaystransparent = yes
+									}
+								}
+
+								text_single = {
+									name = "tnt_offer_object_title_p_name"
+									layoutpolicy_horizontal = expanding
+									autoresize = no
+									align = nobaseline|left
+									default_format = "#high"
+									fontsize_min = 12
+									using = Font_Size_Small
+									text = "[Title.GetName|U]"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		### --- the man he would take out of your court (A19) ----------------------
+		### V13 USER ITEM 2. A19 "talent" buys a courtier from the player, so this
+		### is a _p group and it sits beside the other _p group, the land he asks
+		### for. PEOPLE INSIDE AN OBJECT GROUP, so it is the title group's list
+		### shape above with the WARD ROW's person shape per item: portrait plus
+		### container_character_tooltip on the row's own datacontext, which is what
+		### the marriage pair row does for this same reason (Scope.Char is the
+		### promote a character datamodel yields, GAME\gui\window_situation_list.gui:
+		### 1079; the mod's shipped character-row name binding is
+		### gui\tnt_panel_multiselect.gui's tnt_multi_row_text,
+		### `text = "[Character.GetUINameNoTooltip]"`). The NoTooltip form is
+		### deliberate here and not the linked Title.GetName form used for objects:
+		### the row already opens the character's own tooltip through
+		### container_character_tooltip, and a tooltip inside a tooltip is the one
+		### place the link must not fire.
+		### The `visible` is the same TntPos-on-a-count every other group uses, so
+		### an unset list renders nothing and its datamodel is never walked.
+		vbox = {
+			name = "tnt_offer_list_courtier_p"
+			layoutpolicy_horizontal = expanding
+			spacing = 1
+			visible = "[TntPos('tnt_count_sel_courtier_p_value')]"
+
+			### THE ROW IN temp/screen3.png. 88 rendered characters in Russian, 80 in
+			### English, cut at 71 as "... - on nazvan n ...". It is now the whole
+			### sentence on as many lines as it needs.
+			text_multi = {
+				name = "tnt_offer_row_courtier_p"
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 470
+				align = nobaseline|left
+				fontsize_min = 12
+				text = "tnt_ai_offer_row_courtier_p"
+			}
+
+			scrollbox = {
+				name = "tnt_offer_scroll_courtier_p"
+				layoutpolicy_horizontal = expanding
+				autoresizescrollarea = yes
+				size = { 0 0 }
+				maximumsize = { -1 124 }
+
+				blockoverride "scrollbox_margins"
+				{
+					margin_left = 12
+					margin_right = 26
+					margin_top = 0
+					margin_bottom = 0
+				}
+
+				blockoverride "scrollbox_empty"
+				{
+					visible = no
+				}
+
+				blockoverride "scrollbox_content"
+				{
+					vbox = {
+						name = "tnt_offer_objects_courtier_p"
+						layoutpolicy_horizontal = expanding
+						spacing = 1
+						datamodel = "[TntList('tnt_sel_courtier_p')]"
+
+						item = {
+							### 30 px and not the object groups' 24: a person row
+							### carries a 26 px head, the same figure the hostage row
+							### and the marriage pair row already use. The fixed size
+							### is PDX's own datamodel rule
+							### (GAME\gui\window_epidemics.gui:449-450).
+							hbox = {
+								name = "tnt_offer_object_courtier_p"
+								datacontext = "[Scope.Char]"
+								layoutpolicy_horizontal = expanding
+								size = { 0 30 }
+								maximumsize = { -1 30 }
+								spacing = 6
+								margin = { 2 2 }
+								alwaystransparent = no
+
+								tooltipwidget = {
+									container_character_tooltip = {}
+								}
+
+								widget = {
+									name = "tnt_offer_object_courtier_p_portrait_holder"
+									size = { 28 100% }
+									alwaystransparent = yes
+
+									portrait_head_tiny = {
+										name = "tnt_offer_object_courtier_p_portrait"
+										size = { 26 26 }
+										parentanchor = center
+										alwaystransparent = yes
+									}
+								}
+
+								text_single = {
+									name = "tnt_offer_object_courtier_p_name"
+									layoutpolicy_horizontal = expanding
+									autoresize = no
+									align = nobaseline|left
+									default_format = "#high"
+									fontsize_min = 12
+									using = Font_Size_Small
+									alwaystransparent = yes
+									text = "[Character.GetUINameNoTooltip]"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		vbox = {
+			name = "tnt_offer_list_title_r"
+			layoutpolicy_horizontal = expanding
+			spacing = 1
+			visible = "[TntPos('tnt_count_sel_title_r_value')]"
+
+			text_multi = {
+				name = "tnt_offer_row_title_r"
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 470
+				align = nobaseline|left
+				fontsize_min = 12
+				text = "tnt_ai_offer_row_title_r"
+			}
+
+			scrollbox = {
+				name = "tnt_offer_scroll_title_r"
+				layoutpolicy_horizontal = expanding
+				autoresizescrollarea = yes
+				size = { 0 0 }
+				maximumsize = { -1 124 }
+
+				blockoverride "scrollbox_margins"
+				{
+					margin_left = 12
+					margin_right = 26
+					margin_top = 0
+					margin_bottom = 0
+				}
+
+				blockoverride "scrollbox_empty"
+				{
+					visible = no
+				}
+
+				blockoverride "scrollbox_content"
+				{
+					vbox = {
+						name = "tnt_offer_objects_title_r"
+						layoutpolicy_horizontal = expanding
+						spacing = 1
+						datamodel = "[TntList('tnt_sel_title_r')]"
+
+						item = {
+							hbox = {
+								name = "tnt_offer_object_title_r"
+								datacontext = "[Scope.Title]"
+								layoutpolicy_horizontal = expanding
+								size = { 0 24 }
+								maximumsize = { -1 24 }
+								spacing = 6
+								margin = { 2 2 }
+
+								widget = {
+									name = "tnt_offer_object_title_r_icon_holder"
+									size = { 20 100% }
+									alwaystransparent = yes
+
+									icon = {
+										name = "tnt_offer_object_title_r_icon"
+										size = { 18 18 }
+										parentanchor = center
+										texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds"
+										alwaystransparent = yes
+									}
+								}
+
+								text_single = {
+									name = "tnt_offer_object_title_r_name"
+									layoutpolicy_horizontal = expanding
+									autoresize = no
+									align = nobaseline|left
+									default_format = "#high"
+									fontsize_min = 12
+									using = Font_Size_Small
+									text = "[Title.GetName|U]"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		####################################################################
+		### RETIRED - THE CLAIM LIST OF THE AI LETTER.  V13 USER ITEM 1.
+		###
+		### The granted claim was built, shipped and played TWICE (a single-object
+		### picker, then this multi-select), then CONSIDERED AND WITHDRAWN FOR AN
+		### INDEFINITE PERIOD. A DESIGN REFUSAL, NOT A BUG FIX: vanilla gates the
+		### MANUFACTURE of claims behind a LEARNING investment - they come from the
+		### Court Chaplain's council task (task_fabricate_claim,
+		### GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088) with the
+		### outcome keyed to learning (:1120, :1126, :1132). Buying a finished claim
+		### at the table short-circuits the whole investment.
+		###
+		### THE ROW GOES BECAUSE ITS WRITER GOES, which is this block's invariant:
+		### archetype A11, the letter that sold paper claims, was the only AI path
+		### that filled tnt_sel_claim_r, and it retires with the term. A live group
+		### here would read as a missing writer rather than as a retired term.
+		###
+		### tnt_count_sel_claim_r_value, this group's `visible`, is one of the two
+		### values kept DEFINED but gutted to 0 because five loc keys name it -
+		### tnt_ai_offer_row_claim_r among them, and that key stays defined too (the
+		### key set is pinned at 553 and an undefined key prints raw).
+		### Nothing is deleted; do not re-enable one half. ARCHETYPE INDEX 11 IS
+		### RETIRED and must never be reused.
+		### Full tombstone: TOMBSTONE C in gui\tnt_diplomacy_window.gui, and
+		### common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		vbox = {
+#			name = "tnt_offer_list_claim_r"
+#			layoutpolicy_horizontal = expanding
+#			spacing = 1
+#			visible = "[TntPos('tnt_count_sel_claim_r_value')]"
+#
+#			text_single = {
+#				name = "tnt_offer_row_claim_r"
+#				layoutpolicy_horizontal = expanding
+#				autoresize = no
+#				align = nobaseline|left
+#				fontsize_min = 12
+#				text = "tnt_ai_offer_row_claim_r"
+#			}
+#
+#			scrollbox = {
+#				name = "tnt_offer_scroll_claim_r"
+#				layoutpolicy_horizontal = expanding
+#				autoresizescrollarea = yes
+#				size = { 0 0 }
+#				maximumsize = { -1 124 }
+#
+#				blockoverride "scrollbox_margins"
+#				{
+#					margin_left = 12
+#					margin_right = 26
+#					margin_top = 0
+#					margin_bottom = 0
+#				}
+#
+#				blockoverride "scrollbox_empty"
+#				{
+#					visible = no
+#				}
+#
+#				blockoverride "scrollbox_content"
+#				{
+#					vbox = {
+#						name = "tnt_offer_objects_claim_r"
+#						layoutpolicy_horizontal = expanding
+#						spacing = 1
+#						datamodel = "[TntList('tnt_sel_claim_r')]"
+#
+#						item = {
+#							hbox = {
+#								name = "tnt_offer_object_claim_r"
+#								datacontext = "[Scope.Title]"
+#								layoutpolicy_horizontal = expanding
+#								size = { 0 24 }
+#								maximumsize = { -1 24 }
+#								spacing = 6
+#								margin = { 2 2 }
+#
+#								widget = {
+#									name = "tnt_offer_object_claim_r_icon_holder"
+#									size = { 20 100% }
+#									alwaystransparent = yes
+#
+#									icon = {
+#										name = "tnt_offer_object_claim_r_icon"
+#										size = { 18 18 }
+#										parentanchor = center
+#										texture = "gfx/interface/icons/character_interactions/icon_claim_pressed.dds"
+#										alwaystransparent = yes
+#									}
+#								}
+#
+#								text_single = {
+#									name = "tnt_offer_object_claim_r_name"
+#									layoutpolicy_horizontal = expanding
+#									autoresize = no
+#									align = nobaseline|left
+#									default_format = "#high"
+#									fontsize_min = 12
+#									using = Font_Size_Small
+#									text = "[Title.GetName|U]"
+#								}
+#							}
+#						}
+#					}
+#				}
+#			}
+#		}
+
+		vbox = {
+			name = "tnt_offer_list_artifact_r"
+			layoutpolicy_horizontal = expanding
+			spacing = 1
+			visible = "[TntPos('tnt_count_sel_artifact_r_value')]"
+
+			text_multi = {
+				name = "tnt_offer_row_artifact_r"
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 470
+				align = nobaseline|left
+				fontsize_min = 12
+				text = "tnt_ai_offer_row_artifact_r"
+			}
+
+			scrollbox = {
+				name = "tnt_offer_scroll_artifact_r"
+				layoutpolicy_horizontal = expanding
+				autoresizescrollarea = yes
+				size = { 0 0 }
+				maximumsize = { -1 124 }
+
+				blockoverride "scrollbox_margins"
+				{
+					margin_left = 12
+					margin_right = 26
+					margin_top = 0
+					margin_bottom = 0
+				}
+
+				blockoverride "scrollbox_empty"
+				{
+					visible = no
+				}
+
+				blockoverride "scrollbox_content"
+				{
+					vbox = {
+						name = "tnt_offer_objects_artifact_r"
+						layoutpolicy_horizontal = expanding
+						spacing = 1
+						datamodel = "[TntList('tnt_sel_artifact_r')]"
+
+						item = {
+							hbox = {
+								name = "tnt_offer_object_artifact_r"
+								datacontext = "[Scope.Artifact]"
+								layoutpolicy_horizontal = expanding
+								size = { 0 24 }
+								maximumsize = { -1 24 }
+								spacing = 6
+								margin = { 2 2 }
+
+								### The real artifact icon, exactly as the picker
+								### rows draw it (texture + frame + framesize 240,
+								### tnt_panel_multiselect.gui tnt_multi_row_artifact),
+								### only 18 px.
+								widget = {
+									name = "tnt_offer_object_artifact_r_icon_holder"
+									size = { 20 100% }
+									alwaystransparent = yes
+
+									icon = {
+										name = "tnt_offer_object_artifact_r_icon"
+										size = { 18 18 }
+										parentanchor = center
+										texture = "[Artifact.GetIcon]"
+										frame = "[Artifact.GetIconFrame]"
+										framesize = { 240 240 }
+										alwaystransparent = yes
+									}
+								}
+
+								text_single = {
+									name = "tnt_offer_object_artifact_r_name"
+									layoutpolicy_horizontal = expanding
+									autoresize = no
+									align = nobaseline|left
+									default_format = "#high"
+									fontsize_min = 12
+									using = Font_Size_Small
+									text = "[Artifact.GetName]"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		### --- he offers himself, or his child -------------------------------------
+		text_multi = {
+			name = "tnt_offer_row_vassal_r"
+			visible = "[TntOn('tnt_vassal_r')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_vassal_r"
+		}
+
+		### --- he asks to be unbound (A17) -----------------------------------------
+		### V13 USER ITEM 2. It reads as the opposite of the line above and belongs
+		### against it, so the player sees fealty and its undoing in one place.
+		### THE SIDE IS _p AND ONLY _p, and that is a property of the candidate pool
+		### rather than a choice: the composer's three sources are neighbouring
+		### top-liege realm owners, the proposer's own liege, and a fellow vassal
+		### under one top liege - so the PLAYER'S LIEGE CAN NEVER BE A PROPOSER, and
+		### tnt_indep_r (a liege offering to free the player) is unreachable, not
+		### refused. It stays available in the counter-offer window.
+		text_multi = {
+			name = "tnt_offer_row_indep_p"
+			visible = "[TntOn('tnt_indep_p')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_indep_p"
+		}
+
+		### --- the contract he would have written (A20) ---------------------------
+		### V13 USER ITEM 2. A20 kneels ON TERMS: it writes tnt_vassal_r AND fills
+		### the obligation sheet, so the letter must print both or the player agrees
+		### to a fealty whose conditions he was never shown.
+		###
+		### THE HEAD'S GATE IS THE PAIR, not the sheet alone. tnt_ob_changed_value
+		### counts how many of the nine rows differ from the contract a plain fealty
+		### produces, and it had NO READER until this block - its own header in
+		### common\script_values\tnt_55_hc_values.txt:1078-1088 says so in its own
+		### hand ("UNREFERENCED, KEPT ON PURPOSE ... Nobody has pointed a widget at
+		### it yet"). Pairing it with tnt_vassal_r is not belt-and-braces: the nine
+		### variables price at exactly 0 and apply nothing without a fealty term, so
+		### a sheet with no fealty leg is not a contract and must not be announced as
+		### one.
+		###
+		### THE LINES ARE THE SHIPPED OBLIGATION KEYS - three of them vanilla's own
+		### (GAME\localization\english\gui\specialinteractions_l_english.yml:70, :71,
+		### :75), the rest this mod's tnt_ob_tt_* - so the letter and the apply leg's
+		### own tooltip ladder speak in one voice and no new loc key is invented here.
+		###
+		### TAX AND LEVY ARE LEVELS, NOT FLAGS. TntOn would be true for level 0 as
+		### well (level 0 is the TAX-EXEMPT contract, a bigger concession, not
+		### "nothing"), so they are tested with EqualTo_CFixedPoint against the
+		### literal 1 - the composer writes no other level - which is the contract
+		### panel's own form (gui\tnt_panel_contract.gui:1301-1325). The other seven
+		### rows are genuine 0/1 rights and TntOn is exact for them.
+		vbox = {
+			name = "tnt_offer_list_contract"
+			layoutpolicy_horizontal = expanding
+			spacing = 1
+			visible = "[And( TntOn('tnt_vassal_r'), TntPos('tnt_ob_changed_value') )]"
+
+			text_multi = {
+				name = "tnt_offer_row_contract"
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 470
+				align = nobaseline|left
+				fontsize_min = 12
+				text = "tnt_ai_offer_row_contract"
+			}
+
+			### The indent is the object groups' own margin_left = 12, so a detail
+			### line under a head reads the same everywhere in this letter.
+			###
+			### ignoreinvisible IS STATED HERE and not left to the root widget's
+			### copy: it is a per-container property, not an inherited one, and this
+			### is the only new container in this file whose children are all
+			### conditional - nine rows of which a letter shows three or four. Every
+			### sibling group type in this mod that holds conditional children states
+			### it the same way (gui\tnt_panel_multiselect.gui's sheet groups,
+			### gui\tnt_diplomacy_window.gui's tnt_mutual_block). Without it a
+			### four-row contract would still be nine rows tall.
+			vbox = {
+				name = "tnt_offer_contract_lines"
+				layoutpolicy_horizontal = expanding
+				spacing = 1
+				margin_left = 12
+				ignoreinvisible = yes
+
+				### 458 AND NOT 470 ON ALL NINE: this vbox indents them by
+				### margin_left = 12, so their slot is 12 px narrower than a
+				### top-level row's. These lines are the tightest in the letter -
+				### the tnt_ob_tt_* sentences render at about 70 characters in
+				### Russian against a 465 px slot - which is why they wrap rather
+				### than trusting a translation to stay short.
+				text_multi = {
+					name = "tnt_offer_row_ob_tax"
+					visible = "[EqualTo_CFixedPoint( TntNum('tnt_ob_tax'), '(CFixedPoint)1' )]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "low_obligations_taxes"
+				}
+
+				text_multi = {
+					name = "tnt_offer_row_ob_levy"
+					visible = "[EqualTo_CFixedPoint( TntNum('tnt_ob_levy'), '(CFixedPoint)1' )]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "low_obligations_levies"
+				}
+
+				text_multi = {
+					name = "tnt_offer_row_ob_relig"
+					visible = "[TntOn('tnt_ob_relig')]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "religious_protection_tt"
+				}
+
+				text_multi = {
+					name = "tnt_offer_row_ob_council"
+					visible = "[TntOn('tnt_ob_council')]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "tnt_ob_tt_council"
+				}
+
+				text_multi = {
+					name = "tnt_offer_row_ob_revoke"
+					visible = "[TntOn('tnt_ob_revoke')]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "tnt_ob_tt_revoke"
+				}
+
+				text_multi = {
+					name = "tnt_offer_row_ob_war"
+					visible = "[TntOn('tnt_ob_war')]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "tnt_ob_tt_war"
+				}
+
+				text_multi = {
+					name = "tnt_offer_row_ob_fort"
+					visible = "[TntOn('tnt_ob_fort')]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "tnt_ob_tt_fort"
+				}
+
+				text_multi = {
+					name = "tnt_offer_row_ob_coin"
+					visible = "[TntOn('tnt_ob_coin')]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "tnt_ob_tt_coin"
+				}
+
+				### The one row that favours the LIEGE, which is why it is here at
+				### all: a menaced subject writes it as the sweetener that buys the
+				### deal. It prints in the same grey as the rest; the balance is
+				### where the player sees that it is worth something to him.
+				text_multi = {
+					name = "tnt_offer_row_ob_succ"
+					visible = "[TntOn('tnt_ob_succ')]"
+					layoutpolicy_horizontal = expanding
+					autoresize = yes
+					max_width = 458
+					align = nobaseline|left
+					default_format = "#weak"
+					fontsize_min = 12
+					using = Font_Size_Small
+					text = "tnt_ob_tt_succ"
+				}
+			}
+		}
+
+		####################################################################
+		### RETIRED V16, USER ITEM 5 - THE WARD ROW OF THE AI LETTER.
+		###
+		### Archetype A15 (offer a ward) is commented out of the composer's
+		### random_list (common\scripted_effects\tnt_37_ai_offer.txt), so nothing
+		### writes tnt_ward_r any more and this row could only ever have been
+		### invisible. Leaving it live would have left a row bound to a variable no
+		### archetype writes - the reader-with-no-writer shape this mod has already
+		### paid 804 error-log lines for on these exact two variables
+		### (common\scripted_triggers\tnt_42_people_gates.txt, P18's header).
+		###
+		### THE USER'S REASON: too abusable on points, and the hostage term covers
+		### the same immersive ground. The hostage row directly BELOW is now the only
+		### person row in the letter, and THE SHAPE ARGUMENT THAT USED TO LIVE HERE
+		### HAS BEEN MOVED INTO IT - portrait size mandatory,
+		### container_character_tooltip via the hbox datacontext, text transparent,
+		### and the 30 px / 443 px prose budget. Read it there.
+		###
+		### The loc key tnt_ai_offer_row_ward_r stays DEFINED in both .yml files as a
+		### deliberate orphan; the mod's key count is pinned at 570 and a retirement
+		### never changes it (same rule the retired goal and archetype prose keys
+		### follow, events\tnt_ai_events.txt:648-650).
+		####################################################################
+#		### USER ITEM 2: the ward is a PERSON, so the row wears the mod's own
+#		### person-row shape - a small head beside the line, and the whole row
+#		### opens container_character_tooltip on hover (the shipped shape,
+#		### gui\tnt_panel_multiselect.gui tnt_multi_row_char; the vanilla type is
+#		### GAME\gui\cooltip.gui:1340, used exactly this way at
+#		### GAME\gui\window_army.gui:2038). The datacontext on the hbox feeds BOTH
+#		### the portrait and the tooltip; the visible gate is the same Char.IsValid
+#		### the row always had, so neither ever evaluates against an unset
+#		### variable. The text keeps the shipped loc key and goes transparent so
+#		### the hover lands on the row wherever the cursor is. The explicit size
+#		### on the portrait is mandatory - the type is natively 64x64
+#		### (GAME\gui\window_ledger.gui:6867-6869) and would flood the letter
+#		### (user item 4's lesson, fixed in tnt_multi_row_char the same day).
+#		hbox = {
+#			name = "tnt_offer_row_ward_r"
+#			visible = "[TntVar('tnt_ward_r').Char.IsValid]"
+#			datacontext = "[TntVar('tnt_ward_r').Char]"
+#			layoutpolicy_horizontal = expanding
+#			size = { 0 30 }
+#			maximumsize = { -1 30 }
+#			spacing = 6
+#			alwaystransparent = no
+#
+#			tooltipwidget = {
+#				container_character_tooltip = {}
+#			}
+#
+#			widget = {
+#				name = "tnt_offer_ward_portrait_holder"
+#				size = { 28 100% }
+#				alwaystransparent = yes
+#
+#				portrait_head_tiny = {
+#					name = "tnt_offer_ward_portrait"
+#					size = { 26 26 }
+#					parentanchor = center
+#					alwaystransparent = yes
+#				}
+#			}
+#
+#			### THE ONE PROSE ROW IN THIS BLOCK THAT STAYS SINGLE-LINE, and the
+#			### hostage twin below with it. Not an oversight: it is the text half of
+#			### a 30 px person row, and the row's own portrait holder is sized
+#			### `{ 28 100% }`, so letting the text grow would leave that 100% chasing
+#			### a parent that had started sizing to its content. The height is the
+#			### constraint, not the width.
+#			###
+#			### SO THIS ROW'S LENGTH IS BOUNDED IN THE .yml INSTEAD, and it needs a
+#			### TIGHTER budget than any other row because it carries a live
+#			### character name: 477 px of terms minus the 28 px portrait holder and
+#			### 6 px of spacing leaves about 443 px, roughly 66 Russian characters
+#			### at Font_Size_Small. A CK3 name with a house or a nickname runs to 25,
+#			### so the fixed prose has to stay at or under about 40 characters.
+#			### Today Russian is 57 and English 52 (hostage: 47 and 43), which is
+#			### why F5's own count - which treated each datafunction as one glyph -
+#			### read these two rows as safe when they are not.
+#			### It therefore KEEPS text_single. A text_multi pinned to one line's
+#			### height would wrap and then CLIP, hiding the tail with no ellipsis to
+#			### admit it - strictly worse than eliding, which at least prints "...".
+#			text_single = {
+#				name = "tnt_offer_row_ward_r_text"
+#				layoutpolicy_horizontal = expanding
+#				autoresize = no
+#				align = nobaseline|left
+#				fontsize_min = 12
+#				alwaystransparent = yes
+#				text = "tnt_ai_offer_row_ward_r"
+#			}
+#		}
+
+		### V13 USER ITEM 2: THE HOSTAGE HE SENDS AS SURETY (A18).
+		###
+		### *** THIS IS NOW THE ONLY PERSON ROW IN THE LETTER. *** It was built as
+		### the ward row with three names changed, and the ward row above it is
+		### RETIRED (V16, user item 5), so THE WHOLE SHAPE ARGUMENT WAS MOVED HERE
+		### rather than left in a commented-out block. Do not shorten it back to a
+		### cross-reference.
+		###
+		### THE PERSON-ROW SHAPE, AND WHY EVERY PART OF IT IS MANDATORY. A hostage is
+		### a PERSON, so the row wears the mod's own person-row shape - a small head
+		### beside the line, and the whole row opens container_character_tooltip on
+		### hover (the shipped shape, gui\tnt_panel_multiselect.gui
+		### tnt_multi_row_char; the vanilla type is GAME\gui\cooltip.gui:1340, used
+		### exactly this way at GAME\gui\window_army.gui:2038).
+		###   * THE DATACONTEXT SITS ON THE hbox and feeds BOTH the portrait and the
+		###     tooltip - one binding, not two.
+		###   * THE VISIBLE AND THE DATACONTEXT ARE THE SAME Char.IsValid PAIR, so
+		###     neither ever evaluates against an unset variable (R13: an
+		###     object-valued variable is read through a validity test).
+		###   * THE EXPLICIT SIZE ON THE PORTRAIT IS MANDATORY - portrait_head_tiny is
+		###     natively 64x64 (GAME\gui\window_ledger.gui:6867-6869) and without
+		###     `size = { 26 26 }` it floods the letter (user item 4's lesson, fixed
+		###     in tnt_multi_row_char the same day).
+		###   * THE TEXT IS alwaystransparent so the hover lands on the row wherever
+		###     the cursor is.
+		###
+		### THE PROSE BUDGET, which is this row's real constraint and lives in the
+		### .yml, not here. The row STAYS SINGLE-LINE: it is the text half of a 30 px
+		### person row whose portrait holder is sized `{ 28 100% }`, so letting the
+		### text grow would leave that 100% chasing a parent that had started sizing
+		### to its content. The height is the constraint, not the width. The length is
+		### therefore bounded in the .yml instead, and it needs a TIGHTER budget than
+		### any other row because it carries a live character name: 477 px of terms
+		### minus the 28 px portrait holder and 6 px of spacing leaves about 443 px,
+		### roughly 66 Russian characters at Font_Size_Small. A CK3 name with a house
+		### or a nickname runs to 25, so the fixed prose has to stay at or under about
+		### 40 characters. Measured for tnt_ai_offer_row_hostage_r: Russian 47,
+		### English 43. F5's own count read this row as safe because it treated each
+		### datafunction as one glyph; it is not safe, it is merely closer than the
+		### retired ward row was (Russian 57, English 52).
+		### It therefore KEEPS text_single. A text_multi pinned to one line's height
+		### would wrap and then CLIP, hiding the tail with no ellipsis to admit it -
+		### strictly worse than eliding, which at least prints "...".
+		###
+		### ONLY THE _r SIDE EXISTS, and that is a standing refusal rather than an
+		### omission: tnt_hostage_p would have a letter silently nominate which of
+		### the PLAYER's children is surrendered. A18 nominates the AI's own child -
+		### which was A15's precedent too, the ward row above, RETIRED V16.
+		hbox = {
+			name = "tnt_offer_row_hostage_r"
+			visible = "[TntVar('tnt_hostage_r').Char.IsValid]"
+			datacontext = "[TntVar('tnt_hostage_r').Char]"
+			layoutpolicy_horizontal = expanding
+			size = { 0 30 }
+			maximumsize = { -1 30 }
+			spacing = 6
+			alwaystransparent = no
+
+			tooltipwidget = {
+				container_character_tooltip = {}
+			}
+
+			widget = {
+				name = "tnt_offer_hostage_portrait_holder"
+				size = { 28 100% }
+				alwaystransparent = yes
+
+				portrait_head_tiny = {
+					name = "tnt_offer_hostage_portrait"
+					size = { 26 26 }
+					parentanchor = center
+					alwaystransparent = yes
+				}
+			}
+
+			### Single-line for the two reasons set out in this row's own header
+			### above - a 30 px person row it must not outgrow, and a name that only
+			### a .yml budget can bound. That note carries the arithmetic.
+			text_single = {
+				name = "tnt_offer_row_hostage_r_text"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = nobaseline|left
+				fontsize_min = 12
+				alwaystransparent = yes
+				text = "tnt_ai_offer_row_hostage_r"
+			}
+		}
+
+		### --- the proposed marriage (A16) ------------------------------------------
+		### A COUPLE IS PEOPLE, so the group wears both shipped person shapes at
+		### once: the head line is a plain term row (vassal row above), and each
+		### pair renders as ONE row with the member's small head beside BOTH
+		### names - the deal sheet's own rendering of this same list
+		### (gui\tnt_panels.gui tnt_sheet_marriage_pairs, datamodel
+		### TntList('tnt_wed_list'), item datacontext "[Scope.Char]" per
+		### GAME\gui\window_situation_list.gui:1079). The names use the shipped
+		### key tnt_wed_pair_row - the LINKED GetShortUIName forms, so each name
+		### carries its own hover tooltip (the Title.GetName licence above), and
+		### the text is therefore NOT alwaystransparent; hover elsewhere on the
+		### row (the portrait, the gaps) opens the member's
+		### container_character_tooltip through the row datacontext, person-row
+		### style (the shape's note is on the hostage row above; the retired ward
+		### row was where it used to live).
+		### The partner-validity visible is the marriage panel's own idiom
+		### (gui\tnt_panel_marriage.gui:567) - a member whose partner died while
+		### the letter sat renders nothing rather than half a couple.
+		### The fixed item size is PDX's own datamodel rule
+		### (GAME\gui\window_epidemics.gui:449-450). A16 writes exactly one
+		### pair, so the block is one head line and one row in practice; the
+		### datamodel costs nothing extra and stays honest if a future path ever
+		### composes more.
+		vbox = {
+			name = "tnt_offer_list_marriage"
+			layoutpolicy_horizontal = expanding
+			spacing = 1
+			visible = "[TntOn('tnt_marriage_p')]"
+
+			text_multi = {
+				name = "tnt_offer_row_marriage"
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 470
+				align = nobaseline|left
+				fontsize_min = 12
+				text = "tnt_ai_offer_row_marriage"
+			}
+
+			vbox = {
+				name = "tnt_offer_marriage_pairs"
+				layoutpolicy_horizontal = expanding
+				spacing = 1
+				datamodel = "[TntList('tnt_wed_list')]"
+
+				item = {
+					hbox = {
+						name = "tnt_offer_marriage_pair"
+						datacontext = "[Scope.Char]"
+						### The validity gate reads through the datamodel's own
+						### ambient Scope, not through Character, so it cannot
+						### depend on this same widget's datacontext having been
+						### applied first - Scope.Char is the very promote the
+						### datacontext line uses, and Character.MakeScope.Var
+						### ('tnt_wed_partner').Char is the panel's shipped
+						### partner read (gui\tnt_panel_marriage.gui:503, :573).
+						visible = "[Scope.Char.MakeScope.Var('tnt_wed_partner').Char.IsValid]"
+						layoutpolicy_horizontal = expanding
+						size = { 0 30 }
+						maximumsize = { -1 30 }
+						spacing = 6
+						margin_left = 12
+						alwaystransparent = no
+
+						tooltipwidget = {
+							container_character_tooltip = {}
+						}
+
+						widget = {
+							name = "tnt_offer_marriage_portrait_holder"
+							size = { 28 100% }
+							alwaystransparent = yes
+
+							portrait_head_tiny = {
+								name = "tnt_offer_marriage_portrait"
+								size = { 26 26 }
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+
+						text_single = {
+							name = "tnt_offer_marriage_pair_names"
+							layoutpolicy_horizontal = expanding
+							autoresize = no
+							align = nobaseline|left
+							default_format = "#high"
+							fontsize_min = 12
+							using = Font_Size_Small
+							text = "tnt_wed_pair_row"
+						}
+
+						### THE LINE OF DESCENT (V10, user item 1): the player must
+						### see whether the proposed match is patri- or matrilineal
+						### before he accepts. tnt_wed_row_line is the marriage
+						### panel's own shipped key - a Select_CString over the
+						### pair's tnt_wed_matri, read off the SAME Character this
+						### row's datacontext already carries - so the letter and
+						### the editor can never disagree about a pair's line.
+						text_single = {
+							name = "tnt_offer_marriage_pair_line"
+							autoresize = no
+							### V12, USER ITEM 1 - THE LINE WAS NEVER 0 CHARACTERS,
+							### IT WAS 0 PIXELS. text_single is a textbox that carries
+							### autoresize = yes and NO size of its own
+							### (GAME\gui\preload\labels.gui:6-16), so switching
+							### autoresize off leaves the width to come from a layout
+							### policy or from min_width - max_width is only a ceiling,
+							### never a width, and the hbox handed this child 0.
+							### Every OTHER autoresize = no label in this file expands
+							### (:919 is its own sibling in this very hbox); this one is
+							### a FIXED right-hand column beside an expanding one, which
+							### is vanilla's own two-child idiom at
+							### GAME\gui\window_royal_court.gui:1137-1155 (expanding
+							### label + min_width = 30 label in one hbox) and this mod's
+							### shipped tnt_sheet_name (gui\tnt_panels.gui:453-462,
+							### min_width == max_width == 118), which renders THIS SAME
+							### loc key in the deal sheet (gui\tnt_panels.gui:849).
+							### min_width is kept equal to max_width so a long
+							### translation can neither shrink nor widen the column:
+							### the longest branch, Russian "Patrilineynyy", is ~95 px
+							### at Font_Size_Small.
+							min_width = 130
+							max_width = 130
+							align = nobaseline|right
+							default_format = "#weak"
+							fontsize_min = 12
+							using = Font_Size_Small
+							alwaystransparent = yes
+							text = "tnt_wed_row_line"
+						}
+					}
+				}
+			}
+		}
+
+		### --- the leverage he is applying ----------------------------------------
+		text_multi = {
+			name = "tnt_offer_row_usehook_r"
+			visible = "[TntOn('tnt_usehook_r')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			text = "tnt_ai_offer_row_usehook_r"
+		}
+
+		### --- he no longer likes the deal, but he offered it ----------------------
+		### The Accept option tolerates up to -15 of drift on the ground that the AI
+		### gave its word (events/tnt_ai_events.txt). Without this line the player
+		### would read "He will refuse" next to a live Accept button and conclude the
+		### window was lying to him.
+		### THE ROW THAT MUST ARRIVE WHOLE. It is the only warning the player gets
+		### that the AI's own arithmetic has turned against a letter it still
+		### intends to honour, and it was 76 rendered characters in Russian and 84
+		### in English - i.e. elided on both languages, losing exactly the clause
+		### that says the word will be kept. It wraps.
+		text_multi = {
+			name = "tnt_offer_row_word_kept"
+			visible = "[TntNeg('tnt_ai_accept_value')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			default_format = "#weak"
+			text = "tnt_ai_offer_row_word_kept"
+		}
+
+		### THE DELIBERATE GIFT (user items 5+9): the settle marks a letter whose
+		### headline still exceeds the generosity cap with tnt_ai_gift, and this
+		### line is what keeps that from reading as a pricing bug - the partner is
+		### offering more than he asks BECAUSE he thinks well of the player, and
+		### the letter says so in words.
+		### THE LONGEST ROW IN THE WIDGET BY A WIDE MARGIN - 110 rendered characters
+		### in Russian, 113 in English, against a box that elided at 71. It was
+		### losing its entire second sentence, which is the sentence that says the
+		### letter is a gift; without it the row read as the pricing bug it exists
+		### to explain away. Two lines, and it says both halves.
+		text_multi = {
+			name = "tnt_offer_row_gift"
+			visible = "[TntOn('tnt_ai_gift')]"
+			layoutpolicy_horizontal = expanding
+			autoresize = yes
+			max_width = 470
+			align = nobaseline|left
+			fontsize_min = 12
+			default_format = "#weak"
+			text = "tnt_ai_gift_line"
+		}
+	}
+
+	divider_light = {
+		layoutpolicy_horizontal = expanding
+	}
+}

@@ -1,0 +1,1792 @@
+######################################################################
+### PARLEY: THE NEGOTIATING TABLE - the hook tier control and the vassal contract sheet
+### USER ITEM 2.3 (hook tiers) and USER ITEM 2.5 (the contract template)
+###
+### A types-only file. NO registration in gui/scripted_widgets is needed
+### (same reasoning as tnt_types.gui and tnt_panels.gui; proven by
+###  MOD\3276373926\gui\00_jdb_bc_map_icon_layer.gui).
+###
+### THE TWO TYPES THE NAMING CONTRACT FIXES IN ADVANCE, and nothing else:
+###   tnt_control_hook_tier   blocks  tnt_hook_tier_buttons · tnt_hook_tier_label
+###   tnt_panel_contract      blocks  tnt_contract_rows     · tnt_contract_title
+### gui\tnt_types.gui:583-616 already names both of these and the file they live
+### in, and gui\tnt_diplomacy_window.gui:29-41 already reserves overlay index 12
+### for the panel. This file is the other half of both contracts.
+###
+### THE CONSUMER SIDE OF BOTH CONTRACTS IS ALREADY IN THE WINDOW, so nothing here
+### is a proposal - every block name and every scripted-gui name below is what
+### gui\tnt_diplomacy_window.gui already calls, and renaming any of them breaks a
+### file this author does not own:
+###   :703-718 / :1222-1237  tnt_control_hook_tier inside type tnt_item_row_hook's
+###                          block "tnt_hook_control_block", overriding
+###                          tnt_hook_tier_buttons and tnt_hook_tier_label, and
+###                          calling tnt_hook_<side>_toggle (forward) and
+###                          tnt_hook_<side>_toggle_back (reverse)
+###   :835 / :1330           the fealty row's round button, calling
+###                          tnt_pick_contract_open
+###   :2015-2020             tnt_panel_contract in the picker overlay's block
+###                          "tnt_picker_panels", ONCE, overriding
+###                          tnt_contract_title, `visible` on picker index 12 with
+###                          NO side clause
+### One panel and one opener, not two of each: the nine obligation variables carry
+### no side suffix, so both fealty rows open the same sheet and the sheet itself
+### says which way the fealty runs (the gui author's own reasoning at :43-49).
+###
+### ==================================================================
+### V3 ITERATION 5 - THE LAYOUT PASS. "the contract sheet - fine, only lay it
+### out more beautifully." PRESENTATION ONLY. Read this before touching anything:
+###
+### WHAT DID NOT CHANGE, and must not:
+###   * every scripted gui name (tnt_ob_*_up / _down / _min / _max / _toggle /
+###     tnt_ob_reset), every script value name (tnt_ob_*_shown_value,
+###     tnt_ob_*_ok_value, tnt_ob_feudal_value, tnt_ob_clan_value,
+###     tnt_ob_sheet_total_value), every variable name (tnt_ob_*, tnt_vassal_*).
+###   * every row's `visible` and every control's `enabled` - the same expression,
+###     character for character, as the build that shipped.
+###   * type tnt_control_hook_tier (section 1) is untouched.
+###   * the eleven widgets over nine variables, in the same order.
+###
+### WHAT CHANGED, and why, item by item against the brief:
+###   A. THE TERMS ARE GROUPED. Two scaled obligations are one kind of thing and
+###      seven yes/no rights are another, so each group is now a CARD -
+###      `type tnt_contract_group`, an icon + heading + divider over its rows on a
+###      Background_Area_With_Header frame. That background template, with
+###      `alpha = 0.75` inside the background block, is exactly how vanilla's own
+###      contract screen frames its obligation groups
+###      (GAME\gui\interaction_modify_vassal_window.gui:242-246 and :305-308).
+###      The sheet stopped being a flat stack of eleven switches and became two
+###      titled sections, which is the whole of the user's request.
+###   B. THE LEVEL SAYS WHAT IT MEANS, AND THE FIVE NAMES ARE VANILLA'S OWN.
+###      The brief asked whether the GetObligationName family reaches us. It does,
+###      and it ALREADY did - tnt_l_english.yml:606-610 and :614-618 resolve all
+###      ten level names through
+###        [GetSubjectContractType( 'feudal_government_taxes' ).GetObligationNameShortNoTooltip( 'feudal_tax_exempt' )]
+###      so both languages are self-translating and no vanilla string is copied.
+###      Re-verified on disk while writing this pass:
+###        the datafunction pair    GAME\localization\english\gui\specialinteractions_l_english.yml:63-70
+###                                 (GetObligationName) and the tooltip-free variant
+###                                 GAME\localization\english\dlc\tgp\dlc_tgp_faction_l_english.yml:167,169,171
+###                                 (GetObligationNameShortNoTooltip)
+###        the ten level ids        GAME\common\subject_contracts\contracts\feudal.txt:5 (feudal_tax_exempt),
+###                                 :97 (feudal_tax_extortionate), :176 (feudal_levies_extortionate)
+###        the contract type ids    feudal_government_taxes / feudal_government_levies, same file
+###      BUT IT IS A LOCALIZATION DATAFUNCTION AND NOT A GUI ONE: 0 of the 373
+###      shipped .gui files spells GetSubjectContractType anywhere, so it must NOT
+###      be moved into a `text =` here. It stays in the .yml, where it has 40+
+###      vanilla call sites, and the .gui only ever names our own key.
+###      WHICH IS WHY THE FOUR-DEEP Select_CString CHAIN IS GONE. It needed
+###      `Localize('tnt_ob_tax_lvl3')`, i.e. a loc lookup that has to re-resolve a
+###      datafunction inside the string it just returned - the one link in that
+###      chain nothing on disk proves. The five level names are now FIVE STACKED
+###      text_single widgets in a plain widget host, each with a plain
+###      `text = "tnt_ob_tax_lvl3"` (the ordinary, always-resolved path) and a
+###      `visible` that is one EqualTo_CFixedPoint against the shown value. Same
+###      idiom the mod already uses for the picker indices
+###      (tnt_diplomacy_window.gui:1774) and for tnt_ab_tooltip's three outcome
+###      lines (tnt_types.gui:1359, :1370, :1385). Nothing can render blank now:
+###      level 2's own `visible` is the NEGATION of the other four, so it is still
+###      the fall-through for an unset or out-of-range value, which is what
+###      tnt_55_hc_values.txt §5.1 means by "unset reads as 2".
+###   C. AN UNTOUCHED SHEET SAYS SO, IN TWO PLACES.
+###      * the ladder shows level 2 in `#weak` and every other level in `#high`,
+###        so "ordinary taxes" is visibly the resting state rather than a choice;
+###      * the footer carries a status line reading either "the ordinary terms of
+###        fealty, nothing altered" or "N terms altered", driven by
+###        tnt_ob_changed_value (tnt_55_hc_values.txt:1094, whose own header at :1082
+###        asks for exactly this widget: "a '3 terms changed' readout on the panel
+###        footer... Nobody has pointed a widget at it yet"). Two mutually
+###        exclusive text_single children of one vbox under ignoreinvisible = yes.
+###   D. EVERY ROW IS AN ICON PLUS A LABEL. Nine textures, every one of them
+###      confirmed present on disk with Test-Path before it was written here:
+###        taxes        gfx/interface/icons/icon_gold.dds
+###                     (vanilla's own choice for the tax obligation block,
+###                      GAME\gui\interaction_modify_vassal_window.gui:586)
+###        levies       gfx/interface/icons/icon_levies.dds            (same file, :641)
+###        religion     gfx/interface/icons/character_interactions/religious.dds  (same file, :773)
+###        council      gfx/interface/icons/character_interactions/council.dds
+###        revocation   gfx/interface/icons/character_interactions/revoke_title.dds
+###        war          gfx/interface/icons/character_interactions/declare_war_interaction.dds
+###        forts        gfx/interface/icons/culture_innovations/innovation_fortifications.dds
+###        coinage      gfx/interface/icons/culture_innovations/innovation_coinage.dds
+###        partition    gfx/interface/icons/flat_icons/succession.dds   (see below)
+###      plus the two group headings - flat_icons/feudal_contract.dds (see below)
+###      and character_interactions/icon_vassal.dds - and the granted seal,
+###      gfx/interface/icons/symbols/icon_check.dds (plain icon, no framesize,
+###      GAME\gui\interaction_templates.gui:236-237).
+###
+###      USER ITEM 3, APPLIED HERE TOO ALTHOUGH THE USER ONLY SAW IT ON THE MAIN
+###      WINDOW. "Present on disk" was the wrong test: EVERY gfx/interface/icons/
+###      flat_icons/*.dds is a BLACK ALPHA MASK - decoding the raw DDS bodies,
+###      every opaque pixel is RGB 0,0,0 - meant to be tinted by the consumer.
+###      They render as black silhouettes here exactly as prestige and piety did
+###      in the negotiation rows. Three of the six had a proven coloured twin and
+###      were swapped, each measured and each with a vanilla consumer:
+###        flat_icons/vassal.dds      -> character_interactions/icon_vassal.dds
+###                                      120x120, avgRGB (81,69,54); already used
+###                                      by this mod in tnt_diplomacy_window.gui
+###        flat_icons/council.dds     -> character_interactions/council.dds
+###                                      70x70, avgRGB (153,127,101)
+###        flat_icons/declare_war.dds -> character_interactions/
+###                                      declare_war_interaction.dds
+###                                      105x105, avgRGB (103,69,63)
+###      TWO KNOWINGLY STAY BLACK, and this is a recorded defect rather than an
+###      oversight: flat_icons/feudal_contract.dds (the group heading) and
+###      flat_icons/succession.dds (partition) have NO coloured equivalent that
+###      could be proven from a vanilla call site. Do not guess a replacement by
+###      name - gfx/interface/window_regency/scale_of_power.dds looks right by its
+###      name and is itself a black mask (avgRGB 1,1,1). Either find a real
+###      vanilla consumer drawing a coloured twin, or tint these two deliberately.
+###   E. THE GRANTED STATE IS VISIBLE WITHOUT READING THE CHECKBOX. Each right's
+###      icon carries a small check seal in its lower right corner, `visible` on
+###      the same plain variable read the checkbox itself uses. R9/R11 hold: it is
+###      TntOn, two map lookups, never GetScriptedGui.
+###   F. THE SHEET SCROLLS AND NOTHING SPILLS. blockoverride "scrollbox_margins"
+###      is explicit (it always was); every row type keeps its fixed size and its
+###      `maximumsize`; every text that prints a name keeps `autoresize = no` plus
+###      the inherited `elide = right`; the four preamble text_multi widgets drop
+###      from max_width 660 to 640 because the preamble now sits inside a card
+###      whose own margin costs 20 px.
+###
+### THE WIDTH BUDGET, re-derived for the new nesting (Window_Margins is 40/40,
+### GAME\gui\shared\windows.gui:122-128, so the body is 760 - 80 = 680).
+### USER ITEM 8 re-derived it once more: the scroll margins joined the
+### 10/26/8/8 the PICKER-FAMILY panels use (tnt_picker_panel, both multi-select
+### columns); this sheet had the window-embedded 8/26/6/6 of the negotiation
+### columns and the deal sheet. The marriage editor - another author's file -
+### still carries 8/26/6/6 and is flagged in the build report rather than
+### edited from here. Every row column below shifts by 2 px:
+###   preamble card    680 - margin 20                              = 660 -> text 640
+###   scrollbox        680 - 10 (left) - 26 (bar + air, right)       = 644
+###   group card       644 - margin 20                              = 624
+###   level row        624 - margin 12                              = 612
+###                    612 - 30 (icon) - 6 - 180 (ladder slot) - 6   = 390 for the name
+###   right row        612 - 30 (icon) - 6 - 40 (checkbox)           = 536 for the name
+###   footer           680 - margin 12                              = 668
+###                    668 - 180 (reset) - 190 (label) - 70 (value) - 24 (3 spacings)
+###                                                                  = 204 for the status
+### THE VERTICAL BUDGET, against the 700 px shell:
+###   700 - 38 (Window_Margins) - ~40 (header_pattern) - 6           = ~616 for the body
+###   preamble ~70 + divider 3 + divider 3 + footer 42 + 4 spacings of 6 = ~142
+###   leaves ~474 for the scrollbox, while its content is
+###     clause A  26 (head) + 3 (divider) + 40 + 40 + 6 (2 spacings) + 12 (margin) = 127
+###     clause B  26 + 3 + 7*34 + 14 (7 spacings) + 12                             = 293
+###     + one 8 px gap between the two cards                                       = 428
+###   for a FEUDAL subject, and 26 + 3 + 34 + 12 = 75 for a CLAN one, whose
+###   obligations card is invisible and collapses to nothing under the row box's
+###   `ignoreinvisible = yes`. So it FITS today and scrolls the moment a
+###   translation wraps a heading or a right's name onto a second line, which is
+###   why the scrollbox and its explicit margins are not optional.
+### ==================================================================
+###
+### R-LAYOUT (R5, 30-V2-DESIGN §9 D2), obeyed everywhere below:
+###   a direct child of hbox / vbox / flowcontainer carries NEITHER `position`
+###   NOR `parentanchor`. 0 of 13650 such children in the 373 vanilla .gui files
+###   carries a top-level position; the engine converts a parentanchor into one
+###   and the layout pass then rejects it ("Unsupported property: parentanchor on
+###   widgets that are a child of a hbox/vbox. Hboxes/vboxes arrange their
+###   children automatically.", EXE:294858). Cross-axis centring is done by
+###   wrapping the child in a plain `widget` and anchoring INSIDE that, exactly
+###   as vanilla's own stepper does (GAME\gui\window_knights.gui:716-759, where
+###   the hbox children have no anchors and `parentanchor = center` appears only
+###   inside button_round at :731 and :755).
+###   AND THE SAME RULE FOLLOWS A blockoverride TO THE PLACE THE BLOCK WAS
+###   DECLARED, not to the place the override is written. That is why the leading
+###   icon this pass injects into tnt_toggle_line's block "tnt_toggle_line_icon" -
+###   a slot declared as a direct child of that type's hbox (tnt_panels.gui:1561) -
+###   is a bare plain `widget` with a size and no anchor, and only the two icons
+###   INSIDE it anchor. tnt_panels.gui:1557-1560 states the same requirement in
+###   its own words, and this file is its first consumer.
+###   The anchored widgets in this file are tnt_control_hook_tier at its
+###   INSTANTIATION site (host tnt_hook_slot is a plain widget), tnt_contract_ladder
+###   inside tnt_contract_level_slot (a plain widget), and the icons and level
+###   texts inside their own plain widget hosts. Nothing else anchors.
+###
+### R6: no (flow)container in this file has an hbox or a vbox as a direct child.
+### There is no container here at all; the panel body is vbox/hbox throughout and
+### the one scrollbox receives its vbox through blockoverride "scrollbox_content",
+### which is the shipped shape (tnt_types.gui:752-772).
+###
+### R11: no GetScriptedGui in any `visible` or `down` below. Availability is read
+### from SCRIPT VALUES through TntPos / TntSV, one value evaluation instead of
+### a whole scripted-gui IsValid, and the failure text of a disabled control is a
+### static requirement key rather than TntTip. The sheet has eleven rows.
+###
+### R14: every string below is a loc key, a datafunction, or a texture path that
+### was Test-Path'd on disk. No literal display text.
+###
+### Base types verified on disk while writing this file:
+###   hbox / vbox / widget / icon / textbox  GAME\gui\preload\defaults.gui
+###   text_single / text_multi              GAME\gui\preload\labels.gui:6 / :19
+###   spacer / expand / divider_light       GAME\gui\shared\windows.gui:590 / :597 / :944
+###   Window_Margins (40/40/18/20)          GAME\gui\shared\windows.gui:122
+###   Background_Area                       GAME\gui\shared\backgrounds.gui:41
+###   Background_Area_With_Header           GAME\gui\shared\backgrounds.gui:114
+###   button_round (40x40)                  GAME\gui\shared\buttons.gui:1149
+###   button_plus_small / button_minus_small
+###                                         GAME\gui\shared\buttons_icons.gui:596 / :608
+###   button_standard (170x33, and it takes a plain `text =`)
+###                                         GAME\gui\shared\buttons.gui:153-182,
+###                                         e.g. GAME\gui\window_activity_intent_selection.gui:405
+###   scrollbox + block "scrollbox_margins" GAME\gui\shared\lists.gui:3185 / :3208
+###   tooltip_es                            used throughout this mod already
+### Mod types reused rather than re-invented:
+###   tnt_editor_panel   gui\tnt_panels.gui:1389-1431 (760x700, header + close)
+###   tnt_toggle_line    gui\tnt_panels.gui:1533-1599 (label + checkbox, 34 tall,
+###                                                    and block "tnt_toggle_line_icon")
+### tnt_level_stepper (tnt_panels.gui:1609) is NO LONGER instantiated from here -
+### see note B above. It is left alone in its own file: it is another author's
+### type, item 2.3's documented fallback for the hook control still names it, and
+### an unread type costs nothing.
+######################################################################
+
+types TwdContract
+{
+
+	####################################################################
+	### 1. THE HOOK TIER CONTROL                        USER ITEM 2.3
+	###
+	### UNTOUCHED BY THE v3 ITERATION 5 LAYOUT PASS. tnt_diplomacy_window.gui
+	### instantiates this type twice and overrides two of its three blocks by
+	### name; the layout pass had no business here and did not come here.
+	###
+	### tnt_hook_p / tnt_hook_r stopped being 0/1 flags and became TIER INDICES
+	### 0..3 - 0 (or absent) none, 1 weak favour, 2 strong, 3 eternal
+	### (30-V2-DESIGN §3.2). A checkbox cannot express four states.
+	###
+	### WHY ONE BUTTON AND NOT FOUR, OR A MINUS/PLUS PAIR.
+	### The design's own interaction is "cycle on click, reverse on right-click"
+	### (30-V2-DESIGN §3.2 table; report 41 §1.11 says the same and calls it "one
+	### sgui per side"), and tnt_types.gui:590-592 states the consequence for this
+	### file: "that is why ONE button block is enough for both directions". So the
+	### naming contract's single block tnt_hook_tier_buttons carries BOTH the
+	### onclick and the onrightclick, and the control is one wide button whose
+	### label is the name of the tier it is currently on.
+	###
+	### `button_ignore = none` IS MANDATORY. Without it onrightclick never fires
+	### (R12, and vanilla's own stepper carries it on both button_round widgets,
+	### GAME\gui\window_knights.gui:716-759). The tnt_stepper_full instances
+	### rely on the same property.
+	###
+	### THE SIZE BUDGET, from tnt_types.gui:594-600: the row's control slot is
+	### 180 x 56 and this control must fit inside it. 170 x 30 is tnt_level_stepper's
+	### own width (178) less its two 4 px gaps, and it leaves 5 px of air on each
+	### side once the instantiation site anchors it with `position = { -8 0 }`.
+	###
+	### THE LABEL is the macro TntHookTier, written by the macro author for
+	### exactly this widget (data_binding\tnt_macros.txt:241-278). It resolves a
+	### 0..3 variable to one of tnt_hook_tier_0..3 through nested Select_CString,
+	### and it falls through to tier 0 for an unset or out-of-range value - so this
+	### control needs no exists guard of its own (R13 is satisfied because a
+	### numeric variable read yields 0, not an invalid object). If that macro ever
+	### renders blank, its own header names the fallback: print the bare index and
+	### move the four names into the tooltip.
+	###
+	### THE DEFAULTS BELOW ARE THE _p SIDE, so that a consumer who forgets a
+	### blockoverride gets a working left-column control rather than a dead button.
+	### The _r side MUST override all three blocks.
+	###
+	### THE ONE RUNTIME UNKNOWN, AND ITS FALLBACK. `onrightclick` is proven on a
+	### button (GAME\gui\console.gui:213 and 7 further sites on dockable_button)
+	### and `button_ignore = none` is used at 76 vanilla sites, but the pair has
+	### never been observed on a button_standard specifically - this mod's own four
+	### steppers carry it on button_round. If right-click turns out not to reach
+	### this widget, the tier can still be lowered: swap this control for
+	### tnt_level_stepper, which is a minus/plus pair on two button_round widgets
+	### that already carry button_ignore = none, and wire
+	###     blockoverride "tnt_level_minus" { onclick = "[TntExec('tnt_hook_p_toggle_back')]" }
+	###     blockoverride "tnt_level_plus"  { onclick = "[TntExec('tnt_hook_p_toggle')]" }
+	###     blockoverride "tnt_level_label" { text = "[TntHookTier('tnt_hook_p')]" }
+	### That is the same fallback tnt_types.gui:610-624 already describes, verbatim.
+	### CORRECTED IN BUILD 3: this block used to name tnt_hook_p_tier_prev and
+	### tnt_hook_p_tier_next, which have never existed anywhere in the mod - the
+	### real pair has always been tnt_hook_p_toggle (tnt_20_scripted_guis.txt, the
+	### forward step) and tnt_hook_p_toggle_back (tnt_22c_hooks_contracts.txt:123,
+	### the reverse). Anyone who had taken this fallback would have wired a stepper
+	### whose BOTH buttons pointed at nothing. The live defaults below were always
+	### correct; only this comment had drifted.
+	### The two scripted guis need no change: they are already a step pair rather
+	### than a single cycler. One instantiation site per side, no new ids.
+	####################################################################
+	type tnt_control_hook_tier = button_standard
+	{
+		name = "tnt_control_hook_tier"
+		size = { 170 30 }
+
+		### R12: right-click is half of this control's interface.
+		button_ignore = none
+
+		using = tooltip_es
+
+		### ONE block, TWO handlers - see the note above. The two scripted gui
+		### names are NOT this file's choice: gui\tnt_diplomacy_window.gui:710-711
+		### and :1229-1230 already ship
+		###   onclick      = "[TntExec('tnt_hook_p_toggle')]"       forward
+		###   onrightclick = "[TntExec('tnt_hook_p_toggle_back')]"  reverse
+		### where the forward name is the SHIPPED 0/1 toggle in
+		### tnt_20_scripted_guis.txt (whose body becomes one call into
+		### tnt_hook_tier_up_effect) and the reverse one is new, in
+		### tnt_22c_hooks_contracts.txt. The defaults below repeat that binding
+		### exactly, so a consumer who forgets the blockoverride still gets a live
+		### left-column control.
+		###
+		### TWO OPTIONAL LINES THE WINDOW DOES NOT CURRENTLY SET, both kept here as
+		### defaults because they are free and both are lost the moment the
+		### consumer overrides this block:
+		###   `enabled` - the hook cannot be raised when the receiver already holds
+		###     one over the giver (report 41 W-13; the apply wrapper swallows that
+		###     failure silently). `enabled` and its failure tooltip must sit on the
+		###     SAME widget or the engine swallows the click and the reason never
+		###     reaches the player (GAME\gui\window_faith.gui:900-902, and the same
+		###     argument at tnt_20_scripted_guis.txt:829-832).
+		###   `down` - what makes a four-state control readable at a glance: pressed
+		###     for tiers 1..3, up for tier 0, so the row shows "there is a hook on
+		###     the table" without the player reading the label. `down` on a
+		###     button_standard-derived type is already shipped here
+		###     (tnt_picker_row_title's block "tnt_row_down", tnt_types.gui).
+		block "tnt_hook_tier_buttons"
+		{
+			onclick      = "[TntExec('tnt_hook_p_toggle')]"
+			onrightclick = "[TntExec('tnt_hook_p_toggle_back')]"
+			enabled      = "[TntValid('tnt_hook_p_toggle')]"
+			down         = "[TntOn('tnt_hook_p')]"
+		}
+
+		### button_standard's own buttonText child is a text_single with
+		### `size = { 100% 100% }` and `autoresize = no` already
+		### (GAME\gui\shared\buttons.gui:173-182), so R-SPILL is satisfied by the
+		### base type and a long tier name elides instead of widening the row.
+		block "tnt_hook_tier_label"
+		{
+			text = "[TntHookTier('tnt_hook_p')]"
+		}
+
+		### Optional third block, and the consumer need not override it: the
+		### default key explains both mouse buttons, which is the one thing a
+		### cycling control cannot show by itself. Override it per side if the
+		### wording should differ.
+		block "tnt_hook_tier_tooltip"
+		{
+			tooltip = "tnt_stepper_hook_tt"
+		}
+	}
+
+
+	####################################################################
+	### 2. THE SHEET'S TWO PIECES OF SHARED CHROME       v3 ITERATION 5
+	####################################################################
+
+	####################################################################
+	### 2a. ONE LEADING ICON, 30 px, WITH AN OPTIONAL "GRANTED" SEAL
+	###
+	### The one shape both kinds of row wear, which is what makes the two groups
+	### read as one document instead of two lists. A plain `widget`, deliberately:
+	### it is dropped into hbox slots (tnt_toggle_line's block
+	### "tnt_toggle_line_icon" and tnt_contract_level_row's own hbox), and R5
+	### forbids an anchor on a direct child of an hbox - so the OUTER widget takes
+	### a size and nothing else, and the two icons anchor INSIDE it, which is legal
+	### because a plain widget arranges nothing. tnt_panels.gui:1557-1560 spells
+	### out this exact requirement for its icon block; this is the first consumer
+	### to honour it.
+	###
+	### THE SEAL is a 14 px check in the lower right corner, `visible` on the very
+	### same plain variable read the row's checkbox already uses - so a granted
+	### right is legible from the icon column alone, without the eye travelling to
+	### the far side of the row. R9/R11: TntOn is two map lookups, and there is no
+	### GetScriptedGui in this file at all. Level rows leave the seal block
+	### unwritten, which defaults it to `visible = no` and costs nothing.
+	####################################################################
+	type tnt_contract_icon = widget
+	{
+		name = "tnt_contract_icon"
+		size = { 30 100% }
+		alwaystransparent = yes
+
+		icon = {
+			name = "tnt_contract_icon_glyph"
+			size = { 26 26 }
+			parentanchor = center
+			alwaystransparent = yes
+
+			### Every consumer overrides this. The default is the sheet's own
+			### subject glyph, so a forgotten override is a visible placeholder
+			### rather than an invisible widget or a missing-texture log line.
+			block "tnt_contract_icon_texture"
+			{
+				texture = "gfx/interface/icons/character_interactions/icon_vassal.dds"
+			}
+		}
+
+		icon = {
+			name = "tnt_contract_icon_seal"
+			size = { 14 14 }
+			parentanchor = bottom|right
+			position = { 3 -5 }
+			texture = "gfx/interface/icons/symbols/icon_check.dds"
+			alwaystransparent = yes
+
+			block "tnt_contract_icon_seal_on"
+			{
+				visible = no
+			}
+		}
+	}
+
+
+	####################################################################
+	### 2b. ONE GROUP CARD - a heading over a set of terms
+	###
+	### THE WHOLE OF THE USER'S REQUEST IS THIS TYPE. Eleven rows in one stack
+	### read as eleven unrelated switches; the same eleven rows in two titled,
+	### framed cards read as a contract with clauses.
+	###
+	### THE FRAME IS VANILLA'S OWN CHOICE FOR THIS EXACT PURPOSE.
+	### Background_Area_With_Header (GAME\gui\shared\backgrounds.gui:114-122) is a
+	### thin frame with a darker title strip along its top edge, and
+	### GAME\gui\interaction_modify_vassal_window.gui uses it, at alpha 0.75, for
+	### both of its own obligation groups - :242-246 around the radio group and
+	### :305-308 around the checkbox group. `alpha` inside a `background` block is
+	### the same file's idiom at :160-163. So the card, the alpha and the heading
+	### row are all stolen from the screen the brief pointed at, and only the LOOK
+	### is stolen: that screen's logic is ModifySubjectContractInteractionWindow.*,
+	### i.e. C++, and null outside it (report 41 §3.13.A).
+	###
+	### THE TOOLTIP SITS ON THE HEADING HBOX, NOT ON THE CARD. A tooltip on the
+	### card would swallow the hover of every row inside it; on the heading it
+	### explains the grouping and nothing else. The heading text and icon are both
+	### `alwaystransparent = yes`, so their hover falls through to the hbox that
+	### carries the tooltip - the mechanism tnt_panels.gui:1517-1531 documents for
+	### tnt_toggle_line's own two tooltip blocks.
+	###
+	### R5: this is a vbox, so none of its three children anchors. The heading's
+	### icon anchors inside tnt_contract_icon's plain widget, which is that type's
+	### own business.
+	### R6: a vbox is not a (flow)container, so an hbox and a vbox as its direct
+	### children are legal - the rule bites containers only.
+	### The body vbox carries `ignoreinvisible = yes` for the same reason
+	### tnt_column_rows does (tnt_types.gui:1033): six of the seven rights are
+	### feudal-only, and a hidden row must collapse rather than leave a 34 px hole.
+	####################################################################
+	type tnt_contract_group = vbox
+	{
+		name = "tnt_contract_group"
+		layoutpolicy_horizontal = expanding
+		spacing = 2
+		margin = { 10 6 }
+		alwaystransparent = no
+
+		background = {
+			using = Background_Area_With_Header
+			alpha = 0.75
+		}
+
+		hbox = {
+			name = "tnt_contract_group_head"
+			layoutpolicy_horizontal = expanding
+			### 26, not 24, so the 26 px glyph inside tnt_contract_icon is fully
+			### inside its host at `size = { 30 100% }` and needs no clipping.
+			size = { 0 26 }
+			maximumsize = { -1 26 }
+			spacing = 6
+			alwaystransparent = no
+
+			using = tooltip_es
+
+			block "tnt_contract_group_tooltip" {}
+
+			### THE FORWARDING FORM, and it is the same one this file has always
+			### used: a NEW `block` declared INSIDE a `blockoverride`, so a
+			### consumer in the instantiation below can reach a property of a
+			### widget two types down. Verified vanilla at
+			### GAME\gui\window_ledger.gui:3402-3407 (overridden from
+			### GAME\gui\interaction_marriage.gui:474) and at 49 distinct block
+			### names besides. NEVER write a blockoverride inside a blockoverride
+			### to do this - that form appears nowhere on disk.
+			### The heading never wears a seal, so tnt_contract_icon_seal_on is
+			### left at its default `visible = no`.
+			###
+			### THE SIZE IS NOT OVERRIDDEN, and that is the point: the heading's
+			### icon column is the same 30 px the rows' is, so the clause title
+			### starts at exactly the x every row label starts at. One column of
+			### icons and one column of text down the whole card is most of what
+			### makes it read as a document rather than as a list.
+			tnt_contract_icon = {
+				blockoverride "tnt_contract_icon_texture"
+				{
+					block "tnt_contract_group_icon"
+					{
+						texture = "gfx/interface/icons/flat_icons/feudal_contract.dds"
+					}
+				}
+			}
+
+			### R-SPILL: a heading is a loc key rather than game text, but a long
+			### translation of it would widen the card and push the card's frame
+			### past the scrollbox's clearance, so `autoresize = no` plus the
+			### inherited `elide = right` is not optional here either.
+			text_single = {
+				name = "tnt_contract_group_title"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Type_Flavor
+				using = Font_Size_Medium
+
+				block "tnt_contract_group_label"
+				{
+					text = "tnt_picker_title_contract"
+				}
+			}
+		}
+
+		divider_light = {
+			layoutpolicy_horizontal = expanding
+		}
+
+		vbox = {
+			name = "tnt_contract_group_body"
+			layoutpolicy_horizontal = expanding
+			spacing = 2
+			ignoreinvisible = yes
+
+			### THE DOUBLE NESTING IS THE ONLY WAY to fill a reusable card from its
+			### instantiation site, and it is a verified vanilla form rather than a
+			### trick: declaring a NEW `block` INSIDE a `blockoverride` is what
+			### `type vbox_ledger` does at GAME\gui\window_ledger.gui:3402-3407
+			### (overridden from GAME\gui\interaction_marriage.gui:474) and what
+			### `type court_position_type_tooltip` does at GAME\gui\cooltip.gui:6034
+			### (overridden from GAME\gui\window_court_positions.gui:621). 49
+			### distinct block names in the shipped GUI are used this way, and this
+			### mod already relies on it in type tnt_picker_panel
+			### (tnt_types.gui:1400-1432).
+			block "tnt_contract_group_rows"
+			{
+				spacer = {}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 3. THE NAMED LEVEL LADDER                       USER ITEM 2.5
+	###
+	### 26 + 4 + 118 + 4 + 26 = 178, the same 178 tnt_level_stepper was, so the
+	### 180 px slot it drops into is unchanged and so is the 392 px the row name
+	### keeps. Two instances (taxes, levies), so it is a type.
+	###
+	### WHY THIS REPLACES tnt_level_stepper HERE, and read note B in the file
+	### header before reverting it. tnt_level_stepper's value cell is a single
+	### text_single, so naming a level through it required
+	###   Select_CString( EqualTo..., Localize('tnt_ob_tax_lvl0'), ... )
+	### four deep - and Localize on a key whose VALUE is itself a datafunction
+	### (tnt_l_english.yml:606-610 resolve the vanilla obligation names) asks the
+	### engine to re-resolve a string it has already returned. That is the one link
+	### in the chain with no call site anywhere on disk. Here the cell is a plain
+	### widget hosting FIVE text_single children, each with an ordinary
+	### `text = "tnt_ob_tax_lvl0"` - the always-resolved path every other loc key
+	### in this mod takes - and one `visible`. Nothing is re-resolved, nothing is
+	### nested four deep, and the five names still translate themselves in both
+	### languages because the datafunction stayed in the .yml where it is proven.
+	###
+	### LEVEL 2 IS THE DEFAULT AND LOOKS LIKE IT: `#weak`, where the other four are
+	### `#high`. That is half of the brief's "an untouched sheet must visibly mean
+	### vanilla default terms rather than all zero"; the footer status line is the
+	### other half.
+	###
+	### LEVEL 2 IS ALSO THE FALL-THROUGH. Its `visible` is written by the row as
+	### the NEGATION of the other four rather than as EqualTo 2, so an unset or
+	### out-of-range shown value still prints "ordinary taxes" and the cell can
+	### never render empty - exactly what the old Select_CString chain's default
+	### arm did, and what tnt_55_hc_values.txt §5.1 means by "unset reads as 2".
+	### Or() nested and Not() over it are vanilla datafunctions
+	### (GAME\gui\frontend_main.gui:891, nested three deep at
+	###  GAME\gui\frontend_ingame_menu.gui:210) and this file already uses both.
+	###
+	### R12: left click steps by one, right click jumps to the end of the ladder,
+	### and `button_ignore = none` on both button_round widgets is MANDATORY or
+	### onrightclick never fires (GAME\gui\window_knights.gui:716-759).
+	### R5: neither button anchors - an hbox's height is its tallest child, here 26,
+	### so there is nothing to centre against. Same as tnt_level_stepper before it.
+	####################################################################
+	type tnt_contract_ladder = hbox
+	{
+		name = "tnt_contract_ladder"
+		spacing = 4
+		alwaystransparent = no
+
+		button_round = {
+			name = "tnt_contract_ladder_minus_button"
+			size = { 26 26 }
+			button_ignore = none
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_contract_ladder_minus" {}
+
+			block "tnt_contract_ladder_minus_big" {}
+
+			block "tnt_contract_ladder_tt_minus" {}
+
+			button_minus_small = {
+				name = "tnt_contract_ladder_dec"
+				parentanchor = center
+				alwaystransparent = yes
+			}
+		}
+
+		### THE VALUE CELL. A plain widget, not a text_single, because five
+		### mutually exclusive names have to live in it - and because a plain
+		### widget arranges nothing, so each of the five may take
+		### `parentanchor = center` without R5 having anything to say.
+		### 118 x 26 is tnt_level_stepper's own cell, to the pixel.
+		###
+		### EACH NAME IS min_width = max_width = 118 + autoresize = no, WHICH IS
+		### tnt_level_stepper's own idiom for this cell (tnt_panels.gui:1637-1639),
+		### AND THEN parentanchor = center. Not `size = { 100% 100% }`: a
+		### text_single stretched to 26 px draws its line from the TOP of that box,
+		### so a 17 px line in a 26 px cell would sit 9 px above the two 26 px
+		### buttons beside it. Left at its natural height and centred in the cell
+		### it lines up with them exactly. The anchor is legal because the host is
+		### a plain widget (R5), and the fixed width plus the inherited
+		### `elide = right` is R-SPILL: five vanilla obligation names in an unknown
+		### language can never widen this cell and push the plus button out.
+		widget = {
+			name = "tnt_contract_ladder_cell"
+			size = { 118 26 }
+			alwaystransparent = yes
+
+			text_single = {
+				name = "tnt_contract_ladder_lvl0"
+				min_width = 118
+				max_width = 118
+				autoresize = no
+				parentanchor = center
+				align = nobaseline|center
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+
+				block "tnt_contract_ladder_lvl0"
+				{
+					visible = no
+				}
+			}
+
+			text_single = {
+				name = "tnt_contract_ladder_lvl1"
+				min_width = 118
+				max_width = 118
+				autoresize = no
+				parentanchor = center
+				align = nobaseline|center
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+
+				block "tnt_contract_ladder_lvl1"
+				{
+					visible = no
+				}
+			}
+
+			### THE DEFAULT RUNG. `#weak` on purpose - see the type header.
+			text_single = {
+				name = "tnt_contract_ladder_lvl2"
+				min_width = 118
+				max_width = 118
+				autoresize = no
+				parentanchor = center
+				align = nobaseline|center
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+
+				block "tnt_contract_ladder_lvl2"
+				{
+					visible = no
+				}
+			}
+
+			text_single = {
+				name = "tnt_contract_ladder_lvl3"
+				min_width = 118
+				max_width = 118
+				autoresize = no
+				parentanchor = center
+				align = nobaseline|center
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+
+				block "tnt_contract_ladder_lvl3"
+				{
+					visible = no
+				}
+			}
+
+			text_single = {
+				name = "tnt_contract_ladder_lvl4"
+				min_width = 118
+				max_width = 118
+				autoresize = no
+				parentanchor = center
+				align = nobaseline|center
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+
+				block "tnt_contract_ladder_lvl4"
+				{
+					visible = no
+				}
+			}
+		}
+
+		button_round = {
+			name = "tnt_contract_ladder_plus_button"
+			size = { 26 26 }
+			button_ignore = none
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_contract_ladder_plus" {}
+
+			block "tnt_contract_ladder_plus_big" {}
+
+			block "tnt_contract_ladder_tt_plus" {}
+
+			button_plus_small = {
+				name = "tnt_contract_ladder_inc"
+				parentanchor = center
+				alwaystransparent = yes
+			}
+		}
+	}
+
+
+	####################################################################
+	### 4. ONE LABELLED LEVEL ROW                       USER ITEM 2.5
+	###
+	### icon · name · ladder, 40 px tall, so it wears the same grammar as the
+	### seven rights rows below it (30 px icon, 6 px gap, expanding name) and only
+	### its right-hand control differs. Two instances.
+	###
+	### Deliberately NOT derived from tnt_toggle_line: that type is 34 px tall and
+	### hosts a 30 px checkbox, while tnt_contract_ladder is 26 px tall inside a
+	### 40 px row and needs its own plain-widget host to be centred in (R5).
+	####################################################################
+	type tnt_contract_level_row = hbox
+	{
+		name = "tnt_contract_level_row"
+		layoutpolicy_horizontal = expanding
+		### TIER 3 of the height convention (tnt_panels.gui header): a one-line
+		### labelled control row stays FIXED and its label elides. Long RU
+		### obligation names may elide - accepted; the tooltip carries the rest.
+		size = { 0 40 }
+		maximumsize = { -1 40 }
+		spacing = 6
+		margin = { 6 0 }
+		alwaystransparent = no
+		ignoreinvisible = yes
+
+		using = tooltip_es
+
+		block "tnt_contract_level_tooltip" {}
+
+		### Forwarded the proven way - a new block declared inside a blockoverride,
+		### the same form the ladder's eleven blocks below use. A level row wears no
+		### seal, so tnt_contract_icon_seal_on keeps its default `visible = no`.
+		tnt_contract_icon = {
+			blockoverride "tnt_contract_icon_texture"
+			{
+				block "tnt_contract_level_icon"
+				{
+					texture = "gfx/interface/icons/icon_gold.dds"
+				}
+			}
+		}
+
+		### R-SPILL: `autoresize = no` + expanding, and the inherited
+		### `elide = right` of type text_single is never overridden. An obligation
+		### name is short in English and long in German.
+		text_single = {
+			name = "tnt_contract_level_text"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#medium"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Medium
+
+			block "tnt_contract_level_label" {}
+		}
+
+		### R5: tnt_contract_ladder is an hbox, so it may not anchor as a direct
+		### child of this hbox. It does not need to - a 26 px ladder in a 40 px row
+		### with no anchor sits at the row's top edge, which is why the host below
+		### is a plain widget of the full row height with the ladder centred INSIDE
+		### it. Same mechanism as tnt_types.gui's tnt_hook_slot.
+		widget = {
+			name = "tnt_contract_level_slot"
+			size = { 180 100% }
+
+			### The seven forwarding blocks: declaring a NEW block inside a
+			### blockoverride is the verified vanilla form cited on
+			### tnt_contract_group above. Writing `block "x" {}` directly in the
+			### instantiation instead would declare a block nobody reads and leave
+			### tnt_contract_ladder's own blocks empty - a ladder whose buttons do
+			### nothing and whose cell is blank.
+			tnt_contract_ladder = {
+				parentanchor = vcenter|right
+				position = { -2 0 }
+
+				blockoverride "tnt_contract_ladder_minus"
+				{
+					block "tnt_contract_level_minus" {}
+				}
+
+				blockoverride "tnt_contract_ladder_minus_big"
+				{
+					block "tnt_contract_level_minus_big" {}
+				}
+
+				blockoverride "tnt_contract_ladder_tt_minus"
+				{
+					block "tnt_contract_level_tt_minus" {}
+				}
+
+				blockoverride "tnt_contract_ladder_lvl0"
+				{
+					block "tnt_contract_level_lvl0" {}
+				}
+
+				blockoverride "tnt_contract_ladder_lvl1"
+				{
+					block "tnt_contract_level_lvl1" {}
+				}
+
+				blockoverride "tnt_contract_ladder_lvl2"
+				{
+					block "tnt_contract_level_lvl2" {}
+				}
+
+				blockoverride "tnt_contract_ladder_lvl3"
+				{
+					block "tnt_contract_level_lvl3" {}
+				}
+
+				blockoverride "tnt_contract_ladder_lvl4"
+				{
+					block "tnt_contract_level_lvl4" {}
+				}
+
+				blockoverride "tnt_contract_ladder_plus"
+				{
+					block "tnt_contract_level_plus" {}
+				}
+
+				blockoverride "tnt_contract_ladder_plus_big"
+				{
+					block "tnt_contract_level_plus_big" {}
+				}
+
+				blockoverride "tnt_contract_ladder_tt_plus"
+				{
+					block "tnt_contract_level_tt_plus" {}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 5. ONE RIGHT ROW - icon plus label plus checkbox    v3 ITERATION 5
+	###
+	### The brief: "give the rights a consistent icon plus label line instead of
+	### naked checkboxes". tnt_toggle_line already had the slot for it -
+	### block "tnt_toggle_line_icon", tnt_panels.gui:1550-1561, added in v3
+	### iteration 4 for the two mutual pact rows and explicitly noting that "every
+	### existing consumer - the seven obligation rights of
+	### gui\tnt_panel_contract.gui - leaves it unwritten". This type is those seven
+	### consumers finally writing it, and it is a DERIVED TYPE rather than seven
+	### copies of the same blockoverride so that the icon column can never drift
+	### row to row.
+	###
+	### R5 AND THE blockoverride RULE TOGETHER. The block is declared as a direct
+	### child slot of tnt_toggle_line's hbox, and a blockoverride is injected where
+	### the block was DECLARED - so whatever lands here must not carry `position`
+	### or `parentanchor`. tnt_contract_icon is a bare plain widget with a size and
+	### no anchor, and only its two inner icons anchor. tnt_panels.gui:1557-1560
+	### states this requirement in its own words; this is its first consumer.
+	###
+	### Nothing else about tnt_toggle_line changes: all six blocks the shipped
+	### rows already override - label, tooltip, sgui, var, enabled, box_tooltip -
+	### keep their names and their bindings, and the row is still 34 px tall.
+	####################################################################
+	type tnt_contract_right_row = tnt_toggle_line
+	{
+		name = "tnt_contract_right_row"
+
+		blockoverride "tnt_toggle_line_icon"
+		{
+			tnt_contract_icon = {
+				blockoverride "tnt_contract_icon_texture"
+				{
+					block "tnt_contract_right_icon"
+					{
+						texture = "gfx/interface/icons/character_interactions/icon_vassal.dds"
+					}
+				}
+
+				blockoverride "tnt_contract_icon_seal_on"
+				{
+					block "tnt_contract_right_seal"
+					{
+						visible = no
+					}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 6. THE ELEVEN-ROW VASSAL CONTRACT SHEET         USER ITEM 2.5
+	###   «у вассальной присяги должны быть возможность выбрать уровень
+	###    обязательств\религиозной защиты, а желательно зашить полноценный
+	###    шаблон договора»
+	###
+	### Overlay index 12, reserved by 10-CONTRACT R0.8 and confirmed by
+	### 30-V2-DESIGN §3.4 and §4.4. Derived from tnt_editor_panel
+	### (gui\tnt_panels.gui:1389-1431), the 760 x 700 shell build 1 wrote for this
+	### item and the marriage editor: it already carries Window_Background, the
+	### header_pattern, and a close button wired to the shipped tnt_picker_close.
+	### Deriving rather than copying is what keeps the two panels' chrome
+	### identical, and cross-file type derivation is proven by this very mod -
+	### tnt_diplomacy_window.gui consumes types from both tnt_types.gui and
+	### tnt_panels.gui and has shipped and run.
+	###
+	### THE READING ORDER, top to bottom, and this is the v3 iteration 5 change:
+	###   PREAMBLE  which way the fealty runs, on its own framed area - the clause
+	###             that makes every number below mean something;
+	###   CLAUSE A  «Obligations», two ladders on a titled card;
+	###   CLAUSE B  «Rights», seven icon rows on a titled card;
+	###   FOOTER    the plain-oath button, whether anything has been altered at
+	###             all, and what the terms are worth.
+	###
+	### ELEVEN ROWS, NOT NINE. The design counts nine VARIABLES; the sheet shows
+	### two level rows (tax, levies) plus seven checkbox rows, which is eleven
+	### widgets over nine variables. The eleven types are the whole feudal_vassal
+	### group minus special_contract and jizya_special_rights
+	### (GAME\common\subject_contracts\groups\subject_contract_groups.txt:1-15).
+	###
+	### WHY THE ROWS ARE STATIC AND NOT A DATAMODEL: an obligation is not a
+	### uniform object - two are 0..4 ladders and seven are booleans with five
+	### different legality gates - and there is no engine datamodel of "the
+	### contract types available to this subject" that script can reach
+	### (report 41 §3.13.A: everything on the vanilla contract screen is
+	### ModifySubjectContractInteractionWindow.*, i.e. C++, and null outside it).
+	### Eleven static rows under `ignoreinvisible = yes` cost one map lookup each
+	### per frame, which is the same trade the deal sheet already makes
+	### (30-V2-DESIGN §4.4).
+	###
+	### EVERY `enabled` READS A SCRIPT VALUE, NEVER A SCRIPTED GUI (R11). The
+	### gates live in tnt_55_hc_values.txt §3, one value per obligation, each
+	### folding in the government test so this file never has to ask twice. Every
+	### one of those expressions is character-for-character what shipped: the
+	### layout pass moved rows into cards and gave them icons, and touched no
+	### binding.
+	####################################################################
+	type tnt_panel_contract = tnt_editor_panel
+	{
+		name = "tnt_panel_contract"
+
+		blockoverride "tnt_editor_panel_title"
+		{
+			### Declaring a block INSIDE a blockoverride of a reusable type, for
+			### a consumer in another file to override, is vanilla practice at 49
+			### distinct block names - the exact analogue is `type vbox_ledger`,
+			### which declares blockoverride "scrollbox_empty" { block ... } at
+			### GAME\gui\window_ledger.gui:3402-3407 and is overridden from
+			### GAME\gui\interaction_marriage.gui:474. The mod already relies on
+			### it in type tnt_picker_panel (tnt_types.gui:1400-1432).
+			block "tnt_contract_title"
+			{
+				text = "tnt_picker_title_contract"
+			}
+		}
+
+		blockoverride "tnt_editor_panel_body"
+		{
+			vbox = {
+				name = "tnt_contract_body"
+				layoutpolicy_horizontal = expanding
+				layoutpolicy_vertical = expanding
+				spacing = 6
+
+				############################################################
+				### THE PREAMBLE - WHICH WAY THE FEALTY RUNS
+				### Exactly one of the first three lines, plus the government
+				### note when it applies.
+				###
+				### The sheet has no side suffix, so it MUST say whose contract
+				### it is editing or it is unreadable: "taxes: high" means the
+				### opposite thing depending on who kneels. v3 iteration 5 gives
+				### that clause its own framed area - Background_Area
+				### (GAME\gui\shared\backgrounds.gui:41), the mod's own row and
+				### panel background - so it reads as the document's opening
+				### paragraph rather than as loose grey text above a list.
+				###
+				### `ignoreinvisible = yes` is what keeps the area the height of
+				### whichever lines are actually showing; without it the three
+				### mutually exclusive notes would each claim their space.
+				###
+				### The tests are plain variable reads on tnt_vassal_p /
+				### tnt_vassal_r rather than EqualTo against tnt_ob_dir_value:
+				### two map lookups instead of a script-value evaluation, and
+				### Or()/Not() are vanilla datafunctions
+				### (GAME\gui\frontend_main.gui:891, nested three deep at
+				###  GAME\gui\frontend_ingame_menu.gui:210).
+				###
+				### The third line is the one that teaches the mechanism, and it
+				### is why tnt_ob_open is not gated: every control below is
+				### disabled until a direction exists, because until then the
+				### legality gates cannot even be evaluated.
+				###
+				### max_width drops 660 -> 640: the card's own margin { 10 6 }
+				### costs 20 px of the 680 the body has.
+				############################################################
+				vbox = {
+					name = "tnt_contract_preamble"
+					layoutpolicy_horizontal = expanding
+					spacing = 3
+					margin = { 10 6 }
+					ignoreinvisible = yes
+					alwaystransparent = yes
+
+					background = {
+						using = Background_Area
+					}
+
+					text_multi = {
+						name = "tnt_contract_note_p"
+						layoutpolicy_horizontal = expanding
+						text = "tnt_ob_note_p"
+						visible = "[TntOn('tnt_vassal_p')]"
+						autoresize = yes
+						max_width = 640
+						default_format = "#I"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Size_Small
+					}
+
+					text_multi = {
+						name = "tnt_contract_note_r"
+						layoutpolicy_horizontal = expanding
+						text = "tnt_ob_note_r"
+						visible = "[TntOn('tnt_vassal_r')]"
+						autoresize = yes
+						max_width = 640
+						default_format = "#I"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Size_Small
+					}
+
+					text_multi = {
+						name = "tnt_contract_note_none"
+						layoutpolicy_horizontal = expanding
+						text = "tnt_ob_note_none"
+						visible = "[Not( Or( TntOn('tnt_vassal_p'), TntOn('tnt_vassal_r') ) )]"
+						autoresize = yes
+						max_width = 640
+						default_format = "#N"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Size_Small
+					}
+
+					### The one line a non-feudal, non-clan subject sees instead
+					### of rows they can never use. Ten of the eleven types exist
+					### only in the feudal_vassal group; a clan gets religious
+					### protection and nothing else; every other government gets
+					### nothing, which report 41 §3.3.F recommends showing rather
+					### than hiding.
+					text_multi = {
+						name = "tnt_contract_note_gov"
+						layoutpolicy_horizontal = expanding
+						text = "tnt_ob_note_gov"
+						visible = "[And( Or( TntOn('tnt_vassal_p'), TntOn('tnt_vassal_r') ), Not( Or( TntPos('tnt_ob_feudal_value'), TntPos('tnt_ob_clan_value') ) ) )]"
+						autoresize = yes
+						max_width = 640
+						default_format = "#N"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Size_Small
+					}
+				}
+
+				divider_light = {
+					layoutpolicy_horizontal = expanding
+				}
+
+				############################################################
+				### THE CLAUSES
+				###
+				### Item 3.2(b): `blockoverride "scrollbox_margins"` is explicit
+				### and not inherited. The inherited template is
+				### Scrollbox_Margins 15/15/15/20 (GAME\gui\shared\windows.gui:135-140)
+				### and the vertical bar is 12 px wide
+				### (GAME\gui\shared\lists.gui:3253-3259) which does NOT shrink the
+				### content area - a row that is `layoutpolicy_horizontal = expanding`
+				### runs straight under it with only 8 px of clearance. 26 on the
+				### right is the bar plus 14 of air, the same reservation the three
+				### shipped panel scrollboxes make. 56 vanilla sites override this
+				### block, e.g. GAME\gui\window_knights.gui:692-695.
+				###
+				### THE SCROLLBOX IS NOT DECORATION. A feudal subject's two cards
+				### come to 422 px against the ~476 the body can spare, so the
+				### sheet fits today and overflows the moment a translation wraps
+				### a heading or a right's name onto a second line. Both cards
+				### keep `ignoreinvisible = yes` on their row vboxes and every row
+				### keeps its fixed size, so the content height is always exactly
+				### the sum of the visible rows and the bar appears only when it
+				### is needed.
+				############################################################
+				scrollbox = {
+					name = "tnt_contract_scroll"
+					layoutpolicy_horizontal = expanding
+					### User item 17(a), same defect as the multiselect boxes: the
+					### base type is a scrollarea with a FIXED size = { 100 100 }
+					### (GAME\gui\shared\lists.gui:3186) that only sizes to content
+					### with `autoresizescrollarea = yes` - a bare cap changed
+					### nothing and left this viewport pinned at ~100 px, about 2.5
+					### of the eleven 34-40 px rows. Full vanilla ledger pattern
+					### (GAME\gui\window_ledger.gui:9405-9408): autoresize +
+					### size = { 0 0 } to clear the inherited 100x100 + the 460 cap.
+					### Floor 110 is roughly the clan subject's 75 px card plus
+					### scroll margins; the feudal content (~428 px per the budget
+					### in this file's header) fits under 460 with no bar in
+					### English, and the bar appears only past the cap
+					### (minimumsize with -1: GAME\gui\interaction_declare_war.gui:314).
+					autoresizescrollarea = yes
+					size = { 0 0 }
+					minimumsize = { -1 110 }
+					maximumsize = { -1 460 }
+
+					### USER ITEM 8: 10/26/8/8, the explicit set the PICKER-FAMILY
+					### panels carry (tnt_types.gui tnt_picker_scroll,
+					### tnt_panel_multiselect.gui both columns). This sheet had
+					### 8/26/6/6, which is the WINDOW-EMBEDDED family - the
+					### negotiation columns and the deal sheet - and a modal picker
+					### surface belongs with the pickers. (The marriage editor
+					### still has 8/26/6/6; it is another author's file and is
+					### flagged in the build report, not edited from here.) The
+					### 2 px the rows lose on the left is re-derived through the
+					### whole width budget in the file header. Content plus the two
+					### 8 px vertical margins is 444 for a feudal subject, still
+					### under the 460 cap, so no bar appears where none did.
+					blockoverride "scrollbox_margins"
+					{
+						margin_left = 10
+						margin_right = 26
+						margin_top = 8
+						margin_bottom = 8
+					}
+
+					blockoverride "scrollbox_content"
+					{
+						### A vbox as the single child of scrollbox_content is
+						### the shipped shape (tnt_types.gui:752-772);
+						### scrollbox_content takes EXACTLY ONE child
+						### (GAME\gui\shared\lists.gui:3182).
+						vbox = {
+							name = "tnt_contract_rows_box"
+							layoutpolicy_horizontal = expanding
+							spacing = 8
+
+							### Without this an invisible card still claims its
+							### height and the sheet is full of holes - and a
+							### clan subject, who sees one right and no
+							### obligations, would get a 125 px empty frame
+							### where the obligations card would have been. Same
+							### property, same reason, as the column's own
+							### tnt_column_rows (tnt_types.gui:1033).
+							ignoreinvisible = yes
+
+							block "tnt_contract_rows"
+							{
+								################################################
+								### CLAUSE A - THE TWO SCALED OBLIGATIONS
+								###
+								### Both ladders are feudal-only, so the CARD
+								### carries the same test its two rows carry and
+								### a clan subject never sees an empty frame.
+								### The rows keep their own `visible` as well:
+								### the card's test is a convenience for the
+								### reader, the rows' tests are the contract.
+								################################################
+								tnt_contract_group = {
+									name = "tnt_contract_group_obligations"
+									visible = "[TntPos('tnt_ob_feudal_value')]"
+
+									blockoverride "tnt_contract_group_icon" { texture = "gfx/interface/icons/flat_icons/feudal_contract.dds" }
+
+									blockoverride "tnt_contract_group_label"   { text = "tnt_ob_group_obligations" }
+									blockoverride "tnt_contract_group_tooltip" { tooltip = "tnt_ob_group_obligations_tt" }
+
+									blockoverride "tnt_contract_group_rows"
+									{
+										################################
+										### 1 - FEUDAL TAXES, levels 0..4
+										###
+										### THE FIVE NAMES ARE VANILLA'S OWN,
+										### resolved inside our own loc keys
+										### (tnt_l_english.yml:606-610) so both
+										### languages come free. See note B in
+										### the file header for why the
+										### datafunction stays in the .yml and
+										### never appears in a `text =` here.
+										###
+										### IT READS tnt_ob_tax_shown_value AND
+										### NOT THE VARIABLE. TntNum on an
+										### unset variable returns 0, so a test
+										### against var:tnt_ob_tax would
+										### announce "Tax Exempt" - a 45-point
+										### term - on a sheet nobody has
+										### touched. The value returns 2 when the
+										### variable is absent, which is what
+										### "unset" means everywhere else in this
+										### item (tnt_55_hc_values.txt §5.1 has
+										### the full argument and names the two
+										### alternatives that were rejected).
+										###
+										### LEVEL 2 IS THE FALL-THROUGH, so its
+										### `visible` is the negation of the
+										### other four rather than EqualTo 2 -
+										### the cell can then never be empty,
+										### whatever the value. Its own
+										### `#weak` format is what makes an
+										### untouched ladder look like the
+										### default rather than like a choice.
+										###
+										### FALLBACK if the five stacked texts
+										### ever misbehave: point one of them at
+										### `text = "[TntSV('tnt_ob_tax_shown_value')|0]"`,
+										### give it `visible = yes`, and move the
+										### five names into the row tooltip. One
+										### block per row, no other file.
+										################################
+										tnt_contract_level_row = {
+											name = "tnt_contract_row_tax"
+											visible = "[TntPos('tnt_ob_feudal_value')]"
+
+											blockoverride "tnt_contract_level_label"   { text = "tnt_ob_tax_label" }
+											blockoverride "tnt_contract_level_tooltip" { tooltip = "tnt_ob_tax_desc" }
+
+											blockoverride "tnt_contract_level_icon" { texture = "gfx/interface/icons/icon_gold.dds" }
+
+											blockoverride "tnt_contract_level_lvl0"
+											{
+												text = "tnt_ob_tax_lvl0"
+												visible = "[EqualTo_CFixedPoint( TntSV('tnt_ob_tax_shown_value'), '(CFixedPoint)0' )]"
+											}
+
+											blockoverride "tnt_contract_level_lvl1"
+											{
+												text = "tnt_ob_tax_lvl1"
+												visible = "[EqualTo_CFixedPoint( TntSV('tnt_ob_tax_shown_value'), '(CFixedPoint)1' )]"
+											}
+
+											blockoverride "tnt_contract_level_lvl2"
+											{
+												text = "tnt_ob_tax_lvl2"
+												visible = "[Not( Or( Or( EqualTo_CFixedPoint( TntSV('tnt_ob_tax_shown_value'), '(CFixedPoint)0' ), EqualTo_CFixedPoint( TntSV('tnt_ob_tax_shown_value'), '(CFixedPoint)1' ) ), Or( EqualTo_CFixedPoint( TntSV('tnt_ob_tax_shown_value'), '(CFixedPoint)3' ), EqualTo_CFixedPoint( TntSV('tnt_ob_tax_shown_value'), '(CFixedPoint)4' ) ) ) )]"
+											}
+
+											blockoverride "tnt_contract_level_lvl3"
+											{
+												text = "tnt_ob_tax_lvl3"
+												visible = "[EqualTo_CFixedPoint( TntSV('tnt_ob_tax_shown_value'), '(CFixedPoint)3' )]"
+											}
+
+											blockoverride "tnt_contract_level_lvl4"
+											{
+												text = "tnt_ob_tax_lvl4"
+												visible = "[EqualTo_CFixedPoint( TntSV('tnt_ob_tax_shown_value'), '(CFixedPoint)4' )]"
+											}
+
+											### R12: left click one step, right
+											### click to the end of the ladder.
+											blockoverride "tnt_contract_level_minus"     { onclick      = "[TntExec('tnt_ob_tax_down')]" enabled = "[TntPos('tnt_ob_tax_can_down_value')]" }
+											blockoverride "tnt_contract_level_minus_big" { onrightclick = "[TntExec('tnt_ob_tax_min')]" }
+											blockoverride "tnt_contract_level_plus"      { onclick      = "[TntExec('tnt_ob_tax_up')]" enabled = "[TntPos('tnt_ob_tax_can_up_value')]" }
+											blockoverride "tnt_contract_level_plus_big"  { onrightclick = "[TntExec('tnt_ob_tax_max')]" }
+											blockoverride "tnt_contract_level_tt_minus"  { tooltip = "tnt_ob_tax_step_tt" }
+											blockoverride "tnt_contract_level_tt_plus"   { tooltip = "tnt_ob_tax_step_tt" }
+										}
+
+										################################
+										### 2 - FEUDAL LEVIES, levels 0..4
+										### Same shape, same fall-through, and
+										### icon_levies.dds is the texture
+										### vanilla's own contract screen puts on
+										### its levy block
+										### (interaction_modify_vassal_window.gui:641).
+										################################
+										tnt_contract_level_row = {
+											name = "tnt_contract_row_levy"
+											visible = "[TntPos('tnt_ob_feudal_value')]"
+
+											blockoverride "tnt_contract_level_label"   { text = "tnt_ob_levy_label" }
+											blockoverride "tnt_contract_level_tooltip" { tooltip = "tnt_ob_levy_desc" }
+
+											blockoverride "tnt_contract_level_icon" { texture = "gfx/interface/icons/icon_levies.dds" }
+
+											blockoverride "tnt_contract_level_lvl0"
+											{
+												text = "tnt_ob_levy_lvl0"
+												visible = "[EqualTo_CFixedPoint( TntSV('tnt_ob_levy_shown_value'), '(CFixedPoint)0' )]"
+											}
+
+											blockoverride "tnt_contract_level_lvl1"
+											{
+												text = "tnt_ob_levy_lvl1"
+												visible = "[EqualTo_CFixedPoint( TntSV('tnt_ob_levy_shown_value'), '(CFixedPoint)1' )]"
+											}
+
+											blockoverride "tnt_contract_level_lvl2"
+											{
+												text = "tnt_ob_levy_lvl2"
+												visible = "[Not( Or( Or( EqualTo_CFixedPoint( TntSV('tnt_ob_levy_shown_value'), '(CFixedPoint)0' ), EqualTo_CFixedPoint( TntSV('tnt_ob_levy_shown_value'), '(CFixedPoint)1' ) ), Or( EqualTo_CFixedPoint( TntSV('tnt_ob_levy_shown_value'), '(CFixedPoint)3' ), EqualTo_CFixedPoint( TntSV('tnt_ob_levy_shown_value'), '(CFixedPoint)4' ) ) ) )]"
+											}
+
+											blockoverride "tnt_contract_level_lvl3"
+											{
+												text = "tnt_ob_levy_lvl3"
+												visible = "[EqualTo_CFixedPoint( TntSV('tnt_ob_levy_shown_value'), '(CFixedPoint)3' )]"
+											}
+
+											blockoverride "tnt_contract_level_lvl4"
+											{
+												text = "tnt_ob_levy_lvl4"
+												visible = "[EqualTo_CFixedPoint( TntSV('tnt_ob_levy_shown_value'), '(CFixedPoint)4' )]"
+											}
+
+											blockoverride "tnt_contract_level_minus"     { onclick      = "[TntExec('tnt_ob_levy_down')]" enabled = "[TntPos('tnt_ob_levy_can_down_value')]" }
+											blockoverride "tnt_contract_level_minus_big" { onrightclick = "[TntExec('tnt_ob_levy_min')]" }
+											blockoverride "tnt_contract_level_plus"      { onclick      = "[TntExec('tnt_ob_levy_up')]" enabled = "[TntPos('tnt_ob_levy_can_up_value')]" }
+											blockoverride "tnt_contract_level_plus_big"  { onrightclick = "[TntExec('tnt_ob_levy_max')]" }
+											blockoverride "tnt_contract_level_tt_minus"  { tooltip = "tnt_ob_levy_step_tt" }
+											blockoverride "tnt_contract_level_tt_plus"   { tooltip = "tnt_ob_levy_step_tt" }
+										}
+									}
+								}
+
+								################################################
+								### CLAUSE B - THE SEVEN RIGHTS
+								###
+								### The card's own test is the Or() over the two
+								### governments, because religious protection is
+								### in the clan group too - so a clan subject
+								### still gets a titled card with one row in it
+								### rather than a loose orphan checkbox.
+								################################################
+								tnt_contract_group = {
+									name = "tnt_contract_group_rights"
+									visible = "[Or( TntPos('tnt_ob_feudal_value'), TntPos('tnt_ob_clan_value') )]"
+
+									blockoverride "tnt_contract_group_icon" { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+
+									blockoverride "tnt_contract_group_label"   { text = "tnt_ob_group_rights" }
+									blockoverride "tnt_contract_group_tooltip" { tooltip = "tnt_ob_group_rights_tt" }
+
+									blockoverride "tnt_contract_group_rows"
+									{
+										################################
+										### 3 - RELIGIOUS PROTECTION
+										###     religious_rights ->
+										###     religious_rights_protected
+										###
+										### THE ROW THE USER ASKED FOR BY NAME,
+										### which is why it leads the clause. The
+										### only row visible to a CLAN subject as
+										### well as a feudal one, because
+										### religious_rights is in both groups
+										### (subject_contract_groups.txt:1-15 and
+										### :29-41) - which is exactly why its
+										### `visible` is an Or() over the two
+										### government values and every other
+										### row's is not. tnt_ob_relig_ok_value
+										### additionally requires the two faiths
+										### to differ, vanilla's own gate
+										### (special_contracts.txt:298, :334).
+										###
+										### `visible` IS SET DIRECTLY AND NOT
+										### THROUGH tnt_toggle_line's own block
+										### "tnt_toggle_line_visible" - both work,
+										### and the direct form is the one already
+										### shipping in this mod on the analogous
+										### tnt_item_row_toggle
+										### (tnt_diplomacy_window.gui:606,
+										### `visible = "[TntOn('tnt_advanced')]"`).
+										### The block stays free for a consumer
+										### who ever instantiates these rows
+										### somewhere else.
+										###
+										### THE SEAL, here and on the six rows
+										### below, reads the SAME variable the
+										### checkbox reads. Two renderings of one
+										### plain map lookup, no second source of
+										### truth, no GetScriptedGui (R9, R11).
+										### character_interactions/religious.dds
+										### is the texture vanilla's own contract
+										### screen uses for its piety block
+										### (interaction_modify_vassal_window.gui:773).
+										################################
+										tnt_contract_right_row = {
+											name = "tnt_contract_row_relig"
+											visible = "[Or( TntPos('tnt_ob_feudal_value'), TntPos('tnt_ob_clan_value') )]"
+
+											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/character_interactions/religious.dds" }
+
+											blockoverride "tnt_contract_right_seal" { visible = "[TntOn('tnt_ob_relig')]" }
+
+											### *** V17, USER ITEM 1 - THE HOUSE-LAW-10a EXEMPTION FOR
+											### *** tnt_ob_req_succ / _coin / _fort IS MOOT, NOT MERELY
+											### *** WEAK, AND THIS ROW IS THE PROOF.
+											### CLAUDE.md's law 10a bans a [..] token in any loc string a
+											### custom_description on the BuildTooltip path can name, and
+											### it kept three nested-key strings on "one negative
+											### observation rather than a measurement". No measurement was
+											### ever needed: THESE FIFTEEN CONTRACT ROWS ARE NOT ON THAT
+											### PATH AT ALL. The row gates on a SCRIPT VALUE -
+											### enabled = "[TntPos('tnt_ob_relig_ok_value')]" two lines
+											### below - and carries a STATIC loc key as its tooltip, twice
+											### (:1465 and :1469). There is no [TntValid()] and no
+											### [TntTip()] anywhere in the tnt_ob_* family, so the fifteen
+											### tnt_ob_*_toggle scripted_guis' is_valid blocks are never
+											### handed to the trigger-description walker and the strings
+											### inside them can never reach the screen.
+											### _docs\tools\tnt_bare_tooltip_row_check.ps1 self-discovers
+											### the BuildTooltip-reachable set from the .gui bindings and
+											### finds 17 of the mod's 42 is_valid blocks; not one tnt_ob_*
+											### is among them. The same holds for tnt_err_hook_taken_p/_r,
+											### which sit behind the static tnt_stepper_hook_tt.
+											### CONSEQUENCE: those keys stay DEFINED (law 9 - an undefined
+											### key prints raw) but they are dead text, and they must never
+											### again be cited as evidence about token expansion in either
+											### direction. Whatever they do or do not do, nobody sees it.
+											blockoverride "tnt_toggle_line_label"   { text = "tnt_ob_relig_label" }
+											blockoverride "tnt_toggle_line_tooltip" { tooltip = "tnt_ob_relig_desc" }
+											blockoverride "tnt_toggle_line_sgui"    { onclick = "[TntExec('tnt_ob_relig_toggle')]" }
+											blockoverride "tnt_toggle_line_var"     { checked = "[TntOn('tnt_ob_relig')]" }
+											blockoverride "tnt_toggle_line_enabled" { enabled = "[TntPos('tnt_ob_relig_ok_value')]" }
+											blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "tnt_ob_relig_desc" }
+										}
+
+										################################
+										### 4 - COUNCIL RIGHTS
+										###     council_rights ->
+										###     council_rights_guaranteed
+										### No gate of its own in vanilla
+										### (:492-519), so the feudal test IS its
+										### availability.
+										################################
+										tnt_contract_right_row = {
+											name = "tnt_contract_row_council"
+											visible = "[TntPos('tnt_ob_feudal_value')]"
+
+											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/character_interactions/council.dds" }
+
+											blockoverride "tnt_contract_right_seal" { visible = "[TntOn('tnt_ob_council')]" }
+
+											blockoverride "tnt_toggle_line_label"   { text = "tnt_ob_council_label" }
+											blockoverride "tnt_toggle_line_tooltip" { tooltip = "tnt_ob_council_desc" }
+											blockoverride "tnt_toggle_line_sgui"    { onclick = "[TntExec('tnt_ob_council_toggle')]" }
+											blockoverride "tnt_toggle_line_var"     { checked = "[TntOn('tnt_ob_council')]" }
+											blockoverride "tnt_toggle_line_enabled" { enabled = "[TntPos('tnt_ob_feudal_value')]" }
+											blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "tnt_ob_council_desc" }
+										}
+
+										################################
+										### 5 - PROTECTION FROM TITLE REVOCATION
+										###     title_revocation_rights -> …_protected
+										################################
+										tnt_contract_right_row = {
+											name = "tnt_contract_row_revoke"
+											visible = "[TntPos('tnt_ob_feudal_value')]"
+
+											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/character_interactions/revoke_title.dds" }
+
+											blockoverride "tnt_contract_right_seal" { visible = "[TntOn('tnt_ob_revoke')]" }
+
+											blockoverride "tnt_toggle_line_label"   { text = "tnt_ob_revoke_label" }
+											blockoverride "tnt_toggle_line_tooltip" { tooltip = "tnt_ob_revoke_desc" }
+											blockoverride "tnt_toggle_line_sgui"    { onclick = "[TntExec('tnt_ob_revoke_toggle')]" }
+											blockoverride "tnt_toggle_line_var"     { checked = "[TntOn('tnt_ob_revoke')]" }
+											blockoverride "tnt_toggle_line_enabled" { enabled = "[TntPos('tnt_ob_revoke_ok_value')]" }
+											blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "tnt_ob_revoke_desc" }
+										}
+
+										################################
+										### 6 - THE RIGHT TO DECLARE WAR
+										###     war_declaration_rights -> …_allowed
+										### No gate of its own in vanilla (:468-490).
+										################################
+										tnt_contract_right_row = {
+											name = "tnt_contract_row_war"
+											visible = "[TntPos('tnt_ob_feudal_value')]"
+
+											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/character_interactions/declare_war_interaction.dds" }
+
+											blockoverride "tnt_contract_right_seal" { visible = "[TntOn('tnt_ob_war')]" }
+
+											blockoverride "tnt_toggle_line_label"   { text = "tnt_ob_war_label" }
+											blockoverride "tnt_toggle_line_tooltip" { tooltip = "tnt_ob_war_desc" }
+											blockoverride "tnt_toggle_line_sgui"    { onclick = "[TntExec('tnt_ob_war_toggle')]" }
+											blockoverride "tnt_toggle_line_var"     { checked = "[TntOn('tnt_ob_war')]" }
+											blockoverride "tnt_toggle_line_enabled" { enabled = "[TntPos('tnt_ob_feudal_value')]" }
+											blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "tnt_ob_war_desc" }
+										}
+
+										################################
+										### 7 - FORTIFICATION RIGHTS
+										###     fortification_rights -> …_granted
+										### Needs the LIEGE's culture to have
+										### innovation_battlements (:356-360,
+										### :370-374), which is why the row can be
+										### visible and still disabled - and why
+										### its icon is the innovation's own,
+										### culture_innovations/innovation_fortifications.dds.
+										################################
+										tnt_contract_right_row = {
+											name = "tnt_contract_row_fort"
+											visible = "[TntPos('tnt_ob_feudal_value')]"
+
+											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/culture_innovations/innovation_fortifications.dds" }
+
+											blockoverride "tnt_contract_right_seal" { visible = "[TntOn('tnt_ob_fort')]" }
+
+											blockoverride "tnt_toggle_line_label"   { text = "tnt_ob_fort_label" }
+											blockoverride "tnt_toggle_line_tooltip" { tooltip = "tnt_ob_fort_desc" }
+											blockoverride "tnt_toggle_line_sgui"    { onclick = "[TntExec('tnt_ob_fort_toggle')]" }
+											blockoverride "tnt_toggle_line_var"     { checked = "[TntOn('tnt_ob_fort')]" }
+											blockoverride "tnt_toggle_line_enabled" { enabled = "[TntPos('tnt_ob_fort_ok_value')]" }
+											blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "tnt_ob_fort_desc" }
+										}
+
+										################################
+										### 8 - COINAGE RIGHTS
+										###     coinage_rights -> …_granted
+										### Needs innovation_currency_02 (:398-402,
+										### :412-416), so the same argument as the
+										### row above puts the innovation's own
+										### icon on it.
+										################################
+										tnt_contract_right_row = {
+											name = "tnt_contract_row_coin"
+											visible = "[TntPos('tnt_ob_feudal_value')]"
+
+											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/culture_innovations/innovation_coinage.dds" }
+
+											blockoverride "tnt_contract_right_seal" { visible = "[TntOn('tnt_ob_coin')]" }
+
+											blockoverride "tnt_toggle_line_label"   { text = "tnt_ob_coin_label" }
+											blockoverride "tnt_toggle_line_tooltip" { tooltip = "tnt_ob_coin_desc" }
+											blockoverride "tnt_toggle_line_sgui"    { onclick = "[TntExec('tnt_ob_coin_toggle')]" }
+											blockoverride "tnt_toggle_line_var"     { checked = "[TntOn('tnt_ob_coin')]" }
+											blockoverride "tnt_toggle_line_enabled" { enabled = "[TntPos('tnt_ob_coin_ok_value')]" }
+											blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "tnt_ob_coin_desc" }
+										}
+
+										################################
+										### 9 - FORCED PARTITION
+										###     succession_rights ->
+										###     …_forced_partition
+										###
+										### THE ONE ROW ON THE SHEET THAT FAVOURS
+										### THE LIEGE (score -1, subject_opinion
+										### -5, flag locked_to_partition,
+										### :433-466), so ticking it moves the
+										### balance the other way. Its own loc
+										### says so in its first sentence, and it
+										### is LAST in the clause for the same
+										### reason: a term you take does not
+										### belong among the six you give.
+										################################
+										tnt_contract_right_row = {
+											name = "tnt_contract_row_succ"
+											visible = "[TntPos('tnt_ob_feudal_value')]"
+
+											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/flat_icons/succession.dds" }
+
+											blockoverride "tnt_contract_right_seal" { visible = "[TntOn('tnt_ob_succ')]" }
+
+											blockoverride "tnt_toggle_line_label"   { text = "tnt_ob_succ_label" }
+											blockoverride "tnt_toggle_line_tooltip" { tooltip = "tnt_ob_succ_desc" }
+											blockoverride "tnt_toggle_line_sgui"    { onclick = "[TntExec('tnt_ob_succ_toggle')]" }
+											blockoverride "tnt_toggle_line_var"     { checked = "[TntOn('tnt_ob_succ')]" }
+											blockoverride "tnt_toggle_line_enabled" { enabled = "[TntPos('tnt_ob_succ_ok_value')]" }
+											blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "tnt_ob_succ_desc" }
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				divider_light = {
+					layoutpolicy_horizontal = expanding
+				}
+
+				############################################################
+				### FOOTER - how to undo it, whether anything is done at all,
+				###          and what the sheet is worth
+				###
+				### THE MIDDLE OF THESE THREE IS NEW IN v3 ITERATION 5, and it is
+				### the brief's "make an untouched sheet visibly mean vanilla
+				### default terms rather than all zero". tnt_ob_changed_value
+				### counts the terms that differ from vanilla's own defaults -
+				### level 2 on both ladders, none of the seven rights - and its
+				### author's header asks for exactly this widget:
+				### "a '3 terms changed' readout on the panel footer or the centre
+				### card. Nobody has pointed a widget at it yet."
+				### (tnt_55_hc_values.txt:1082-1093). Now something does.
+				### Two mutually exclusive text_single children of one vbox under
+				### `ignoreinvisible = yes`, each `visible` a single script-value
+				### test - the shape tnt_ab_tooltip already uses three times over
+				### (tnt_types.gui:1352-1386). The "N altered" wording gets its
+				### number from the loc key itself, exactly as tnt_ctx_contract
+				### already does (tnt_l_english.yml:1267).
+				###
+				### THE FIGURE is tnt_ob_sheet_total_value, ALREADY SIGNED FROM
+				### THE PARTNER'S POINT OF VIEW like every number in this window
+				### (tnt_55_hc_values.txt §0.3), so a positive figure means the
+				### terms push the partner towards yes. `|+=0` prints the sign,
+				### the same token the headline uses.
+				###
+				### The total label drops from 200 px to 190 to buy the status
+				### line its 204 - see the width budget in the file header.
+				############################################################
+				hbox = {
+					name = "tnt_contract_footer"
+					layoutpolicy_horizontal = expanding
+					### USER ITEM 8: 40 -> 42, the multi-select panels' own footer
+					### band (tnt_panel_multiselect.gui, tnt_multi_footer), so the
+					### two 760 px panels close on the same line. The vertical
+					### budget in the file header carries the 2 px.
+					size = { 0 42 }
+					maximumsize = { -1 42 }
+					spacing = 8
+					margin = { 6 0 }
+
+					### R5: a plain widget host, so the button may centre.
+					widget = {
+						name = "tnt_contract_reset_holder"
+						size = { 180 100% }
+
+						button_standard = {
+							name = "tnt_contract_reset"
+							size = { 176 30 }
+							parentanchor = vcenter|left
+							text = "tnt_ob_reset_btn"
+							tooltip = "tnt_ob_reset_tt"
+							using = tooltip_es
+							onclick = "[TntExec('tnt_ob_reset')]"
+						}
+					}
+
+					### R6: a vbox is a legal child of an hbox - the rule that
+					### bans it bans an hbox/vbox inside a (flow)container, and
+					### there is no container on this sheet. R5: neither of the
+					### two lines anchors, they stack from the top of the box,
+					### which is where a 40 px footer wants a single 18 px line.
+					vbox = {
+						name = "tnt_contract_status"
+						layoutpolicy_horizontal = expanding
+						layoutpolicy_vertical = expanding
+						spacing = 0
+						ignoreinvisible = yes
+						alwaystransparent = yes
+
+						expand = {
+							name = "tnt_contract_status_pad_top"
+						}
+
+						### R-SPILL in full: this line prints a translated
+						### sentence with a number in it, so `autoresize = no`,
+						### expanding, and the inherited `elide = right` is never
+						### overridden.
+						text_single = {
+							name = "tnt_contract_status_default"
+							layoutpolicy_horizontal = expanding
+							autoresize = no
+							text = "tnt_ob_status_default"
+							visible = "[Not( TntPos('tnt_ob_changed_value') )]"
+							align = nobaseline|left
+							default_format = "#weak"
+							alwaystransparent = yes
+							fontsize_min = 11
+							using = Font_Size_Small
+						}
+
+						text_single = {
+							name = "tnt_contract_status_changed"
+							layoutpolicy_horizontal = expanding
+							autoresize = no
+							text = "tnt_ob_status_changed"
+							visible = "[TntPos('tnt_ob_changed_value')]"
+							align = nobaseline|left
+							default_format = "#medium"
+							alwaystransparent = yes
+							fontsize_min = 11
+							using = Font_Size_Small
+						}
+
+						expand = {
+							name = "tnt_contract_status_pad_bottom"
+						}
+					}
+
+					text_single = {
+						name = "tnt_contract_total_label"
+						min_width = 190
+						max_width = 190
+						autoresize = no
+						text = "tnt_ob_total_label"
+						align = nobaseline|right
+						default_format = "#weak"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Size_Small
+					}
+
+					text_single = {
+						name = "tnt_contract_total_value"
+						min_width = 70
+						max_width = 70
+						autoresize = no
+						text = "[TntSV('tnt_ob_sheet_total_value')|+=0]"
+						align = nobaseline|right
+						default_format = "#high"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Size_Medium
+					}
+				}
+			}
+		}
+	}
+
+}

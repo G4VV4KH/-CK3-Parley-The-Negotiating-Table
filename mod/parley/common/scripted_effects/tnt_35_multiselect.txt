@@ -1,0 +1,740 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — MULTI-SELECT EFFECTS  (user item 2.2)
+#
+# Owner: multiselect. Companion files:
+#   common/script_values/tnt_54_multiselect_values.txt  — counts, caps,
+#       valuations, the domain counter
+#   common/scripted_guis/tnt_22b_multiselect.txt        — the 24 entries
+#       the GUI clicks (6 openers, 6 add, 6 remove, 6 clear)
+#   gui/tnt_panel_multiselect.gui                       — tnt_panel_multi
+#
+# ROOT IS ALWAYS THE PLAYER. Every list in this file lives on the player,
+# whichever side it describes, so the GUI always reads it off GetPlayer —
+# the rule the shipped picker lists already follow (tnt_31_lists.txt:13-15).
+#
+#=======================================================================
+# THE TWO-LIST INVARIANT — READ THIS BEFORE TOUCHING ANY EFFECT BELOW
+#=======================================================================
+# For each item and side there are TWO lists:
+#     tnt_list_<item>_<side>   "available"  (built by tnt_31_lists.txt)
+#     tnt_sel_<item>_<side>    "chosen"     (built here)
+# INVARIANT: an object is in AT MOST ONE of them at any time.
+#
+# That invariant is the entire mechanism of item 2.2. The engine has NO
+# list-membership datafunction — there is no `Scope.IsInList`, no
+# datamodel Filter, Where or Count (00-ARCHITECTURE §4.6 blacklist) — so a
+# GUI row can never ask "am I already chosen?". Two lists and a MOVE make
+# the question unnecessary: a row's list IS its state. 30-V2-DESIGN §1 row
+# 2.2: "No membership datafunction is needed anywhere, which is the whole
+# point of the two-list shape."
+#
+# The invariant has exactly three enemies, and each has a named defence:
+#   1. A double click, or a stale click on a row whose object already
+#      moved.  -> tnt_multi_add_effect / tnt_multi_remove_effect test
+#         is_target_in_variable_list before every write.
+#   2. tnt_31_lists.txt's fill effects CLEAR and REBUILD the available
+#      list from the world (every_held_title / every_character_artifact),
+#      which would put chosen objects back into "available" and show them
+#      twice.  -> tnt_multi_prune_effect removes the chosen ones again,
+#      and every opener in tnt_22b_multiselect.txt runs fill THEN prune.
+#      tnt_multi_prune_all_effect does all six in one call, for the two
+#      shipped refresh paths (see the integration notes).
+#   3. A selection surviving a window close.  -> tnt_clear_selections_effect,
+#      called from tnt_reset_offer_effect, which tnt_close_window_effect
+#      also calls. See the R-CLEAN block at the foot of this file.
+#
+# WHY A MOVE AND NOT A FLAG. The alternative — keep one list and store a
+# per-object "chosen" marker — would need a variable written onto the
+# TITLE or the ARTIFACT. R-CLEAN-2 (30-V2-DESIGN §3.5(d)) forbids that
+# absolutely: there is no on_action that fires for a title, so such a
+# variable is permanent save pollution with no removal path. This file
+# writes variables onto the player and onto nothing else.
+#
+#=======================================================================
+# THE MOVE IDIOM, AND WHERE IT COMES FROM
+#=======================================================================
+# `every_in_list` + `remove_list_variable` in ONE pass is TOMBSTONED in this mod,
+# NOT shipped: tnt_gc_promises_effect is dead (header tnt_31_lists.txt:773, body
+# from :815), so it is no licence for an UNGUARDED walk - 576 error lines once.
+# The live proof is GAME\common\story_cycles\story_cycle_infidelity_confrontation.txt:45-64:
+#     every_in_list = { variable = <list>
+#         limit = { … }
+#         save_temporary_scope_as = remove_from_list
+#         <owner> = { remove_list_variable = { name = <list>  target = scope:remove_from_list } }
+#     }
+# Vanilla removes entries during the same pass it iterates, so that is
+# safe. NOTE the key is `variable = <name>` for a variable list; `list =`
+# is for the temporary lists built by add_to_list.
+#
+# `add_to_variable_list = { name = X  target = scope:y }`:
+# GAME\common\activities\activity_types\tour.txt:3091-3093 and 15 further
+# sites; already used by every fill effect in tnt_31_lists.txt.
+# `is_target_in_variable_list = { name = X  target = scope:y }` guarded by
+# `has_variable_list`: GAME\common\achievements\ep2_achievements.txt:230-240,
+# GAME\common\casus_belli_types\00_religious_war.txt:38-44, and the
+# shipped pairing at tnt_31_lists.txt:301-313.
+# `variable_list_size = { name = X  value >= N }`:
+# GAME\common\casus_belli_types\07_ep3_wars.txt:5916-5919 and
+# GAME\common\achievements\ep2_achievements.txt:265-273 (where it is
+# guarded by has_variable_list in the very same block, which is why every
+# use below is guarded the same way).
+########################################################################
+
+
+########################################################################
+# M1 — tnt_multi_add_effect        params: SEL, LIST
+#
+# scope:tnt_picked (supplied by the GUI through exactly ONE .AddScope —
+# Law R8 forbids chaining two) is MOVED from the available list into the
+# selection list.
+#
+# Called by five *_add scripted guis — the two claim setters, the two artifact
+# setters (tnt_22b_multiselect.txt:378-405) and the captive setter (:604) — and
+# by the autobalance claims leg (tnt_39_autobalance.txt:2559). The two TITLE
+# setters wrote the body out by hand in the v3-item-5 era (tnt_22b:253-287) and
+# never came back.
+#
+# TWO GUARDS, in this order (a third — the cap of 3 — stood between them and is
+# GONE since V4; the inline box in the body below is its tombstone):
+#   1. the object still exists (the row's title may have been destroyed,
+#      the artifact may have been claimed, between layout and click);
+#   2. the object is not already chosen (a double click, or a click on a
+#      row the prune pass has not caught yet).
+# Guard 2 uses `trigger_if = { limit = { has_variable_list … } … }`
+# rather than a bare AND: on the FIRST pick of a session the list does not
+# exist at all, and is_target_in_variable_list would then be asked about a
+# list that is not set. trigger_if simply does not fire, so the pick
+# succeeds — which is the correct answer. Same shape
+# as tnt_31_lists.txt:301-313.
+#
+# The available list is NOT rebuilt here, only shortened. Rebuilding it
+# would re-run every_held_title on a click, and the opener has already
+# built it correctly one click earlier.
+#
+# tnt_picker is deliberately LEFT SET. This is the one behavioural
+# difference from the shipped single-object setters (tnt_21_pickers.txt
+# GROUP D, which end with `remove_variable = tnt_picker` because one pick
+# is the whole interaction): a multi-select panel must stay open so the
+# player can pick the next one. The panel is dismissed by its own Done or
+# close button, both of which call the shipped tnt_picker_close.
+########################################################################
+tnt_multi_add_effect = {
+	if = {
+		limit = {
+			exists = scope:tnt_picked
+
+			# --- the cap ---------------------------------------------
+			### THE CAP OF THREE IS GONE (V4). The user's ruling on titles was "remove
+			### the limit, and make exceeding the domain limit give fewer points"
+			### instead. THAT DISCOURAGEMENT HAS SINCE BEEN REMOVED AS WELL (user item
+			### 13): tnt_domain_penalty_p_value no longer exists, so exceeding the
+			### domain limit costs nothing and only lights the red counter line.
+			###
+			### IT WAS REMOVED FROM TITLES ONLY, because titles have a hand-written
+			### add-handler while claims and artifacts delegate to THIS effect - so the
+			### cap quietly survived for them, and the mod applied two different rules
+			### to two neighbouring rows of the same window. Removing it here makes all
+			### the list-shaped terms behave alike (titles, claims, artifacts, and the
+			### courtier transfer; prisoners were the fourth until that family was
+			### RETIRED - tombstone at E22 in common\scripted_effects\tnt_32_apply.txt).
+			###
+			### THE COURTIER TRANSFER ONLY JOINED THEM IN V11 (user item 2), and the
+			### delay is worth recording: its two add-entries are hand-written for a
+			### different reason (tnt_24_people.txt group D), and whoever wrote them
+			### re-added the cap of 3 by hand from the pre-V4 record - so the very
+			### two-rules-in-one-window incoherence this paragraph describes survived
+			### the paragraph by two versions, invisibly, because a refused courtier
+			### click printed nothing at all. If a future term needs a hand-written
+			### add-handler, it inherits THIS rule and not the old one.
+			###
+			### The duplicate guard below stays: adding the same object twice is a bug
+			### in any number, not a limit on generosity.
+
+			# --- not already chosen ----------------------------------
+			trigger_if = {
+				limit = { has_variable_list = $SEL$ }
+				NOT = {
+					is_target_in_variable_list = {
+						name = $SEL$
+						target = scope:tnt_picked
+					}
+				}
+			}
+		}
+
+		add_to_variable_list = {
+			name = $SEL$
+			target = scope:tnt_picked
+		}
+
+		# The other half of the MOVE. Guarded so nothing is asked of a
+		# list that does not exist; an object that is somehow not in the
+		# available list is simply left alone.
+		if = {
+			limit = {
+				has_variable_list = $LIST$
+				is_target_in_variable_list = {
+					name = $LIST$
+					target = scope:tnt_picked
+				}
+			}
+			remove_list_variable = {
+				name = $LIST$
+				target = scope:tnt_picked
+			}
+		}
+	}
+}
+
+
+########################################################################
+# M2 — tnt_multi_remove_effect     params: SEL, LIST
+#
+# The mirror of M1: scope:tnt_picked moves back from "chosen" to
+# "available". Called by the six *_remove scripted guis, which are bound
+# to the rows of the CHOSEN column.
+#
+# No cap check — taking something off the table can never overfill it.
+# The re-add is guarded against a duplicate, which is what makes a
+# double-click on a chosen row harmless.
+#
+# LEGALITY IS NOT RE-TESTED HERE, on purpose. A title that has become
+# uncedeable since it was picked should not be silently dropped from the
+# player's view — it must reappear in "available" so the player can see it
+# and so the next opener's fill+prune pass removes it with a reason. The
+# apply legs re-validate every object individually (M6/M7/M8) and skip one
+# stale object without cancelling the term.
+#
+# V11 CORRECTION, user item 2: this paragraph used to end "and
+# tnt_send_offer's is_valid re-validation rows are the second net." THERE IS
+# NO SECOND NET FOR THE SELECTION LISTS AND THERE NEVER WAS. Reading
+# tnt_send_offer whole, no row touches tnt_sel_title_p/_r, tnt_sel_claim_p/_r,
+# tnt_sel_artifact_p/_r or tnt_sel_courtier_p/_r; the two rows that looked
+# like one read the v1 single-object var:tnt_title_p / var:tnt_claim_p, which
+# nothing has written since the GUI moved to lists, and V11 deleted them as
+# dead. Nor may one be added: a list walk in an is_valid runs per layout pass,
+# which the performance law forbids outright. So the window-open fill+prune
+# pass is the ONLY refresh, and an object that goes stale while the window is
+# open — or while an AI letter waits — is priced and then silently skipped by
+# the apply leg. That is a mispriced term, not a corrupt one. If it must ever
+# be closed, the place is tnt_send_offer's EFFECT, which runs once per click.
+########################################################################
+tnt_multi_remove_effect = {
+	if = {
+		limit = { exists = scope:tnt_picked }
+
+		if = {
+			limit = {
+				has_variable_list = $SEL$
+				is_target_in_variable_list = {
+					name = $SEL$
+					target = scope:tnt_picked
+				}
+			}
+			remove_list_variable = {
+				name = $SEL$
+				target = scope:tnt_picked
+			}
+		}
+
+		if = {
+			limit = {
+				trigger_if = {
+					limit = { has_variable_list = $LIST$ }
+					NOT = {
+						is_target_in_variable_list = {
+							name = $LIST$
+							target = scope:tnt_picked
+						}
+					}
+				}
+			}
+			add_to_variable_list = {
+				name = $LIST$
+				target = scope:tnt_picked
+			}
+		}
+	}
+}
+
+
+########################################################################
+# M3 — tnt_multi_prune_effect      params: SEL, LIST
+#
+# Remove from the AVAILABLE list every object that is already CHOSEN.
+# This is enemy 2 of the invariant: tnt_31_lists.txt's fill effects open
+# with `clear_variable_list` and rebuild from the world, so every fill
+# undoes every MOVE. Order is therefore always
+#     tnt_fill_<item>_<side>_effect = yes
+#     tnt_multi_prune_effect = { LIST = tnt_list_… SEL = tnt_sel_… }
+# and every one of the six openers in tnt_22b_multiselect.txt does exactly
+# that, in that order.
+#
+# The pass iterates the SELECTION list and mutates the AVAILABLE one, so
+# it is not even the same-list mutation vanilla already sanctions. Each
+# element is carried across the re-scope in a TEMPORARY scope, which
+# 30-V2-DESIGN §3.5(e) requires for exactly this case: "the per-object
+# scopes inside the new every_in_list loops must be temporary, because
+# there is one per iteration".
+#
+# scope:tnt_multi_owner is the player. It is needed because inside
+# every_in_list the scope is the ITEM, not the list owner.
+########################################################################
+tnt_multi_prune_effect = {
+	if = {
+		limit = {
+			has_variable_list = $SEL$
+			has_variable_list = $LIST$
+		}
+
+		save_temporary_scope_as = tnt_multi_owner
+
+		every_in_list = {
+			variable = $SEL$
+			save_temporary_scope_as = tnt_multi_pruned
+			scope:tnt_multi_owner = {
+				remove_list_variable = {
+					name = $LIST$
+					target = scope:tnt_multi_pruned
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# M4 — tnt_multi_prune_all_effect
+#
+# Every selection list in one call — the four surviving lists of item 2.2, item
+# 19's two courtier lists and V27's two subject (vassal-transfer) lists, EIGHT in
+# total (nine until V4's prisoner list left with the retired prisoner terms; eight
+# until V13 user item 1 retired the two claim lists with the granted claim; six
+# until the subject term added its pair — READ THE BODY, NOT THIS NUMBER) — for the two
+# shipped paths that refill every
+# list at once:
+#   tnt_refill_all_lists_effect (tnt_31_lists.txt:216), reached from
+#     tnt_open_window_effect and from tnt_apply_deal_effect, and
+#   the tnt_refresh_lists scripted gui (tnt_20_scripted_guis.txt:1420),
+#     bound to the window's state = { name = _show }.
+#
+# On both of those paths tnt_reset_offer_effect has just run, so every
+# selection list is empty and this call is eight has_variable_list tests
+# and nothing else. It is here so that the ORDER never has to be reasoned
+# about again: if any future caller ever refills without resetting first,
+# one line after it keeps the invariant.
+########################################################################
+tnt_multi_prune_all_effect = {
+	tnt_multi_prune_effect = { SEL = tnt_sel_title_p     LIST = tnt_list_title_p }
+	tnt_multi_prune_effect = { SEL = tnt_sel_title_r     LIST = tnt_list_title_r }
+	# RETIRED V13, USER ITEM 1, with the granted claim (TOMBSTONE C in
+	# tnt_32_apply.txt). tnt_multi_prune_effect READS both lists - a
+	# has_variable_list / every_in_list read counts as a USE - and neither list has a
+	# writer any more: the two fills E8/E9 and the two selection writers are all
+	# commented out. Same treatment as the prisoner prune below.
+	#	tnt_multi_prune_effect = { SEL = tnt_sel_claim_p     LIST = tnt_list_claim_p }
+	#	tnt_multi_prune_effect = { SEL = tnt_sel_claim_r     LIST = tnt_list_claim_r }
+	tnt_multi_prune_effect = { SEL = tnt_sel_artifact_p  LIST = tnt_list_artifact_p }
+	tnt_multi_prune_effect = { SEL = tnt_sel_artifact_r  LIST = tnt_list_artifact_r }
+	# RETIRED with the prisoner terms (tombstone: E22 in tnt_32_apply.txt). The prune
+	# had nothing left to guard once the fill and the two openers went; the selection
+	# list itself is still emptied by tnt_reset_offer_effect as an old-save sweep.
+	#	# V4 item A1 - the prisoner selection prunes like the other six: a captive who was
+	#	# ransomed or freed between window openings must not stay in the offer.
+	#	tnt_multi_prune_effect = { SEL = tnt_sel_prisoner_p  LIST = tnt_list_prisoner_p }
+	# USER ITEM 19 - the courtier transfer is the only one of the four people terms
+	# with a selection list, so it is the only one that can meet enemy 2 of the
+	# invariant. tnt_fill_courtier_p/_r_effect (tnt_3a_people.txt) open with
+	# clear_variable_list and rebuild from every_courtier, which puts an already
+	# chosen courtier straight back among the candidates and shows him twice. These
+	# two lines are what keeps a row's list its state on every refill path.
+	tnt_multi_prune_effect = { SEL = tnt_sel_courtier_p  LIST = tnt_list_courtier_p }
+	tnt_multi_prune_effect = { SEL = tnt_sel_courtier_r  LIST = tnt_list_courtier_r }
+	# V26 - THE THIRD PEOPLE TERM, and the second one that can meet enemy 2 of
+	# the invariant. tnt_fill_subject_p/_r_effect (tnt_3a_people.txt P21/P22)
+	# open with clear_variable_list and rebuild from every_vassal, which puts an
+	# already chosen vassal straight back among the candidates and shows him
+	# twice. These two lines are what keeps the row its state on every refill
+	# path; the two openers in tnt_24_people.txt group F carry the per-panel
+	# copy for the click path.
+	tnt_multi_prune_effect = { SEL = tnt_sel_subject_p  LIST = tnt_list_subject_p }
+	tnt_multi_prune_effect = { SEL = tnt_sel_subject_r  LIST = tnt_list_subject_r }
+}
+
+
+########################################################################
+# M5 — tnt_clear_selections_effect        *** R-CLEAN, THE ONE LINE ***
+#
+# The FOUR surviving selection lists ARE the offer, so they are cleared where
+# the rest of the offer is cleared. 30-V2-DESIGN §3.4: "Every one of the 15
+# non-promise lists is cleared by tnt_clear_lists_effect; the 6 selection
+# lists are ALSO cleared by tnt_reset_offer_effect, because they *are* the
+# offer."
+# V13, USER ITEM 1: six -> four. tnt_sel_claim_p/_r are commented out below with
+# the retired granted claim (TOMBSTONE C in tnt_32_apply.txt), because a
+# clear_variable_list counts as a USE and both lists lost every writer.
+#
+# ONE call site is enough to cover reset AND close AND "Clear all" AND the
+# post-deal wipe, because all four already funnel through
+# tnt_reset_offer_effect:
+#     tnt_open_window_effect  -> tnt_reset_offer_effect  (E1)
+#     tnt_close_window_effect -> tnt_reset_offer_effect  (E2)
+#     tnt_clear_all (sgui)    -> tnt_reset_offer_effect
+#     tnt_apply_deal_effect   -> tnt_reset_offer_effect  (inside hidden_effect)
+# THE INTEGRATOR ADDS EXACTLY ONE LINE, in tnt_30_effects.txt:
+#     tnt_clear_selections_effect = yes
+# at the end of tnt_reset_offer_effect. Six clear_variable_list lines
+# inlined there would work identically; one call is one thing to forget
+# instead of six.
+#
+# A leaked list of titles pollutes the save permanently — there is no GC
+# for it and no on_action that would ever run — which is why this effect
+# is listed first in the integration notes and in variables_created.
+#
+# clear_variable_list on a list that does not exist is silent; the shipped
+# tnt_clear_lists_effect (tnt_31_lists.txt:53-61) already relies on that,
+# unguarded, on every single window open.
+########################################################################
+tnt_clear_selections_effect = {
+	clear_variable_list = tnt_sel_title_p
+	clear_variable_list = tnt_sel_title_r
+	# RETIRED V13, USER ITEM 1, with the granted claim (TOMBSTONE C in
+	# tnt_32_apply.txt). A clear_variable_list COUNTS AS A USE, and the only writers
+	# of tnt_sel_claim_p/_r - the four tnt_sel_claim_*_add/_remove entries, A11's
+	# pick and the auto-balance parchment rung - are all commented out. Leaving
+	# these two live is exactly the reader-without-a-writer mistake that cost this
+	# codebase 26 engine errors in one round.
+	# clear_variable_list = tnt_sel_claim_p
+	# clear_variable_list = tnt_sel_claim_r
+	clear_variable_list = tnt_sel_artifact_p
+	clear_variable_list = tnt_sel_artifact_r
+}
+
+
+########################################################################
+# M6 — tnt_exec_title_multi_effect     params: SIDE, GIVER, RECEIVER
+#
+# THE REPLACEMENT FOR tnt_exec_title_effect (tnt_32_apply.txt:1100-1133).
+# The integrator swaps two call lines in tnt_apply_deal_effect; the
+# shipped single-object effect is left in place and simply stops firing,
+# because tnt_title_p / tnt_title_r are never written again once the GUI
+# points at the multi-select panels.
+#
+# *** THIS IS THE EFFECT THAT CAN CORRUPT A SAVE. ***
+#
+# ONE CHANGE OBJECT, N HAND-OVERS, ONE RESOLVE — and that is vanilla's own
+# shape for exactly this situation, not an extrapolation of the
+# single-title one. Verbatim, GAME\common\scripted_effects\
+# 00_major_decisions_scripted_effects.txt:772-798
+# (create_eastern_roman_empire_scripted_effect):
+#     create_title_and_vassal_change = { type = created  save_scope_as = change  add_claim_on_loss = no }
+#     every_held_title = {
+#         limit = { … }
+#         change_title_holder = { holder = scope:new_holder  change = scope:change }
+#     }
+#     resolve_title_and_vassal_change = scope:change
+# — an ITERATOR full of change_title_holder calls sharing ONE change,
+# resolved ONCE. The same file does it again at :678-718 (two explicit
+# hand-overs plus an iterated one under a single change) and at :946-975
+# (four hand-overs, one change, one resolve). The engine's own multi-title
+# war transfer works the same way: setup_claim_cb takes a whole `titles =`
+# list and is followed by a single resolve —
+# GAME\common\scripted_effects\00_war_effects.txt:1265-1274.
+#
+# WHAT WOULD BE WRONG: a create/resolve pair PER TITLE. Resolving twice,
+# or resolving a change another change is still open over, is precisely
+# the mis-sequencing that produces corrupt vassal states
+# (00-ARCHITECTURE §6 item 11).
+#
+# Keys carried over unchanged from the shipped single-title leg:
+#   type = granted        the correct type for a negotiated hand-over (119 vanilla uses)
+#   add_claim_on_loss = yes   the former holder keeps a claim — the
+#                         Total-War-appropriate outcome. NOTE FOR THE
+#                         VERIFIER: this is a parameter of
+#                         create_title_and_vassal_change, NOT the
+#                         blacklisted short claim-effect name.
+#   take_baronies = no    the negotiated value; see the V16 note at the call.
+#                         The shipped single-title leg (tnt_32_apply.txt:1124)
+#                         carries the same value and the same iterator, so the
+#                         two legs cannot drift.
+#
+# Re-validation is PER TITLE, inside the iterator's limit, where the
+# iterated element is the title itself — so tnt_can_cede_title_trigger,
+# whose scope is a landed title, is called with no dereference at all.
+# One title going stale therefore skips ONE hand-over instead of
+# cancelling the term. That trigger's parameter list is frozen
+# (tnt_40_triggers.txt:396-400) and this call site takes GIVER only, like
+# the other four.
+#
+# An empty change (every candidate went stale) is created and resolved
+# with nothing in it. That is what vanilla itself does whenever an
+# iterator's limit matches nothing — the block at :778-798 above has no
+# "did anything match" test either.
+#
+# The change scope keeps the side suffix so the _p and _r calls can never
+# collide, exactly as the shipped leg does. It must be a PERMANENT
+# save_scope_as: create_title_and_vassal_change requires it
+# (30-V2-DESIGN §3.5(e) lists tnt_change_p/_r among the deliberate
+# permanent survivors).
+########################################################################
+tnt_exec_title_multi_effect = {
+	if = {
+		limit = { has_variable_list = tnt_sel_title_$SIDE$ }
+		if = {
+			limit = {
+				variable_list_size = {
+					name = tnt_sel_title_$SIDE$
+					value >= 1
+				}
+			}
+
+			$GIVER$ = {
+				create_title_and_vassal_change = {
+					type = granted
+					save_scope_as = tnt_change_$SIDE$
+					add_claim_on_loss = yes
+				}
+			}
+
+			every_in_list = {
+				variable = tnt_sel_title_$SIDE$
+				limit = { tnt_can_cede_title_trigger = { GIVER = $GIVER$ } }
+
+				# V16, USER ITEM 1 - THE GIVER'S OWN HOLDINGS FOLLOW THE COUNTY,
+				# NOBODY ELSE'S. `take_baronies = yes` was vanilla's CONQUEST value
+				# (GAME\common\scripted_effects\00_mongol_invasion_effects.txt:2521-2527,
+				# 00_almohad_invasion_effects.txt:216-222,
+				# 07_frankokratia_scripted_effects.txt:889-899); every vanilla NEGOTIATED
+				# hand-over of a county passes `no`
+				# (00_petition_liege_effects.txt:1223-1256,
+				# GAME\events\activities\hold_court_activity\hold_court_events_joe.txt:56-73,
+				# 00_faction_effects.txt:351-355). `type = granted` +
+				# `add_claim_on_loss = yes` + `take_baronies = no` on ONE change is
+				# verbatim GAME\events\yearly_events\yearly_events_7.txt:1393-1403.
+				# The iterator below restores the land the buyer paid for without
+				# dispossessing anyone else: only baronies the GIVER holds himself move,
+				# and a LEASED barony never moves - `is_leased_out = no` is vanilla's own
+				# gate on passing a title to another character
+				# (00_grant_titles_interaction.txt:137-139), and under
+				# doctrine_theocracy_temporal that single row is what leaves the clergy's
+				# temple lease standing (00_theocracy_lease.txt:4-21 - the clergy are
+				# LESSEES there, not holders; fervor_events.txt:26-36 names both cases).
+				# Iterator + tier filter + change_title_holder sharing the OUTER change,
+				# inside hidden_effect so the confirm tooltip does not grow a line per
+				# barony: verbatim GAME\common\casus_belli_types\00_event_war.txt:638-658.
+				# `tier = tier_barony` inside every_in_de_jure_hierarchy on a landed title:
+				# GAME\common\on_action\title_on_actions.txt:2302-2318.
+				# `is_leased_out = no` in an iterator limit:
+				# GAME\common\important_actions\00_realm_actions.txt:218-222.
+				# `holder ?= <character>` as an equality test in a limit:
+				# GAME\common\character_interactions\00_test_interactions.txt:468, and T3
+				# itself (tnt_40_triggers.txt:406).
+				# CHILDREN ENQUEUED BEFORE THE PARENT, in one change: vanilla's own order
+				# at 00_petition_liege_effects.txt:1229-1256.
+				#
+				# EDGE CASES (measured against the four the investigator named):
+				#   * city / doge barony - holder is a mayor, never the giver, so it is
+				#     not in the moving set; he follows his county and becomes the
+				#     buyer's vassal, as at hold_court_events_joe.txt:56-73.
+				#   * temple, lay-clergy faith - the temple has its own holder
+				#     (fervor_events.txt:30-35), not the giver: untouched, same row.
+				#   * temple, temporal faith - the giver IS the holder but the barony is
+				#     leased, so `is_leased_out = no` excludes it and the bishop's lease
+				#     survives. The giver keeps a leased enclave inside a county he no
+				#     longer holds; that state is shipped vanilla
+				#     (hold_court_events_joe.txt:56-73, 10_tgp_china_wars.txt:829).
+				#   * holy-order barony - same as the temporal temple, excluded for free.
+				#   * cross-map sale - unchanged by this fix; the window leg has no reach
+				#     gate at all (only the sandbox does, tnt_38_ai_world.txt:2139-2148).
+				# NOT FIXED HERE, and it predates this change: a theocratic seller's
+				# church-holding CAPITAL barony is not leased, so it moves to a lay buyer
+				# and becomes vanilla's own action_wrong_holding_type
+				# (00_realm_actions.txt:213-257). `yes` did the same.
+				if = {
+					limit = { tier = tier_county }
+					hidden_effect = {
+						every_in_de_jure_hierarchy = {
+							limit = {
+								tier = tier_barony
+								holder ?= $GIVER$
+								is_leased_out = no
+								# THE CAPITAL BARONY IS REFUSED BY THE ENGINE, AND THIS ROW IS NOT
+								# BELT-AND-BRACES - IT WAS MEASURED. Without it the 2026-08-17 run
+								# logged 36 copies of `change_title_holder effect [ Trying to change
+								# ownership of a capital barony; change the ownership of the county
+								# instead ]` from this iterator. EVERY county has a capital barony and
+								# the seller holds it as part of holding the county, so the iterator hit
+								# one on every single transfer. The earlier reasoning - that T3 refusing
+								# the giver's capital COUNTY already covered this - was wrong: the county
+								# being sold is not his capital county, but its capital barony is still a
+								# capital barony. Nothing is lost by skipping it, because the county row
+								# below carries its capital barony with the title, which is exactly what
+								# the engine's own message tells you to do. Vanilla pairs is_leased_out
+								# with is_capital_barony wherever it picks baronies:
+								#   GAME\events\court_events\court_events_general.txt:9654-9658
+								#   GAME\common\decisions\06_ce1_decisions.txt:141-144
+								is_capital_barony = no
+							}
+							change_title_holder = {
+								holder = $RECEIVER$
+								change = scope:tnt_change_$SIDE$
+							}
+						}
+					}
+				}
+
+				change_title_holder = {
+					holder = $RECEIVER$
+					change = scope:tnt_change_$SIDE$
+					take_baronies = no
+				}
+			}
+
+			$GIVER$ = {
+				resolve_title_and_vassal_change = scope:tnt_change_$SIDE$
+			}
+		}
+	}
+}
+
+
+# RETIRED V13, USER ITEM 1 - M7, THE MULTI-SELECT CLAIM APPLY LEG.
+# See TOMBSTONE C in common\scripted_effects\tnt_32_apply.txt. The granted claim is a
+# DESIGN REFUSAL: vanilla gates the manufacture of claims behind a LEARNING investment
+# (the Court Chaplain's task_fabricate_claim, whose outcome is keyed to the learning
+# skill), and buying a finished claim at this table short-circuits that investment.
+# The two call lines in tnt_apply_deal_effect ("item 7") are commented out with this
+# body - a call line and its effect are a single atomic pair - together with the
+# single-object generation, E21 tnt_exec_claim_effect.
+# ########################################################################
+# # M7 — tnt_exec_claim_multi_effect    params: SIDE, RECEIVER
+# #
+# THE REPLACEMENT FOR tnt_exec_claim_effect (tnt_32_apply.txt:657-673).
+#
+# add_unpressed_claim runs in the RECEIVER's scope and takes a landed
+# title as its value, so each iterated title has to be carried across the
+# re-scope in a TEMPORARY scope — one per iteration, per 30-V2-DESIGN
+# §3.5(e). Verbatim call site for the effect itself:
+# GAME\common\character_interactions\00_test_interactions.txt:676-680;
+# the "read a title out of a variable, then grant a claim" shape:
+# GAME\common\task_contracts\laamp_extra_contracts.txt:5105-5107.
+# save_temporary_scope_as inside an in-list iterator:
+# GAME\common\script_values\00_basic_values.txt:1858-1868 (a value) and
+# tnt_31_lists.txt:372 (this mod, an effect).
+#
+# Unpressed rather than pressed: a granted claim should not instantly
+# license a war, and it matches the 0.35 factor in
+# tnt_val_claim_multi_*_value.
+#
+# The duplicate guard is kept per title: a receiver who already holds a
+# claim on one of the three gets the other two and no error.
+########################################################################
+# tnt_exec_claim_multi_effect = {
+# 	if = {
+# 		limit = { has_variable_list = tnt_sel_claim_$SIDE$ }
+#
+# 		every_in_list = {
+# 			variable = tnt_sel_claim_$SIDE$
+# 			save_temporary_scope_as = tnt_claimed_one
+# 			$RECEIVER$ = {
+# 				if = {
+# 					limit = {
+# 						NOT = { has_claim_on = scope:tnt_claimed_one }
+# 						# V7b: also skip a title the receiver has come to HOLD while
+# 						# the deal sat unsigned - a letter can wait years, and a war
+# 						# can hand him the county in the meantime. Granting a claim
+# 						# on one's own title is a useless self-claim; the T4
+# 						# candidate gate excludes held titles at compose time, and
+# 						# this row is that same rule re-checked at apply time.
+# 						NOT = { this = scope:tnt_claimed_one.holder }
+# 					}
+# 					add_unpressed_claim = scope:tnt_claimed_one
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+
+
+########################################################################
+# M8 — tnt_exec_artifact_multi_effect   params: SIDE, GIVER, RECEIVER
+#
+# THE REPLACEMENT FOR tnt_exec_artifact_effect (tnt_32_apply.txt:1544-1562).
+#
+# set_owner runs in the ARTIFACT's scope, and inside every_in_list the
+# artifact IS the scope, so this is the one leg that needs no temporary
+# scope at all. Full form with a history entry so each artifact's own
+# history reads correctly afterwards — verbatim call site
+# GAME\common\character_interactions\10_tgp_interactions.txt:8473-8485.
+# The two blacklisted artifact-moving names do not exist in 1.19.
+#
+# Re-validated per artifact against tnt_artifact_giftable_trigger (scope:
+# artifact), which delegates to vanilla's own
+# artifact_can_be_gift_to_trigger and excludes illustrious pieces.
+#
+# OPEN RISK R-4 (30-V2-DESIGN §8): writing an artifact into a variable
+# LIST is unverified at runtime, as writing one into a plain variable was
+# in v1. The read-back (Scope.Artifact) is vanilla-proven. Check error.log
+# for tnt_sel_artifact_p / Scope.Artifact after the first two-artifact
+# deal; the fallback is single-select for artifacts only, which costs the
+# GUI two panels and nothing else.
+########################################################################
+tnt_exec_artifact_multi_effect = {
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_$SIDE$ }
+
+		every_in_list = {
+			variable = tnt_sel_artifact_$SIDE$
+			limit = { tnt_artifact_giftable_trigger = { RECEIVER = $RECEIVER$ } }
+			set_owner = {
+				target = $RECEIVER$
+				history = {
+					type = given
+					actor = $GIVER$
+					recipient = $RECEIVER$
+					location = $GIVER$.location
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# R-CLEAN — FOR EVERY WRITE, THE REMOVAL. THE COMPLETE LEDGER.
+#
+# WRITTEN BY THIS FILE AND BY tnt_22b_multiselect.txt
+#   tnt_sel_title_p     tnt_sel_title_r        (variable lists, titles)
+#   tnt_sel_claim_p     tnt_sel_claim_r        (variable lists, titles)
+#   tnt_sel_artifact_p  tnt_sel_artifact_r     (variable lists, artifacts)
+#     -> all six on the PLAYER, and on nobody else
+#     -> all six removed by tnt_clear_selections_effect (M5), called from
+#        tnt_reset_offer_effect, which runs on window open, on window
+#        close, on "Clear all" and after a deal is applied.
+#
+#   tnt_picker, tnt_picker_side  (numeric, PLAYER) — written by the six
+#     openers in tnt_22b_multiselect.txt, exactly as the ten shipped
+#     openers write them. ALREADY removed by tnt_reset_offer_effect
+#     (tnt_30_effects.txt:259-260) and by tnt_picker_close
+#     (tnt_21_pickers.txt). Nothing new to declare.
+#
+#   MUTATED, NOT CREATED: tnt_list_title_p/_r, tnt_list_claim_p/_r,
+#     tnt_list_artifact_p/_r. M1 shortens them and M2/M3 lengthen or
+#     shorten them; they are created and cleared by tnt_31_lists.txt
+#     (tnt_clear_lists_effect) and need no new removal.
+#
+# SCOPES. Two temporary names are saved here and nowhere else:
+# tnt_multi_owner and tnt_multi_pruned (both in M3), plus
+# tnt_claimed_one in M7. All three are save_temporary_scope_as, so none
+# reaches the savegame. The ONE permanent scope is tnt_change_$SIDE$ in
+# M6, which create_title_and_vassal_change requires and which the shipped
+# single-title leg already saves under the same two names (tnt_change_p,
+# tnt_change_r) — no new permanent scope name is introduced by item 2.2.
+#
+# NOT A CHARACTER: nothing in this file writes any variable onto a title,
+# an artifact, a dynasty, a house, a culture, a faith or a province.
+# R-CLEAN-2 holds mechanically — grep this file for set_variable: zero
+# hits, and every add_to_variable_list / remove_list_variable /
+# clear_variable_list above is lexically inside root (the player) or
+# inside scope:tnt_multi_owner, which IS root.
+########################################################################

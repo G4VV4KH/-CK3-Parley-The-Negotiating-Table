@@ -1,0 +1,1925 @@
+﻿######################################################################################
+# PARLEY: THE NEGOTIATING TABLE — SCRIPTED GUIS, FILE 1 OF 3
+#
+# Owner: sgui.  Contract: 10-CONTRACT.md §5 groups A, B, F, G, H  =  33 entries.
+# The 25 picker scripted_guis (groups C, D, E) live in tnt_21_pickers.txt.
+# The v2 additions — 24 prestige/piety/influence steppers and the government-flag
+# mirror tnt_refresh_v2_mirrors — live in tnt_22_v2.txt (30-V2-DESIGN §10, A-1).
+#
+# v2 CHANGES IN THIS FILE, both in tnt_send_offer:
+#   * D4: the permanent saved scope is now tnt_deal_partner, never tnt_p.
+#   * item 2.4: six affordability rows plus one influence-government row in is_valid.
+#
+# A scripted_gui has exactly five legal keys: scope, saved_scopes, effect, and the two trigger
+# gates (the shown-gate and is_valid). Nothing else exists in CK3 1.19 — no AI-side valid gate,
+# no confirmation-title key, no AI-chance key, no hidden-gate, no alert, no on-click key.
+# Every one of those was searched for across GAME and 12 installed mods: zero occurrences.
+#
+# The shown-gate key is used by NO entry in this mod: every widget's visibility is driven from
+# the GUI by a cheap variable read (TntOn / TntNum), never by GetScriptedGui(...) in a
+# visible. is_valid appears on exactly 5 entries in THIS file:
+#   tnt_marriage_p_toggle, tnt_marriage_r_toggle, tnt_vassal_p_toggle, tnt_vassal_r_toggle,
+#   tnt_send_offer      (the other 2 of the contract's 7 are the title picker openers in file 2).
+#
+# All real logic lives in scripted_effects (tnt_30/31/32). These wrappers stay thin.
+# Root of every Execute/IsValid/BuildTooltip call is the player: GuiScope.SetRoot( GetPlayer.MakeScope ).
+######################################################################################
+
+
+######################################################################################
+# GROUP A — NUMERIC STEPPERS (8)
+#
+# Bound in the GUI to button_round wrappers that MUST carry `button_ignore = none`,
+# otherwise onrightclick never fires.
+#   gold    : onclick = +/-10   onrightclick = +/-100
+#
+# ONE CLAMP PER ENTRY SINCE USER ITEM 4, not two. Item 14 added the AFFORDABILITY
+# cap next to the old 5000 SANITY literal; item 4 then REMOVED every gold/prestige/
+# piety sanity literal mod-wide — the giver's actual stock is the only ceiling a
+# deal amount has now. (Influence alone keeps its 1000 literal, tnt_22_v2.txt —
+# the user's ruling named gold 5000 and prestige/piety 10000, not influence.)
+# The affordability cap: `max = gold` off root on the _p side,
+# `max = scope:tnt_cap_giver.gold` off var:tnt_partner on the _r side, each behind
+# a `gold >= 1` ladder. THE LADDER IS THE POINT: gold goes negative in CK3, so a
+# bare `max = gold` would clamp the row to a NEGATIVE maximum. Below 1 gold the
+# amount is forced to 0. See the long note inside tnt_gold_p_add and the one above
+# tnt_gold_r_add.
+#
+# Shape note (deliberate hardening, no frozen name changed):
+# tnt_reset_offer_effect removes the 24 offer variables, so a stepper is routinely the FIRST
+# thing to touch its variable. Vanilla always guards change_variable with `exists = var:x`
+# (GAME\common\focuses\00_education_focuses.txt:49-56,
+#  GAME\common\scripted_effects\10_dlc_tgp_scripted_effects.txt:1596-1605), so the create case
+# goes through set_variable instead. The clamp line afterwards is the contract's verbatim form;
+# the value/add/subtract/multiply/divide/min/max/round vocabulary is confirmed at
+# GAME\common\scripted_effects\00_diarchy_scripted_effects.txt:1002-1011.
+######################################################################################
+
+tnt_gold_p_add = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_gold_p }
+			change_variable = {
+				name = tnt_gold_p
+				add = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_p
+				value = 10
+			}
+		}
+		# AFFORDABILITY (user item 14). Root is the player, and the player is the giver
+		# on the _p side, so the stock is read bare off root. `max = gold` bare on root
+		# is vanilla-proven: GAME\common\script_values\03_dlc_fp2_script_values.txt:235
+		# and GAME\common\script_values\07_ep3_values.txt:4938.
+		#
+		# THE `>= 1` LADDER IS NOT OPTIONAL AND MUST NEVER BE FLATTENED TO A BARE
+		# `max = gold`. Gold goes NEGATIVE in CK3, and a negative max would clamp the
+		# row to a negative maximum. A giver below 1 gold lands on the else branch and
+		# the amount is forced to 0 — the same convention the 24 prestige/piety/
+		# influence steppers use (tnt_22_v2.txt, groups V1a-V1c). `min` nested inside a
+		# `max = { }` block has ZERO vanilla call sites, which is why it is a ladder.
+		#
+		# tnt_send_offer.is_valid stays the second line of defence (tnt_gold_shortfall_value
+		# below): the stock can fall between composing the offer and pressing Propose.
+		if = {
+			limit = { gold >= 1 }
+			set_variable = {
+				name = tnt_gold_p
+				value = {
+					value = var:tnt_gold_p
+					min = 0
+					max = gold
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_gold_p_add_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_gold_p }
+			change_variable = {
+				name = tnt_gold_p
+				add = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_p
+				value = 100
+			}
+		}
+		if = {
+			limit = { gold >= 1 }
+			set_variable = {
+				name = tnt_gold_p
+				value = {
+					value = var:tnt_gold_p
+					min = 0
+					max = gold
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_gold_p_sub = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_gold_p }
+			change_variable = {
+				name = tnt_gold_p
+				subtract = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_p
+				value = 0
+			}
+		}
+		# The ladder is on the SUBTRACT legs too, on purpose: a player who has gone
+		# broke since composing the offer must not be left with a stale unaffordable
+		# amount on the table just because his next click happened to be a minus.
+		if = {
+			limit = { gold >= 1 }
+			set_variable = {
+				name = tnt_gold_p
+				value = {
+					value = var:tnt_gold_p
+					min = 0
+					max = gold
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_gold_p_sub_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_gold_p }
+			change_variable = {
+				name = tnt_gold_p
+				subtract = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_p
+				value = 0
+			}
+		}
+		if = {
+			limit = { gold >= 1 }
+			set_variable = {
+				name = tnt_gold_p
+				value = {
+					value = var:tnt_gold_p
+					min = 0
+					max = gold
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_p
+				value = 0
+			}
+		}
+	}
+}
+
+# _r side: THE PARTNER is the giver, so the affordability cap is the partner's stock
+# (user item 14). The partner is reached through the object variable tnt_partner,
+# guarded twice (Law R13): `exists = var:tnt_partner` in the limit, and the
+# optional-link form `var:tnt_partner ?= { }` at the read itself. When there is no
+# partner — the window cannot legally be open in that state, but a stale click can
+# still land — the amount is forced to 0 instead of being left dangling.
+#
+# THE TEMPORARY SCOPE NAME IS `tnt_cap_giver`, never tnt_p (the name the ~60
+# script-value prologues use) and never tnt_deal_partner (permanent, defect D4).
+# `max = scope:x.gold`: GAME\events\relations_events\friendship_events.txt:1398.
+tnt_gold_r_add = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_gold_r }
+			change_variable = {
+				name = tnt_gold_r
+				add = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_r
+				value = 10
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { gold >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_gold_r
+				value = {
+					value = var:tnt_gold_r
+					min = 0
+					max = scope:tnt_cap_giver.gold
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_gold_r_add_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_gold_r }
+			change_variable = {
+				name = tnt_gold_r
+				add = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_r
+				value = 100
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { gold >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_gold_r
+				value = {
+					value = var:tnt_gold_r
+					min = 0
+					max = scope:tnt_cap_giver.gold
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_gold_r_sub = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_gold_r }
+			change_variable = {
+				name = tnt_gold_r
+				subtract = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_r
+				value = 0
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { gold >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_gold_r
+				value = {
+					value = var:tnt_gold_r
+					min = 0
+					max = scope:tnt_cap_giver.gold
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_gold_r_sub_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_gold_r }
+			change_variable = {
+				name = tnt_gold_r
+				subtract = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_r
+				value = 0
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { gold >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_gold_r
+				value = {
+					value = var:tnt_gold_r
+					min = 0
+					max = scope:tnt_cap_giver.gold
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_gold_r
+				value = 0
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP B — ON/OFF TOGGLES (8 live, V13; was 12)
+#
+# V13, USER ITEM 1: the four pact toggles — tnt_alliance_p/_r_toggle and
+# tnt_truce_p/_r_toggle — are RETIRED and commented out below. See TOMBSTONE A and
+# TOMBSTONE B in common\scripted_effects\tnt_32_apply.txt.
+#
+# Each flips its own 0/1 variable. "Set" means the variable exists with value 1; "unset"
+# means the variable is absent. The GUI reads the state with
+# TntOn(V) = GreaterThan_CFixedPoint( GetPlayer.MakeScope.Var(V).GetValue, '(CFixedPoint)0' )
+# so absent (0) and 1 are the only two states that ever occur — no equality test needed.
+######################################################################################
+
+#######################################################################################
+# ITEM 1.1's SAFETY GATES — WIRED IN BUILD 2 (tnt_40_triggers.txt:562-601, WIRING a/b)
+#
+# T1 (tnt_partner_valid_trigger) dropped `is_independent_ruler = yes` so that a liege
+# and his own vassal may negotiate. The interaction author then wrote five triggers to
+# make that relaxation defensible and left a four-point wiring list; the first build
+# shipped the relaxation without the gates, so an alliance or a non-aggression pact
+# could be put on the table between a liege and his own vassal, with somebody already
+# allied, at war, imprisoned, or a hegemon.
+#
+# The four toggles below now carry the REPORTING WRAPPERS T14 / T16, which are flat
+# sequences of custom_description rows — one row per reason — so the tooltip lists
+# exactly what failed instead of handing the player a dead checkbox. Both wrappers
+# carry their own `exists` guard plus a trigger_else that reports tnt_err_no_partner,
+# so no extra trigger_if wrapper is needed here (Law R13 is satisfied inside the
+# trigger).
+#
+# THE PURE twins T12 / T13 are used in tnt_send_offer.is_valid instead, never these
+# wrappers: the send button's tooltip is built by rendering the effect, and a
+# custom_description evaluated in tooltip mode prints itself into that tooltip
+# (tnt_40_triggers.txt:742-744, the D5 class of bug).
+#
+# GUI HALF, and it is mandatory: gui\tnt_diplomacy_window.gui's four rows now also
+# carry blockoverride "tnt_toggle_enabled" { enabled = "[TntValid(...)]" } and
+# blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip(...)]" }. Without the
+# enabled+tooltip half the engine silently swallows the click and the reason never
+# reaches the player (GAME\gui\window_faith.gui:900-902).
+#
+# COST: four more IsValid calls per layout pass, on top of the four already shipped
+# (marriage_p/_r, vassal_p/_r). Every row in T14/T16 is a single cheap character
+# trigger — is_allied_to, is_at_war_with, target_is_liege_or_above,
+# highest_held_title_tier, is_ruler, is_playable_character, is_imprisoned — with no
+# list iteration and no script value, so these four are far cheaper than the two
+# vassal rows. They are static widgets, not datamodel items, so Law R11 is untouched.
+#
+# ONE KNOWN CONSEQUENCE, recorded rather than hidden: if a term is already on the
+# table and the world then makes it illegal (a war is declared while the window is
+# open), the checkbox is disabled and the term cannot be switched off individually.
+# The footer's "Clear all" always works, and tnt_send_offer.is_valid now refuses to
+# send with a named reason, so the player is never silently stuck.
+#######################################################################################
+
+# v2 BUILD 3 — USER REQUEST NEW-1, the four same-realm swaps.
+# T14 tnt_ally_available_trigger and T16 tnt_truce_available_trigger carry a
+# `custom_description = { text = tnt_err_ally_same_realm  NOR = {
+# target_is_liege_or_above  target_is_vassal_or_below } }` row
+# (tnt_40_triggers.txt:776-784 and :916). That row is v1's own ruling, not a vanilla
+# constraint — negotiate_alliance_interaction's is_shown and
+# is_valid_showing_failures_only (GAME\common\character_interactions\00_alliance.txt:1120-1290)
+# contain ZERO realm-relation rows, and the `top_liege != top_liege` test at :661 sits
+# inside call_ally_interaction's court-language opinion_modifier, not in any gate.
+# The user asked to negotiate with his own vassal or liege, so the row is gone from the
+# four widened companions T18-T21 (tnt_41_gates.txt:340, :614, :742, :793).
+# Apply time (tnt_32_apply.txt:639, :666) and row visibility (tnt_41_gates.txt:1192-1236)
+# already used the widened pair; these four toggles and the two send-gate rows at the
+# bottom of this file were the half that was still refusing the click, which left the
+# row VISIBLE inside one realm with its checkbox greyed out reading "you are in the
+# same realm".
+#
+# WHICH OF THE FOUR OLD TRIGGERS IS NOW DEAD, exactly — the distinction mattered
+# UNTIL V13. It no longer does: ALL FOUR ARE RETIRED, because the retirement of the
+# two pacts (user item 1) took every remaining caller of every one of them. Kept
+# below as the record of how the call graph stood before that:
+#   * T14 tnt_ally_available_trigger and T16 tnt_truce_available_trigger lost their
+#     LAST callers here in v2 BUILD 3 and stood defined-but-uncalled from then on.
+#     Both are now commented out in tnt_40_triggers.txt with the families.
+#   * T12 tnt_can_ally_trigger and T13 tnt_can_truce_trigger were still LIVE, called
+#     from the AI-to-AI sandbox (tnt_38_ai_world.txt). Those sandbox archetypes are
+#     themselves retired under user item 1, so T12/T13 have zero callers too and are
+#     commented out with them. (The old note here also cited
+#     tnt_11_ai_interactions.txt: that file was never shipped and does not exist —
+#     do not cite it.)
+#   * T18-T21, the four widened companions this box introduced, retire likewise.
+######################################################################################
+# tnt_threat_p_toggle — THREATEN HIM (V4 expansion 1)
+#
+# A one-sided flag, like the pacts below but with no _r twin: a threat is something
+# one side makes, and a mutual threat is just two people not negotiating.
+#
+# WHAT IT DOES NOT DO: it does not declare anything, cost anything or reveal
+# anything at the moment it is ticked. It puts naked pressure on the table, priced
+# by tnt_val_threat_p_value (tnt_57_threat_values.txt), and it is PAID FOR when the
+# treaty is accepted - the partner takes the tnt_threat_opinion penalty in
+# tnt_32_apply.txt. Tick it, untick it, nothing has happened.
+#
+# HISTORY, NOT FACT: the shared gate T21 tnt_threat_available_trigger was TOMBSTONED
+# in V17 (tnt_41_gates.txt:2185) and the rows are INLINE below - see the :569 note.
+######################################################################################
+tnt_threat_p_toggle = {
+	scope = character
+
+	is_valid = {
+		# *** REWRITTEN 2026-08-24, THEN GIVEN A RELATION ROW ON 2026-08-28. ***
+		# The whole of credibility is ONE NUMBER now - tnt_threat_points_value, in
+		# common\script_values\tnt_57_threat_values.txt - and that same number is the
+		# PRICE the panel prints: "threat_points is the threat's effect on the deal's
+		# points", his own words. The 2026-09-30 live bar is >= 100 for all sides.
+		# N stays unchanged; low-weight threats no longer open the checkbox.
+		#
+		# WHAT WENT, AND WHERE IT WENT:
+		#   tnt_err_threat_relation ADDED: only an independent, non-allied ruler with
+		#                          no direct hostage bond may be threatened.
+		#   tnt_err_threat_weak    KEPT, and it is now THE one credibility reason. Its
+		#                          nine-language text was re-worded to name all three
+		#                          factors instead of the army alone.
+		#   tnt_err_threat_unknown ROW RETIRED - `prestige_level >= 1` lives inside
+		#                          factor 2 now, as a DIFFERENCE. *** THE KEY IS
+		#                          PINNED, NOT DELETED *** - it stays defined in all
+		#                          nine languages so a revival needs no archaeology.
+		#   tnt_err_threat_nofear  ROW RETIRED - dread is factor 3 now, continuous and
+		#                          two-sided. *** THE KEY IS PINNED, NOT DELETED. ***
+		#                          It was the law-10d experiment's instrument, and the
+		#                          experiment is NOT thrown away: it continues below
+		#                          with tnt_err_threat_weak in its place.
+		#   tnt_err_threat_recent  KEPT, unchanged. The 15-year pair lock is a
+		#                          THROTTLE and not credibility - the formula has NO
+		#                          MEMORY, so it is the only cap on repetition.
+		#   tnt_err_no_partner     KEPT, unchanged, in the trigger_else.
+		#
+		# *** THE PARITY INVARIANT MOVED WITH THE RULING, AND IT STILL BINDS. ***
+		# ROW-FOR-ROW PARITY WITH tnt_can_threat_trigger (tnt_41_gates.txt:2388) IS
+		# STILL AN INVARIANT OF THESE ROWS: THE SAME RELATION GATE, NUMBER AND LOCK, IN THE
+		# SAME ORDER. EDIT BOTH OR NEITHER.
+		#
+		# ONE TARGET SCOPE SAVE LIVES IN THE LIMIT, never on the described surface.
+		# The relation helper iterates hostages, so a relative var:tnt_partner would
+		# rebind inside that iterator; scope:tnt_threat_gui_target stays absolute.
+		# tnt_threat_points_value itself still resolves `this` as "me" and
+		# var:tnt_partner as "him". The army rows and save sit in the LIMIT, never
+		# described (law 10b);
+		# `var:x ?= { ... }` is R13 - GAME\common\activities\activity_types\wedding.txt:479.
+		#
+		# LAW 10c IS SATISFIED AND THE MEASUREMENT IS EXACT. A bare SCRIPT-VALUE
+		# comparison has NO common\trigger_localization\ entry - vanilla ships 1,636
+		# entries across 51 files and not one of them is a script value - so it MUST
+		# sit inside a custom_tooltip, which it does. VANILLA WRAPS THIS IDENTICAL
+		# SHAPE: GAME\common\scripted_triggers\mpo_scripted_triggers.txt:81-90, a
+		# trigger_if whose limit is `max_military_strength > 0` on both characters,
+		# wrapping a custom_tooltip whose single row is a bare RATIO script value
+		# against a literal. Three ideas, same order, ours copied from it.
+		#
+		# PERFORMANCE (house law 6) GOES DOWN, NOT UP. This is_valid used to evaluate
+		# one field comparison PLUS tnt_threat_feared_trigger's three branches - up to
+		# three dread reads, a target_is_liege_or_above HIERARCHY WALK and an
+		# ai_boldness read. It now evaluates six field reads, one divide, one
+		# has_game_rule and about eight arithmetic operations, with NO hierarchy walk
+		# and no iterator of any kind. tnt_panels.gui already evaluated the same three
+		# factors every frame through [TntSV('tnt_val_threat_p_value')].
+		#
+		# =========================================================================
+		# THE HISTORY OF THIS SURFACE - SEVEN ROUNDS OF "has no localization", AND
+		# THE CONTROLLED SLICE THAT IS STILL RUNNING. DO NOT "TIDY" ANY OF IT BACK.
+		# =========================================================================
+		# V17: this is_valid WAS one bare row, `tnt_threat_available_trigger = { A =
+		# root  B = var:tnt_partner }`. A BARE row inside an is_valid that a
+		# [TntTip(...)] binding reaches is handed to the engine's trigger-DESCRIPTION
+		# walker, which must describe that NAME; a name with no
+		# `common\trigger_localization\` entry gets the literal words
+		#     <name> has no localization
+		# RENDERED INTO THE TOOLTIP LINE. The mod ships no trigger_localization
+		# folder, so every one of its scripted triggers is entry-less.
+		# RENDERED, NOT LOGGED - which is why four rounds of reading error.log found
+		# nothing: "%s has no localization" sits in ck3.exe at file offset 72140768
+		# inside jomini_trigger_localization.cpp's string block, its single code xref
+		# followed 48 bytes later by a lea to the loc key JOMINI_DEBUG_FORMAT, and it
+		# carries NO __FILE__ pointer - unlike the neighbouring "Trigger loc for '%s'
+		# is missing" at 72140792, whose xref does. One is rendered, one is logged.
+		#
+		# ROUND 7 renamed the key to tnt_err_threat_nofear with a BYTE-IDENTICAL
+		# value, holding the string, the row shape, the trigger and the leaves
+		# constant and varying ONLY the name. The 2026-08-23 run printed
+		# "tnt_err_threat_nofear has no localization", so the failure FOLLOWED the
+		# rename: the key NAME is exonerated and the row or the construct indicted.
+		# ROUND 8 then removed the one block-form, parameter-bearing, entry-less
+		# engine leaf on the whole surface (has_dread_level_towards inside
+		# tnt_threat_feared_trigger) - 1 of 90 census rows, 1 of 45 reached keys.
+		# THE OBSERVATION WAS TAKEN AND BOTH LOST: the message printed AGAIN with no
+		# such leaf left, and the free control - Propose on an EMPTY table - printed
+		# "tnt_err_nothing has no localization" too: different key, different
+		# scripted_gui, a scalar row at the top level of its is_valid. So the leaf
+		# hypothesis is dead, AND hypothesis (f) "the construct is unsupported" is
+		# dead: the walker plainly PARSES this node, because the message names OUR
+		# key rather than a trigger - it fails RESOLVING that key.
+		#
+		# THE RULE THAT SURVIVED IS LAW 10d: on the BuildTooltip path the reason
+		# wrapper is custom_tooltip, NEVER custom_description. Census of every mod on
+		# this machine plus vanilla: 34 BuildTooltip surfaces with a live is_valid,
+		# 32 wrap their reasons in custom_tooltip (65 rows, all rendering) and the
+		# only 2 using custom_description are in Princes of Darkness, naming keys
+		# that exist nowhere - two unnoticed instances of this very symptom. ck3.exe
+		# even hints it 96 bytes before the message (offset 72140672): "Current level
+		# cannot be automatically flattened. Use custom_tooltip or custom_description".
+		#
+		# *** THE CONTROLLED SLICE BECAME THE FULL RULE ON 2026-08-27. ***
+		# These three rows were the original custom_tooltip slice. The remaining 73
+		# active wrappers on all 19 BuildTooltip surfaces now use the same keyword;
+		# tnt_send_offer's tnt_err_nothing is no longer an intentionally broken
+		# negative control. _docs\tools\tnt_bare_tooltip_row_check.ps1 PASS H records
+		# each wrapper kind and fails any reached custom_description or
+		# custom_description_no_bullet. The earlier experiments remain documented in
+		# CLAUDE.md law 10d; the release tree carries no armed wrapper experiment.
+		#
+		# tnt_err_threat_unafraid was RETIRED AND DELETED from all nine languages in
+		# round 8 and must not be revived; tnt_err_threat_unknown and
+		# tnt_err_threat_nofear are PINNED - defined in all nine, with zero rows -
+		# because a key-level experiment mints its own key in all nine files in the
+		# same edit anyway, and because the doctrine is to keep a retired name so a
+		# revival needs no archaeology. Their ASCII pin comments are in the .yml.
+		# MECHANICAL CHECK: _docs\tools\tnt_bare_tooltip_row_check.ps1 must exit 0,
+		# and its $SHIP roster is relation|weak|recent.
+		trigger_if = {
+			limit = {
+				exists = var:tnt_partner
+				root = { max_military_strength > 0 }
+				var:tnt_partner ?= { max_military_strength > 0 }
+				var:tnt_partner ?= { save_temporary_scope_as = tnt_threat_gui_target }
+			}
+			custom_tooltip = {
+				text = tnt_err_threat_relation
+				tnt_threat_target_allowed_trigger = {
+					A = root
+					B = scope:tnt_threat_gui_target
+				}
+			}
+			custom_tooltip = {
+				text = tnt_err_threat_weak
+				tnt_threat_points_value >= 100
+			}
+			custom_tooltip = {
+				text = tnt_err_threat_recent
+				tnt_threat_unspent_trigger = {
+					A = root
+					B = var:tnt_partner
+				}
+			}
+		}
+		trigger_else = {
+			custom_tooltip = {
+				text = tnt_err_no_partner
+				always = no
+			}
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_threat_p }
+			remove_variable = tnt_threat_p
+		}
+		else = {
+			set_variable = {
+				name = tnt_threat_p
+				value = 1
+			}
+		}
+	}
+}
+
+
+# RETIRED - THE ALLIANCE. See TOMBSTONE A in common\scripted_effects\tnt_32_apply.txt.
+# V13, user item 1: a DESIGN REFUSAL, not a bug fix. Vanilla gates alliance management
+# behind a Diplomacy lifestyle investment and this window sold it for coin.
+# The .gui row that called this entry is commented out with it - a .gui row and its
+# scripted_gui go together.
+# tnt_alliance_p_toggle = {
+# 	scope = character
+#
+# 	is_valid = {
+# 		tnt_ally_anyrealm_available_trigger = {
+# 			A = root
+# 			B = var:tnt_partner
+# 		}
+# 	}
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = var:tnt_alliance_p }
+# 			remove_variable = tnt_alliance_p
+# 		}
+# 		else = {
+# 			set_variable = {
+# 				name = tnt_alliance_p
+# 				value = 1
+# 			}
+# 		}
+# 	}
+# }
+
+# RETIRED with the alliance. See TOMBSTONE A in tnt_32_apply.txt.
+# THIS ENTRY HAD NO CALLER EVEN BEFORE THE RETIREMENT: mutual terms are written on one
+# side only, so grep over gui\** returned zero bindings for tnt_alliance_r_toggle while
+# tnt_alliance_p_toggle was bound four times. It is tombstoned here rather than quietly
+# dropped so a revival does not assume the _r half was ever wired - it was not.
+# tnt_alliance_r_toggle = {
+# 	scope = character
+#
+# 	# The alliance is MUTUAL, so the same pair is tested from the same side. T12's
+# 	# `is_allied_to` / `is_at_war_with` are symmetric relations and the same-realm and
+# 	# hegemon rows already test both characters, so there is no _r variant to write.
+# 	is_valid = {
+# 		tnt_ally_anyrealm_available_trigger = {
+# 			A = root
+# 			B = var:tnt_partner
+# 		}
+# 	}
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = var:tnt_alliance_r }
+# 			remove_variable = tnt_alliance_r
+# 		}
+# 		else = {
+# 			set_variable = {
+# 				name = tnt_alliance_r
+# 				value = 1
+# 			}
+# 		}
+# 	}
+# }
+
+# RETIRED - THE NON-AGGRESSION PACT. See TOMBSTONE B in tnt_32_apply.txt.
+# V13, user item 1, the same design refusal: vanilla's purchase_truce_interaction opens
+# its unlock OR with `always = no` and its only general key is the Diplomacy perk.
+# tnt_truce_p_toggle = {
+# 	scope = character
+#
+# 	# NEW-1 swap, see the box above tnt_alliance_p_toggle.
+# 	is_valid = {
+# 		tnt_truce_anyrealm_available_trigger = {
+# 			A = root
+# 			B = var:tnt_partner
+# 		}
+# 	}
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = var:tnt_truce_p }
+# 			remove_variable = tnt_truce_p
+# 		}
+# 		else = {
+# 			set_variable = {
+# 				name = tnt_truce_p
+# 				value = 1
+# 			}
+# 		}
+# 	}
+# }
+
+# RETIRED with the truce. See TOMBSTONE B in tnt_32_apply.txt.
+# LIKE ITS ALLIANCE TWIN, THIS ENTRY HAD NO CALLER BEFORE THE RETIREMENT EITHER.
+# tnt_truce_r_toggle = {
+# 	scope = character
+#
+# 	# Mutual, exactly like the alliance pair above: item 4 is a promise between the two
+# 	# negotiators, so both columns ask the same question.
+# 	is_valid = {
+# 		tnt_truce_anyrealm_available_trigger = {
+# 			A = root
+# 			B = var:tnt_partner
+# 		}
+# 	}
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = var:tnt_truce_r }
+# 			remove_variable = tnt_truce_r
+# 		}
+# 		else = {
+# 			set_variable = {
+# 				name = tnt_truce_r
+# 				value = 1
+# 			}
+# 		}
+# 	}
+# }
+
+#######################################################################################
+# v2 BUILD 3 — MARRIAGE, THE WAVE-3d EDIT. NOW DONE. (The audit box that stood here
+# said "nothing deleted here yet" and listed what had to move in one commit; this is
+# that commit, so the box is gone with the code it was warning about.)
+#
+# 30-V2-DESIGN §3.1 deleted three identifiers these two entries used:
+#   * tnt_marriage_child_p / _r — the pair script picked FOR the player. Replaced by
+#     the player-chosen tnt_spouse_p / tnt_spouse_r, written by tnt_pick_spouse_p_set /
+#     _r_set through the index-5 editor panel (tnt_22a_marriage.txt,
+#     gui\tnt_panel_marriage.gui). Nothing in the mod writes the old two any more, so
+#     `exists = var:tnt_marriage_child_p` was a row that could never be true — both
+#     checkboxes were permanently greyed out and both reported the false reason "no
+#     betrothable child on both sides". The player could put a marriage ON the table
+#     from the edit button and could not take it back OFF from the row.
+#   * tnt_pick_marriage_pair_effect — the auto-picker. Its four call sites in this file
+#     are gone: the two below (the pair is not picked here any more), tnt_clear_all
+#     (tnt_reset_offer_effect clears the pair through tnt_reset_marriage_effect, so
+#     there is nothing to re-pick) and tnt_refresh_lists (tnt_refill_all_lists_effect
+#     now ends in tnt_fill_spouse_lists_effect, which ends in tnt_marriage_sync_effect).
+#     The build-2 shim in tnt_30_effects.txt is deleted in the same commit.
+#   * the loc key tnt_err_marriage_nobody — no longer reachable, deleted from both .yml.
+#
+# THE THREE ROWS THAT REPLACE IT are NOTES3-marriage §3.D.1 verbatim, and they are three
+# rather than one so the tooltip names the ACTUAL obstacle:
+#   tnt_err_no_spouse_p   nobody chosen on our side
+#   tnt_err_no_spouse_r   nobody chosen on their side
+#   tnt_err_pair_illegal  chosen, but the engine will not marry them
+# var:tnt_marriage_legal is the 0/1 mirror tnt_marriage_sync_effect writes after running
+# vanilla's own can_marry_character_trigger over the pair (tnt_34_marriage.txt:357-400).
+# Reading a MIRROR here rather than calling the trigger is deliberate: an is_valid is
+# evaluated in tooltip mode every frame the mouse is over the row, and the vanilla
+# trigger is expensive. It is also R-10's own answer — see tnt_34_marriage.txt:40-48.
+#######################################################################################
+
+# Marriage is game-rule gated (tnt_advanced) and needs a chosen, legal pair.
+# The effect is now a PLAIN FLIP: the pair is chosen in the index-5 editor before this
+# row can be ticked, and the two spouse setters raise the flags themselves, so all this
+# has to do is put the term on the table or take it off again.
+tnt_marriage_p_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+		custom_tooltip = {
+			text = tnt_err_no_spouse_p
+			exists = var:tnt_spouse_p
+		}
+		custom_tooltip = {
+			text = tnt_err_no_spouse_r
+			exists = var:tnt_spouse_r
+		}
+		custom_tooltip = {
+			text = tnt_err_pair_illegal
+			exists = var:tnt_marriage_legal
+			var:tnt_marriage_legal > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_marriage_p }
+			remove_variable = tnt_marriage_p
+		}
+		else = {
+			set_variable = {
+				name = tnt_marriage_p
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_marriage_r_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+		custom_tooltip = {
+			text = tnt_err_no_spouse_p
+			exists = var:tnt_spouse_p
+		}
+		custom_tooltip = {
+			text = tnt_err_no_spouse_r
+			exists = var:tnt_spouse_r
+		}
+		custom_tooltip = {
+			text = tnt_err_pair_illegal
+			exists = var:tnt_marriage_legal
+			var:tnt_marriage_legal > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_marriage_r }
+			remove_variable = tnt_marriage_r
+		}
+		else = {
+			set_variable = {
+				name = tnt_marriage_r
+				value = 1
+			}
+		}
+	}
+}
+
+# RETIRED - THE TWO PRISONER TOGGLES. Full tombstone: the FAMILY B block that
+# heads E22 in common\scripted_effects\tnt_32_apply.txt. In one line: the
+# mechanic was built, shipped and played, then considered and withdrawn for an
+# indefinite period, because doing prisoners properly means leaning on the
+# VANILLA prisoner system (ransom_cost_value, the ransom interactions, the
+# release on_actions and their opinion/hook consequences) instead of this mod's
+# private filter, ladder and release loop. Nothing is deleted.
+# THE .gui ROWS THAT CALLED THESE GO WITH THEM - a live onclick on a commented
+# out scripted_gui is a name the engine cannot resolve, which is exactly the
+# kind of error line this mod currently has zero of.
+# tnt_prisoners_p_toggle = {
+# 	scope = character
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = var:tnt_prisoners_p }
+# 			remove_variable = tnt_prisoners_p
+# 		}
+# 		else = {
+# 			set_variable = {
+# 				name = tnt_prisoners_p
+# 				value = 1
+# 			}
+# 		}
+# 	}
+# }
+#
+# tnt_prisoners_r_toggle = {
+# 	scope = character
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = var:tnt_prisoners_r }
+# 			remove_variable = tnt_prisoners_r
+# 		}
+# 		else = {
+# 			set_variable = {
+# 				name = tnt_prisoners_r
+# 				value = 1
+# 			}
+# 		}
+# 	}
+# }
+
+#######################################################################################
+# v2 BUILD 3 — USER ITEM 2.3, THE HOOK TIER LADDER. NOTES3-hooks-contracts I5.
+#
+# tnt_hook_p / tnt_hook_r stopped being 0/1 flags and are now TIER INDICES
+# (30-V2-DESIGN §3.2):  absent or 0 = none · 1 weak favour · 2 strong · 3 eternal.
+#
+# These two entries were still v1's flip — `if exists remove_variable else set 1` —
+# while the RIGHT-click of the same control already forwarded to
+# tnt_hook_tier_down_effect, and down-from-1 removes the variable. So no click
+# sequence could ever produce a 2 or a 3: TntHookTier could only ever render
+# tnt_hook_tier_0 or _1, tnt_val_hook_tier_*_value could only ever return 30, and the
+# two new hook types tnt_deal_strong_hook / tnt_deal_eternal_hook
+# (common\hook_types\tnt_90_hook_types.txt:134, :159) could never be granted at all.
+# The whole of item 2.3 above tier 1 hung on these two bodies.
+#
+# The FORWARD direction is now tnt_hook_tier_up_effect (tnt_36_hooks_contracts.txt:171),
+# which owns the 0..3 ladder, clamps at 3 rather than wrapping to 0, and carries the
+# tnt_hook_free_$SIDE$_value gate itself. The gate is therefore already enforced when
+# the click lands; the is_valid below exists for the TOOLTIP, so the greyed control can
+# say WHY (the receiver already holds a hook over the giver, which would make
+# add_hook_if_possible_default_length_effect silently drop the term — vanilla's guard at
+# GAME\common\scripted_effects\00_hook_effects.txt:28-41).
+#
+# A scripted_gui may call a scripted effect; this file already does it five times.
+#######################################################################################
+
+tnt_hook_p_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_err_hook_taken_p
+			tnt_hook_free_p_value > 0
+		}
+	}
+
+	effect = {
+		tnt_hook_tier_up_effect = { SIDE = p }
+	}
+}
+
+tnt_hook_r_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_err_hook_taken_r
+			tnt_hook_free_r_value > 0
+		}
+	}
+
+	effect = {
+		tnt_hook_tier_up_effect = { SIDE = r }
+	}
+}
+
+#######################################################################################
+# v2 AUDIT — HOT PATH. The two entries below are the mod's most expensive per-row
+# IsValid calls. The GUI binds them as `enabled = "[TntValid('tnt_vassal_p_toggle')]"`
+# plus `tooltip = "[TntTip(...)]"` on the fealty rows (tnt_types.gui blocks
+# "tnt_toggle_enabled" / "tnt_toggle_tooltip"), and an `enabled` is re-evaluated on
+# every layout pass. Each evaluation runs the T15 wrapper over the same conditions as
+# tnt_can_vassalize_trigger, which is the most expensive trigger in the mod.
+#
+# BUILD 2 COUNT: eight gated toggle rows, not two — marriage_p/_r (shipped),
+# vassal_p/_r (here) and the four alliance/truce rows above, which item 1.1 made
+# mandatory. The four new ones are cheap (single character triggers, no list
+# iteration, no script value); these two are not.
+#
+# Law R11 forbids GetScriptedGui inside a per-ROW visible/down inside a datamodel;
+# all eight rows are static widgets, not datamodel items, so this is legal today. It
+# stops being legal the moment the wave-2 rebuild moves the columns into a datamodel.
+# THE FIX, when that day comes, is the pattern of tnt_refresh_v2_mirrors_effect in
+# tnt_30_effects.txt: write tnt_vassal_ok_p / tnt_vassal_ok_r once per window open and
+# let `enabled` read a variable. Do not solve it by deleting the tooltip half — without
+# `enabled` + `tooltip` on the same widget the engine swallows the click silently and
+# the eight T15 reasons can never reach the player
+# (GAME\gui\window_faith.gui:900-902).
+#######################################################################################
+
+# Fealty, _p side: THE PLAYER swears fealty to the partner, so the partner is the liege.
+# Game-rule gated. Switching one side on clears the other — tnt_no_double_vassal_trigger
+# in tnt_send_offer is the second line of defence.
+# Law 13 (object variables are always guarded) is satisfied INSIDE T15: its whole body sits
+# in `trigger_if = { limit = { exists = $LIEGE$  exists = $VASSAL$ } … }` with a
+# trigger_else that reports tnt_err_no_partner, so a missing tnt_partner can never feed an
+# empty scope to anything and the player still gets a readable reason. That is why the
+# build-1 outer trigger_if/trigger_else pair is gone rather than kept around the wrapper.
+tnt_vassal_p_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+		# BUILD 2, WIRING (c) of tnt_40_triggers.txt:577-586. Was ONE generic
+		# custom_description carrying tnt_err_vassal_invalid and the pure T5.
+		# T15 was the reporting wrapper for the same conditions and supplied NINE
+		# specific reasons instead of one vague one, each with its own loc key, and
+		# it carried its own exists guard plus a trigger_else that reports
+		# tnt_err_no_partner — so the surrounding trigger_if/trigger_else pair is
+		# gone with the generic row. The pure T5 is still what tnt_32_apply.txt:827
+		# re-checks at apply time; a wrapper must never go there (tooltip mode).
+		#
+		# *** V17, USER ITEM 1: T15's ROWS NOW LIVE HERE, INLINE, AND THE CALL IS GONE.
+		# The row that stood here was `tnt_vassal_available_trigger = { LIEGE =
+		# var:tnt_partner  VASSAL = root }` — BARE, i.e. not inside any
+		# custom_description. On the [TntTip('tnt_vassal_p_toggle')] path
+		# (gui\tnt_diplomacy_window.gui:1315-1316) the engine's trigger-DESCRIPTION
+		# walker has to describe that NAME, has no `common\trigger_localization\` entry
+		# for it, and RENDERS the words «tnt_vassal_available_trigger has no
+		# localization» into the tooltip line, UNDER the correctly-rendered
+		# tnt_err_advanced_off row above. That is the defect the user has reported four
+		# times; the full engine evidence is on tnt_threat_p_toggle above and in
+		# _docs\tools\tnt_bare_tooltip_row_check.ps1's header. `tnt_err_vassal_tier` —
+		# one of the three keys he has ever named — exists in exactly one place in the
+		# mod, and it was behind this call.
+		# THE ROWS ARE A LITERAL PARAMETER SUBSTITUTION of T15's body as it stood
+		# (tnt_40_triggers.txt, now tombstoned): $LIEGE$ -> var:tnt_partner,
+		# $VASSAL$ -> root. Same rows, same order, same keys, so `enabled` is unchanged
+		# and nothing about which deals are possible moves.
+		# THE SHAPE COPIED FROM GAME\gui\window_faith.gui:900-902 IS THE SHAPE THAT
+		# CAUSED THIS. Vanilla has exactly two BuildTooltip bindings in its whole gui\
+		# tree, both there, and both point at an is_valid that is ONE bare parameterised
+		# scripted-trigger call (GAME\common\scripted_guis\00_religion.txt:317-319,
+		# can_create_head_of_faith_title_trigger, which has no trigger_localization
+		# entry either). Vanilla's own two buttons print this message. There is NO
+		# vanilla precedent that a bare row is safe here — the legal shape is
+		# all-custom_description, GAME\common\scripted_guis\00_religion.txt:18-59.
+		# ROW-FOR-ROW PARITY WITH T5 tnt_can_vassalize_trigger IS NOW AN INVARIANT OF
+		# THESE ROWS AND OF THE _r TWIN BELOW — three copies, not two. T15's header made
+		# that parity the point of its existence; keeping the wrapper alive AND inlining
+		# it would have made it a three-way invariant with a caller-less middle man, so
+		# T15 is tombstoned (tnt_40_triggers.txt).
+		# EXPECTED EFFECT: cosmetic only. No change to compose / abort / decline counts,
+		# no change to what the send gate accepts. A greyed «Вассальная присяга»
+		# checkbox now lists its real reasons instead of the engine's complaint.
+		trigger_if = {
+			# T15 tested `exists = $VASSAL$` too; here $VASSAL$ is root, which in a
+			# `scope = character` scripted_gui exists by construction.
+			limit = { exists = var:tnt_partner }
+			custom_tooltip = {
+				text = tnt_err_vassal_self
+				NOT = { var:tnt_partner = { this = root } }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_own_vassal
+				NOT = { var:tnt_partner = { is_vassal_or_below_of = root } }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_not_independent
+				root = { is_independent_ruler = yes }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_mutual_war
+				NOT = { root = { is_at_war_with = var:tnt_partner } }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_government
+				root = {
+					NOT = { government_has_flag = cannot_be_vassal_or_liege }
+				}
+				var:tnt_partner = {
+					NOR = {
+						government_has_flag = cannot_be_vassal_or_liege
+						government_has_flag = government_is_landless_adventurer
+						government_has_flag = government_is_holy_order
+						government_has_flag = government_is_mercenary
+					}
+				}
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_confederation
+				root = { is_confederation_member = no }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_state
+				root = {
+					is_alive = yes
+					is_landed = yes
+					is_imprisoned = no
+				}
+				var:tnt_partner = {
+					is_alive = yes
+					is_landed = yes
+				}
+			}
+			# T14/T16's twin of T5's Night's Watch row. In a vanilla game it is always
+			# true and the string never renders. Full argument in T46
+			# (tnt_40_triggers.txt:520).
+			custom_tooltip = {
+				text = tnt_err_vassal_wall
+				tnt_vassalage_pair_allowed_trigger = {
+					A = var:tnt_partner
+					B = root
+				}
+			}
+			# THE TIER ROW, AND WHY THE trigger_if IS KEPT THOUGH IT CANNOT FIRE HERE.
+			# tnt_tier_edge_value is hardwired to root-versus-partner, so T15 read the
+			# direction off $LIEGE$. On this _p side $LIEGE$ is var:tnt_partner, so the
+			# limit is `var:tnt_partner = { this = root }` — unconditionally FALSE, and
+			# the row always collapses to `tnt_tier_edge_value < 0`. It is left written
+			# out so that this block and the _r block below stay a literal substitution
+			# of one body: a reader diffing the two sees only the parameters change.
+			custom_tooltip = {
+				text = tnt_err_vassal_tier
+				trigger_if = {
+					limit = { var:tnt_partner = { this = root } }
+					tnt_tier_edge_value > 0
+				}
+				trigger_else = {
+					tnt_tier_edge_value < 0
+				}
+			}
+		}
+		trigger_else = {
+			custom_tooltip = {
+				text = tnt_err_no_partner
+				always = no
+			}
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_vassal_p }
+			remove_variable = tnt_vassal_p
+		}
+		else = {
+			remove_variable = tnt_vassal_r
+			set_variable = {
+				name = tnt_vassal_p
+				value = 1
+			}
+		}
+	}
+}
+
+# Fealty, _r side: THE PARTNER swears fealty to the player, so the player is the liege.
+tnt_vassal_r_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+		# BUILD 2, WIRING (c). See the twin note on tnt_vassal_p_toggle above; the
+		# only difference here is the parameter direction, which T15 read off
+		# $LIEGE$ exactly as the pure T5 does.
+		#
+		# *** V17, USER ITEM 1: THE SECOND OF THE THREE BARE ROWS. The row that stood
+		# here was `tnt_vassal_available_trigger = { LIEGE = root  VASSAL =
+		# var:tnt_partner }`, bare, reached by [TntTip('tnt_vassal_r_toggle')] at
+		# gui\tnt_diplomacy_window.gui:2510-2511, and it rendered
+		# «tnt_vassal_available_trigger has no localization» exactly as the _p twin did.
+		# The rows below are the SAME literal substitution of T15's body with the
+		# direction swapped: $LIEGE$ -> root, $VASSAL$ -> var:tnt_partner. Diff this
+		# block against the _p block above and only `root` and `var:tnt_partner` should
+		# exchange places — that is the whole of the parity invariant now, and it is an
+		# invariant of THESE rows and of T5, because T15 is tombstoned.
+		# EXPECTED EFFECT: cosmetic only, as above.
+		trigger_if = {
+			# T15 tested `exists = $LIEGE$` too; here $LIEGE$ is root, which in a
+			# `scope = character` scripted_gui exists by construction.
+			limit = { exists = var:tnt_partner }
+			custom_tooltip = {
+				text = tnt_err_vassal_self
+				NOT = { root = { this = var:tnt_partner } }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_own_vassal
+				NOT = { root = { is_vassal_or_below_of = var:tnt_partner } }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_not_independent
+				var:tnt_partner = { is_independent_ruler = yes }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_mutual_war
+				NOT = { var:tnt_partner = { is_at_war_with = root } }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_government
+				var:tnt_partner = {
+					NOT = { government_has_flag = cannot_be_vassal_or_liege }
+				}
+				root = {
+					NOR = {
+						government_has_flag = cannot_be_vassal_or_liege
+						government_has_flag = government_is_landless_adventurer
+						government_has_flag = government_is_holy_order
+						government_has_flag = government_is_mercenary
+					}
+				}
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_confederation
+				var:tnt_partner = { is_confederation_member = no }
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_state
+				var:tnt_partner = {
+					is_alive = yes
+					is_landed = yes
+					is_imprisoned = no
+				}
+				root = {
+					is_alive = yes
+					is_landed = yes
+				}
+			}
+			custom_tooltip = {
+				text = tnt_err_vassal_wall
+				tnt_vassalage_pair_allowed_trigger = {
+					A = root
+					B = var:tnt_partner
+				}
+			}
+			# THE TIER ROW. On this _r side $LIEGE$ is root, so the limit is
+			# `root = { this = root }` — unconditionally TRUE, and the row always
+			# collapses to `tnt_tier_edge_value > 0`, the mirror of the _p side's
+			# `< 0`. Written out for the same reason as there: the two blocks must
+			# diff to nothing but their parameters.
+			custom_tooltip = {
+				text = tnt_err_vassal_tier
+				trigger_if = {
+					limit = { root = { this = root } }
+					tnt_tier_edge_value > 0
+				}
+				trigger_else = {
+					tnt_tier_edge_value < 0
+				}
+			}
+		}
+		trigger_else = {
+			custom_tooltip = {
+				text = tnt_err_no_partner
+				always = no
+			}
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_vassal_r }
+			remove_variable = tnt_vassal_r
+
+			#==========================================================
+			# ITEM 5's VETO MEMORY, THE FEALTY HALF.
+			#
+			# The auto-balance button may tick this row by itself when the player is
+			# over-paying by more than a crown is worth (tnt_39_autobalance.txt D3),
+			# and when it does it leaves tnt_ab_vassal_mark behind. Unticking a row
+			# the BUTTON ticked is the player refusing the button's proposal, so the
+			# button is told never to make it again; unticking a row the PLAYER
+			# ticked is just a change of mind and teaches nothing. The mark is the
+			# only thing that can tell those two apart, because fealty is a bool and
+			# there is no object to put in an added-list.
+			#
+			# The mark is consumed here. If the player ticks the row again by hand,
+			# it is HIS term from then on, and a later untick is silent - which is
+			# right: the veto exists to stop the machine repeating itself, not to
+			# stop the player changing his mind twice.
+			#
+			# BOTH VARIABLES DIE WITH THE OFFER, in tnt_reset_offer_effect.
+			#==========================================================
+			if = {
+				limit = { exists = var:tnt_ab_vassal_mark }
+				remove_variable = tnt_ab_vassal_mark
+				set_variable = {
+					name = tnt_ab_veto_vassal
+					value = 1
+				}
+			}
+		}
+		else = {
+			remove_variable = tnt_vassal_p
+			set_variable = {
+				name = tnt_vassal_r
+				value = 1
+			}
+			# The player is claiming this term as his own, so it stops being the
+			# button's: a later untick must not read as a veto. The button's own D3
+			# rung can never reach this branch - it refuses to write tnt_vassal_r
+			# while either direction is already set.
+			remove_variable = tnt_ab_vassal_mark
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP F — WINDOW LIFECYCLE (3)
+######################################################################################
+
+# Bound to blockoverride "button_close" on the header_pattern AND to the zero-size hidden
+# button_normal that carries shortcut = "close_window" (ESC).
+# tnt_close_window_effect removes tnt_open / tnt_partner / tnt_advanced, resets the 24 offer
+# variables and clears the 7 picker lists. Cleanup is mandatory, not cosmetic: leftover state
+# leaks into the save and re-opens the window spuriously
+# (precedent: MOD\3037969445\common\scripted_guis\zz_lmf_scripted_guis.txt:32-36).
+# It must NOT touch tnt_nonwar_promises, which is a persistent record.
+tnt_close_window = {
+	scope = character
+
+	effect = {
+		# The confirmation event is modal but the zero-size ESC owner underneath it
+		# still receives close_window. Keep the table intact until an event option
+		# explicitly releases this latch.
+		if = {
+			limit = { NOT = { exists = var:tnt_confirm_pending } }
+			tnt_close_window_effect = yes
+		}
+	}
+}
+
+# The footer "Clear all" button. Zeroes the deal, leaves the window open:
+# tnt_reset_offer_effect removes the 24 offer variables, the six currency variables of
+# item 2.4, plus tnt_picker, tnt_picker_side and tnt_result (the two legacy
+# tnt_marriage_child_* sweeps are gone, ruling E0). It does NOT touch tnt_tribute_out / tnt_tribute_in —
+# leftovers of the retired yearly tribute, timed variables that expire with the
+# modifier still defined for them and that must not be reset by hand (see the
+# note at the foot of tnt_reset_offer_effect in tnt_30_effects.txt).
+#
+# v2 BUILD 3: the second line is GONE. It used to re-run tnt_pick_marriage_pair_effect
+# because the reset had deleted the AUTO-PICKED betrothal pair and the window stays open,
+# so the state = { name = _show } hook would not fire again. Item 2.1 removed the
+# auto-picker: there is no pair to re-pick, and re-picking one is exactly what the user
+# asked us to stop doing. The reset clears the chosen pair, the line and the three
+# mirrors through tnt_reset_marriage_effect (tnt_34_marriage.txt:1750), which is the
+# correct answer to "Clear all" — an empty table.
+# The two CANDIDATE lists are untouched by the reset on purpose, so the editor panel
+# still has its two columns and the player can choose again without reopening the window.
+tnt_clear_all = {
+	scope = character
+
+	effect = {
+		tnt_reset_offer_effect = yes
+	}
+}
+
+# Bound to the window's state = { name = _show  on_start = "[TntExec('tnt_refresh_lists')]" }.
+# MakeScope.GetList is a persistent save-game variable list, not a live query, so every picker
+# list has to be rebuilt each time the window appears.
+#
+# v2 BUILD 3 — TWO CHANGES, BOTH MANDATORY, AND THE ORDER IS LOAD-BEARING.
+#   * tnt_pick_marriage_pair_effect is GONE. tnt_refill_all_lists_effect now ends in
+#     tnt_fill_spouse_lists_effect, which builds tnt_list_spouse_p / _r and ends in
+#     tnt_marriage_sync_effect — the three mirrors and the anti-phantom rule. That is
+#     everything the old call did that is still wanted, and it now happens on this path
+#     AND on the AI counter-offer path, which had neither.
+#   * tnt_refresh_show_gates_effect is ADDED, AS THE LAST STATEMENT. *** DO NOT MOVE IT. ***
+#     It answers user request NEW-2's 28 row-visibility questions and it must run after
+#     the lists exist, because eight of the gates read variable_list_size on a list
+#     tnt_refill_all_lists_effect has just built and two read the two spouse lists
+#     (tnt_41_gates.txt:1273-1313). It sets tnt_gate_live as its own last statement.
+#     Before this line, tnt_close_window_effect removed tnt_gate_live and only
+#     tnt_open_window_effect ever set it again — so on the _show path and on the AI
+#     counter-offer path TntRow's fail-open made all 28 rows visible and the user's
+#     hide rule silently did not apply: fealty was offered to an existing vassal, an
+#     alliance to an existing ally. Fail-open was the right default; this is the line
+#     that stops it being the normal case.
+#
+# BUILD 2 — THE MIRRORS ARE WRITTEN HERE AFTER ALL, THROUGH THE SCRIPTED EFFECT.
+# The influence mirror (tnt_infl_ok_p / tnt_infl_ok_r) is what the two influence rows'
+# `visible` depends on, through tnt_influence_ok_value. The first build offered two
+# routes: (A) a second `on_start` on the window's _show state calling the scripted_gui
+# tnt_refresh_v2_mirrors, or (B) the identical scripted EFFECT
+# tnt_refresh_v2_mirrors_effect called from tnt_open_window_effect. Route (B) shipped;
+# route (A) never got wired, which left the scripted_gui with no caller at all.
+#
+# Route (A) is now unnecessary and is NOT taken: a state block with two `on_start`
+# properties is unproven, and a scripted_gui CAN call a scripted effect (this file
+# already does it four times), so the effect is simply called from here as well. The
+# mirrors are therefore refreshed on every hidden->visible transition, not only on
+# on_send, and the government test exists in exactly ONE place in the mod
+# (tnt_30_effects.txt:178). The scripted_gui tnt_refresh_v2_mirrors in tnt_22_v2.txt
+# is now a one-line forwarder to the same effect.
+#
+# The writes are idempotent, so calling this from both paths costs one government
+# trigger per window open and cannot produce a wrong answer.
+tnt_refresh_lists = {
+	scope = character
+
+	effect = {
+		tnt_refill_all_lists_effect = yes
+		tnt_refresh_v2_mirrors_effect = yes
+		tnt_refresh_show_gates_effect = yes
+	}
+}
+
+
+######################################################################################
+# GROUP G — THE SEND GATE (1)
+#
+# GUI wiring, on the window's single button_primary:
+#   enabled = "[TntValid('tnt_send_offer')]"
+#   tooltip = "[TntTip('tnt_send_offer')]"
+#   onclick = "[TntExec('tnt_send_offer')]"
+#
+# Never apply the deal from here. A scripted_gui effect fires instantly with no confirmation
+# dialog, so an irreversible action must go through an event first — vanilla does exactly this
+# and says so: GAME\common\scripted_guis\00_religion.txt:64-67 ("#Are you sure?").
+# tnt_diplomacy.0001 carries the accept option that calls tnt_apply_deal_effect.
+#
+# The acceptance threshold is folded INSIDE tnt_ai_accept_value, so the only test is "> 0".
+# Exactly 0 declines (GAME\localization\english\interactions_l_english.yml:23,
+# GAME\gui\interaction_templates.gui:3089).
+#
+# THE ACCEPTANCE TEST IS NOT PART OF THIS GATE. is_valid decides whether the offer may be
+# SENT (is there a partner, is anything on the table, can both sides pay, are the picked
+# titles still cedeable); tnt_ai_accept_value decides whether the partner SIGNS, and that
+# question is answered inside tnt_diplomacy.0001. Folding the second into the first is what
+# made the entire refusal path dead code — see the note at the end of is_valid below.
+#
+# v2 AUDIT — COST. is_valid grows from 6 to 16 custom_description rows here, and the
+# button's `enabled` re-evaluates all of them on every layout pass. Twelve of the
+# sixteen are variable reads or one-shot script values (a map lookup each,
+# 00-ARCHITECTURE.md:511-517); the expensive ones are the four re-validation rows
+# (titles, shipped and already measured as acceptable, plus claims / alliance / truce,
+# added in build 2 — each is a handful of single-character triggers behind an `exists`
+# limit, so it costs nothing at all while its slot is empty, which is the common case).
+# The six shortfall values are each a single `exists` + one subtraction, i.e. cheaper
+# than the gold pair they copy. No list iteration is introduced on this path, and no
+# GetScriptedGui is called from any visible.
+######################################################################################
+
+tnt_send_offer = {
+	scope = character
+
+	is_valid = {
+		# V15, USER ITEM 3 - THE ONE MIGRATION SEAM T48 CANNOT CLOSE AT THE DOOR.
+		# tnt_open and tnt_partner are SAVEGAME character variables, so a save whose
+		# window is ALREADY open against the Night's Watch keeps a fully working
+		# table: the door is is_shown, and an already-open window is never re-tested.
+		# This row asks the same question the door asks, on the same partner, so the
+		# whole "there is no legal partner here" case reuses the EXISTING
+		# tnt_err_no_partner key - NO LOC KEY IS ADDED and the per-.yml count is
+		# untouched, which is a hard requirement of this round.
+		# COST: two flat government lookups on a per-frame is_valid that already
+		# evaluates six named script values and four re-validation blocks - far
+		# inside the PERFORMANCE law, and the same class of cost T46 already pays on
+		# the two independence toggles in tnt_24_people.txt.
+		# IT IS THE ONLY per-frame row user item 3 adds anywhere in the mod. Every
+		# other surface inherits the block: the twenty tnt_show_* gates and the
+		# toggles all read var:tnt_partner, which T1 now makes un-settable to the
+		# Watch, so they needed no rows at all.
+		# See T48, common\scripted_triggers\tnt_40_triggers.txt.
+		custom_tooltip = {
+			text = tnt_err_no_partner
+			exists = var:tnt_open
+			exists = var:tnt_partner
+			tnt_not_the_watch_trigger = { WHO = var:tnt_partner }
+		}
+		custom_tooltip = {
+			text = tnt_err_nothing
+			tnt_offer_nonempty_trigger = yes
+		}
+		custom_tooltip = {
+			text = tnt_err_both_vassal
+			tnt_no_double_vassal_trigger = yes
+		}
+		# ITEM 19'S CROSS-TERM GUARD, AND IT HAD NO CALLER UNTIL THIS LINE.
+		# tnt_people_pair_trigger (tnt_42_people_gates.txt) refuses the
+		# combinations that are individually legal and jointly incoherent. ONE OF
+		# THE TWO SURVIVES:
+		#   * independence AND sworn fealty between the same pair — one treaty
+		#     that both frees a vassal and takes one, whose outcome depended
+		#     purely on which apply leg ran first;
+		#   * RETIRED V16, USER ITEM 5 — the same child named as a hostage on one
+		#     side and a ward on the other, which would have handed one person over
+		#     twice under two names. The ward family is gone mod-wide, so nothing
+		#     can be a ward pick and the guard had nothing left to compare against;
+		#     its four rows are commented out inside the trigger.
+		# THE CALL STAYS AND SO DOES THE LOC KEY: rule 1 is still a real refusal the
+		# player must be told about, and a third people term added later needs a
+		# place to put its own cross-guard.
+		# The trigger and its wrapper were written, verified and then referenced
+		# by nobody: a comment in tnt_24_people.txt claimed the send path already
+		# enforced it, and the send path did not. Apply ordering alone was the
+		# only thing standing between a player and a realm-graph mess.
+		custom_tooltip = {
+			text = tnt_err_people_pair
+			tnt_people_pair_trigger = yes
+		}
+		# A title transfer and a vassalage/independence leg cannot be projected in
+		# one atomic realm update. This is a constant-time list-size gate, not a
+		# per-frame iterator; the click-time preflight below remains authoritative.
+		custom_tooltip = {
+			text = tnt_err_title_realm_mix
+			trigger_if = {
+				limit = {
+					OR = {
+						exists = var:tnt_vassal_p
+						exists = var:tnt_vassal_r
+						exists = var:tnt_indep_p
+						exists = var:tnt_indep_r
+					}
+				}
+				NOT = { exists = var:tnt_title_p }
+				NOT = { exists = var:tnt_title_r }
+				tnt_count_sel_title_p_value = 0
+				tnt_count_sel_title_r_value = 0
+			}
+		}
+		custom_tooltip = {
+			text = tnt_err_no_gold
+			tnt_gold_shortfall_value <= 0
+		}
+		custom_tooltip = {
+			text = tnt_err_partner_no_gold
+			tnt_partner_gold_shortfall_value <= 0
+		}
+		#-----------------------------------------------------------------------------
+		# v2 ITEM 2.4 — PRESTIGE / PIETY / INFLUENCE AFFORDABILITY, BOTH SIDES.
+		#
+		# WHY THIS IS NOT OPTIONAL. There is no transfer effect for any of the three;
+		# the deal is applied as two independent calls (giver `add_prestige = { value =
+		# var:tnt_prestige_p  multiply = -1 }`, receiver `add_prestige = var:tnt_prestige_p`
+		# — the vanilla pattern at GAME\common\character_interactions\
+		# 00_invite_agent_to_scheme.txt:168-176). Prestige and piety go NEGATIVE
+		# silently when overspent (41-hooks-prestige-contracts.md §2.1), so without a
+		# gate a deal can quietly bankrupt a character's standing. Vanilla gates the
+		# very same bribe the very same way, in is_valid, at
+		# 00_invite_agent_to_scheme.txt:673 (`scope:actor.prestige >= prestige_bribe_value`).
+		#
+		# Each currency and each side gets its OWN custom_description, so the tooltip
+		# names the currency that is short instead of one generic "cannot pay".
+		#
+		# The six shortfall values are the values author's (tnt_53_extended_values.txt),
+		# shaped exactly like the shipped gold pair at tnt_50_values.txt:430-461:
+		# `> 0` means the giver cannot pay, so the test here is `<= 0`.
+		# NAMES REQUESTED, and they must match on both sides of the wall:
+		#     tnt_prestige_shortfall_value          tnt_partner_prestige_shortfall_value
+		#     tnt_piety_shortfall_value             tnt_partner_piety_shortfall_value
+		#     tnt_influence_shortfall_value         tnt_partner_influence_shortfall_value
+		# (tnt_prestige_shortfall_value is the name 30-V2-DESIGN §1 row 2.4 already
+		# prescribes verbatim; the other five extend it by the gold convention.)
+		#
+		# FALLBACK, if those values are not shipped: replace each row with the inline
+		# field comparison that 41-…md §2.6 prescribes and that needs no new value —
+		#     custom_description = {
+		#         text = tnt_err_no_prestige
+		#         trigger_if = {
+		#             limit = { exists = var:tnt_prestige_p }
+		#             prestige >= var:tnt_prestige_p
+		#         }
+		#     }
+		# `var:x` on the right of a field comparison is legal (contract R0.3).
+		#-----------------------------------------------------------------------------
+		custom_tooltip = {
+			text = tnt_err_no_prestige
+			tnt_prestige_shortfall_value <= 0
+		}
+		custom_tooltip = {
+			text = tnt_err_partner_no_prestige
+			tnt_partner_prestige_shortfall_value <= 0
+		}
+		custom_tooltip = {
+			text = tnt_err_no_piety
+			tnt_piety_shortfall_value <= 0
+		}
+		custom_tooltip = {
+			text = tnt_err_partner_no_piety
+			tnt_partner_piety_shortfall_value <= 0
+		}
+		custom_tooltip = {
+			text = tnt_err_no_influence
+			tnt_influence_shortfall_value <= 0
+		}
+		custom_tooltip = {
+			text = tnt_err_partner_no_influence
+			tnt_partner_influence_shortfall_value <= 0
+		}
+		# Influence exists only for a government carrying the flag
+		# government_has_influence, so an influence term offered by a side that has no
+		# such government would apply as a silent no-op (41-…md §2.3). The steppers in
+		# tnt_22_v2.txt already refuse to raise the amount in that case; this row is the
+		# second line of defence, and it is the one the player can read.
+		# The trigger is proven by real call sites, NOT by the flags block:
+		#   GAME\common\character_interactions\10_tgp_japan_interactions.txt:492
+		#   GAME\common\character_interactions\06_ep3_interactions.txt:7145
+		#   GAME\events\factions\faction_demands.txt:1144
+		# Declaration of the flag itself: GAME\common\governments\00_government_types.txt:490
+		# (the path in 30-V2-DESIGN, common\government_types\, does not exist in 1.19).
+		#
+		# BUILD-2 CORRECTION — THE GATE NOW ASKS ABOUT BOTH SIDES, because the
+		# APPLY leg does. tnt_exec_influence_effect requires the flag on the giver
+		# AND on the receiver (tnt_33_currency_apply.txt:281-282): change_influence
+		# on a receiver whose government has no influence pool is a silent no-op,
+		# so a one-sided test let the player pay AI points for a term that does
+		# nothing. The first build tested only the giver of each amount while the
+		# loc string tnt_err_no_influence_gov said "both sides need one" — the
+		# refusal reason pointed at a condition that was not the blocker.
+		# tnt_influence_ok_value (tnt_53_currency_values.txt:236) is 1 only when
+		# both mirrors are set, and it is the same value that gates
+		# tnt_balance_value's influence rows, tnt_items_count_value's influence
+		# slots and (build 2) the two GUI rows' `visible`. One question, one place.
+		custom_tooltip = {
+			text = tnt_err_no_influence_gov
+			trigger_if = {
+				limit = {
+					exists = var:tnt_influence_p
+					var:tnt_influence_p > 0
+				}
+				tnt_influence_ok_value > 0
+			}
+			trigger_if = {
+				limit = {
+					exists = var:tnt_influence_r
+					var:tnt_influence_r > 0
+				}
+				tnt_influence_ok_value > 0
+			}
+		}
+		# V11, USER ITEM 2: THE TITLE AND CLAIM RE-VALIDATION ROWS ARE DELETED, because
+		# they could not fire. Both read the v1 SINGLE-OBJECT variables — var:tnt_title_p
+		# / _r and var:tnt_claim_p / _r — and nothing writes those any more: the .gui
+		# switched every setter, opener and clear-X to the list form, so the four
+		# tnt_pick_*_set entries in tnt_21_pickers.txt have no caller left (grep over
+		# gui\ returns one comment and no binding). The codebase already stated this
+		# twice — tnt_50_values.txt "nothing writes those variables", and
+		# tnt_32_apply.txt "today the single-object legs are silent no-ops" — while
+		# tnt_35_multiselect.txt was still advertising these rows as "the second net"
+		# for the SELECTION LISTS, which they never were.
+		# Each dead block also cost two `exists` reads on every layout pass of the
+		# Propose button, which is the one place this file may not spend anything.
+		#
+		# THERE IS NO SEND-TIME NET FOR THE LISTS, and that is a deliberate limit, not
+		# an oversight: a list walk in an is_valid runs per layout pass, which the
+		# performance law forbids outright. The apply legs re-validate every object
+		# individually and skip a stale one without cancelling the term
+		# (tnt_35_multiselect.txt M6/M7/M8), and the window-open fill+prune pass is the
+		# only refresh — so an object that goes stale while the window is open, or
+		# while an AI letter waits, is priced and then silently skipped. If that hole
+		# must ever be closed, it belongs in this scripted_gui's EFFECT below, which
+		# runs once per click; never in the is_valid.
+		#
+		# tnt_err_title_invalid and tnt_err_claim_invalid are now unreferenced loc
+		# keys. Both stay DEFINED in the two .yml files, exactly as
+		# tnt_err_vassal_invalid did when build 2 retired its row: an unreferenced key
+		# costs nothing, an undefined one prints raw on screen.
+		#-----------------------------------------------------------------------------
+		# BUILD 2 — WIRING (d) of tnt_40_triggers.txt:588-595. Three re-validation
+		# rows that the first build left unwritten. The CLAIM one has since been
+		# deleted with the title row above (V11 — both read v1 single-object
+		# variables that nothing writes any more); the two below are live and read
+		# live variables.
+		#
+		# THE PURE TRIGGERS, NEVER THE WRAPPERS. T12 / T13 carry no
+		# custom_description of their own, so nothing prints itself when this
+		# is_valid is rendered as the Propose button's tooltip. T15 / T16 are
+		# forbidden here for exactly that reason (tnt_40_triggers.txt:742-744).
+		#
+		# WHY EACH ROW EXISTS — AND WHY THERE ARE NONE LEFT.
+		# V13, USER ITEM 1: BOTH SURVIVING ROWS ARE RETIRED WITH THEIR TERMS.
+		# The two rows below re-validated the alliance and the non-aggression pact at
+		# send time. Both terms are now a DESIGN REFUSAL (TOMBSTONE A and TOMBSTONE B
+		# in common\scripted_effects\tnt_32_apply.txt), their four toggles above are
+		# commented out, and nothing writes tnt_alliance_p/_r or tnt_truce_p/_r any
+		# more — so each `exists = var:...` here would be a read with no writer, which
+		# is exactly the "used but is never set" class of engine error this codebase
+		# has already paid for once. They also called T18 / T19, which retire with the
+		# families. THERE IS NOW NO RE-VALIDATION BLOCK IN THIS is_valid AT ALL, and
+		# that is correct rather than an omission: every surviving term is either
+		# re-validated per object inside its apply leg, or has no world-state gate.
+		#
+		# HISTORICAL, kept because it explains why the rows were written:
+		#  * alliance / truce — item 1.1 dropped `is_independent_ruler = yes` from
+		#    T1, which made both terms offerable between a liege and his own vassal,
+		#    where they are a no-op with a non-zero price (vanilla's own comment,
+		#    GAME\common\character_interactions\00_alliance.txt:2083-2087). The four
+		#    toggles above refused to switch them on; these two rows caught a term
+		#    that was legal when it was switched on and was not legal now, and they
+		#    were the reason the player could never be stuck with an undismissable
+		#    term. They were also the only rows here that read a variable a live
+		#    control still wrote, which is why they survived the V11 sweep — and why
+		#    they die now, with that control.
+		#-----------------------------------------------------------------------------
+		# custom_description = {
+		# 	text = tnt_err_ally_invalid
+		# 	trigger_if = {
+		# 		limit = {
+		# 			OR = {
+		# 				AND = {
+		# 					exists = var:tnt_alliance_p
+		# 					var:tnt_alliance_p > 0
+		# 				}
+		# 				AND = {
+		# 					exists = var:tnt_alliance_r
+		# 					var:tnt_alliance_r > 0
+		# 				}
+		# 			}
+		# 		}
+		# 		# v2 BUILD 3, NEW-1: the widened T18. See the box above
+		# 		# tnt_alliance_p_toggle. T12 tnt_can_ally_trigger had the
+		# 		# same-realm NOR and would refuse the send after the toggle
+		# 		# had already accepted the click.
+		# 		tnt_can_ally_anyrealm_trigger = {
+		# 			A = root
+		# 			B = var:tnt_partner
+		# 		}
+		# 	}
+		# }
+		# custom_description = {
+		# 	text = tnt_err_truce_invalid
+		# 	trigger_if = {
+		# 		limit = {
+		# 			OR = {
+		# 				AND = {
+		# 					exists = var:tnt_truce_p
+		# 					var:tnt_truce_p > 0
+		# 				}
+		# 				AND = {
+		# 					exists = var:tnt_truce_r
+		# 					var:tnt_truce_r > 0
+		# 				}
+		# 			}
+		# 		}
+		# 		# v2 BUILD 3, NEW-1: the widened T19, same reason as the row above.
+		# 		tnt_can_truce_anyrealm_trigger = {
+		# 			A = root
+		# 			B = var:tnt_partner
+		# 		}
+		# 	}
+		# }
+		# NOTE — there is deliberately NO `tnt_ai_accept_value > 0` row here.
+		# Gating Propose on acceptance made the whole refusal branch unreachable:
+		# tnt_diplomacy.0001's refusal option (trigger = tnt_ai_accept_value <= 0),
+		# tnt_notify_rejected_effect, tnt_result = 2 and the refused half of the
+		# in-window banner could never run, and the player was never told "no"
+		# through the designed channel — the button just stayed grey.
+		# The player may now always send a complete, affordable, legal offer and
+		# hear the answer. The verdict is still previewed before committing: the
+		# balance panel shows tnt_balance_accept / tnt_balance_reject live, and the
+		# confirmation event states the refusal with custom_tooltip = tnt_err_refuse.
+	}
+
+	effect = {
+		# scope:tnt_deal_partner is what tnt_diplomacy.0001 and tnt_apply_deal_effect read.
+		# var:<obj> ?= { save_scope_as = ... } inside an effect is vanilla:
+		# GAME\common\decisions\80_major_decisions.txt:2304.
+		#
+		# DEFECT D4 — THE NAME tnt_p IS FORBIDDEN HERE, PERMANENTLY.
+		# This save is PERMANENT on purpose: it must survive into trigger_event and into
+		# tnt_apply_deal_effect. Every script value in the chain, however, opens with the
+		# R0.4 prologue `var:tnt_partner ?= { save_temporary_scope_as = tnt_p }`
+		# (tnt_50_values.txt:448, :813, :895, … and all eight values of
+		# tnt_51_relation_values.txt). Same name, different lifetime, and the engine
+		# refused the temporary one every time tnt_diplomacy.0001's option triggers
+		# evaluated tnt_ai_accept_value:
+		#   [E][jomini_eventscope.cpp:565]: Trying to add the temporary target 'tnt_p'
+		#   which has the same name as a permanent target, at file: events/tnt_events.txt
+		#   line: 84 … line: 98
+		# (50-RUNTIME-LOG-FINDINGS.md §D4). Inside those triggers the partner was then
+		# silently the permanent scope — the same character today, which is why nothing
+		# looked broken.
+		# Fix per 30-V2-DESIGN §9 D4: rename the PERMANENT one, because it appears ~23
+		# times in three files while the temporary one appears ~60 times across the two
+		# value files. The matching renames live in events\tnt_events.txt (:66, :75) and
+		# common\scripted_effects\tnt_32_apply.txt (26 code sites) and belong to the
+		# effects author. `save_scope_as` on tnt_p, tnt_thr_me or tnt_thr_you: ZERO mod-wide.
+		if = {
+			limit = {
+				exists = var:tnt_open
+				exists = var:tnt_partner
+			}
+			var:tnt_partner ?= {
+				save_scope_as = tnt_deal_partner
+			}
+			# A single authoritative click-time validation. Expensive list/object
+			# checks belong here, never in the per-frame button tooltip.
+			if = {
+				limit = {
+					tnt_deal_preflight_trigger = {
+						PLAYER = root
+						PARTNER = scope:tnt_deal_partner
+					}
+				}
+				set_variable = {
+					name = tnt_confirm_pending
+					value = 1
+				}
+				trigger_event = tnt_diplomacy.0001
+			}
+			else = {
+				tnt_notify_stale_deal_effect = yes
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP H — RESULT BANNER (1)
+#
+# tnt_result is 1 (accepted) or 2 (refused) and is absent when there is no result, so the
+# banner's visible is TntOn('tnt_result') and the two texts pick themselves apart with
+# EqualTo_CFixedPoint against 1 and 2.
+######################################################################################
+
+tnt_clear_result = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_result
+	}
+}
+
+
+######################################################################################
+# GROUP X — THE GATE-FREE FLAG CLEARS (6 live, V13; was 8)
+#
+# A REMOVAL MUST NEVER BE REFUSABLE. Six sheet Xes used to call the flag TOGGLES,
+# whose is_valid is the term's AVAILABILITY - a gate that can legitimately turn
+# false mid-session (dread decayed, the vassal test drifting). Whether
+# GetScriptedGui.Execute consults is_valid is still the one unresolved engine
+# question; these entries make it moot - an X now calls a
+# clear that has no gate at all, exactly like the hook and grand-wedding clears
+# shipped in V5 (tnt_22c_hooks_contracts.txt) and the people clears in
+# tnt_24_people.txt. All bodies go through the shared tnt_cur_clear_effect
+# (tnt_39_autobalance.txt), so "clearing voids the auto-balance verdict" holds by
+# construction. The toggles keep their gates - putting a term ON the table is
+# allowed to be refused; taking it off is not.
+#
+# COUNT, V13 USER ITEM 1: the group shipped EIGHT entries. tnt_alliance_p_off and
+# tnt_truce_p_off retire with their terms (TOMBSTONE A and TOMBSTONE B in
+# common\scripted_effects\tnt_32_apply.txt), so SIX are live:
+#   tnt_vassal_p_off, tnt_vassal_r_off, tnt_usehook_p_off, tnt_threat_p_off,
+#   tnt_indep_p_clear, tnt_indep_r_clear.
+######################################################################################
+
+# RETIRED with the alliance. See TOMBSTONE A in tnt_32_apply.txt.
+# tnt_alliance_p_off = {
+# 	scope = character
+# 	effect = { tnt_cur_clear_effect = { VAR = tnt_alliance_p } }
+# }
+
+# RETIRED with the truce. See TOMBSTONE B in tnt_32_apply.txt.
+# tnt_truce_p_off = {
+# 	scope = character
+# 	effect = { tnt_cur_clear_effect = { VAR = tnt_truce_p } }
+# }
+
+tnt_vassal_p_off = {
+	scope = character
+	effect = { tnt_cur_clear_effect = { VAR = tnt_vassal_p } }
+}
+
+tnt_vassal_r_off = {
+	scope = character
+	effect = { tnt_cur_clear_effect = { VAR = tnt_vassal_r } }
+}
+
+tnt_usehook_p_off = {
+	scope = character
+	effect = { tnt_cur_clear_effect = { VAR = tnt_usehook_p } }
+}
+
+tnt_threat_p_off = {
+	scope = character
+	effect = { tnt_cur_clear_effect = { VAR = tnt_threat_p } }
+}
+
+tnt_indep_p_clear = {
+	scope = character
+	effect = { tnt_cur_clear_effect = { VAR = tnt_indep_p } }
+}
+
+tnt_indep_r_clear = {
+	scope = character
+	effect = { tnt_cur_clear_effect = { VAR = tnt_indep_r } }
+}

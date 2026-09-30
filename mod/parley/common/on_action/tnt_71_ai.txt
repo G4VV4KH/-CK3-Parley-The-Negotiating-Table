@@ -1,0 +1,323 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE - THE AI OFFER PULSE AND ITS GARBAGE COLLECTOR
+#
+# 30-V2-DESIGN section 6.3 phase AI-1, section 3.5(f);
+# 43-ai-participation.md section 3.A.1.
+# Bodies in common/scripted_effects/tnt_37_ai_offer.txt.
+# ASCII only, for the reason given in that file's header.
+#
+# THIS FILE MUST NOT BE NAMED yearly_on_actions.txt - that would override the
+# vanilla file. Declaring extra `on_actions = { ... }` entries for a vanilla
+# on_action from a differently-named file is additive; the engine merges the
+# lists. The mod's other on_action file (tnt_70_on_actions.txt) already relies on
+# the same property and cites the in-install precedent
+# MOD\3037969445\common\on_action\zz_lmfmod_on_actions.txt:45-62.
+#
+#=======================================================================
+# WHY THE PULSE HANGS OFF ONE HOST NOW (W-7 insurance REMOVED, measured 2026-08)
+#=======================================================================
+# ai_character_pulse is the ideal host: root is an AI count-or-above, it fires
+# once a year, it is ALREADY `trigger = { is_ai = yes }`-gated, and - the part
+# that matters - it has NO `effect` block of its own, so appending to it is purely
+# additive. GAME\common\on_action\yearly_on_actions.txt:2868-2879, verbatim:
+#
+#     #Pulse for various AI stuff
+#     ai_character_pulse = {
+#         trigger = {
+#             is_ai = yes
+#         }
+#         random_events = {
+#             chance_to_happen = 25
+#             500 = 0
+#             100 = learn_commander_trait.0001
+#             100 = holy_order.0100 #Give pilgrim trait to holy order members
+#         }
+#     }
+#
+# THE SECOND HOST IS GONE, AND THE LOG IS WHY. tnt_ai_offer_pulse used to hang
+# off tnt_yearly_cleanup too, as insurance against W-7 ("a mod that overrides
+# yearly_on_actions.txt could drop ai_character_pulse's invocation"). The
+# 2026-08 playtest measured what that insurance actually did: ai_character_pulse
+# is itself dispatched FROM yearly_playable_pulse (yearly_on_actions.txt:1966),
+# and tnt_yearly_cleanup rides the SAME yearly_playable_pulse
+# (tnt_70_on_actions.txt), so both copies landed in the SAME TICK - 10,971
+# engine warnings ("queued twice with the same data including delay",
+# jomini_event_queue_manager.cpp:454) for this pulse's on_action alone. The old
+# claim here that "running twice in one year is harmless: the first success sets
+# a three-year lock" is DISPROVED for the same-tick case: the world pulse's twin
+# (tnt_72) measured fire2's trigger NOT seeing fire1's cooldown variable inside
+# one tick, so the lock only protects across ticks, not within one. It was
+# double-dispatch, not a fallback. If W-7 ever materialises for real (an
+# override actually drops the invocation), the fix is to re-host on
+# tnt_yearly_cleanup INSTEAD OF ai_character_pulse, never on both.
+#
+# THE SECOND DECLARATION OF tnt_yearly_cleanup IS LEGAL. _on_actions.info:104
+# forbids only multiple TRIGGER or EFFECT blocks for one named on_action; a second
+# declaration carrying nothing but a list key is vanilla's own practice -
+# three_year_playable_pulse is defined twice, at yearly_on_actions.txt:1975
+# (events + random_events + effect) and again at :2915 (events only).
+# FALLBACK, if the engine ever complains about the merge: delete the
+# tnt_yearly_cleanup block below and add the two names to the existing block in
+# tnt_70_on_actions.txt:58-62 instead. The exact lines are in this author's
+# integration report; nothing else changes.
+#
+#=======================================================================
+# THE RATE LIMIT, IN ONE PLACE, WITH THE NUMBERS CHOSEN
+#=======================================================================
+# Four independent throttles, because event fatigue is the one failure mode of
+# this design that no log will ever show. 43-...md 3.A.6 lists six vanilla
+# mechanisms; these are four of them:
+#
+#   1. CHANCE, here:          20 per cent per AI per YEAR, times 0.4 for a mere
+#                             count. ONE pulse a year since the second host was
+#                             deleted (2026-08); the number was doubled from 11
+#                             in the same commit, per the arithmetic box above
+#                             tnt_ai_offer_pulse's own effect.
+#   2. PROPOSER LOCK:         tnt_ai_offer_cooldown on the AI, rule-scaled
+#                             (30 days at `test` up to years at the slow ends).
+#                             One neighbour never nags. WRITTEN IN .0001, not here.
+#   3. RECIPIENT LOCK:        tnt_ai_offer_cooldown on the player, rule-scaled:
+#                             absent at `test`, six months at `frequent` (the
+#                             SHIPPED DEFAULT since user item 16), a year at
+#                             `normal`, three at `rare`. THIS is the number that
+#                             decides how often the player is disturbed.
+#   4. ENGINE EVENT COOLDOWN: cooldown = { days = 15 } on tnt_ai_offer.0001 — a
+#                             same-tick re-fire stop only, deliberately shorter
+#                             than every rule tier so the rule stays the
+#                             governor. GAME\events\_events.info:44-49.
+#   Plus the player's own opt-out (USER ITEM 11): the reversible decision pair
+#   in common/decisions/tnt_85_decisions.txt - an UNTIMED var:tnt_envoys_refused
+#   that tnt_ai_offer.0001's own trigger tests, plus the same ten-year raise of
+#   throttle 3 that the letter's retired fourth option used to make.
+#
+# TO MAKE THE AI CHATTIER raise the chance below. TO MAKE IT QUIETER raise the
+# recipient lock in tnt_ai_offer_try_effect. Do not change the engine cooldown
+# without matching it to the recipient lock.
+#
+# `random = { chance = N  modifier = { factor = ... <trigger rows> }  <effects> }`
+# inside an on_action effect is verbatim vanilla:
+# GAME\common\on_action\army_on_actions.txt:39-45 (`random = { chance = 2
+# modifier = { factor = accolade_progress } ... }`), :408-412, :442-446.
+########################################################################
+
+ai_character_pulse = {
+	on_actions = {
+		tnt_ai_offer_pulse
+	}
+}
+
+# tnt_ai_offer_pulse was ALSO listed here until 2026-08. Both hosts descend from
+# the same yearly_playable_pulse tick, so the pulse ran twice per AI per tick
+# (10,971 queued-twice engine warnings in one playtest run) - see the header.
+# The GC stays, and unlike the pulse it IS deliberately double-hosted: this
+# declaration plus the direct one on yearly_playable_pulse in
+# tnt_70_on_actions.txt, whose own note at :105-118 argues the case - the second
+# host makes the reclaim depend on nothing but that file, and a second GC pass
+# is idempotent (after the first, var:tnt_partner is gone and its trigger fails).
+# That is exactly why doubling was fatal for the PULSE and harmless here: one
+# rolls dice, the other only cleans up.
+tnt_yearly_cleanup = {
+	on_actions = {
+		tnt_ai_offer_gc
+	}
+}
+
+
+########################################################################
+# Root = a character. Under ai_character_pulse - the sole host since 2026-08 -
+# that is already an AI count-or-above, so the explicit is_ai row is now
+# belt-and-braces rather than load-bearing. It stays: it is one flat lookup,
+# and it is what makes re-hosting on a player-inclusive on_action (the W-7
+# recovery documented in the header) a one-line change with no new thinking.
+#
+# TRIGGER ROW ORDER IS CHEAPEST-FIRST, which is what PDX asks for on a hot
+# on_action (_character_interactions.info:227-229 makes the same point for
+# is_shown, and GAME\common\scripted_triggers\00_available_for_events_triggers.txt:783
+# for these very triggers: "It's a lot better for performance to not have
+# scripted triggers within scripted triggers when they're checked as often as
+# these ones are"). One variable lookup, three field tests, then the one scripted
+# trigger.
+#
+# is_at_war IS DELIBERATELY NOT TESTED. Vanilla's negotiate_alliance keeps
+# `ai_potential = { is_at_war = no }` (00_alliance.txt:2301-2303), but a ruler at
+# war is exactly the ruler who wants to buy an alliance or a truce, and our own
+# valuation already knows it - tnt_val_alliance_p_value multiplies by 1.5 when the
+# partner is at war. What IS excluded is a war against the intended recipient,
+# tested per candidate in tnt_ai_offer_try_effect where the pair is known.
+#
+# basic_is_valid_for_yearly_events_trigger is vanilla's own standard guard for
+# pulse-hosted work (00_available_for_events_triggers.txt:767-781; used by
+# random_yearly_playable_pulse itself at yearly_on_actions.txt:2525-2527, 33 call
+# sites): playable, not imprisoned, not incapable, not travelling, not already
+# inside a task-contract chain or an activity.
+#
+# The government row is the ACTOR half of item 1.1's ruling. A holy order or a
+# mercenary company (cannot_be_vassal_or_liege) and a landless adventurer have
+# nothing to trade in most of the fourteen items, and tnt_partner_valid_trigger
+# refuses them as the RECIPIENT - so they must not be the PROPOSER either. Flags
+# proven at GAME\common\character_interactions\00_character_interactions.txt:47,
+# :1408, :1431. THE NIGHT'S WATCH IS NOW THE SAME ARGUMENT (V15, user item 3): T1
+# refuses it as the RECIPIENT, so it must not be the PROPOSER either. One more
+# flat government lookup, always true in a vanilla game, and it sits BEFORE the
+# scripted trigger for the same cheapest-first reason as the two flags above.
+# WHY HERE AND NOT IN tnt_ai_offer_try_effect's FINAL GATE: measured, the Lord
+# Commander ran three full attempt cycles in the 2026-08-17 run (TRY + CAND + PICK
+# at y=8082, 8083, 8084, then one COMPOSE and one APPLY - arch=10, SELL LAND, the
+# user's "раздача замков за деньги" in the log), so the search is paid for and
+# thrown away. A row added to that final gate instead would ALSO surface as
+# why=unexplained, because the tnt_3b_log.txt reject ladder has no bucket for it.
+########################################################################
+tnt_ai_offer_pulse = {
+	trigger = {
+		is_ai = yes
+		NOT = { exists = var:tnt_ai_offer_cooldown }
+		is_landed = yes
+		highest_held_title_tier >= tier_county
+		NOR = {
+			government_has_flag = cannot_be_vassal_or_liege
+			government_has_flag = government_is_landless_adventurer
+		}
+		tnt_not_the_watch_trigger = { WHO = this }		# V15, USER ITEM 3: the Wall writes to nobody. See T48, tnt_40_triggers.txt.
+		basic_is_valid_for_yearly_events_trigger = yes
+	}
+
+	#=======================================================================
+	# *** ONE HOST, ONE EVALUATION A YEAR - SINCE 2026-08. READ BEFORE TUNING. ***
+	#=======================================================================
+	# tnt_ai_offer_pulse was listed under TWO hosts (ai_character_pulse + our own
+	# tnt_yearly_cleanup, both descending from the same yearly_playable_pulse
+	# tick), so this trigger+effect ran twice per AI per year - in the SAME tick,
+	# which the 2026-08 playtest measured as 10,971 queued-twice engine warnings.
+	# The second host is deleted (see this file's header for the full forensics),
+	# so the pulse is now evaluated ONCE per AI per year, under ai_character_pulse
+	# only.
+	#
+	# THE ARITHMETIC, so the comment and the code cannot drift again:
+	#     two hosts: per-year probability = 1 - (1 - p)^2
+	#       p = 0.20  ->  36.0 %   <- what build 2 shipped while documenting "20 %"
+	#       p = 0.11  ->  20.8 %   <- the rate the two-host era was tuned to
+	#     one host:  per-year probability = p, so p = 0.20 -> 20 %
+	#       0.20 x 0.4 (a count) -> 8 %, exactly what the tier modifier means
+	# The number below was DOUBLED from 11 to 20 in the same commit that deleted
+	# the second host - the old box's own standing instruction - so the letter
+	# rate the cooldown ladder was tuned against is preserved, minus the same-tick
+	# double-evaluation artifact.
+	#
+	# The alternative fix - a `NOT = { exists = var:tnt_ai_offer_seen_this_year }`
+	# row plus a `set_variable = { ... years = 1 }` - was rejected twice over: it
+	# buys the same rate at the cost of a new savegame variable and a new R-CLEAN
+	# obligation, and the 2026-08 log PROVED the variable-latch shape does not
+	# even work within a tick (the world pulse's cooldown var was invisible to the
+	# same tick's second fire, 169 of 172 deals showed the double-fire).
+	#=======================================================================
+	effect = {
+		random = {
+			chance = 20
+
+			# A count's realm is small, his neighbours are many, and he is the tier
+			# vanilla switches off first: 265 of 271 ai_frequency_by_tier blocks set
+			# `barony = 0`, and the tier ladder in random_yearly_playable_pulse's own
+			# chance_of_no_event (yearly_on_actions.txt:2529-2551) reserves 95 per
+			# cent suppression for "AI counts aren't particularly important".
+			modifier = {
+				factor = 0.4
+				highest_held_title_tier < tier_duchy
+			}
+
+			# USER ITEM 2, V12 - THE FEALTY POOL, AND THE ONLY O(1) PLACE IT CAN BE
+			# MOVED. A14 (tnt_37_ai_offer.txt) can only be composed by a proposer who is
+			# his own top liege - vanilla's own row,
+			# GAME\common\character_interactions\00_character_interactions.txt:1407
+			# ("This check exists to prevent a lot of edge-cases where you can change
+			# liege"). MEASURED on the 2026-08-16 run: 32 PICK lines and 31 of the 32
+			# proposers were somebody's vassal - 8 through the liege fallback (the
+			# player's own vassals), 23 more county- and duchy-tier holders inside a
+			# neighbouring realm. The pool is weighted by HEADCOUNT and vassals outnumber
+			# independent rulers about thirty to one, so thirty-one letters in thirty-two
+			# could not carry a fealty offer at ANY weight. Three rounds of raising that
+			# weight (5 -> 8 -> 16) proved it.
+			#
+			# THIS CREATES NO LETTER THAT COULD NOT OTHERWISE EXIST. Every row of the
+			# candidate search, of the final gate and of T5 still runs unchanged, and
+			# tnt_exec_vassal_effect re-validates T5 at apply (tnt_32_apply.txt:1661-1670).
+			# It only decides WHOSE dice are rolled. It also serves user item 4: an
+			# independent ruler is a party the player can actually go to war with; a
+			# vassal of a foreign realm is not.
+			#
+			# COST, STATED: one flat lookup per AI per year, plus the extra candidate
+			# searches the raised chance buys. The 2026-08-16 run measured 359 TRY and
+			# 628 WTRY over 2.5 game years - about 400 neighbour-iterator walks a year -
+			# and this raises that by roughly a third to a half. If that ever matters,
+			# drop the factor to 2.5; the ordering of the fix does not change, only its
+			# size.
+			# is_independent_ruler: REAL,
+			# GAME\common\character_interactions\00_fp3_interactions.txt:1534,
+			# 00_grant_titles_interaction.txt:280, :1087.
+			# A SECOND `modifier` inside one `random`: REAL,
+			# GAME\common\on_action\army_on_actions.txt:40-43,
+			# GAME\common\on_action\combat_on_actions.txt:690-693.
+			modifier = {
+				factor = 4
+				is_independent_ruler = yes
+			}
+
+			tnt_ai_offer_try_effect = yes
+		}
+	}
+}
+
+
+########################################################################
+# THE MANDATORY GARBAGE COLLECTOR - 30-V2-DESIGN 3.5(f), risk R-14.
+#
+# Root = a playable character; the body only ever runs for a human.
+#
+# THE LEAK IT CLOSES. The AI's package is written onto the player, so if the offer
+# event is never answered and expires, the player is left holding var:tnt_partner,
+# a full table of offer variables, and no window. Events DO time out
+# (msg_event_timeout / msg_letter_event_timeout,
+# GAME\common\messages\00_messages.txt:210, :215) and on_trigger_fail does not
+# necessarily run on a timeout (GAME\events\_events.info:125-129 - and an option
+# the player simply never clicks is not a trigger failure at all).
+# 30-V2-DESIGN calls this rule "mandatory, not belt-and-braces".
+#
+# HOW IT KNOWS THE OFFER IS DEAD RATHER THAN LIVE - three rows, all three needed:
+#   exists = var:tnt_partner             there is negotiation state to reclaim
+#   NOT = { exists = var:tnt_open }      no window is open, so this is not the
+#                                        player's own live manual negotiation
+#   NOT = { exists = var:tnt_ai_offer_live }
+#                                        and no AI letter is still on the table.
+#                                        That flag is set in .0001's immediate
+#                                        with days = 200 and removed by all four
+#                                        options, so it is BOTH a live-marker and
+#                                        its own dead-man's switch: an unanswered
+#                                        letter cannot keep the state alive for
+#                                        more than 200 days no matter what.
+#
+# There is no legitimate state that passes all three. The manual path always holds
+# tnt_open while it holds tnt_partner (tnt_open_window_effect sets both,
+# tnt_close_window_effect removes both), and the counter-offer path sets tnt_open
+# in the same effect that clears tnt_ai_offer_live.
+#
+# A STALE PARTNER IS NOT DANGEROUS IN THE MEANTIME, only wasteful: the manual path
+# overwrites tnt_partner and calls tnt_reset_offer_effect on every on_send, so the
+# worst case is that this player is skipped as an offer target (the candidate
+# limit tests `NOT = { exists = var:tnt_partner }`) until their next birthday.
+#
+# COST on a hot on_action: two variable lookups plus one is_ai per playable
+# character per year, and the effect body runs only in the leaked case. Contrast
+# the shape this deliberately avoids - a global every_player sweep on a short
+# pulse (ruling R8).
+########################################################################
+tnt_ai_offer_gc = {
+	trigger = {
+		is_ai = no
+		exists = var:tnt_partner
+		NOT = { exists = var:tnt_open }
+		NOT = { exists = var:tnt_ai_offer_live }
+	}
+
+	effect = {
+		tnt_ai_offer_clear_effect = yes
+	}
+}

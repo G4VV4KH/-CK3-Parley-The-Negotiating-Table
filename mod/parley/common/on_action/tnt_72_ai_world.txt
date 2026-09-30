@@ -1,0 +1,398 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — THE PHASE C-2 PULSE HOST
+# USER ITEM 4, PHASE C-2   (30-V2-DESIGN §6.3 phase AI-3)
+#
+# Owner: ai-sandbox. NEW FILE.
+#
+# THIS FILE MUST NOT BE NAMED yearly_on_actions.txt. That would override the
+# vanilla file and break R1. Appending to a vanilla on_action from a
+# differently-named file is additive — the engine merges the `on_actions` lists.
+# The mod's own tnt_70_on_actions.txt already does exactly this and it ships and
+# runs, which is the strongest available proof.
+#
+# ===========================================================================
+# 1. THE ONE HOST (host 2 DELETED 2026-08 — the log objected, as prophesied)
+# ===========================================================================
+# HOST 1 — ai_character_pulse. The ideal host and the design's own choice.
+#   GAME\common\on_action\yearly_on_actions.txt:2868-2879, verbatim:
+#       #Pulse for various AI stuff
+#       ai_character_pulse = {
+#           trigger = {
+#               is_ai = yes
+#           }
+#           random_events = {
+#               chance_to_happen = 25
+#               500 = 0
+#               100 = learn_commander_trait.0001
+#               100 = holy_order.0100 #Give pilgrim trait to holy order members
+#           }
+#       }
+#   invoked from inside yearly_playable_pulse at :1965-1970:
+#       on_actions = {
+#           ai_character_pulse
+#           delay = { days = 75 }
+#           pagan_conversion_pulse
+#       }
+#   So: root = an AI count-or-above, once a year, ALREADY is_ai = yes-gated, and it
+#   has NO `effect` block of its own — which is what makes appending an
+#   `on_actions` list to it from our file legal rather than a conflict.
+#   _on_actions.info:104-105: "You can declare data for on-actions in multiple
+#   files, however, you cannot have multiple triggers or effect blocks for a given
+#   named on-action." We add a LIST, never a trigger and never an effect.
+#
+# HOST 2 — yearly_playable_pulse — EXISTED AS W-7 INSURANCE AND IS DELETED,
+# because its own escape clause fired. The block's comment said "DELETE THIS ONE
+# BLOCK if error.log ever objects", and the 2026-08 playtest log objected with
+# numbers:
+#   * 13,506 engine warnings for this pulse's on_action alone ("queued twice with
+#     the same data including delay", jomini_event_queue_manager.cpp:454) — both
+#     hosts descend from the SAME yearly_playable_pulse tick (ai_character_pulse
+#     is invoked from inside it, yearly_on_actions.txt:1966), so the "insurance"
+#     was a same-tick double dispatch, never a fallback;
+#   * WTRY fired twice in 1,183 of 1,188 ruler-years — the whole AI world ran at
+#     DOUBLE the designed rate;
+#   * the three-year tnt_ai_world_cd did NOT gate the second same-tick fire (169
+#     of 172 deals showed WTRY x2, and 38 of 134 dealing ruler-years struck TWO
+#     full deals in one tick with different partners — 22% of all deal volume was
+#     duplicate-fire artifact). So a variable latch is NOT a viable alternative
+#     to deletion: the log proved fire2's trigger does not see fire1's variable
+#     within one tick.
+# W-7 itself (a mod overriding yearly_on_actions.txt could drop
+# ai_character_pulse's invocation and silently kill host 1) remains a real risk
+# class. If it ever materialises, the fix is to MOVE the pulse to a code-called
+# host (yearly_playable_pulse via our own tnt_yearly_cleanup), never to hang it
+# off both — that experiment has been run and measured.
+#
+# NO `delay` IN THE LIST, DELIBERATELY. A `delay` inside an on_actions list
+# applies to everything AFTER it in the merged list (that is why
+# yearly_on_actions.txt:1965-1970 puts ai_character_pulse BEFORE its
+# `delay = { days = 75 }`), and because the engine merges our block with
+# tnt_70_on_actions.txt's block in an order we do not control, a delay here could
+# silently postpone tnt_yearly_cleanup — another author's effect. The spread we
+# actually need is already free: yearly_playable_pulse fires on each character's
+# BIRTHDAY (_on_actions.info:5-7, "The date it fires is based on their birthday, so
+# different characters will have it fire on different days of the year"), so the
+# world's pulses are smeared across all 365 days without us asking.
+#
+# ===========================================================================
+# 2. THE ITERATION BUDGET — MEASURED, NOT ASSUMED
+# ===========================================================================
+# THE RULE THIS OBEYS is R8 (43-…md §3.C.2): "Per-character pulses, never global
+# loops. Inside the pulse pick ONE partner with
+# random_neighboring_top_liege_realm_owner = { limit = { … } }, evaluate ONE
+# balance, and stop. O(1) per AI ruler per year."
+# V15 SWAPPED WHICH random_neighboring_… ITERATOR E11 USES (same_rank_owner, not
+# top_liege_realm_owner). R8's shape is unchanged and so is its O(1) claim — the
+# swap is a MATCHMAKING fix, not a budget change. Both iterators are in the census
+# below and both are rated `fine` for a pulse.
+#
+# --- 2.1 THE ITERATOR CENSUS, measured in THIS session over
+#         GAME\common\**\*.txt + GAME\events\**\*.txt with the pattern ^\s*<name>\s*=
+#
+#   iterator                                                    uses   verdict here
+#   ---------------------------------------------------------   ----   ------------------
+#   every_vassal                                                 911   cheap, bounded — not needed
+#   any_player                                                   n/a   see note below
+#   every_player                                                 271   THE notification idiom; 1 entry in single player. USED (E9)
+#   any_neighboring_top_liege_realm_owner                        178   the right neighbourhood predicate
+#   any_ruler                                                     84   fine as a trigger, never as a loop
+#   random_ruler                                                  77   acceptable; NOT used — unbounded reach
+#   every_tributary                                               66   bounded relation iterator
+#   any_land_neighboring_realm_with_tributaries_owner             66   fine
+#   every_ally                                                    58   cheap
+#   random_neighboring_top_liege_realm_owner                      57   RETIRED FROM E11 IN V15 - see below
+#   any_independent_ruler                                         27   trigger only
+#   every_neighboring_and_across_water_top_liege_realm_owner      26   acceptable
+#   random_neighboring_and_across_water_top_liege_realm_owner     25   fine
+#   every_neighboring_top_liege_realm_owner                       20   acceptable, bounded — not needed
+#   random_neighboring_realm_same_rank_owner                      20   *** THE PICK FOR A PULSE SINCE V15. USED (E11) ***
+#        The swap is a MATCHMAKING fix, not a performance one - the old iterator
+#        returned the neighbouring realm's TOP LIEGE and so paired 94% count-or-duke
+#        buyers against 78% king-or-emperor sellers, 584 pairs out of 584. Full
+#        measurement and the falsifiable prediction: the partner-pick header in
+#        common\scripted_effects\tnt_38_ai_world.txt.
+#   random_independent_ruler                                      17   acceptable; not used
+#   ordered_neighboring_top_liege_realm_owner                      7   fine
+#   random_player                                                  6   —
+#   every_land_neighboring_realm_with_tributaries_owner             6   fine
+#   random_land_neighboring_realm_with_tributaries_owner            5   fine
+#   random_ally                                                    3   cheap
+#   ** every_ruler                                                43   *** NEVER ON A PULSE ***
+#   ** every_independent_ruler                                    21   *** NEVER ON A PULSE ***
+#   ** every_living_character                                      1   *** NEVER ***
+#   ** every_character                                             0   DOES NOT EXIST — blacklisted
+#
+#   (any_player is not in the table because it is a trigger, not an effect iterator,
+#    and my pattern only counted effect-position matches. It is real and used:
+#    GAME\common\casus_belli_types\00_religious_war.txt:3354,
+#    GAME\common\council_tasks\00_court_chaplain_tasks.txt:1371.)
+#
+# --- 2.2 WHERE every_ruler ACTUALLY APPEARS, and the one apparent exception
+#   All 43 sites are non-periodic: game setup (game_start.txt:1363, :2432, :2894,
+#   :7556), one-shot decisions (10_ach_oath_decisions.txt:1360,
+#   80_major_decisions_central_asia.txt:110, 80_major_decisions_south_asia.txt:133),
+#   great holy war pledges (00_religious_war.txt:4176, :4188,
+#   00_religious_interactions.txt:6714), story cycles
+#   (ep3_story_cycle_harrying_of_the_north.txt:87-153), event-driven on_actions
+#   (culture_on_actions.txt:111 = on_tradition_added;
+#   holy_order_on_actions.txt:97 = on_holy_order_destroyed), game-rule effects
+#   (00_game_rule_effects.txt, 9 sites, all run once), activity invite rules.
+#   PDX's own comment sits on two of them, verbatim:
+#       every_ruler = { # PUT EVERY_RULER TYPE STUFF HERE FOR PERFORMANCE REASONS
+#       GAME\common\on_action\game_start.txt:1363  and  :2894
+#   i.e. batch ALL every_ruler work into ONE loop, at setup.
+#
+#   THE ONE APPARENT EXCEPTION, and it is worth understanding rather than
+#   dismissing: GAME\common\on_action\religion_on_actions.txt hangs
+#   faith_holy_order_land_acquisition_pulse (:831) off on_faith_monthly (:580) and
+#   that pulse's chance_of_no_event contains an every_ruler (:845). It is not a
+#   counter-example, it is the template:
+#     (a) root is a FAITH, and there are ~100 faiths — not ~10,000 characters;
+#     (b) the whole block sits behind `chance_to_happen = 17` (:838);
+#     (c) on_faith_monthly's own effect wraps its every_independent_ruler in TWO
+#         nested `random = { chance = … }` gates (:600-612).
+#   So even vanilla's widest periodic iteration is (small root set) x (stacked
+#   probability gates). Ours is (one neighbour pick) x (one probability gate), which
+#   is strictly cheaper.
+#
+#   Two further PDX performance comments worth quoting because they set the tone:
+#     GAME\common\scripted_effects\00_war_effects.txt:1774-1782
+#       # As a pure notification thing, we only care about players. No need to waste
+#       # CPU cycles for AI-only wars.
+#     GAME\common\on_action\health_on_actions.txt:291
+#       is_ruler = yes # For performance reasons we limit this as checking modifiers is expensive
+#
+# --- 2.3 THE CHOSEN DESIGN, AND ITS COST, LINE BY LINE
+#   A RANDOM SAMPLE PER PULSE, NEVER A WORLD SWEEP. Per AI count-or-above ruler per
+#   birthday:
+#
+#     step                                              cost when rule = off   cost when rule = rare
+#     -----------------------------------------------   --------------------   ---------------------
+#     trigger: has_game_rule                            1 lookup               1 lookup
+#     trigger: is_ai / is_landed / is_ruler / at war     -                      4 lookups
+#     trigger: NOT has_variable tnt_ai_world_cd         -                      1 lookup
+#     trigger: highest_held_title_tier >= tier_county   -                      1 lookup
+#     trigger: tnt_not_the_watch_trigger (V15 item 3)   -                      2 lookups
+#     tnt_ai_world_chance_value                         -                      3 lookups
+#     ---- with probability p (6 / 14 / 28 % by tier, the doubled ladder) ----
+#     random_neighboring_realm_same_rank_owner          -                      ~8 candidates x 10 flat lookups
+#          (V15: 7 rows became 10 - the Watch row's two government lookups and
+#           the two symmetric hierarchy rows. Still all flat, still bounded.)
+#     any_player guard                                  -                      1 iteration (single player)
+#     random_list: 7 entry triggers (2 call T12/T13)    -                      ~35 lookups
+#     1 archetype: 1 or 2 balance chains x ~9 values    -                      ~10-20 value evaluations
+#     apply + notify + 2 set_variable                   -                      ~10 writes
+#
+#   AT ~700 AI COUNT-OR-ABOVE RULERS (a 1066 start is in that order), spread over
+#   365 birthdays:
+#     rule = off    ~700 has_game_rule lookups a year  ==  ~2 a day. Free.
+#     rule = rare   ~700 triggers + ~98 partner picks a year (p averages ~14 %
+#                   on the doubled ladder — the same yearly pick count the
+#                   two-host era produced with ~7 % twice)
+#                   ==  ~2 triggers and one partner pick every 4 days.
+#     rule = common ~2.5x that.
+#
+#   FOR SCALE: vanilla ships ~271 AI-driven interactions, each of which the engine
+#   evaluates against up to `ai_targets max` candidates every `ai_frequency_by_tier`
+#   months — thousands of (interaction x target) pairs per ruler per year, inside the
+#   engine's own MINIMUM_TASKS_IN_TICK = 128 / MAX_TASKS_IN_TICK = 192 budget
+#   (GAME\common\defines\ai\00_ai.txt:83-98). This pulse is a rounding error against
+#   that, and the three Phase-B interactions in tnt_11_ai_interactions.txt are a
+#   ~1 % increase in that table.
+#
+# --- 2.4 THE WORLD RATE, AND THE ONE THING THAT BOUNDS IT
+#   The hard bound is NOT the chance — it is tnt_ai_world_cd, the three-year lock
+#   E10 puts on BOTH parties. No ruler can be in more than one silent treaty every
+#   three years in either role, so the steady state cannot run away however the
+#   chance is tuned.
+#   Working it through at `rare`: of ~98 pulses a year that reach the partner pick,
+#   the random_list's untriggered 20-of-100 "none" entry and the failing legality
+#   triggers drop roughly half, and of the archetypes that are chosen the balance
+#   test refuses a good share (A4 almost always; the title and fealty legs pass
+#   only between friendly realms by construction) — landing at ROUGHLY 5 TO 15
+#   CONCLUDED TREATIES A YEAR ACROSS THE WHOLE MAP at `rare`, and 15 to 40 at
+#   `common`.
+#   Those are ESTIMATES, not measurements: the balance pass-rate depends on the
+#   actual distribution of incomes, opinions and personalities in the save, which
+#   nothing static can predict. The knob is
+#   tnt_ai_world_chance_value (tnt_56_ai_values.txt part 8) and it is one value.
+#
+#   *** THE QUOTED RATES WERE CALIBRATED FOR TWO HOSTS, AND THE LADDER WAS
+#   DOUBLED WHEN HOST 2 WENT (2026-08, same commit). *** Two hosts meant an
+#   effective annual chance of 1-(1-p)^2 (at p = 0.14 that is 0.26); one host
+#   means p flat. The old 3 / 7 / 14 ladder therefore became 6 / 14 / 28 in
+#   tnt_ai_world_chance_value (tnt_56_ai_values.txt part 8) — the old header's
+#   own standing instruction — so the estimates above still hold, minus the
+#   same-tick duplicate deals the doubling used to manufacture.
+#
+# --- 2.5 WHAT THIS FILE DELIBERATELY DOES NOT DO
+#   * No every_ruler, every_independent_ruler, every_living_character or
+#     every_character anywhere. Grep this file and tnt_38_ai_world.txt: zero hits,
+#     and per 43-…md §5.1 the last of those does not even exist.
+#   * No global variable, no world-wide counter, no queue. A per-character timed
+#     variable is the whole throttle.
+#   * No `random_events` block. Our work is an effect, not an event, so it belongs
+#     in `effect` — and that also keeps it out of the engine's event-selection path
+#     entirely.
+#   * No convergence loop, no retry, no next-tick continuation
+#     (30-V2-DESIGN §6.4.3).
+#
+# ENCODING: UTF-8 WITH BOM (R16). NEW .txt — reported in new_txt_files_needing_bom.
+###############################################################################
+
+
+###############################################################################
+# THE ONE HOST — the ideal host: root is already an AI, already yearly, no
+# effect block of its own to conflict with.
+#
+# HOST 2 (yearly_playable_pulse) STOOD HERE and was deleted 2026-08 under its
+# own escape clause — the 2026-08 log measured it as a same-tick double
+# dispatch, not insurance (13,506 queued-twice warnings, WTRY x2 in 1,183 of
+# 1,188 ruler-years, 22% of deals duplicate-fire artifacts; the full forensics
+# are in this file's header, section 1). Do not re-add it.
+###############################################################################
+ai_character_pulse = {
+	on_actions = {
+		tnt_ai_world_pulse
+	}
+}
+
+
+###############################################################################
+# tnt_ai_world_pulse
+#
+# Root = an AI count-or-above, once a year on their birthday, reached through
+# ai_character_pulse (the sole host since 2026-08). Everything below is a gate;
+# the work is in MOD\common\scripted_effects\tnt_38_ai_world.txt E11.
+#
+# ===========================================================================
+# THE TRIGGER, ROW BY ROW, IN DELIBERATE COST ORDER
+# ===========================================================================
+# CHEAPEST AND MOST SELECTIVE FIRST. This trigger runs ~700 times a year for every
+# save in existence, including saves whose owner has the rule switched off, so the
+# first row has to be the one that ends the conversation for those saves.
+#
+#  1. NOT has_game_rule tnt_ai_treaties_off
+#     One flat lookup, and for a user who does not want silent AI treaties it is the
+#     ONLY row that ever runs. Everything downstream — including
+#     tnt_ai_world_chance_value's own belt-and-braces `off` multiply — is then
+#     unreachable.
+#     `has_game_rule = <SETTING id>`, not the rule id. REAL:
+#       GAME\common\character_interactions\00_culture_interactions.txt:181
+#         (has_game_rule = less_common_hybrid_culture_ai_frequency)
+#       GAME\common\character_interactions\00_adoption.txt:16 (has_game_rule = no_adoption)
+#     Rule and settings: MOD\common\game_rules\tnt_81_ai_rules.txt.
+#
+#  2. is_ai = yes
+#     Belt-and-braces since host 2 went (2026-08): the one remaining host is
+#     already is_ai-gated by vanilla (yearly_on_actions.txt:2870-2872). The row
+#     STAYS because it is one flat lookup and it is the only thing standing
+#     between a future player-inclusive re-host (the W-7 recovery in the header)
+#     and the single worst failure this feature could have: the player silently
+#     brokering treaties on his own behalf with no window, no consent and no
+#     notification.
+#     REAL: GAME\common\character_interactions\00_gift.txt:499.
+#
+#  3. is_landed = yes  /  is_ruler = yes
+#     An unlanded character has no income to price a treaty against, no realm to
+#     make a truce meaningful and nothing any of the five allowed items can move.
+#     REAL: GAME\common\character_interactions\00_character_interactions.txt:26
+#     (is_landed, offer_vassalization is_shown);
+#     GAME\common\character_interactions\00_alliance.txt:1124, :1127 (is_ruler).
+#     Vanilla's own reason for pairing them on a hot on_action, verbatim:
+#       GAME\common\on_action\health_on_actions.txt:291
+#         is_ruler = yes # For performance reasons we limit this as checking modifiers is expensive
+#
+#  4. highest_held_title_tier >= tier_county
+#     THE BARONY CUT. 265 of the 271 vanilla ai_frequency_by_tier blocks set
+#     `barony = 0`, i.e. vanilla switches barons out of AI diplomacy entirely
+#     (43-…md §1.8, measured). yearly_playable_pulse is count+ already, so on that
+#     host this is redundant; ai_character_pulse's own trigger is only `is_ai = yes`,
+#     so on host 1 it is not. It also makes tnt_ai_world_chance_value's ladder total:
+#     a character below county gets 0 from it and would waste the pick anyway.
+#     tier constants: GAME\common\script_values\00_title_tiers_values.txt:1-7.
+#
+#  5. is_at_war = no
+#     A ruler fighting for his life is not brokering side-treaties, and this is also
+#     where the AI's own decision budget is busiest. It is vanilla's own first line
+#     in this position — GAME\common\character_interactions\00_courtier_and_guest_interactions.txt:168
+#       is_at_war = no # Try to avoid wasting your war chest!
+#     and GAME\common\character_interactions\00_culture_interactions.txt:123 inside
+#     ai_cultural_hybridization_interaction's ai_potential, which is the closest
+#     vanilla analogue of this whole pulse.
+#     NOTE: the CANDIDATE is also required to be at peace (tnt_38_ai_world.txt E11).
+#     Until USER ITEM 26 a mid-war TRUCE stayed reachable through phase B, where a
+#     human sees the offer; the door now refuses an at-war pair outright
+#     (tnt_10_interaction.txt is_valid), so the one phase-B seam left is a war
+#     declared while the window is already open. T13 still carries no at-war row —
+#     its header (tnt_40_triggers.txt) explains why. The silent path never did.
+#
+#  6. NOT has_variable tnt_ai_world_cd
+#     The three-year lock from E10. One lookup. (The old text here credited it
+#     with making double-hosting idempotent; the 2026-08 log disproved that for
+#     the same-tick case — fire2's trigger did not see fire1's variable — which
+#     is part of why host 2 was deleted rather than latched.)
+#
+#  7. tnt_not_the_watch_trigger = { WHO = this }        V15, USER ITEM 3
+#     THE WALL BROKERS NOTHING, SILENTLY OR OTHERWISE. This is the PROPOSER half
+#     of the pair rule whose RECIPIENT half is the same call inside E11's
+#     candidate limit (tnt_38_ai_world.txt) — both halves are needed, because a
+#     Watch ruler otherwise still pulses, picks a partner and composes a treaty.
+#     Last measured as an ACTOR in the 2026-08-16 run (the S-FEALTY entry's own
+#     note records the Lord Commander in the a= role); the 2026-08-17 run happened
+#     to show him only as b=, so the role is reachable and merely unmeasured this
+#     time. ONE flat government lookup, ~700 evaluations a year, ALWAYS TRUE in a
+#     vanilla-only game — the whole safety proof is in T48's header,
+#     MOD\common\scripted_triggers\tnt_40_triggers.txt. It also refuses AGOT's
+#     ruins/unknown/wilderness placeholder governments through T48's second flag.
+#     It sits LAST because it is the least selective of the seven, and the cost
+#     table above gains one flat lookup on the trigger rows.
+#
+# WHAT IS **NOT** IN THE TRIGGER, AND WHY
+#   * basic_is_valid_for_yearly_events_trigger. It is the standard guard for
+#     pulse-hosted EVENTS (GAME\common\scripted_triggers\00_available_for_events_triggers.txt:767-781,
+#     used by random_yearly_playable_pulse at yearly_on_actions.txt:2525-2527), and
+#     PDX's note at :783 is a warning about exactly this: "It's a lot better for
+#     performance to not have scripted triggers within scripted triggers when they're
+#     checked as often as these ones are." We fire no event and open no window, so
+#     none of what it tests (imprisoned, incapable, travelling, in an activity)
+#     changes whether two AI treasuries can exchange gold. The two rows of it that
+#     WOULD matter — alive and landed — are already above, flat.
+#   * A partner test of any kind. There is no partner yet; picking one is E11's job
+#     and it is behind the probability gate, which is the whole point of the split.
+#   * The probability gate itself. It lives in the effect because
+#     tnt_ai_world_chance_value needs `scope:actor`, and the trigger has no saved
+#     scopes. Putting it here would mean a second value family keyed on root.
+#
+# THE EFFECT IS ONE SYNCHRONOUS CHAIN. The strategic submission lane runs first;
+# only a success writes the shared cooldown, so the ordinary E11 lane remains the
+# fallback without a second queued host or a same-tick double deal. Everything
+# real is in tnt_38_ai_world.txt, including the scope and D4 analyses.
+###############################################################################
+tnt_ai_world_pulse = {
+	trigger = {
+		NOT = { has_game_rule = tnt_ai_treaties_off }
+		is_ai = yes
+		is_landed = yes
+		is_ruler = yes
+		highest_held_title_tier >= tier_county
+		# All silent realm mutations require peace. In particular, never change a
+		# liege during AGOT's temporary Mega-War independence graph.
+		is_at_war = no
+		NOT = { has_variable = tnt_ai_world_cd }
+		tnt_not_the_watch_trigger = { WHO = this }		# V15, USER ITEM 3: the Wall brokers nothing, silently or otherwise. See T48, tnt_40_triggers.txt, and row 7 of the list above.
+	}
+
+	effect = {
+		# One synchronous chain. A successful strategic submission writes the
+		# three-year cooldown before the generic fallback is considered, avoiding
+		# the same-tick double-dispatch defect measured for the retired second host.
+		tnt_ai_world_submission_pulse_effect = yes
+		if = {
+			limit = {
+				NOT = { has_variable = tnt_ai_world_cd }
+			}
+			tnt_ai_world_pulse_effect = yes
+		}
+	}
+}

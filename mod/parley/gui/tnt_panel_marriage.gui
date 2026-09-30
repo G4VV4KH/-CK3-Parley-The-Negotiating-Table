@@ -1,0 +1,1778 @@
+######################################################################
+### PARLEY: THE NEGOTIATING TABLE - THE MARRIAGE PAIR + LINE EDITOR   (user item 2.1)
+###
+### A TYPES-ONLY FILE. No registration in gui\scripted_widgets is needed -
+### same reasoning as tnt_types.gui and tnt_panels.gui.
+###
+### INTEGRATION: ALREADY DONE, IN PARALLEL, BY THE GUI OWNER.
+### tnt_diplomacy_window.gui:1451-1529 instantiates this type inside the
+### existing `blockoverride "tnt_picker_panels"` as
+###     tnt_panel_marriage = { name = "tnt_panel_marriage_editor"  visible = ... }
+### and overrides all four contract blocks. Verified against that file while
+### writing this one; nothing here has to change and nothing there does either.
+### Two consequences worth knowing:
+###   * The gui owner writes `visible =` at the instantiation site with the
+###     identical expression this type already carries, which is harmless.
+###   * The gui owner's four blockoverrides REPLACE the default content below,
+###     so the defaults are a fallback, not the shipped rendering. They are
+###     kept complete and working on purpose: a bare
+###     `tnt_panel_marriage = { name = "..." }` is a finished editor, so the
+###     window can drop any override at any time without breaking the feature.
+###     Their overrides use the same scripted guis and the same variables as
+###     these defaults - tnt_pick_spouse_p_set / _r_set, tnt_spouse_p / _r,
+###     tnt_marriage_matri, tnt_list_spouse_p / _r - with one addition, the
+###     line rendered as a labelled checkbox calling tnt_marriage_matri_toggle
+###     instead of the radio pair below. That scripted gui is supplied by
+###     common\scripted_guis\tnt_22a_marriage.txt alongside the two radio
+###     setters, so both renderings work.
+###
+### `parentanchor = center` is legal on this type because its parent is
+### tnt_picker_overlay, a plain widget that arranges nothing (R5).
+###
+### ONE PANEL, NOT TWO. Overlay index 5 was reserved for marriage by
+### 10-CONTRACT R0.8, and 30-V2-DESIGN section 4.1 puts the whole compound
+### editor there rather than in the centre column, "which is what keeps the
+### centre column a summary rather than a second window". Both candidate
+### lists, the line control and the summary live in this one panel, so the
+### panel does NOT test tnt_picker_side: opening it from either column shows
+### the same editor. Both openers write the side anyway, so tnt_picker_close
+### and tnt_reset_offer_effect keep one uniform cleanup.
+###
+### THE FIVE CONTRACT BLOCKS, all filled with working defaults so a bare
+### instantiation is complete, and all overridable:
+###     tnt_marriage_left_list    the player's candidates  (datamodel)
+###     tnt_marriage_right_list   the partner's candidates (datamodel)
+###     tnt_marriage_line_toggle  patrilineal / matrilineal, for the STAGED pair
+###     tnt_marriage_summary      who is staged, and what the match is worth
+###     tnt_marriage_pair_list    THE COMMITTED COUPLES (datamodel, iteration 4)
+###
+### ---------------------------------------------------------------------
+### V3 ITERATION 4 - ONE DEAL, ANY NUMBER OF MARRIAGES, ONE PROMISE
+### ---------------------------------------------------------------------
+### The deal no longer holds A marriage; it holds a LIST of them, tnt_wed_list
+### on the player, with each list member the PLAYER-SIDE spouse and the other
+### half of that couple stored as tnt_wed_partner ON THAT MEMBER (the line, too,
+### as tnt_wed_matri). CK3 variable lists have no index access from script OR
+### from gui, so two parallel lists could never have been zipped into pairs -
+### one list of keys plus one variable per key is the only expressible model.
+###
+### WHAT THAT DID TO THIS PANEL. tnt_spouse_p / tnt_spouse_r / tnt_marriage_matri
+### were not deleted and did not change meaning inside this file: they were
+### DEMOTED to a staging cursor, and a third button (tnt_wed_add) commits them
+### as a pair. That indirection is forced, not chosen: TntPickChar passes ONE
+### row object and Law R8 forbids a second .AddScope, so a single click can never
+### deliver two characters to a scripted gui. Everything above the staging bar is
+### therefore untouched, and three regions replace two:
+###     the player's candidates | the partner's candidates      (unchanged)
+###     the staging bar: line + Add + what is staged            (regrouped)
+###     the committed couples, unbounded and scrolling          (NEW)
+###     the footer: the grand-wedding PROMISE + Remove all      (NEW)
+###
+### THE GRAND WEDDING IS A PROMISE AND THE LOC SAYS PROMISE. The script author
+### rides vanilla's set_grand_wedding_betrothal_variables: the honoured couple is
+### betrothed, the player becomes the promised host, a countdown runs and vanilla
+### warns him before it lapses. This mod creates NO activity and schedules
+### nothing. See the footer's own note.
+###
+### ---------------------------------------------------------------------
+### V3 ITERATION 6 - THE CLASSIC SCREEN IS BORROWED, AND IT IS THE FRONT DOOR
+### ---------------------------------------------------------------------
+### ONE BUTTON WAS ADDED, DIRECTLY UNDER THE HEADER, and it opens VANILLA'S OWN
+### matchmaker window on our behalf - the interaction tnt_stage_marriage_interaction
+### (common\character_interactions\tnt_12_marriage_picker.txt) sets
+### `interface = marriage` and deliberately omits `special_interaction`, which is
+### the one key that would have married anybody. The borrowed window gives the
+### player the two big portraits, both households with all sixteen filters and the
+### search, the line checkbox and the grand-wedding checkbox, and hands the two
+### chosen characters to script as real scopes. Its on_accept stages them into THIS
+### deal through the SAME commit effect the Add button below uses.
+###
+### NOTHING WAS DELETED. The two candidate lists, the staging bar, the line pair,
+### the summary, the committed-pair rows and the footer are all untouched: they are
+### the by-hand alternative, the fallback if the borrowed window misbehaves, and
+### the only place a COMMITTED pair's line can be flipped or the grand wedding
+### moved to another couple. The borrowed window can only speak about the one pair
+### it is staging.
+###
+### THE HONESTY PROBLEM, AND WHERE IT IS SOLVED. The borrowed window's big confirm
+### button says "Send Proposal" - vanilla hardcodes that label at
+### GAME\gui\interaction_marriage.gui:229 and the button lives in
+### interaction_templates.gui:95-102 - and pressing it sends no proposal and
+### marries nobody: it records the couple in the treaty being negotiated. Fixing
+### the label would cost a vanilla .gui override (R1). So the truth is stated three
+### times on OUR side of the line, all before the player can read vanilla's word:
+### the launch button's tooltip (tnt_btn_stage_marriage_tip), the visible note
+### beside it (tnt_marriage_stage_note), and the borrowed window's own header and
+### body, which read our send_name and desc (tnt_stage_marriage_send /
+### tnt_stage_marriage_desc).
+###
+### ---------------------------------------------------------------------
+### DELIBERATELY SELF-CONTAINED
+### ---------------------------------------------------------------------
+### Every type below derives from a VANILLA base only - vbox / hbox / widget
+### / text_single / button_standard / button_standard_list / button_round /
+### portrait_head_tiny / scrollbox / divider_light / header_pattern / expand.
+### Nothing here derives from tnt_panels.gui's reserved shapes
+### (tnt_editor_panel, tnt_pair_slot, tnt_toggle_line), even though they were
+### written for this panel, for two reasons: that file belongs to another
+### author (R18), and it sorts AFTER this one ("tnt_panels.gui" >
+### "tnt_panel_marriage.gui" because '_' < 's'), so a cross-file derivation
+### would rest on the loader resolving a parent type declared in a later
+### file. Not worth the risk for four widgets. If the gui owner later wants
+### the shared chrome, `tnt_panel_marriage` can be re-parented in one line.
+###
+### ---------------------------------------------------------------------
+### R5 / R-LAYOUT, obeyed at every single site
+### ---------------------------------------------------------------------
+### A direct child of hbox / vbox / flowcontainer carries NEITHER `position`
+### NOR `parentanchor`. Engine string, verbatim: "Unsupported property:
+### parentanchor on widgets that are a child of a hbox/vbox. Hboxes/vboxes
+### arrange their children automatically." (EXE:294858), plus "Widget cannot
+### have a position in a layout" (EXE:295212) - which cost this mod 431 error
+### lines in one session (defect D2).
+### Two techniques are used instead, both vanilla:
+###   * wrap the child in a plain `widget` and anchor INSIDE that - vanilla's
+###     own stepper does exactly this, GAME\gui\window_knights.gui:716-759,
+###     where `parentanchor = center` appears only inside button_round;
+###   * or give the hbox the height of its tallest child so there is nothing
+###     left to centre against. THAT is why the line-choice buttons sit in an
+###     hbox of their own with the label on a separate row above: two 30 px
+###     buttons in a 30 px hbox need no anchor at all.
+### `parentanchor` DOES appear below - on portrait_head_tiny, on
+### button_minus_small, on the two overlay-state children, and on the four
+### controls of a committed-pair row plus the footer's checkbox and label -
+### and EVERY ONE of them has a plain `widget` as its parent.
+###
+### R6: no (flow)container anywhere in this file, so the D3 class of error
+### ("A (flow)container can't have an hbox/vbox as a direct child") cannot
+### occur. vbox-inside-hbox and hbox-inside-vbox are both legal.
+###
+### R11: every datamodel item carries a FIXED size - PDX's own rule, "This is
+### required for performance reasons", GAME\gui\window_epidemics.gui:449-450 -
+### and NO row's `visible` or `down` calls GetScriptedGui. A row's selected
+### state is an ObjectsEqual test against a stored character variable, the
+### shipped idiom of tnt_picker_row_char (tnt_types.gui:1608-1611); the
+### per-pair legality test is nowhere near a row, it is the 0/1 mirror
+### tnt_marriage_legal that tnt_marriage_sync_effect writes.
+###
+### R-SPILL (item 3.2c): every text widget that prints GAME text carries
+### `autoresize = no` with `layoutpolicy_horizontal = expanding` or an
+### explicit min_width/max_width, and the `elide = right` inherited from
+### type text_single is never overridden. type text_single inherits
+### `autoresize = yes` (GAME\gui\preload\labels.gui:6-16) and a self-resizing
+### child of an hbox reports a minimum width equal to its full text width, so
+### one long name pushes the row's own controls outside the panel. Exact
+### vanilla pairing: GAME\gui\frontend_bookmarks.gui:1869-1876.
+###
+### ALL THREE SCROLL LISTS SET `blockoverride "scrollbox_margins"` EXPLICITLY.
+### The inherited Scrollbox_Margins is 15/15/15/20 (GAME\gui\shared\windows.gui:135-140)
+### and the scrollbar is 12 px wide (GAME\gui\shared\lists.gui:3253-3259) and
+### does NOT shrink the content area - the content has to stay clear of it by
+### margin, which is complaint 3.2(b). 26 on the right = 12 + 14 of air.
+###
+### ---------------------------------------------------------------------
+### SIZE BUDGET  (1000 x 780, inside a 1480 x 88% window)
+### ---------------------------------------------------------------------
+### ITERATION 4 GREW THE PANEL BY 100 x 80. 780 is the largest height that
+### still fits the smallest window CK3 will build here - 88% of a 900 px screen
+### is 792 - and the extra 100 of width is what lets a pair row carry both
+### names, the line, the honour and a remove button without eliding a name.
+###
+### Horizontal: 1000 - 80 (Window_Margins 40 + 40) = 920; minus the 10 px
+###   column spacing = 910, i.e. 455 per candidate column. A candidate row is
+###   455 - 8 - 26 (scroll margins) = 421 wide, minus its own 8 + 8 margin =
+###   405, laid out as 38 portrait + 8 + name (expanding, 303) + 8 + 50 age.
+###   A PAIR row spans the full width: 920 - 8 - 26 = 886, minus its 8 + 8
+###   margin = 870 = names (expanding, 570) + 6 + 120 line + 6 + 130 honour
+###   + 6 + 32 remove.
+### Vertical, AS OF THE HEIGHT PASS: 780 is a CEILING, not the height. The
+###   panel is TIER 1 of the height convention (tnt_panels.gui header):
+###   size = { 1000 0 } + maximumsize = { 1000 780 }, so the vbox measures its
+###   children. The flexible children carry floor..cap bands instead of fixed
+###   heights or bare `expanding`:
+###     candidate scrollboxes   225..420  (TIER 2, tnt_panel_multi's numbers)
+###     committed-pair region    68..190  (floor = head 20 + one 44 row + 4;
+###                                        its scrollbox 48..140, three rows)
+###     staging bar             112..content (its summary lines wrap, TIER 3)
+###   Fixed children: header 56, classic-screen bar 36, footer 34, dividers,
+###   spacings, margins 38. Minimum credible panel: ~38+56+36+112+68+34+48+9
+###   + column interior 102 + scroll floor 225 = ~730; worst case saturates
+###   the 780 cap exactly as before, with the scrollboxes absorbing the
+###   squeeze between their floors and caps. One candidate and zero pairs no
+###   longer open a near-full-screen panel.
+###
+### THE TWO CANDIDATE COLUMNS remain `layoutpolicy_vertical = expanding`
+### (the same shape tnt_panel_multi's columns keep); their SCROLLBOXES are
+### what measure rows now, so an arithmetic slip still only changes how many
+### candidate rows are visible - it can never push the Add button or the
+### footer off the panel, because everything below the columns has a floor.
+######################################################################
+
+types TwdPanelMarriage
+{
+
+	####################################################################
+	### 1. ONE CANDIDATE ROW
+	###
+	### Copied from the shipped tnt_picker_row_char (tnt_types.gui:1596-1642),
+	### which is the row shape already proven in game for a character list,
+	### plus one right-aligned age column. Age is what a player picking a
+	### spouse looks at first, and it is also what decides whether the deal
+	### becomes a wedding or a betrothal.
+	###
+	### `[Character.GetAge]` is verbatim vanilla - GAME\gui\shared\lists.gui:29,
+	### :64 and GAME\gui\multiplayer_lobby.gui:456. The ambient Character comes
+	### from the item's own `datacontext = "[Scope.Char]"`, because the list is
+	### a script-built variable list of characters and Scope.Char is how this
+	### mod unwraps one (tnt_31_lists.txt header).
+	###
+	### The two blocks let the same type serve both columns: the instantiation
+	### site supplies which setter the click runs and which variable the
+	### selected state compares against.
+	####################################################################
+	type tnt_marriage_row_char = button_standard_list
+	{
+		name = "tnt_marriage_row_char"
+		layoutpolicy_horizontal = expanding
+		size = { 0 45 }
+		using = tooltip_es
+
+		block "tnt_marriage_row_onclick"
+		{
+			onclick = "[TntPickChar('tnt_pick_spouse_p_set')]"
+		}
+
+		### OURS, never Character.IsSelected - that means MAP selection.
+		block "tnt_marriage_row_down"
+		{
+			down = "[ObjectsEqual( TntVar('tnt_spouse_p').Char, Character.Self )]"
+		}
+
+		hbox = {
+			layoutpolicy_horizontal = expanding
+			margin = { 8 0 }
+			spacing = 8
+
+			### R-LAYOUT: the portrait is wrapped so that it may centre.
+			widget = {
+				name = "tnt_marriage_row_portrait_holder"
+				size = { 38 100% }
+				alwaystransparent = yes
+
+				portrait_head_tiny = {
+					name = "tnt_marriage_row_portrait"
+					size = { 38 38 }
+					parentanchor = center
+				}
+			}
+
+			text_single = {
+				name = "tnt_marriage_row_name"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Character.GetUINameNoTooltip]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+
+			text_single = {
+				name = "tnt_marriage_row_age"
+				min_width = 50
+				max_width = 50
+				autoresize = no
+				text = "tnt_marriage_row_age"
+				align = nobaseline|right
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+		}
+	}
+
+
+	####################################################################
+	### 2. THE CHOSEN SPOUSE, one per column
+	###
+	### 64 px: portrait, the name over the primary title, and the round X
+	### that takes the choice back. The whole slot is only ever instantiated
+	### inside a plain `widget` holder together with its empty-state twin, so
+	### the column's layout never jumps when a choice is made or unmade.
+	###
+	### `size = { 100% 100% }` and not a fixed height on purpose: the HOLDER
+	### owns the height, which keeps the two mutually exclusive states exactly
+	### the same size by construction.
+	###
+	### `[Character.GetPrimaryTitle.GetNameNoTooltip|U]` is verbatim vanilla -
+	### GAME\gui\multiplayer_lobby.gui:679, GAME\gui\window_barbershop.gui:1286.
+	### A landless candidate prints nothing there, which is the correct answer
+	### and needs no loc key (tnt_picker_row_char in gui\tnt_types.gui relies on
+	### the same; tnt_prisoner_row was the original example, retired with the
+	### prisoner terms under user item 7).
+	###
+	### The two `expand`s carry explicit unique names: type expand hard-codes
+	### `name = "expander"` (GAME\gui\shared\windows.gui:597-601) and two
+	### same-named direct siblings make the engine log "Duplicate children with
+	### the same name override previous widgets" - a line containing tnt_,
+	### which the acceptance bar forbids in error.log. Same treatment as
+	### tnt_picker_row_char in gui\tnt_types.gui (and as tnt_prisoner_row in
+	### tnt_panels.gui, retired under user item 7 - the rule is unaffected).
+	####################################################################
+	type tnt_marriage_pair_slot = hbox
+	{
+		name = "tnt_marriage_pair_slot"
+		size = { 100% 100% }
+		spacing = 8
+		margin = { 8 6 }
+		alwaystransparent = no
+
+		background = {
+			using = Background_Area_Dark
+		}
+
+		widget = {
+			name = "tnt_marriage_slot_portrait_holder"
+			size = { 44 100% }
+			alwaystransparent = yes
+
+			portrait_head_tiny = {
+				name = "tnt_marriage_slot_portrait"
+				size = { 42 42 }
+				parentanchor = center
+			}
+		}
+
+		### A vbox as a direct child of an hbox is legal - only a
+		### (flow)container rejects hbox/vbox children (defect D3).
+		vbox = {
+			name = "tnt_marriage_slot_text"
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			alwaystransparent = yes
+
+			expand = {
+				name = "tnt_marriage_slot_pad_top"
+			}
+
+			text_single = {
+				name = "tnt_marriage_slot_name"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Character.GetUINameNoTooltip]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+
+			text_single = {
+				name = "tnt_marriage_slot_sub"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Character.GetPrimaryTitle.GetNameNoTooltip|U]"
+				align = nobaseline|left
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+
+			expand = {
+				name = "tnt_marriage_slot_pad_bottom"
+			}
+		}
+
+		### R-LAYOUT: the round button is wrapped so that it may centre.
+		### Shape copied verbatim from the shipped clear button,
+		### tnt_types.gui:541-566.
+		widget = {
+			name = "tnt_marriage_slot_clear_holder"
+			size = { 32 100% }
+
+			button_round = {
+				name = "tnt_marriage_slot_clear"
+				size = { 28 28 }
+				parentanchor = center
+				tooltip = "tnt_btn_none"
+				using = tooltip_es
+
+				block "tnt_marriage_slot_clear_sgui"
+				{
+					onclick = "[TntExec('tnt_spouse_p_clear')]"
+				}
+
+				button_minus_small = {
+					name = "tnt_marriage_slot_clear_icon"
+					parentanchor = center
+					alwaystransparent = yes
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 3. ONE LINE-CHOICE BUTTON
+	###
+	### A radio pair, not a checkbox: the player is choosing between two
+	### NAMED things, and a lone checkbox labelled "matrilineal" leaves the
+	### unchecked state unnamed. The chosen one is shown with `down`, which
+	### needs no second variable - absent tnt_marriage_matri IS patrilineal.
+	###
+	### 10+ vanilla types derive from button_standard, e.g.
+	### GAME\gui\window_ledger.gui:3860 `type button_basic_ledger_item`.
+	### 30 px tall, which is the height the shipped tnt_picker_open uses
+	### (tnt_types.gui:519), so the two buttons and their hbox are all 30 and
+	### nothing needs a cross-axis anchor.
+	####################################################################
+	type tnt_marriage_line_button = button_standard
+	{
+		name = "tnt_marriage_line_button"
+		size = { 168 30 }
+		using = tooltip_es
+
+		block "tnt_marriage_line_text"
+		{
+			text = "tnt_marriage_line_patri"
+		}
+
+		block "tnt_marriage_line_tooltip"
+		{
+			tooltip = "tnt_marriage_line_patri_desc"
+		}
+
+		block "tnt_marriage_line_down"
+		{
+			down = "[Not( TntOn('tnt_marriage_matri') )]"
+		}
+
+		block "tnt_marriage_line_click"
+		{
+			onclick = "[TntExec('tnt_marriage_set_patri')]"
+		}
+	}
+
+
+	####################################################################
+	### 4. ONE SUMMARY LINE
+	###
+	### Every line of the summary is its own row of a vbox, so no line ever
+	### needs vertical centring and R5 never comes up. `ignoreinvisible = yes`
+	### on the containing vbox makes a hidden line cost no height, which is
+	### what lets five mutually exclusive states share one block.
+	###
+	### HEIGHT PASS: text_multi, not text_single. These are MOD-AUTHORED
+	### PROSE sentences (TIER 3 of the height convention, tnt_panels.gui
+	### header) - as text_single the long RU summaries elided and the player
+	### LOST words, which R-SPILL tolerates only for game text on one-line
+	### read-outs. autoresize = yes + max_width is the in-tree rule-line
+	### recipe (gui\tnt_panel_people.gui block "tnt_multi_domain"); the
+	### staging bar holding this block trades its fixed height for a
+	### minimumsize floor, which is the holder half of the same tier.
+	####################################################################
+	type tnt_marriage_summary_line = text_multi
+	{
+		name = "tnt_marriage_summary_line"
+		layoutpolicy_horizontal = expanding
+		autoresize = yes
+		max_width = 420
+		align = nobaseline|left
+		alwaystransparent = yes
+		fontsize_min = 12
+		using = Font_Size_Small
+
+		block "tnt_marriage_summary_visible"
+		{
+			visible = no
+		}
+
+		block "tnt_marriage_summary_text"
+		{
+			text = "tnt_marriage_pick_both"
+		}
+	}
+
+
+	####################################################################
+	### 4b. ONE COMMITTED PAIR   (V3 ITERATION 4)
+	###
+	### One row of tnt_wed_list. THE LIST HOLDS THE PLAYER-SIDE SPOUSE AND THAT
+	### CHARACTER IS THE PAIR'S KEY, so the row's ambient Character is our half
+	### of the couple and the other half is read OFF IT:
+	###     [Character.MakeScope.Var('tnt_wed_partner').Char]
+	### That shape is vanilla, not a guess - GAME\gui\window_tgp_dynastic_cycle.gui:3266
+	###     visible = "[ObjectsEqual( SituationParticipantGroup.MakeScope.Var('movement_leader').Char.Self, Character.Self )]"
+	### is exactly <object>.MakeScope.Var('name').Char, and the datamodel this row
+	### sits in is the same construction vanilla uses at
+	### GAME\gui\window_situation_list.gui:1071 with `datacontext = "[Scope.Char]"`
+	### on the item at :1079. CK3 has no index access into a variable list, from
+	### script or from gui, so a pair CANNOT be two parallel lists zipped by index -
+	### one list of keys plus one variable on each key is the whole storage model.
+	###
+	### THE TWO NAMES ARE PRINTED BY THE LOC KEY tnt_wed_pair_row, which reads both
+	### halves itself. A .gui `text =` is ONE expression and two names need a
+	### separator, and a hard-coded separator string in a .gui is English in a .gui
+	### (R14). Same technique, same reason, as tnt_ctx_marriage.
+	###
+	### R10, THE GUARD: the partner handle is dereferenced only behind
+	### `.Char.IsValid`, which this mod already ships at
+	### gui\tnt_diplomacy_window.gui:575. A member whose tnt_wed_partner has been
+	### stripped therefore prints nothing instead of an invalid handle.
+	###
+	### R9 / R11: FIXED SIZE, and every per-row `visible` / `down` is a plain
+	### variable read - ObjectsEqual against tnt_wed_principal, and for the line an
+	### absent-means-patrilineal GreaterThan that needs no Exists guard
+	### (GAME\gui\hud.gui:294 does exactly that on a MakeScope.Var().GetValue).
+	### NO GetScriptedGui appears anywhere in this row.
+	###
+	### ALL THREE BUTTONS PASS THE ROW'S OWN Character AS scope:tnt_picked, never
+	### the partner's, because the list member is the key that
+	### tnt_wed_remove / tnt_wed_row_line_flip / tnt_wed_set_principal look the
+	### pair up by. ONE AddScope each (Law R8).
+	###
+	### R-LAYOUT: all three controls sit inside a plain `widget` holder and are
+	### centred INSIDE that holder, never against the hbox.
+	####################################################################
+	type tnt_wed_pair_row = hbox
+	{
+		name = "tnt_wed_pair_row"
+		layoutpolicy_horizontal = expanding
+		size = { 0 44 }
+		maximumsize = { -1 44 }
+		spacing = 6
+		margin = { 8 4 }
+		alwaystransparent = no
+
+		background = {
+			using = Background_Area_Dark
+		}
+
+		### `ignoreinvisible` is deliberately NOT set on this hbox: the honoured-couple
+		### button keeps its 130 px whether it is down or not, so no row's controls
+		### ever sit at a different x than its neighbour's.
+		vbox = {
+			name = "tnt_wed_row_text"
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			spacing = 0
+			alwaystransparent = yes
+
+			### Both expands carry a unique name - type expand hard-codes
+			### name = "expander" (GAME\gui\shared\windows.gui:597-601) and two
+			### same-named siblings put a tnt_ path in error.log.
+			expand = {
+				name = "tnt_wed_row_pad_top"
+			}
+
+			text_single = {
+				name = "tnt_wed_row_names"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "tnt_wed_pair_row"
+				visible = "[Character.MakeScope.Var('tnt_wed_partner').Char.IsValid]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+
+			expand = {
+				name = "tnt_wed_row_pad_bottom"
+			}
+		}
+
+		### THE LINE, PER PAIR. tnt_wed_matri lives on THIS character, not on the
+		### player, so the button's label has to be chosen from a variable read on
+		### the row object - which is what the loc key tnt_wed_row_line does with
+		### Select_CString over Localize (the same construction as the shipped
+		### TntHookTier macro, data_binding/tnt_macros.txt:271).
+		widget = {
+			name = "tnt_wed_row_line_holder"
+			size = { 120 100% }
+
+			button_standard = {
+				name = "tnt_wed_row_line_btn"
+				size = { 120 26 }
+				parentanchor = center
+				text = "tnt_wed_row_line"
+				tooltip = "tnt_wed_row_line_tip"
+				using = tooltip_es
+				onclick = "[TntPickChar('tnt_wed_row_line_flip')]"
+			}
+		}
+
+		### THE HONOURED COUPLE. `down` is the badge AND the state: one promise per
+		### host, so exactly one row can be down, and clicking another row moves the
+		### honour there (tnt_wed_set_principal). The loc must never say "the first
+		### one" - it reads tnt_wed_principal, because a CK3 variable list has no
+		### index access and "the next one" is not expressible.
+		widget = {
+			name = "tnt_wed_row_grand_holder"
+			size = { 130 100% }
+
+			button_standard = {
+				name = "tnt_wed_row_grand_btn"
+				size = { 130 26 }
+				parentanchor = center
+				text = "tnt_wed_principal_tag"
+				tooltip = "tnt_wed_set_principal_tip"
+				using = tooltip_es
+				onclick = "[TntPickChar('tnt_wed_set_principal')]"
+				down = "[ObjectsEqual( TntVar('tnt_wed_principal').Char.Self, Character.Self )]"
+			}
+		}
+
+		### Shape copied verbatim from the shipped clear button, tnt_types.gui:541-566.
+		widget = {
+			name = "tnt_wed_row_remove_holder"
+			size = { 32 100% }
+
+			button_round = {
+				name = "tnt_wed_row_remove"
+				size = { 28 28 }
+				parentanchor = center
+				tooltip = "tnt_wed_remove_tip"
+				using = tooltip_es
+				onclick = "[TntPickChar('tnt_wed_remove')]"
+
+				button_minus_small = {
+					name = "tnt_wed_row_remove_icon"
+					parentanchor = center
+					alwaystransparent = yes
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 5. THE PANEL
+	###
+	### Chrome copied from the shipped tnt_picker_panel (tnt_types.gui:1385-1468),
+	### including the reason it does NOT use Window_Decoration_Spike: that
+	### template injects icon CHILDREN, which a vbox would lay out in its flow.
+	### Window_Background contributes only a `background = { }` block, which is
+	### not a flow child - proven at GAME\gui\activity_window_widgets\
+	### funeral_deceased_selection_widget.gui:85-90.
+	###
+	### The close button and the footer's Done button both run the SHIPPED
+	### tnt_picker_close (tnt_21_pickers.txt:583-590), which clears tnt_picker
+	### and tnt_picker_side. No new closing mechanism, and no scripted gui of
+	### this feature's own is needed to dismiss the editor.
+	###
+	### `blockoverride "button_close_tooltip"` and `blockoverride "button_close"`
+	### reach into buttons_window_control, which really does declare both
+	### blocks - GAME\gui\shared\buttons.gui:1281-1290. Overriding the tooltip
+	### block also drops its `shortcut = "close_window"`, exactly as the
+	### shipped picker panel does; Esc is handled by the window itself.
+	####################################################################
+	type tnt_panel_marriage = vbox
+	{
+		name = "tnt_panel_marriage"
+		parentanchor = center
+		### ITERATION 4: 900 x 700 -> 1000 x 780. See the SIZE BUDGET in the file
+		### header; 780 is the ceiling that still fits an 88%-of-900px window.
+		### HEIGHT PASS (user ruling: heights adapt to content everywhere): the
+		### height leaves `size` and becomes a ceiling - TIER 1 of the height
+		### convention (tnt_panels.gui header), the same V4 fix tnt_panel_multi
+		### and tnt_editor_panel already carry. This panel was the last compound
+		### panel still opening near-full-screen for a single candidate.
+		size = { 1000 0 }
+		maximumsize = { 1000 780 }
+		alwaystransparent = no
+
+		### Overlay index 5, reserved for marriage by 10-CONTRACT R0.8.
+		### A pure variable test - no GetScriptedGui in any visible (Law R11).
+		### EqualTo_CFixedPoint over a MakeScope value is verbatim vanilla:
+		### GAME\gui\activity_window_widgets\debate_success_chance.gui:137.
+		visible = "[EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)5' )]"
+
+		using = Window_Background
+
+		vbox = {
+			using = Window_Margins
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			spacing = 6
+
+			header_pattern = {
+				layoutpolicy_horizontal = expanding
+
+				blockoverride "header_text"
+				{
+					text = "tnt_picker_title_spouse"
+				}
+
+				blockoverride "button_close_tooltip"
+				{
+					tooltip = "tnt_btn_close"
+				}
+
+				blockoverride "button_close"
+				{
+					onclick = "[TntExec('tnt_picker_close')]"
+				}
+			}
+
+			############################################################
+			### THE CLASSIC MARRIAGE SCREEN - THE PRIMARY WAY TO ADD A COUPLE
+			### (V3 ITERATION 6, and the reason this iteration exists)
+			###
+			### ONE BUTTON, AND IT OPENS VANILLA'S OWN MATCHMAKER. The interaction
+			### tnt_stage_marriage_interaction (common\character_interactions\
+			### tnt_12_marriage_picker.txt) carries `interface = marriage` and NO
+			### special_interaction, so the C++ hands us the whole beautiful window -
+			### two big portraits with change/revert, both households, all sixteen
+			### filters, the search, the marriage-type icon, the line checkbox and the
+			### grand-wedding checkbox - and MARRIES NOBODY. Its on_accept only stages
+			### the chosen pair into this same deal, through the same commit effect
+			### (tnt_wed_add_pair_effect) that the Add button below uses.
+			###
+			### THE DATAFUNCTION IS VANILLA'S OWN, verified verbatim at
+			### GAME\gui\window_character.gui:5100-5103 (type button_marry_off):
+			###     onclick = "[Character.OpenPlayerInteraction( 'marry_off_interaction' )]"
+			###     enabled = "[Character.IsPlayerInteractionValid( 'marry_off_interaction' )]"
+			### The ambient Character is the interaction's RECIPIENT - the player is
+			### always the actor - so the widget has to carry the DEAL PARTNER as its
+			### datacontext. `datacontext = "[TntPartner]"` is the shipped macro
+			### (data_binding\tnt_macros.txt:56-59) and already appears in this mod at
+			### gui\tnt_diplomacy_window.gui:1214 and :1953, so no new plumbing.
+			###
+			### tooltip + tooltip_when_disabled ON ONE BUTTON is vanilla's own pairing
+			### for a button_standard that opens an interaction -
+			### GAME\gui\window_admin_vassal_detail.gui:249-260. Ours carries the
+			### HONESTY TEXT while the button is live and hands over the engine's own
+			### refusal list the moment it goes dark, so a dark button always says why.
+			### GetPlayerInteractionValidBlockers is real: same file, :260 and :309.
+			### This is why the button does NOT use the mod's usual TntTip triple -
+			### the refusals are an interaction's, not a scripted gui's.
+			###
+			### NOT button_primary, AND THAT IS DELIBERATE. button_primary silently
+			### binds RETURN and alt+C (GAME\gui\shared\buttons.gui:28-29) and this
+			### window already spends its one on Propose (tnt_diplomacy_window.gui:
+			### 1708-1710, :1731). A second one inside this overlay would fight it for
+			### the same key. Prominence comes from position and width instead.
+			###
+			### THE HAND-BUILT EDITOR BELOW STAYS, IN FULL. It is the fallback if any
+			### of the borrowed window's five unverified behaviours misbehaves, and it
+			### is the ONLY place a committed pair's line can be flipped or the grand
+			### wedding moved to another couple - the borrowed window can only speak
+			### about the pair it is staging. Both doors end in the same commit effect,
+			### so they cannot disagree about what a committed pair is.
+			###
+			### SIZE: 36 + 3 (divider) + 12 (two of the vbox's 6 spacings) = 51 px.
+			### Under the height pass the panel grows by these 51 px while below
+			### its 780 cap; AT the cap they are taken out of the two candidate
+			### scrollboxes (the only children with room between floor and cap),
+			### and nothing else in the panel moves - see the SIZE BUDGET in the
+			### file header.
+			###
+			### R-LAYOUT: this hbox's two children are a plain `widget` holder and a
+			### text_single, and neither carries `position` or `parentanchor`; the
+			### button anchors INSIDE its holder, the technique used everywhere else
+			### in this file.
+			############################################################
+			hbox = {
+				name = "tnt_stage_marriage_bar"
+				layoutpolicy_horizontal = expanding
+
+
+				### EXPERIMENT CONCLUDED - fixed height restored.
+				size = { 0 36 }
+				maximumsize = { -1 36 }
+				spacing = 10
+
+				### V3 FIX - REPORTED AS "the button is not clickable".
+				### It never was a broken widget. The button is greyed by
+				### `enabled = IsPlayerInteractionValid`, and the interaction gates
+				### itself in `is_shown` on var:tnt_advanced plus both spouse lists
+				### being non-empty (tnt_show_marriage_p_trigger, tnt_41_gates.txt:1273).
+				### Because those gates live in `is_shown` and
+				### `is_valid_showing_failures_only` is empty, GetPlayerInteractionValidBlockers
+				### has nothing to report - so the player got a dead grey button with a
+				### silent tooltip. That is exactly what the user's own rule forbids:
+				### an option that cannot be chosen should not be displayed.
+				### Same expression the two marriage ROWS already use
+				### (tnt_diplomacy_window.gui:568 and :1400), so the button now appears
+				### if and only if the term itself does.
+				### GATED ON THE GAME RULE ONLY, and that is deliberate.
+				### The earlier version also required tnt_show_marriage_p, which is
+				### false when neither household has anyone free to marry - so the
+				### control vanished in exactly the case where the player most needed
+				### to be told why. The interaction now reports that case itself, as a
+				### blocker in is_valid_showing_failures_only, and a greyed button
+				### carrying "nobody is free to marry" is more use than no button.
+				### The rule level still hides it completely: with advanced terms off
+				### the whole marriage term is absent, rows included, so a lone button
+				### would have nothing to belong to.
+				visible = "[TntOn('tnt_advanced')]"
+
+				### *** tnt_stage_marriage_holder IS GONE. ***
+				### It was the last thing standing between the green strip, which
+				### receives the mouse, and the red button, which does not. It existed
+				### for one reason: to be a plain widget so the button could use
+				### `parentanchor = center`, which is illegal on a direct child of an
+				### hbox. The anchor is gone too, so the wrapper has no purpose left.
+				### The button is now a DIRECT child of the strip that provably works,
+				### with a fixed size and no anchor - fully within the layout rules.
+				### If it still refuses the mouse after this, the fault is in
+				### button_standard itself at this site, not in anything around it.
+				### *** THE WRAPPER IS GONE AND SO IS EVERY INHERITED PROPERTY. ***
+				###
+				### Established by the coloured markers: the green strip receives the
+				### mouse, the red button does not, and no blue is visible - so the
+				### button is created, drawn in the right place, and covered by nothing.
+				### Removing the wrapper's datacontext changed nothing, so that was not
+				### it either.
+				###
+				### What is left between the strip that works and the button that does
+				### not is the BUTTON'S OWN inherited setup. So this is now the most
+				### primitive clickable thing the engine has: `button`, the base type
+				### vanilla itself derives from (GAME\gui\window_character.gui declares
+				### `type button_marry_off = button`), as a DIRECT child of the strip,
+				### with a fixed size, no parentanchor, no `using`, no template, and its
+				### label as an ordinary child instead of an inherited `text` property.
+				###
+				### If THIS hovers, one of the properties we stripped was the culprit and
+				### I will bisect them. If it still does not, the fault is not in the
+				### button at all and the next thing to measure is the strip's own layout,
+				### because then the strip is receiving mouse for a region its children
+				### do not actually occupy.
+				### THE FINAL SHAPE, and it is simpler than what it replaced.
+				### A DIRECT child of the strip: no wrapper widget, no parentanchor, no
+				### datacontext. The wrapper existed only to make parentanchor legal, and
+				### with a fixed size inside an hbox no anchor is needed - so the whole
+				### construction the bug hid behind is gone.
+				### `enabled` is deliberately absent: it was bound to
+				### Character.IsPlayerInteractionValid, a datafunction whose verdict
+				### cannot be read from script, so a refusal was unexplainable. The button
+				### is always pressable and the engine states its own refusal, in its own
+				### confirmation window, in words.
+				button_standard = {
+					name = "tnt_stage_marriage_open"
+					size = { 420 34 }
+					text = "tnt_btn_stage_marriage"
+					tooltip = "tnt_btn_stage_marriage_tip"
+					using = tooltip_es
+					onclick = "[TntPartner.OpenPlayerInteraction( 'tnt_stage_marriage_interaction' )]"
+				}
+
+				### THE HONESTY LINE, ON THE PANEL ITSELF AND NOT ONLY IN A TOOLTIP.
+				### The borrowed window's big confirm button is labelled by VANILLA and
+				### reads "Send Proposal" - interaction_marriage.gui:229 hardcodes
+				### text = "send_marriage_proposal_button_name", and the button itself
+				### lives in interaction_templates.gui:95-102. It neither sends nor
+				### marries: it records the couple in this treaty. Renaming it would
+				### mean overriding a vanilla .gui (R1) or renaming the button in
+				### vanilla's real marriage window, so instead the truth is stated
+				### THREE times on our side of the line - here, in the borrowed
+				### window's header (send_name = tnt_stage_marriage_send) and in the
+				### button's tooltip - all before the player can read vanilla's word.
+				###
+				### R-SPILL: autoresize = no with an expanding policy, so a long
+				### translation elides instead of pushing the button off the panel.
+				### `alwaystransparent = no` is what lets the line be hovered at all,
+				### and it repeats the button's tooltip so the honesty is reachable
+				### even when the button is dark.
+				### *** THIS LABEL WAS THE BUG. ***
+				###
+				### It sits AFTER the button in the same hbox, it claims width with
+				### layoutpolicy_horizontal = expanding, and it carried
+				### `alwaystransparent = no` plus a tooltip - so it took the mouse in
+				### front of the button and the button never saw a cursor. Neither
+				### click nor hover, exactly as reported three times.
+				###
+				### The giveaway was in the evidence all along and I read it the wrong
+				### way round: the tooltip this label carried was
+				### tnt_btn_stage_marriage_tip - THE BUTTON'S OWN tooltip. So "the green
+				### strip hovers" was never the strip. It was this label, showing the
+				### button's text while standing in the button's way.
+				###
+				### A passive caption has no business taking mouse input. It is now
+				### transparent, like every other decorative text in this mod, and it
+				### needs no tooltip of its own because the button beside it carries the
+				### identical one.
+				text_single = {
+					name = "tnt_stage_marriage_note"
+					layoutpolicy_horizontal = expanding
+					autoresize = no
+					text = "tnt_marriage_stage_note"
+					align = nobaseline|left
+					default_format = "#weak"
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Size_Small
+				}
+			}
+
+			divider_light = {
+				layoutpolicy_horizontal = expanding
+			}
+
+			############################################################
+			### THE TWO HOUSEHOLDS, SIDE BY SIDE
+			###
+			### ITERATION 6 DEMOTED THESE TWO LISTS to the by-hand alternative: the
+			### borrowed window above has the same two households in it, with filters
+			### and search this panel does not attempt. They are kept because they
+			### render the STAGING cursor the whole lower half of the panel is written
+			### against, and because they are the fallback door.
+			############################################################
+			hbox = {
+				name = "tnt_marriage_columns"
+				layoutpolicy_horizontal = expanding
+				layoutpolicy_vertical = expanding
+				spacing = 10
+
+				### EXPERIMENT CONCLUDED - columns restored.
+				### Hiding them and centring the classic-screen button alone did NOT
+				### make it clickable, which ruled out layout displacement and pointed
+				### at the real cause: the button was correctly DISABLED and its
+				### disabled-tooltip resolved to an empty string, because every gate
+				### lived in the interaction's is_shown where blockers are not
+				### collected. Fixed in tnt_12_marriage_picker.txt, not here.
+
+				################################################
+				### LEFT - the player's household
+				################################################
+				vbox = {
+					name = "tnt_marriage_column_p"
+					layoutpolicy_horizontal = expanding
+					layoutpolicy_vertical = expanding
+					spacing = 4
+
+					text_single = {
+						name = "tnt_marriage_head_p"
+						layoutpolicy_horizontal = expanding
+						autoresize = no
+						text = "tnt_marriage_col_p"
+						align = nobaseline|left
+						default_format = "#high"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Type_Flavor
+						using = Font_Size_Medium
+					}
+
+					divider_light = {
+						layoutpolicy_horizontal = expanding
+					}
+
+					### The chosen spouse, or the "nobody yet" line. A plain
+					### widget holder, so both states are the same 64 px and
+					### both may legally carry parentanchor / size = 100%.
+					widget = {
+						name = "tnt_marriage_slot_holder_p"
+						layoutpolicy_horizontal = expanding
+						size = { 0 64 }
+
+						tnt_marriage_pair_slot = {
+							name = "tnt_marriage_slot_p"
+							datacontext = "[TntVar('tnt_spouse_p').Char]"
+							visible = "[TntVar('tnt_spouse_p').Char.IsValid]"
+
+							blockoverride "tnt_marriage_slot_clear_sgui"
+							{
+								onclick = "[TntExec('tnt_spouse_p_clear')]"
+							}
+						}
+
+						text_single = {
+							name = "tnt_marriage_slot_empty_p"
+							size = { 100% 100% }
+							parentanchor = center
+							autoresize = no
+							text = "tnt_marriage_none"
+							visible = "[Not( TntVar('tnt_spouse_p').Char.IsValid )]"
+							align = center|nobaseline
+							default_format = "#weak"
+							alwaystransparent = yes
+							fontsize_min = 12
+							using = Font_Size_Small
+						}
+					}
+
+					divider_light = {
+						layoutpolicy_horizontal = expanding
+					}
+
+					scrollbox = {
+						name = "tnt_marriage_scroll_p"
+						layoutpolicy_horizontal = expanding
+						### HEIGHT PASS: TIER 2 of the height convention
+						### (tnt_panels.gui header). A bare `layoutpolicy_vertical =
+						### expanding` on the base scrollarea's fixed 100x100
+						### (GAME\gui\shared\lists.gui:3186) was the exact pre-17(a)
+						### defect; the ledger pattern measures the rows instead.
+						### 225..420 are tnt_panel_multi's numbers
+						### (gui\tnt_panel_multiselect.gui) so the twin columns of
+						### the two panel families stay level.
+						autoresizescrollarea = yes
+						size = { 0 0 }
+						minimumsize = { -1 225 }
+						maximumsize = { -1 420 }
+
+						### Item 3.2(b): explicit, never inherited. 26 on the
+						### right clears the 12 px bar with room to spare.
+						blockoverride "scrollbox_margins"
+						{
+							margin_left = 8
+							margin_right = 26
+							margin_top = 6
+							margin_bottom = 6
+						}
+
+						### D3(e): this empty label is UNBOUNDED - see the bound and the whole argument on tnt_picker_scroll in gui\tnt_types.gui. Left alone on purpose: this panel ships visible = no (tnt_diplomacy_window.gui:2997-3000). Bind it before switching the panel on.
+						blockoverride "scrollbox_empty"
+						{
+							text = "tnt_picker_empty"
+							visible = "[IsDataModelEmpty( TntList('tnt_list_spouse_p') )]"
+						}
+
+						### scrollbox_content takes EXACTLY ONE child
+						### (GAME\gui\shared\lists.gui:3182). Declaring a block
+						### inside a blockoverride, for a consumer in another
+						### file to override, is a verified vanilla form - see
+						### the citation on type tnt_picker_panel,
+						### tnt_types.gui:1400-1411.
+						blockoverride "scrollbox_content"
+						{
+							block "tnt_marriage_left_list"
+							{
+								vbox = {
+									name = "tnt_marriage_rows_p"
+									layoutpolicy_horizontal = expanding
+									spacing = 3
+									datamodel = "[TntList('tnt_list_spouse_p')]"
+
+									item = {
+										tnt_marriage_row_char = {
+											datacontext = "[Scope.Char]"
+											size = { 0 45 }
+
+											blockoverride "tnt_marriage_row_onclick"
+											{
+												onclick = "[TntPickChar('tnt_pick_spouse_p_set')]"
+											}
+
+											blockoverride "tnt_marriage_row_down"
+											{
+												down = "[ObjectsEqual( TntVar('tnt_spouse_p').Char, Character.Self )]"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				################################################
+				### RIGHT - the partner's household
+				################################################
+				vbox = {
+					name = "tnt_marriage_column_r"
+					layoutpolicy_horizontal = expanding
+					layoutpolicy_vertical = expanding
+					spacing = 4
+
+					text_single = {
+						name = "tnt_marriage_head_r"
+						layoutpolicy_horizontal = expanding
+						autoresize = no
+						text = "tnt_marriage_col_r"
+						align = nobaseline|left
+						default_format = "#high"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Type_Flavor
+						using = Font_Size_Medium
+					}
+
+					divider_light = {
+						layoutpolicy_horizontal = expanding
+					}
+
+					widget = {
+						name = "tnt_marriage_slot_holder_r"
+						layoutpolicy_horizontal = expanding
+						size = { 0 64 }
+
+						tnt_marriage_pair_slot = {
+							name = "tnt_marriage_slot_r"
+							datacontext = "[TntVar('tnt_spouse_r').Char]"
+							visible = "[TntVar('tnt_spouse_r').Char.IsValid]"
+
+							blockoverride "tnt_marriage_slot_clear_sgui"
+							{
+								onclick = "[TntExec('tnt_spouse_r_clear')]"
+							}
+						}
+
+						text_single = {
+							name = "tnt_marriage_slot_empty_r"
+							size = { 100% 100% }
+							parentanchor = center
+							autoresize = no
+							text = "tnt_marriage_none"
+							visible = "[Not( TntVar('tnt_spouse_r').Char.IsValid )]"
+							align = center|nobaseline
+							default_format = "#weak"
+							alwaystransparent = yes
+							fontsize_min = 12
+							using = Font_Size_Small
+						}
+					}
+
+					divider_light = {
+						layoutpolicy_horizontal = expanding
+					}
+
+					scrollbox = {
+						name = "tnt_marriage_scroll_r"
+						layoutpolicy_horizontal = expanding
+						### HEIGHT PASS: TIER 2, same numbers as tnt_marriage_scroll_p
+						### (rationale there) so the two columns stay level.
+						autoresizescrollarea = yes
+						size = { 0 0 }
+						minimumsize = { -1 225 }
+						maximumsize = { -1 420 }
+
+						blockoverride "scrollbox_margins"
+						{
+							margin_left = 8
+							margin_right = 26
+							margin_top = 6
+							margin_bottom = 6
+						}
+
+						### D3(e): this empty label is UNBOUNDED - see the bound and the whole argument on tnt_picker_scroll in gui\tnt_types.gui. Left alone on purpose: this panel ships visible = no (tnt_diplomacy_window.gui:2997-3000). Bind it before switching the panel on.
+						blockoverride "scrollbox_empty"
+						{
+							text = "tnt_picker_empty"
+							visible = "[IsDataModelEmpty( TntList('tnt_list_spouse_r') )]"
+						}
+
+						blockoverride "scrollbox_content"
+						{
+							block "tnt_marriage_right_list"
+							{
+								vbox = {
+									name = "tnt_marriage_rows_r"
+									layoutpolicy_horizontal = expanding
+									spacing = 3
+									datamodel = "[TntList('tnt_list_spouse_r')]"
+
+									item = {
+										tnt_marriage_row_char = {
+											datacontext = "[Scope.Char]"
+											size = { 0 45 }
+
+											blockoverride "tnt_marriage_row_onclick"
+											{
+												onclick = "[TntPickChar('tnt_pick_spouse_r_set')]"
+											}
+
+											blockoverride "tnt_marriage_row_down"
+											{
+												down = "[ObjectsEqual( TntVar('tnt_spouse_r').Char, Character.Self )]"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			divider_light = {
+				layoutpolicy_horizontal = expanding
+			}
+
+			############################################################
+			### THE STAGING BAR   (V3 ITERATION 4)
+			###
+			### THREE REGIONS, NOT TWO. Iteration 4 turns one marriage into an
+			### unlimited LIST of marriages, so this panel gains a third region -
+			### the committed pairs, below - and the two candidate columns are
+			### the ONLY children of the panel carrying
+			### `layoutpolicy_vertical = expanding`. Every other child has a fixed
+			### height or (since the height pass) a floor..cap band, and that is
+			### the property worth having: a slip in the budget arithmetic can
+			### only change how many candidate rows are visible, it can never
+			### push a control off the panel.
+			###
+			### THE LINE CONTROL, THE ADD BUTTON AND THE STAGED-PAIR SUMMARY
+			### THEREFORE SIT SIDE BY SIDE IN ONE BAR instead of stacked.
+			### Stacked they cost 46 + 6 + ~100 + 6 + 34 = ~192 px; side by side,
+			### 112. The 80 px saved is two more candidate rows.
+			### HEIGHT PASS: 112 is now the bar's FLOOR, not its fixed height -
+			### the summary lines became wrapping text_multi (see type
+			### tnt_marriage_summary_line) and a fixed bar would clip their
+			### second line. minimumsize instead of size/maximumsize is the
+			### holder half of TIER 3 (tnt_panels.gui header).
+			###
+			### NOTHING ABOUT THE STAGING CONTROLS THEMSELVES CHANGED - not one
+			### scripted gui, not one variable. The script author DEMOTED
+			### tnt_spouse_p / tnt_spouse_r / tnt_marriage_matri from "the deal's
+			### pair" to "the pair being assembled", and tnt_wed_add commits what is
+			### staged. So the two candidate columns above, the line pair and the
+			### six-state summary all still describe the STAGED pair, which is
+			### exactly what the Add button consumes. The one thing that had to
+			### change is a foreign file the script author owns: the two row
+			### checkboxes no longer refuse on "you have not chosen who marries on
+			### your side" but on tnt_err_no_pairs.
+			###
+			### R-LAYOUT: this hbox's two children are a fixed-width vbox and an
+			### expanding vbox, and neither carries `position` or `parentanchor`.
+			############################################################
+			hbox = {
+				name = "tnt_marriage_stage_bar"
+				layoutpolicy_horizontal = expanding
+				minimumsize = { -1 112 }
+				spacing = 10
+
+				### EXPERIMENT CONCLUDED - staging area restored along with the columns.
+
+				vbox = {
+					name = "tnt_marriage_stage_left"
+					size = { 360 100% }
+					spacing = 4
+					############################################################
+					### THE LINE
+					###
+					### Hidden entirely when the line is not a meaningful choice for
+					### this pair, mirroring vanilla's own send_option is_shown -
+					### GAME\common\character_interactions\00_marriage_interactions.txt:880-885,
+					###   NAND = { secondary_actor is_male  secondary_recipient is_male }
+					### That is NOT "opposite sex": two women CAN be married
+					### matrilineally and vanilla lets you choose. The test is the 0/1
+					### mirror tnt_marriage_line_shown, written by
+					### tnt_marriage_sync_effect, because a `visible` may not run an
+					### effect and may not call a scripted gui (Law R11).
+					############################################################
+					block "tnt_marriage_line_toggle"
+					{
+						vbox = {
+							name = "tnt_marriage_line_block"
+							layoutpolicy_horizontal = expanding
+							spacing = 4
+							ignoreinvisible = yes
+							visible = "[TntOn('tnt_marriage_line_shown')]"
+
+							text_single = {
+								name = "tnt_marriage_line_label"
+								layoutpolicy_horizontal = expanding
+								autoresize = no
+								text = "tnt_marriage_line"
+								align = nobaseline|left
+								default_format = "#high"
+								alwaystransparent = yes
+								fontsize_min = 12
+								using = Font_Type_Flavor
+								using = Font_Size_Medium
+							}
+
+							### An hbox exactly as tall as its tallest child (30), so
+							### neither button needs a cross-axis anchor - R5 satisfied
+							### by construction rather than by a wrapper.
+							hbox = {
+								name = "tnt_marriage_line_buttons"
+								layoutpolicy_horizontal = expanding
+								spacing = 8
+
+								tnt_marriage_line_button = {
+									name = "tnt_marriage_line_btn_patri"
+
+									blockoverride "tnt_marriage_line_text"
+									{
+										text = "tnt_marriage_line_patri"
+									}
+
+									blockoverride "tnt_marriage_line_tooltip"
+									{
+										tooltip = "tnt_marriage_line_patri_desc"
+									}
+
+									blockoverride "tnt_marriage_line_down"
+									{
+										down = "[Not( TntOn('tnt_marriage_matri') )]"
+									}
+
+									blockoverride "tnt_marriage_line_click"
+									{
+										onclick = "[TntExec('tnt_marriage_set_patri')]"
+									}
+								}
+
+								tnt_marriage_line_button = {
+									name = "tnt_marriage_line_btn_matri"
+
+									blockoverride "tnt_marriage_line_text"
+									{
+										text = "tnt_marriage_line_matri"
+									}
+
+									blockoverride "tnt_marriage_line_tooltip"
+									{
+										tooltip = "tnt_marriage_line_matri_desc"
+									}
+
+									blockoverride "tnt_marriage_line_down"
+									{
+										down = "[TntOn('tnt_marriage_matri')]"
+									}
+
+									blockoverride "tnt_marriage_line_click"
+									{
+										onclick = "[TntExec('tnt_marriage_set_matri')]"
+									}
+								}
+
+								expand = {
+									name = "tnt_marriage_line_pad"
+								}
+							}
+						}
+					}
+
+					expand = {
+						name = "tnt_marriage_stage_pad"
+					}
+
+					########################################################
+					### ADD THIS COUPLE   (V3 ITERATION 4)
+					###
+					### THE ONLY LEGAL WAY TWO CHARACTERS CAN REACH ONE SCRIPTED
+					### GUI. TntPickChar passes exactly ONE row object as
+					### scope:tnt_picked, and Law R8 forbids chaining a second
+					### .AddScope, so one click can never carry both spouses. The
+					### panel therefore stages - pick left, pick right - and this
+					### button commits. tnt_wed_add takes NO saved_scopes at all: it
+					### reads the staging variables off the player.
+					###
+					### THE MANDATORY VANILLA TRIPLE, ON ONE WIDGET:
+					### enabled = IsValid / onclick = Execute / tooltip = BuildTooltip,
+					### GAME\gui\window_faith.gui:900-902. Without the enabled +
+					### tooltip half the engine silently swallows the click and the
+					### five refusal rows of tnt_wed_add's is_valid
+					### (tnt_err_advanced_off, tnt_err_no_spouse_p,
+					### tnt_err_no_spouse_r, tnt_err_pair_illegal, tnt_err_pair_dup)
+					### could never reach the player - which is precisely the
+					### "refusal reason in its tooltip" this panel owes.
+					###
+					### THERE IS NO CAP, so there is no "list full" state to render:
+					### the button is enabled for the hundredth couple on the same
+					### terms as the first.
+					########################################################
+					hbox = {
+						name = "tnt_wed_add_bar"
+						layoutpolicy_horizontal = expanding
+						size = { 0 30 }
+						spacing = 8
+
+						button_standard = {
+							name = "tnt_wed_add"
+							size = { 240 30 }
+							text = "tnt_wed_add"
+							using = tooltip_es
+							onclick = "[TntExec('tnt_wed_add')]"
+							enabled = "[TntValid('tnt_wed_add')]"
+							tooltip = "[TntTip('tnt_wed_add')]"
+						}
+
+						expand = {
+							name = "tnt_wed_add_pad"
+						}
+					}
+				}
+
+				### The staged pair's summary keeps its own block name so the window
+				### may still override it; it simply lives in the right half of the
+				### bar now. blockoverride content is injected where the block is
+				### DECLARED (R15), so moving the declaration moves the override with
+				### it and no consumer has to change - and today no consumer overrides
+				### anything here anyway (tnt_diplomacy_window.gui:1752-1754).
+				vbox = {
+					name = "tnt_marriage_stage_right"
+					layoutpolicy_horizontal = expanding
+					layoutpolicy_vertical = expanding
+					alwaystransparent = no
+
+					############################################################
+					### THE SUMMARY - user item 3.4 applied inside the editor
+					###
+					### Six mutually exclusive or additive lines, all under
+					### `ignoreinvisible = yes` so hidden ones cost no height:
+					###   1  nothing chosen yet                    (weak)
+					###   2  the pair, in full, both names          (high)
+					###   3  they will be wed at once               (positive)
+					###   4  they will be betrothed                 (positive)
+					###   5  these two may not marry                (negative)
+					###   6  what the match is worth, both ways     (weak)
+					###
+					### Lines 3/4 and 5 are driven by the two 0/1 mirrors
+					### tnt_marriage_legal and tnt_marriage_betroth. Line 5 needs BOTH
+					### spouses chosen as well, or it would accuse an empty editor of
+					### being illegal - hence the nested And(...) rather than a bare
+					### Not( TntOn(...) ).
+					############################################################
+					block "tnt_marriage_summary"
+					{
+						vbox = {
+							name = "tnt_marriage_summary_block"
+							layoutpolicy_horizontal = expanding
+							spacing = 3
+							ignoreinvisible = yes
+							margin = { 4 4 }
+
+							background = {
+								using = Background_Area_Dark
+							}
+
+							text_single = {
+								name = "tnt_marriage_summary_head"
+								layoutpolicy_horizontal = expanding
+								autoresize = no
+								text = "tnt_marriage_summary_head"
+								align = nobaseline|left
+								default_format = "#high"
+								alwaystransparent = yes
+								fontsize_min = 12
+								using = Font_Type_Flavor
+								using = Font_Size_Medium
+							}
+
+							tnt_marriage_summary_line = {
+								name = "tnt_marriage_sum_none"
+								default_format = "#weak"
+								blockoverride "tnt_marriage_summary_visible"
+								{
+									visible = "[Not( And( TntVar('tnt_spouse_p').Char.IsValid, TntVar('tnt_spouse_r').Char.IsValid ) )]"
+								}
+								blockoverride "tnt_marriage_summary_text"
+								{
+									text = "tnt_marriage_pick_both"
+								}
+							}
+
+							tnt_marriage_summary_line = {
+								name = "tnt_marriage_sum_pair"
+								default_format = "#high"
+								blockoverride "tnt_marriage_summary_visible"
+								{
+									visible = "[And( TntVar('tnt_spouse_p').Char.IsValid, TntVar('tnt_spouse_r').Char.IsValid )]"
+								}
+								blockoverride "tnt_marriage_summary_text"
+								{
+									text = "tnt_marriage_summary_pair"
+								}
+							}
+
+							tnt_marriage_summary_line = {
+								name = "tnt_marriage_sum_wedding"
+								default_format = "#P"
+								blockoverride "tnt_marriage_summary_visible"
+								{
+									visible = "[And( TntOn('tnt_marriage_legal'), Not( TntOn('tnt_marriage_betroth') ) )]"
+								}
+								blockoverride "tnt_marriage_summary_text"
+								{
+									text = "tnt_marriage_kind_wedding"
+								}
+							}
+
+							tnt_marriage_summary_line = {
+								name = "tnt_marriage_sum_betrothal"
+								default_format = "#P"
+								blockoverride "tnt_marriage_summary_visible"
+								{
+									visible = "[And( TntOn('tnt_marriage_legal'), TntOn('tnt_marriage_betroth') )]"
+								}
+								blockoverride "tnt_marriage_summary_text"
+								{
+									text = "tnt_marriage_kind_betrothal"
+								}
+							}
+
+							tnt_marriage_summary_line = {
+								name = "tnt_marriage_sum_illegal"
+								default_format = "#N"
+								blockoverride "tnt_marriage_summary_visible"
+								{
+									visible = "[And( And( TntVar('tnt_spouse_p').Char.IsValid, TntVar('tnt_spouse_r').Char.IsValid ), Not( TntOn('tnt_marriage_legal') ) )]"
+								}
+								blockoverride "tnt_marriage_summary_text"
+								{
+									text = "tnt_err_pair_illegal"
+								}
+							}
+
+							tnt_marriage_summary_line = {
+								name = "tnt_marriage_sum_points"
+								default_format = "#weak"
+								blockoverride "tnt_marriage_summary_visible"
+								{
+									visible = "[TntOn('tnt_marriage_legal')]"
+								}
+								blockoverride "tnt_marriage_summary_text"
+								{
+									text = "tnt_marriage_summary_points"
+								}
+							}
+						}
+					}
+				}
+			}
+
+			divider_light = {
+				layoutpolicy_horizontal = expanding
+			}
+
+			############################################################
+			### THE COMMITTED PAIRS - THE THIRD REGION   (V3 ITERATION 4)
+			###
+			### THE DEAL'S MARRIAGES, ONE ROW PER COUPLE, UNBOUNDED AND SCROLLING.
+			### The datamodel is the player's variable list tnt_wed_list, which is
+			### the construction vanilla itself uses over a script variable list -
+			### GAME\gui\window_situation_list.gui:1071
+			###     datamodel = "[Story.MakeScope.GetList( ... )]"
+			### with `datacontext = "[Scope.Char]"` on the item at :1079, because a
+			### list row arrives as a Scope and has to be unwrapped once. Everything
+			### else about a row is in type tnt_wed_pair_row above, including the
+			### verified read of the second spouse.
+			###
+			### THE EMPTY STATE IS THE PANEL'S INSTRUCTIONS. tnt_wed_empty tells the
+			### player the two-step shape of the thing - one person on each side,
+			### then Add - which is the one piece of knowledge the three-region
+			### layout does not make obvious by itself.
+			###
+			### `blockoverride "scrollbox_margins"` IS SET EXPLICITLY, exactly as
+			### both candidate lists set it: the inherited Scrollbox_Margins is
+			### 15/15/15/20 (GAME\gui\shared\windows.gui:135-140) and the 12 px
+			### scrollbar (GAME\gui\shared\lists.gui:3253-3259) does not shrink the
+			### content area, so the content must keep clear of it by margin.
+			### 26 on the right = 12 + 14 of air.
+			###
+			### HEIGHT PASS: the block used to be FIXED at 190 (four rows of 44
+			### plus spacing) and paid that height even with zero pairs staged.
+			### Now TIER 1/2 of the height convention (tnt_panels.gui header):
+			### 190 stays as the cap, 68 is the floor (head 20 + one 44 px row +
+			### spacing 4), and between them the block measures its content. It
+			### is still never `expanding`, so the candidate columns keep the
+			### slack (see the staging bar's note).
+			############################################################
+			vbox = {
+				name = "tnt_wed_block"
+				layoutpolicy_horizontal = expanding
+				minimumsize = { -1 68 }
+				maximumsize = { -1 190 }
+				spacing = 4
+
+				hbox = {
+					name = "tnt_wed_head_bar"
+					layoutpolicy_horizontal = expanding
+					size = { 0 20 }
+					maximumsize = { -1 20 }
+					spacing = 8
+
+					text_single = {
+						name = "tnt_wed_head"
+						layoutpolicy_horizontal = expanding
+						autoresize = no
+						text = "tnt_wed_col"
+						align = nobaseline|left
+						default_format = "#high"
+						alwaystransparent = yes
+						fontsize_min = 12
+						using = Font_Type_Flavor
+						using = Font_Size_Medium
+					}
+
+					### THE COUNT, AND THE ONE PLACE THE TAPER IS EXPLAINED.
+					### The count comes from GetDataModelSize over the same list the
+					### rows are drawn from, inside the loc key - vanilla prints a
+					### data model's size in loc at
+					### GAME\localization\english\ledger\ledger_filtersorts_l_english.yml:441
+					### `[GetDataModelSize(Dynasty.GetDynastyHouses)|v0]`. NO new
+					### script value was invented for it (R2), and it cannot disagree
+					### with the list because it IS the list.
+					### `alwaystransparent = no` is what lets a text widget be
+					### hovered at all, and the hover is where the player learns that
+					### the fourth match is worth less than the first without doing
+					### any arithmetic.
+					text_single = {
+						name = "tnt_wed_count_text"
+						min_width = 300
+						max_width = 300
+						autoresize = no
+						text = "tnt_wed_count"
+						tooltip = "tnt_wed_taper"
+						using = tooltip_es
+						align = nobaseline|right
+						default_format = "#weak"
+						alwaystransparent = no
+						fontsize_min = 12
+						using = Font_Size_Small
+					}
+				}
+
+				divider_light = {
+					layoutpolicy_horizontal = expanding
+				}
+
+				scrollbox = {
+					name = "tnt_wed_scroll"
+					layoutpolicy_horizontal = expanding
+					### HEIGHT PASS: TIER 2 (see the candidate scrollboxes above).
+					### Floor 48 = one 44 px pair row + air, cap 140 = three rows;
+					### the block's own 190 cap bounds the whole region.
+					autoresizescrollarea = yes
+					size = { 0 0 }
+					minimumsize = { -1 48 }
+					maximumsize = { -1 140 }
+
+					blockoverride "scrollbox_margins"
+					{
+						margin_left = 8
+						margin_right = 26
+						margin_top = 6
+						margin_bottom = 6
+					}
+
+					### D3(e): this empty label is UNBOUNDED - see the bound and the whole argument on tnt_picker_scroll in gui\tnt_types.gui. Left alone on purpose: this panel ships visible = no (tnt_diplomacy_window.gui:2997-3000). Bind it before switching the panel on.
+					blockoverride "scrollbox_empty"
+					{
+						text = "tnt_wed_empty"
+						visible = "[TntNone('tnt_wed_list')]"
+					}
+
+					### scrollbox_content takes EXACTLY ONE child
+					### (GAME\gui\shared\lists.gui:3182). The block declared inside
+					### the blockoverride is this panel's fifth contract block, and
+					### it is the natural place for the window to re-render a pair.
+					blockoverride "scrollbox_content"
+					{
+						block "tnt_marriage_pair_list"
+						{
+							vbox = {
+								name = "tnt_wed_rows"
+								layoutpolicy_horizontal = expanding
+								spacing = 3
+								datamodel = "[TntList('tnt_wed_list')]"
+
+								item = {
+									tnt_wed_pair_row = {
+										datacontext = "[Scope.Char]"
+										size = { 0 44 }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			############################################################
+			### FOOTER - THE GRAND-WEDDING PROMISE, REMOVE ALL, AND THE SHIPPED
+			### CLOSER. The hbox is exactly as tall as its tallest child, so nothing
+			### in it needs a cross-axis anchor except the two children that are
+			### shorter than the row, and both of those sit in a plain `widget`.
+			###
+			### IT IS A PROMISE, NOT A FEAST, AND THE TEXT SAYS SO. What the script
+			### author rides is vanilla's own betrothal-promise mechanism
+			### (set_grand_wedding_betrothal_variables): the honoured couple is
+			### BETROTHED, the player becomes the promised host, a countdown starts
+			### and vanilla warns him before it lapses. NO ACTIVITY IS CREATED OR
+			### SCHEDULED by this mod - the host still has to plan and pay for the
+			### wedding himself, and breaking the promise carries vanilla's own
+			### opinion penalty. tnt_wed_grand / tnt_wed_grand_desc are written to
+			### that fact and must never be reworded into "a grand wedding will be
+			### held".
+			###
+			### THE SPLIT TOOLTIP is the same one every negotiation row in this mod
+			### uses (tnt_types.gui:309-323): the CHECKBOX carries
+			### [TntTip('tnt_wed_grand_toggle')], which is where vanilla's whole
+			### eight-reason host + pair gate reaches the player, and the LABEL
+			### carries the plain explanation. A widget has one tooltip and both
+			### things have to be sayable.
+			###
+			### REMOVE ALL is deliberately next to the promise and not next to the
+			### rows: it strips tnt_wed_partner and tnt_wed_matri off EVERY member
+			### and only then clears the list, which is the whole cleanup obligation
+			### of this iteration, and it is not a per-row gesture.
+			############################################################
+			hbox = {
+				name = "tnt_marriage_footer"
+				layoutpolicy_horizontal = expanding
+				size = { 0 34 }
+				spacing = 8
+
+				### R-LAYOUT: the checkbox is wrapped and centred inside the wrapper,
+				### exactly as tnt_types.gui:291-325 wraps the negotiation rows' own.
+				widget = {
+					name = "tnt_wed_grand_holder"
+					size = { 40 100% }
+
+					button_checkbox = {
+						name = "tnt_wed_grand_check"
+						parentanchor = center
+						using = tooltip_es
+						onclick = "[TntExec('tnt_wed_grand_toggle')]"
+						checked = "[TntOn('tnt_wed_grand')]"
+						enabled = "[TntValid('tnt_wed_grand_toggle')]"
+						tooltip = "[TntTip('tnt_wed_grand_toggle')]"
+					}
+				}
+
+				widget = {
+					name = "tnt_wed_grand_label_holder"
+					size = { 300 100% }
+
+					text_single = {
+						name = "tnt_wed_grand_label"
+						parentanchor = vcenter|left
+						min_width = 300
+						max_width = 300
+						autoresize = no
+						text = "tnt_wed_grand"
+						tooltip = "tnt_wed_grand_desc"
+						using = tooltip_es
+						align = nobaseline|left
+						default_format = "#medium"
+						alwaystransparent = no
+						fontsize_min = 12
+						using = Font_Size_Small
+					}
+				}
+
+				button_standard = {
+					name = "tnt_wed_clear"
+					size = { 200 34 }
+					text = "tnt_wed_clear"
+					tooltip = "tnt_wed_clear_desc"
+					using = tooltip_es
+					onclick = "[TntExec('tnt_wed_clear')]"
+				}
+
+				expand = {
+					name = "tnt_marriage_footer_pad"
+				}
+
+				button_standard = {
+					name = "tnt_marriage_done"
+					size = { 200 34 }
+					text = "tnt_btn_done"
+					onclick = "[TntExec('tnt_picker_close')]"
+				}
+			}
+		}
+	}
+
+}

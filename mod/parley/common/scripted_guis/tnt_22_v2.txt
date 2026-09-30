@@ -1,0 +1,2148 @@
+﻿######################################################################################
+# PARLEY: THE NEGOTIATING TABLE — SCRIPTED GUIS, FILE 3 OF 3: v2 ADDITIONS
+#
+# Owner: sgui.  Registered by 30-V2-DESIGN.md §10 amendment A-1
+# ("MOD\common\scripted_guis\tnt_22_v2.txt (sgui)").
+#
+# Contents
+#   GROUP V1 — 24 currency steppers: prestige / piety / influence, both sides,
+#              small click + big right-click, exactly the shape of the shipped gold
+#              steppers at tnt_20_scripted_guis.txt. Since user item 14 those
+#              gold steppers carry the affordability ladder too, so the two shapes
+#              are now identical line for line, only the field differs (and
+#              influence keeps its 1000 literal — see THE CAP below).
+#   GROUP V3 — 16 COARSE steppers, v3 iteration 3 (ADD-2): ±1000 for gold, prestige
+#              and piety, ±250 for influence. Read the box above group V3 first —
+#              it records that CK3 has NO modifier-click handler at all, which is
+#              why the coarse tier is its own pair of buttons and not a shift-click.
+#   GROUP V4 — 32 SEMANTIC PRESETS, v3 iteration 3 (ADD-2): a year of my income /
+#              half of what I hold / everything I can afford / nothing, for each of
+#              the four currencies on each of the two sides.
+#   GROUP V5 —  1 AUTO-BALANCE button, v3 iteration 3 (ADD-3).
+#   GROUP V2 —  1 mirror writer: tnt_refresh_v2_mirrors, a GUI-side entry point that
+#              forwards to the scripted effect tnt_refresh_v2_mirrors_effect
+#              (tnt_30_effects.txt:178). That effect turns the script-only trigger
+#              `government_has_flag` into two plain 0/1 player variables the GUI can
+#              read (tnt_infl_ok_p / tnt_infl_ok_r, folded into the script value
+#              tnt_influence_ok_value which is what the two rows' `visible` tests).
+#
+# The legal key set of a scripted_gui is EXACTLY scope / saved_scopes / is_shown /
+# is_valid / effect (02-script-gui-bridge.md §2.1, measured over all 7 vanilla files
+# plus every scripted_guis file in 12 installed mods). Nothing here uses is_shown or
+# saved_scopes: visibility is driven from the GUI by cheap variable reads, and no
+# entry here receives a GUI-supplied object.
+#
+# Root of every Execute call is the player: GuiScope.SetRoot( GetPlayer.MakeScope ),
+# i.e. `root` below is always the player and the partner is always var:tnt_partner.
+#
+#-------------------------------------------------------------------------------------
+# WHY 10 / 100 AND NOT 50 / 500
+# 30-V2-DESIGN §3.2 tabulates prestige/piety as "step LMB / RMB = 50 / 500" and
+# 41-hooks-prestige-contracts.md §2.8 as "±25 / ±250". Both are superseded here by the
+# build order given to this author: mirror the shipped gold stepper EXACTLY, i.e.
+# 10 on click and 100 on right-click, which is also the standing project law R12.
+# Changing the step is a one-line edit per entry if play testing wants 50 / 500.
+#-------------------------------------------------------------------------------------
+# THE CAP — one clamp per entry since USER ITEM 4 (was two)
+#
+# The SANITY literals — gold 5000, prestige 10000, piety 10000 — are REMOVED
+# mod-wide by user item 4: no magic ceiling on a deal amount. What remains is the
+# AFFORDABILITY cap, the giver's actual stock — "derived from what the giver
+# actually has, not a magic literal", and now the ONLY limit. Prestige and piety
+# go NEGATIVE silently when overspent (41-…md §2.1: "If the giver has less than
+# the amount, add_prestige with a negative value drives him negative"), so the
+# stepper must not let the player compose an unpayable offer in the first place.
+# tnt_send_offer.is_valid is the second line of defence, because the stock can
+# fall between composing the offer and pressing Propose.
+#
+# INFLUENCE ALONE KEEPS ITS 1000 LITERAL (41-…md §2.8 table). The user's item 4
+# named gold's 5000 and prestige/piety's 10000 and did not name influence; its
+# pools are an order of magnitude smaller (monumental_influence_value is 250) and
+# the government gate makes it the strictest row already, so 1000 stays.
+#
+# The clamp uses the contract's confirmed inline form
+#     set_variable = { name = X  value = { value = var:X  min = 0  max = <cap> } }
+# and the vocabulary value/add/min/max is confirmed at
+# GAME\common\scripted_effects\00_diarchy_scripted_effects.txt:1002-1011.
+#
+# PROOF for the fields and for the cap syntax — real call sites only (Law R2, R3):
+#   `prestige`  as a character script-value field:
+#        GAME\common\character_interactions\00_artifact_interactions.txt:3933 (prestige > major_prestige_value)
+#        GAME\common\character_interactions\00_diarch_interactions.txt:3137   (prestige < 0)
+#   `piety`     GAME\common\character_interactions\00_artifact_interactions.txt:3934
+#               GAME\common\character_interactions\00_alliance.txt:36 (piety >= 50)
+#   `influence` GAME\common\character_interactions\10_tgp_interactions.txt:4154 (influence >= 0)
+#               GAME\common\character_interactions\10_tgp_interactions.txt:4707
+#               GAME\common\character_interactions\06_ep3_interactions.txt:1657
+#   `max = <field>` on root:            GAME\common\script_values\03_dlc_fp2_script_values.txt:235 (max = gold)
+#                                       GAME\common\script_values\07_ep3_values.txt:4938          (max = gold)
+#   `max = scope:x.<field>`:            GAME\events\relations_events\friendship_events.txt:1398   (max = scope:friend.gold)
+#                                       GAME\events\story_cycles\story_cycle_conqueror_events.txt:564
+#   `save_temporary_scope_as` off a var inside an effect, optional-link form:
+#                                       GAME\common\decisions\80_major_decisions.txt:2304
+#                                       (already shipped in this mod at tnt_20_scripted_guis.txt:933)
+#
+# NOT USED, deliberately: `min` nested inside a `max = { }` block. A scan of every
+# .txt under GAME\common found ZERO vanilla sites, so the negative-stock case is
+# handled by an if/else ladder instead (see the `>= 1` limits below), never by
+# nesting. A negative-prestige giver therefore lands on the else branch and the
+# offered amount is forced to 0 rather than to a negative max.
+#
+# THE TEMPORARY SCOPE NAME IS `tnt_cap_giver`, NOT `tnt_p`.
+# Defect D4 (50-RUNTIME-LOG-FINDINGS.md §D4) was exactly a temporary scope colliding
+# with a permanent one of the same name. `tnt_p` is the temporary name used by all
+# ~60 script-value prologues, and the permanent deal scope is now tnt_deal_partner
+# (see tnt_20_scripted_guis.txt). Never introduce a third user of either name.
+#
+# CLEANUP OBLIGATION (30-V2-DESIGN §3.5 R-CLEAN, "for every write, name the removal")
+# The eight variables written by this file are:
+#   tnt_prestige_p  tnt_prestige_r  tnt_piety_p  tnt_piety_r
+#   tnt_influence_p tnt_influence_r        -> must be removed by tnt_reset_offer_effect
+#   tnt_infl_ok_p   tnt_infl_ok_r          -> must be removed by tnt_close_window_effect
+# Both effects live in tnt_30_effects.txt, which belongs to the effects author; the
+# request is recorded in NOTES2-sgui.md. Nothing here writes a variable onto any
+# object that is not a character (R-CLEAN-2).
+#
+# v3 ITERATION 3 ADDS EXACTLY ONE MORE VARIABLE, and it is the only new save entry
+# in this whole iteration:
+#   tnt_ab_state    the auto-balance outcome, 1/2/3, written by group V5 and read by
+#                   the button's tooltip. It is REMOVED by every one of the 48
+#                   entries in groups V3 and V4 (any change to an amount voids the
+#                   verdict) and by tnt_autobalance_effect itself before it runs.
+#                   -> the effects author must also remove it in
+#                      tnt_reset_offer_effect AND tnt_close_window_effect, so that
+#                      "Clear all", closing the window and applying a deal all wipe
+#                      it. Requested in the handoff.
+#                   -> the 24 steppers in groups V1a-V1c above and the 8 gold
+#                      steppers in tnt_20_scripted_guis.txt do NOT clear it.
+#                      A stale verdict after a ±10 click is therefore possible; it
+#                      is a one-line fix in each and is listed in the handoff rather
+#                      than taken here, because rewriting 40 running steppers to
+#                      remove one tooltip staleness is the wrong risk.
+# tnt_ab_margin and tnt_ab_ceiling are written and removed INSIDE a single call of
+# tnt_autobalance_effect, so they can never become save residue and are not listed
+# as state.
+######################################################################################
+
+
+######################################################################################
+# GROUP V1a — PRESTIGE STEPPERS (8)
+#
+# GUI wiring, per stepper instance (blockoverrides of type tnt_stepper_full,
+# gui\tnt_types.gui — the narrow tnt_stepper type it was originally written
+# against went with the retired tribute rows):
+#   block "tnt_stepper_minus"     onclick      = "[TntExec('tnt_prestige_p_sub')]"
+#   block "tnt_stepper_minus_big" onrightclick = "[TntExec('tnt_prestige_p_sub_big')]"
+#   block "tnt_stepper_plus"      onclick      = "[TntExec('tnt_prestige_p_add')]"
+#   block "tnt_stepper_plus_big"  onrightclick = "[TntExec('tnt_prestige_p_add_big')]"
+#   block "tnt_stepper_text"      text         = "[TntNum('tnt_prestige_p')|0]"
+# button_ignore = none is already on both button_round widgets of that type; without
+# it onrightclick never fires (R12).
+######################################################################################
+
+tnt_prestige_p_add = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_prestige_p }
+			change_variable = {
+				name = tnt_prestige_p
+				add = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_p
+				value = 10
+			}
+		}
+		# Affordability: root is the player, and the player is the giver on the _p side.
+		if = {
+			limit = { prestige >= 1 }
+			set_variable = {
+				name = tnt_prestige_p
+				value = {
+					value = var:tnt_prestige_p
+					min = 0
+					max = prestige
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_prestige_p_add_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_prestige_p }
+			change_variable = {
+				name = tnt_prestige_p
+				add = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_p
+				value = 100
+			}
+		}
+		if = {
+			limit = { prestige >= 1 }
+			set_variable = {
+				name = tnt_prestige_p
+				value = {
+					value = var:tnt_prestige_p
+					min = 0
+					max = prestige
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_prestige_p_sub = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_prestige_p }
+			change_variable = {
+				name = tnt_prestige_p
+				subtract = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_p
+				value = 0
+			}
+		}
+		if = {
+			limit = { prestige >= 1 }
+			set_variable = {
+				name = tnt_prestige_p
+				value = {
+					value = var:tnt_prestige_p
+					min = 0
+					max = prestige
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_prestige_p_sub_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_prestige_p }
+			change_variable = {
+				name = tnt_prestige_p
+				subtract = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_p
+				value = 0
+			}
+		}
+		if = {
+			limit = { prestige >= 1 }
+			set_variable = {
+				name = tnt_prestige_p
+				value = {
+					value = var:tnt_prestige_p
+					min = 0
+					max = prestige
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_p
+				value = 0
+			}
+		}
+	}
+}
+
+# _r side: THE PARTNER is the giver, so the affordability cap is the partner's stock.
+# The partner is reached through the object variable tnt_partner, which is guarded
+# twice (Law R13): `exists = var:tnt_partner` in the limit, and the optional-link
+# form `var:tnt_partner ?= { }` at the read itself. When there is no partner — the
+# window cannot legally be open in that state, but a stale click can still land —
+# the amount is forced to 0 instead of being left dangling.
+tnt_prestige_r_add = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_prestige_r }
+			change_variable = {
+				name = tnt_prestige_r
+				add = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_r
+				value = 10
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { prestige >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_prestige_r
+				value = {
+					value = var:tnt_prestige_r
+					min = 0
+					max = scope:tnt_cap_giver.prestige
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_prestige_r_add_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_prestige_r }
+			change_variable = {
+				name = tnt_prestige_r
+				add = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_r
+				value = 100
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { prestige >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_prestige_r
+				value = {
+					value = var:tnt_prestige_r
+					min = 0
+					max = scope:tnt_cap_giver.prestige
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_prestige_r_sub = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_prestige_r }
+			change_variable = {
+				name = tnt_prestige_r
+				subtract = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_r
+				value = 0
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { prestige >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_prestige_r
+				value = {
+					value = var:tnt_prestige_r
+					min = 0
+					max = scope:tnt_cap_giver.prestige
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_prestige_r_sub_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_prestige_r }
+			change_variable = {
+				name = tnt_prestige_r
+				subtract = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_r
+				value = 0
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { prestige >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_prestige_r
+				value = {
+					value = var:tnt_prestige_r
+					min = 0
+					max = scope:tnt_cap_giver.prestige
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_prestige_r
+				value = 0
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP V1b — PIETY STEPPERS (8)
+#
+# Identical shape to prestige. Piety also goes negative silently (add_piety with a
+# negative value; there is no remove_piety — 41-…md §2.2/§2.9), so the same
+# affordability clamp applies (the 10000 sanity cap is gone, user item 4).
+######################################################################################
+
+tnt_piety_p_add = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_piety_p }
+			change_variable = {
+				name = tnt_piety_p
+				add = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_p
+				value = 10
+			}
+		}
+		if = {
+			limit = { piety >= 1 }
+			set_variable = {
+				name = tnt_piety_p
+				value = {
+					value = var:tnt_piety_p
+					min = 0
+					max = piety
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_piety_p_add_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_piety_p }
+			change_variable = {
+				name = tnt_piety_p
+				add = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_p
+				value = 100
+			}
+		}
+		if = {
+			limit = { piety >= 1 }
+			set_variable = {
+				name = tnt_piety_p
+				value = {
+					value = var:tnt_piety_p
+					min = 0
+					max = piety
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_piety_p_sub = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_piety_p }
+			change_variable = {
+				name = tnt_piety_p
+				subtract = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_p
+				value = 0
+			}
+		}
+		if = {
+			limit = { piety >= 1 }
+			set_variable = {
+				name = tnt_piety_p
+				value = {
+					value = var:tnt_piety_p
+					min = 0
+					max = piety
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_piety_p_sub_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_piety_p }
+			change_variable = {
+				name = tnt_piety_p
+				subtract = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_p
+				value = 0
+			}
+		}
+		if = {
+			limit = { piety >= 1 }
+			set_variable = {
+				name = tnt_piety_p
+				value = {
+					value = var:tnt_piety_p
+					min = 0
+					max = piety
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_piety_r_add = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_piety_r }
+			change_variable = {
+				name = tnt_piety_r
+				add = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_r
+				value = 10
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { piety >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_piety_r
+				value = {
+					value = var:tnt_piety_r
+					min = 0
+					max = scope:tnt_cap_giver.piety
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_piety_r_add_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_piety_r }
+			change_variable = {
+				name = tnt_piety_r
+				add = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_r
+				value = 100
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { piety >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_piety_r
+				value = {
+					value = var:tnt_piety_r
+					min = 0
+					max = scope:tnt_cap_giver.piety
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_piety_r_sub = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_piety_r }
+			change_variable = {
+				name = tnt_piety_r
+				subtract = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_r
+				value = 0
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { piety >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_piety_r
+				value = {
+					value = var:tnt_piety_r
+					min = 0
+					max = scope:tnt_cap_giver.piety
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_piety_r_sub_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_piety_r }
+			change_variable = {
+				name = tnt_piety_r
+				subtract = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_r
+				value = 0
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { piety >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_piety_r
+				value = {
+					value = var:tnt_piety_r
+					min = 0
+					max = scope:tnt_cap_giver.piety
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_piety_r
+				value = 0
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP V1c — INFLUENCE STEPPERS (8)
+#
+# Influence is the Roads to Power (EP3) administrative currency, NOT a general
+# resource (41-…md §2.3). It only exists for a government carrying the flag
+# government_has_influence — administrative_government
+# (GAME\common\governments\00_government_types.txt:490), celestial_government (:816),
+# steppe_admin_government (:1116), meritocratic (:1235) and
+# japan_administrative_government (GAME\common\governments\01_japan_government_types.txt:73).
+#
+# NOTE ON THE CITATION IN 30-V2-DESIGN: the design document cites the flag at
+# "GAME\common\government_types\00_government_types.txt:487-490". There is NO
+# common\government_types\ directory in 1.19 — the real path is
+# GAME\common\governments\00_government_types.txt, and government_has_influence sits
+# at :490 inside the administrative government's flags = { } block that opens at :486.
+# The TRIGGER is proven by real call sites, not by the flags block:
+#   GAME\common\character_interactions\10_tgp_japan_interactions.txt:492
+#   GAME\common\character_interactions\06_ep3_interactions.txt:7145
+#   GAME\events\factions\faction_demands.txt:1144
+#
+# Therefore each influence stepper refuses to raise the amount unless the GIVER's
+# government actually has influence: the row can then never quietly compose a term
+# that applies as a no-op. Sanity cap 1000 (41-…md §2.8) — KEPT under user item 4,
+# which removed the gold/prestige/piety literals but did not name influence; see
+# THE CAP box at the top of this file.
+#
+# BUILD-2 CORRECTION — THE AFFORDABILITY CAP IS DOTTED, `max = root.influence`.
+# The bare form `max = influence` in a VALUE position has ZERO vanilla call sites
+# (I re-measured: 0 hits for `(max|min|value|add|subtract) = influence` across
+# GAME\common\** and GAME\events\**), which is exactly what
+# tnt_53_currency_values.txt:219-220 warns about — "influence: NO bare call site
+# exists, which is why every influence read below is dotted. Do not simplify it to
+# a bare `influence`." The dotted read IS proven:
+#   GAME\common\script_values\07_ep3_values.txt:5552-5553
+#     value = scope:heretic.influence   subtract = root.influence
+# root is the player here, so the two forms mean the same thing and only the
+# proven one ships. The `influence >= 1` row in the LIMIT stays bare: that is a
+# trigger, and the bare trigger form is proven at
+# GAME\common\character_interactions\10_tgp_interactions.txt:4154 (`influence >= 0`).
+#
+# For the effects author: the transfer effect is `change_influence` with a negative
+# value — `add_influence` and `remove_influence` DO NOT EXIST and are blacklisted
+# (41-…md §2.2/§2.9, project law R4). Vanilla's two-call pattern is at
+# GAME\common\character_interactions\00_invite_agent_to_scheme.txt:168-176.
+######################################################################################
+
+tnt_influence_p_add = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_influence_p }
+			change_variable = {
+				name = tnt_influence_p
+				add = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_p
+				value = 10
+			}
+		}
+		set_variable = {
+			name = tnt_influence_p
+			value = {
+				value = var:tnt_influence_p
+				min = 0
+				max = 1000
+			}
+		}
+		if = {
+			limit = {
+				government_has_flag = government_has_influence
+				influence >= 1
+			}
+			set_variable = {
+				name = tnt_influence_p
+				value = {
+					value = var:tnt_influence_p
+					min = 0
+					max = root.influence
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_influence_p_add_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_influence_p }
+			change_variable = {
+				name = tnt_influence_p
+				add = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_p
+				value = 100
+			}
+		}
+		set_variable = {
+			name = tnt_influence_p
+			value = {
+				value = var:tnt_influence_p
+				min = 0
+				max = 1000
+			}
+		}
+		if = {
+			limit = {
+				government_has_flag = government_has_influence
+				influence >= 1
+			}
+			set_variable = {
+				name = tnt_influence_p
+				value = {
+					value = var:tnt_influence_p
+					min = 0
+					max = root.influence
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_influence_p_sub = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_influence_p }
+			change_variable = {
+				name = tnt_influence_p
+				subtract = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_p
+				value = 0
+			}
+		}
+		set_variable = {
+			name = tnt_influence_p
+			value = {
+				value = var:tnt_influence_p
+				min = 0
+				max = 1000
+			}
+		}
+		if = {
+			limit = {
+				government_has_flag = government_has_influence
+				influence >= 1
+			}
+			set_variable = {
+				name = tnt_influence_p
+				value = {
+					value = var:tnt_influence_p
+					min = 0
+					max = root.influence
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_influence_p_sub_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_influence_p }
+			change_variable = {
+				name = tnt_influence_p
+				subtract = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_p
+				value = 0
+			}
+		}
+		set_variable = {
+			name = tnt_influence_p
+			value = {
+				value = var:tnt_influence_p
+				min = 0
+				max = 1000
+			}
+		}
+		if = {
+			limit = {
+				government_has_flag = government_has_influence
+				influence >= 1
+			}
+			set_variable = {
+				name = tnt_influence_p
+				value = {
+					value = var:tnt_influence_p
+					min = 0
+					max = root.influence
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_p
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_influence_r_add = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_influence_r }
+			change_variable = {
+				name = tnt_influence_r
+				add = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_r
+				value = 10
+			}
+		}
+		set_variable = {
+			name = tnt_influence_r
+			value = {
+				value = var:tnt_influence_r
+				min = 0
+				max = 1000
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= {
+					government_has_flag = government_has_influence
+					influence >= 1
+				}
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_influence_r
+				value = {
+					value = var:tnt_influence_r
+					min = 0
+					max = scope:tnt_cap_giver.influence
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_influence_r_add_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_influence_r }
+			change_variable = {
+				name = tnt_influence_r
+				add = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_r
+				value = 100
+			}
+		}
+		set_variable = {
+			name = tnt_influence_r
+			value = {
+				value = var:tnt_influence_r
+				min = 0
+				max = 1000
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= {
+					government_has_flag = government_has_influence
+					influence >= 1
+				}
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_influence_r
+				value = {
+					value = var:tnt_influence_r
+					min = 0
+					max = scope:tnt_cap_giver.influence
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_influence_r_sub = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_influence_r }
+			change_variable = {
+				name = tnt_influence_r
+				subtract = 10
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_r
+				value = 0
+			}
+		}
+		set_variable = {
+			name = tnt_influence_r
+			value = {
+				value = var:tnt_influence_r
+				min = 0
+				max = 1000
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= {
+					government_has_flag = government_has_influence
+					influence >= 1
+				}
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_influence_r
+				value = {
+					value = var:tnt_influence_r
+					min = 0
+					max = scope:tnt_cap_giver.influence
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_r
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_influence_r_sub_big = {
+	scope = character
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_influence_r }
+			change_variable = {
+				name = tnt_influence_r
+				subtract = 100
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_r
+				value = 0
+			}
+		}
+		set_variable = {
+			name = tnt_influence_r
+			value = {
+				value = var:tnt_influence_r
+				min = 0
+				max = 1000
+			}
+		}
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= {
+					government_has_flag = government_has_influence
+					influence >= 1
+				}
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = tnt_influence_r
+				value = {
+					value = var:tnt_influence_r
+					min = 0
+					max = scope:tnt_cap_giver.influence
+				}
+			}
+		}
+		else = {
+			set_variable = {
+				name = tnt_influence_r
+				value = 0
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP V2 — THE MIRROR WRITER (1)
+#
+# THE PROBLEM. `government_has_flag` is a SCRIPT trigger. The GUI cannot call it on a
+# scope it reaches through one of our variables, so the two influence rows cannot gate
+# their own visibility. (For the PLAYER alone the GUI does have a proven datafunction —
+# GetPlayer.GetGovernment.HasGovernmentFlag( 'government_has_influence' ),
+# GAME\gui\hud.gui:6732, GAME\gui\window_character.gui:5421, GAME\gui\window_ledger.gui:6273 —
+# but for the PARTNER it would need the unproven chain
+# TntVar('tnt_partner').Char.GetGovernment.HasGovernmentFlag(...). Rather than ship
+# one proven read and one guess, both sides go through the same mirror.)
+#
+# THE ANSWER. Two ordinary 0/1 player variables, written once per window open:
+#   tnt_infl_ok_p = 1  <=>  the PLAYER's government has influence
+#   tnt_infl_ok_r = 1  <=>  the PARTNER's government has influence
+# Absent means "no", exactly like every other toggle in this mod, so the GUI reads
+#   visible = "[TntOn('tnt_infl_ok_p')]"
+# which is one map lookup per frame and calls no scripted_gui at all (Law R11).
+#
+# WHERE IT IS CALLED FROM — BUILD 2 COLLAPSED THIS TO ONE COPY.
+# The first build shipped the government test TWICE: once here and once as the
+# identical scripted EFFECT tnt_refresh_v2_mirrors_effect in tnt_30_effects.txt, with
+# each file instructing the other to keep the two in sync. Only the effect had a
+# caller (tnt_open_window_effect:85), so this entry was the one scripted_gui in the mod
+# with no caller anywhere in gui/, and the duplicate was pure drift risk.
+#
+# THE BODY IS NOW A ONE-LINE FORWARDER to that effect, which is exactly the collapse
+# tnt_30_effects.txt:158-162 asked for. A scripted_gui effect block CAN call a scripted
+# effect — tnt_20_scripted_guis.txt does it in tnt_close_window, tnt_clear_all and
+# tnt_refresh_lists, all shipped and running — so there is only ever one copy of the
+# government test in the mod, at tnt_30_effects.txt:178.
+#
+# Both open paths now run it:
+#   * on_send  -> tnt_open_window_effect      -> tnt_refresh_v2_mirrors_effect
+#   * _show    -> tnt_refresh_lists (sgui)    -> tnt_refresh_v2_mirrors_effect
+# so the GUI no longer needs a second `on_start` (which is an unproven shape anyway),
+# and THIS entry is kept only as the named GUI-side entry point for a future caller —
+# e.g. a partner change while the window stays open, the one event that can invalidate
+# tnt_infl_ok_r. The writes are idempotent, so calling it more than once is free.
+######################################################################################
+
+tnt_refresh_v2_mirrors = {
+	scope = character
+
+	effect = {
+		tnt_refresh_v2_mirrors_effect = yes
+	}
+}
+
+
+######################################################################################
+# GROUP V3 — THE COARSE STEP TIER (16)   user ADD-2, v3 iteration 3
+#
+#=====================================================================================
+# FIRST, THE ANSWER TO THE QUESTION THE BUILD ORDER ASKED: A CK3 BUTTON HAS NO
+# MODIFIER-CLICK HANDLER. THERE IS NO THIRD CLICK TO BIND ±1000 TO.
+#=====================================================================================
+# Measured over EVERY .gui AND EVERY .txt under
+# D:\install\games\Crusader.Kings.III.Royal.Edition-InsaneRamZes\game:
+#     onshiftclick      0 hits        oncontrolclick   0 hits
+#     onaltclick        0 hits        onctrlclick      0 hits
+#     onmiddleclick     0 hits        shiftclick       0 hits
+#     onmouseclick      0 hits        on_shift_click   0 hits
+#     onclick         (thousands)     onrightclick    86 hits, e.g.
+#                                       GAME\gui\shared\coat_of_arms.gui
+#                                       GAME\gui\event_windows\duel_event.gui
+#                                       GAME\gui\activity_window_widgets\funeral_deceased_selection.gui
+# A CK3 widget therefore exposes exactly TWO click handlers, and this mod already
+# spends both: onclick = ±10, onrightclick = ±100.
+#
+# SO THE COARSE TIER IS ITS OWN PAIR OF BUTTONS. *** GUI AUTHOR: BUILD SHAPE B. ***
+# Each currency row needs two more small buttons — a "«" and a "»", or a doubled
+# chevron — bound to the entries below with plain onclick:
+#     onclick = "[TntExec('tnt_gold_p_sub_huge')]"
+#     onclick = "[TntExec('tnt_gold_p_add_huge')]"
+# They need NO button_ignore = none: that attribute exists only so that
+# onrightclick fires (see the note at the top of this file), and nothing here uses
+# the right button.
+#
+#=====================================================================================
+# THE STEPS, AND WHY INFLUENCE IS 250 AND NOT 1000
+#=====================================================================================
+#   gold      ±1000   prestige ±1000   piety ±1000   influence ±250
+# Since user item 4 the first three rows have NO literal ceiling — the giver's
+# stock is the range — so "full range in N clicks" is now a fact about the purse,
+# not about a cap. Influence pools are an order of magnitude smaller than the
+# other three — monumental_influence_value is 250 against monumental_prestige_value
+# 1500 — so ±1000 on a row still capped at 1000 (the one surviving literal, see
+# THE CAP box) would not be a coarse step, it would be a jump straight to the
+# ceiling, which the `_max` preset below already provides in one click and labels
+# honestly. 250 IS vanilla's own top influence band
+# (GAME\common\script_values\07_ep3_values.txt:7, monumental_influence_value).
+#
+#=====================================================================================
+# WHERE THE CLAMPING LIVES NOW
+#=====================================================================================
+# Not here. Every entry in groups V3 and V4 is a forwarder into one of the
+# amount helpers in common\scripted_effects\tnt_39_autobalance.txt, so the
+# clamp — the giver's actual stock (user item 4 deleted the sanity-cap half and
+# the CAP parameter with it) — is written ONCE per shape instead of 48 times.
+# That file's header carries the vanilla proof for the textual parameter
+# substitution this depends on (`name = $VAR$`, `var:$VAR$`, `max = $FIELD$`)
+# and for the clamp shape itself. The 24 entries in groups V1a-V1c
+# above are left exactly as they shipped — they work, and rewriting a running
+# stepper to save lines is not a trade this file makes.
+#
+# GOLD NOW CLAMPS TO THE STOCK LIKE EVERY OTHER ROW (user item 14). This block used
+# to say the opposite — that gold was the one row without an affordability clamp, on
+# purpose, because the 8 fine gold steppers in tnt_20_scripted_guis.txt group A had
+# none either. Both halves of that arrangement are gone:
+#   * those 8 fine steppers now carry the same `>= 1` ladder the prestige steppers
+#     carry (tnt_20_scripted_guis.txt group A);
+#   * the 4 coarse gold entries below no longer call tnt_cur_step_effect. They call
+#     tnt_cur_step_p_effect / tnt_cur_step_r_effect with FIELD = gold, exactly like
+#     their prestige and piety siblings, which also buys them the
+#     `remove_variable = tnt_ab_state` those helpers end with.
+# `gold` is legal bare in a value position: GAME\common\script_values\
+# 03_dlc_fp2_script_values.txt:235 and 07_ep3_values.txt:4938. The ladder is what
+# handles gold going negative — below 1 gold the amount is forced to 0, never to a
+# negative max. tnt_gold_shortfall_value in tnt_send_offer.is_valid remains the
+# SECOND line of defence, because stock can fall between composing and proposing.
+# Every PRESET in group V4 already clamped to the stock, gold included.
+#
+# tnt_cur_step_effect (the old sanity-clamp-only helper A1) had ZERO callers after
+# this change and is now DELETED outright: user item 4 removed the sanity caps, so
+# a helper whose only job was that clamp had no honest reason to stay defined.
+######################################################################################
+
+tnt_gold_p_add_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_p_effect = {
+			VAR = tnt_gold_p
+			DELTA = 1000
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_p_sub_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_p_effect = {
+			VAR = tnt_gold_p
+			DELTA = -1000
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_r_add_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_r_effect = {
+			VAR = tnt_gold_r
+			DELTA = 1000
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_r_sub_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_r_effect = {
+			VAR = tnt_gold_r
+			DELTA = -1000
+			FIELD = gold
+		}
+	}
+}
+
+tnt_prestige_p_add_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_p_effect = {
+			VAR = tnt_prestige_p
+			DELTA = 1000
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_p_sub_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_p_effect = {
+			VAR = tnt_prestige_p
+			DELTA = -1000
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_r_add_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_r_effect = {
+			VAR = tnt_prestige_r
+			DELTA = 1000
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_r_sub_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_r_effect = {
+			VAR = tnt_prestige_r
+			DELTA = -1000
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_piety_p_add_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_p_effect = {
+			VAR = tnt_piety_p
+			DELTA = 1000
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_p_sub_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_p_effect = {
+			VAR = tnt_piety_p
+			DELTA = -1000
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_r_add_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_r_effect = {
+			VAR = tnt_piety_r
+			DELTA = 1000
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_r_sub_huge = {
+	scope = character
+
+	effect = {
+		tnt_cur_step_r_effect = {
+			VAR = tnt_piety_r
+			DELTA = -1000
+			FIELD = piety
+		}
+	}
+}
+
+# Influence: the government gate and the dotted reads are baked into the two
+# helpers, so these four pass only the step. See tnt_39_autobalance.txt section B.
+tnt_influence_p_add_huge = {
+	scope = character
+
+	effect = {
+		tnt_infl_p_step_effect = {
+			DELTA = 250
+		}
+	}
+}
+
+tnt_influence_p_sub_huge = {
+	scope = character
+
+	effect = {
+		tnt_infl_p_step_effect = {
+			DELTA = -250
+		}
+	}
+}
+
+tnt_influence_r_add_huge = {
+	scope = character
+
+	effect = {
+		tnt_infl_r_step_effect = {
+			DELTA = 250
+		}
+	}
+}
+
+tnt_influence_r_sub_huge = {
+	scope = character
+
+	effect = {
+		tnt_infl_r_step_effect = {
+			DELTA = -250
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP V4 — THE SEMANTIC PRESETS (32)   user ADD-2, v3 iteration 3
+#
+# THIS IS THE HALF THAT ACTUALLY REMOVES THE CLICKING. A coarse step still needs
+# five clicks to move 5000 gold; a preset needs one, and it needs one regardless of
+# how big the number is, because it is a STATEMENT rather than an amount.
+#
+# FOUR PER CURRENCY PER SIDE, and the GUI author binds all four with plain onclick:
+#   _std    "a year of my income"     — for GOLD that is literally
+#                                       yearly_character_income (the partner's own
+#                                       income on the _r side). For prestige, piety
+#                                       and influence CK3 exposes NO income field at
+#                                       all, so the preset pays one full vanilla
+#                                       bribe instead — 300 prestige / 250 piety /
+#                                       250 influence between two dukes, which is
+#                                       worth exactly +20 on the deal sheet. The
+#                                       derivation is written out in
+#                                       tnt_53_currency_values.txt §5; the label for
+#                                       these three must say "a customary gift", not
+#                                       "a year", or the button lies.
+#   _half   "half of what I hold"     — the giver's stock x 0.5
+#   _max    "everything I can afford" — the giver's stock, whole (influence alone
+#                                       still crops at its surviving 1000 literal)
+#   _none   "nothing"                 — remove_variable, i.e. exactly the state
+#                                       tnt_reset_offer_effect leaves this row in
+#
+# EVERY ONE OF THE 32 IS CLAMPED TO WHAT THE GIVER ACTUALLY HOLDS, gold included.
+# A ruler with 40 gold and an income of 300 who presses "a year of my income"
+# offers 40. A ruler in debt offers 0 and cannot be talked into a negative row.
+#
+# NOTHING HERE INVENTS A NUMBER. The only literals are influence's surviving 1000
+# cap (user item 4 deleted the other three sanity caps and the CAP parameter) and
+# the two fractions 0.5 and 1. Every amount is read off a real field or a named value.
+######################################################################################
+
+# --- GOLD -------------------------------------------------------------------------
+tnt_gold_p_std = {
+	scope = character
+
+	effect = {
+		tnt_cur_set_p_effect = {
+			VAR = tnt_gold_p
+			AMOUNT = tnt_std_gold_p_value
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_p_half = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_p_effect = {
+			VAR = tnt_gold_p
+			MULT = 0.5
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_p_max = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_p_effect = {
+			VAR = tnt_gold_p
+			MULT = 1
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_p_none = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_gold_p
+		}
+	}
+}
+
+tnt_gold_r_std = {
+	scope = character
+
+	effect = {
+		tnt_cur_set_r_effect = {
+			VAR = tnt_gold_r
+			AMOUNT = tnt_std_gold_r_value
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_r_half = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_r_effect = {
+			VAR = tnt_gold_r
+			MULT = 0.5
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_r_max = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_r_effect = {
+			VAR = tnt_gold_r
+			MULT = 1
+			FIELD = gold
+		}
+	}
+}
+
+tnt_gold_r_none = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_gold_r
+		}
+	}
+}
+
+# --- PRESTIGE ---------------------------------------------------------------------
+tnt_prestige_p_std = {
+	scope = character
+
+	effect = {
+		tnt_cur_set_p_effect = {
+			VAR = tnt_prestige_p
+			AMOUNT = tnt_std_prestige_value
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_p_half = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_p_effect = {
+			VAR = tnt_prestige_p
+			MULT = 0.5
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_p_max = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_p_effect = {
+			VAR = tnt_prestige_p
+			MULT = 1
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_p_none = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_prestige_p
+		}
+	}
+}
+
+tnt_prestige_r_std = {
+	scope = character
+
+	effect = {
+		tnt_cur_set_r_effect = {
+			VAR = tnt_prestige_r
+			AMOUNT = tnt_std_prestige_value
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_r_half = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_r_effect = {
+			VAR = tnt_prestige_r
+			MULT = 0.5
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_r_max = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_r_effect = {
+			VAR = tnt_prestige_r
+			MULT = 1
+			FIELD = prestige
+		}
+	}
+}
+
+tnt_prestige_r_none = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_prestige_r
+		}
+	}
+}
+
+# --- PIETY ------------------------------------------------------------------------
+tnt_piety_p_std = {
+	scope = character
+
+	effect = {
+		tnt_cur_set_p_effect = {
+			VAR = tnt_piety_p
+			AMOUNT = tnt_std_piety_value
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_p_half = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_p_effect = {
+			VAR = tnt_piety_p
+			MULT = 0.5
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_p_max = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_p_effect = {
+			VAR = tnt_piety_p
+			MULT = 1
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_p_none = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_piety_p
+		}
+	}
+}
+
+tnt_piety_r_std = {
+	scope = character
+
+	effect = {
+		tnt_cur_set_r_effect = {
+			VAR = tnt_piety_r
+			AMOUNT = tnt_std_piety_value
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_r_half = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_r_effect = {
+			VAR = tnt_piety_r
+			MULT = 0.5
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_r_max = {
+	scope = character
+
+	effect = {
+		tnt_cur_frac_r_effect = {
+			VAR = tnt_piety_r
+			MULT = 1
+			FIELD = piety
+		}
+	}
+}
+
+tnt_piety_r_none = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_piety_r
+		}
+	}
+}
+
+# --- INFLUENCE --------------------------------------------------------------------
+# The `_none` pair uses the generic clear helper: removing a variable needs no
+# government gate and no stock read.
+tnt_influence_p_std = {
+	scope = character
+
+	effect = {
+		tnt_infl_p_set_effect = {
+			AMOUNT = tnt_std_influence_value
+		}
+	}
+}
+
+tnt_influence_p_half = {
+	scope = character
+
+	effect = {
+		tnt_infl_p_frac_effect = {
+			MULT = 0.5
+		}
+	}
+}
+
+tnt_influence_p_max = {
+	scope = character
+
+	effect = {
+		tnt_infl_p_frac_effect = {
+			MULT = 1
+		}
+	}
+}
+
+tnt_influence_p_none = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_influence_p
+		}
+	}
+}
+
+tnt_influence_r_std = {
+	scope = character
+
+	effect = {
+		tnt_infl_r_set_effect = {
+			AMOUNT = tnt_std_influence_value
+		}
+	}
+}
+
+tnt_influence_r_half = {
+	scope = character
+
+	effect = {
+		tnt_infl_r_frac_effect = {
+			MULT = 0.5
+		}
+	}
+}
+
+tnt_influence_r_max = {
+	scope = character
+
+	effect = {
+		tnt_infl_r_frac_effect = {
+			MULT = 1
+		}
+	}
+}
+
+tnt_influence_r_none = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_influence_r
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP V5 — THE AUTO-BALANCE BUTTON (1)   user ADD-3, v3 iteration 3
+#
+# One click; the machinery is tnt_autobalance_effect in
+# common\scripted_effects\tnt_39_autobalance.txt section C, whose header carries the
+# whole design. In one paragraph: it computes the gap between the current headline
+# and the acceptance point IN ACCEPTANCE POINTS, converts that gap to an amount of
+# currency at that currency's own vanilla unit price (one multiplication, not a
+# search), then runs a hard-bounded two-pass correction to absorb rounding, the
+# personality riders and the affordability clamps. It sweetens when the partner
+# would refuse and TRIMS when he would accept comfortably — the trim half is the
+# one that stops the player overpaying, and it is the half the user asked for by
+# saying "minimum acceptable value".
+#
+# *** THE PROMISE THIS HEADER USED TO MAKE IS NO LONGER TRUE, AND THAT IS ITEM 5. ***
+# It read: "it moves gold, prestige, piety and influence and NOTHING else: no
+# title, no claim, no artifact, no marriage, no hook, no prisoner, no fealty."
+# What it moves NOW is:
+#   * the four currencies, on BOTH columns, exactly as before; and
+#   * on a surplus the partner's purse cannot cover, ONE OF THREE LUMPY TERMS ON
+#     HIS SIDE ONLY — fealty, a ceded title, a granted claim — up to three of them
+#     per press, each one taken only when its worst-case price fits inside the
+#     surplus, so the headline can never be driven below +1 by the taking.
+# What it still NEVER moves, in either direction: an artifact, a marriage, a hook,
+# a truce, an alliance, a contract obligation, and none of item 19's four people
+# terms. (A prisoner was on that list until the prisoner terms were retired.)
+# And nothing at all on the PLAYER's side beyond currency: the
+# button cannot cede the player's county, ever (integration contract R9).
+# The whole of it is section D of common\scripted_effects\tnt_39_autobalance.txt.
+#
+# MARGIN 2 / CEILING 6 — derived in that file's C1 header. In short: 2 points is
+# about 30 gold at duke tier, which is the tightest margin that survives the ±1.5
+# points of rounding slop on the mod's three `round = yes` aggregates, and the 6
+# point dead band is narrower than one right-click of the fine gold stepper, so the
+# button is never a worse move than clicking by hand.
+#
+# THE GUARD. With no partner there is no deal to balance and every valuation reads
+# 0, so the button is a no-op rather than a write of eight zeroes.
+#
+# WHAT THE GUI READS FOR THE TOOLTIP — `tnt_ab_state` on the player, a plain
+# variable, never a GetScriptedGui call in a per-frame binding (Law R9):
+#     1  balanced          the deal now sits just inside his acceptance point
+#     2  already minimal   it was already there; nothing was changed
+#     3  cannot be reached  still refused after spending everything you can pay
+#   absent  the button has not been pressed, or an amount has changed since
+#           (every entry in groups V3 and V4 removes it, and so does the effect
+#            itself before it starts)
+# Bind it as three triggered_desc rows on `var:tnt_ab_state = 1` / `= 2` / `= 3`,
+# which are variable-against-literal tests (Law R7). Loc keys are reported in the
+# handoff.
+######################################################################################
+
+### V4: THE TARGET IS EXACTLY 1, AND THE BUTTON IS DEAD ABOVE 0.
+###
+### The user's rule: "the balance button must only be available when the points are
+### below 1, and must balance strictly to 1 - or to the smallest positive number it
+### can reach." MARGIN is the number the loop aims at and CEILING is the dead band
+### above it, so MARGIN = 1 / CEILING = 1 says "get to 1 and stop", with no slack in
+### which the button could overshoot into generosity.
+###
+### THE GATE IS THE SAME QUESTION THE LOOP ASKS. tnt_ab_deficit_value is
+### `margin - tnt_ai_accept_value` with `min = 0`, so it is above zero exactly when
+### the treaty is short of 1 - which is what "available only below 1" means. It is a
+### named value against a literal, which is what Law R7 permits, and it costs one
+### evaluation of the deciding value that the window is drawing anyway.
+###
+### `tnt_ab_margin` has to be SET for the deficit to read anything, and the effect
+### sets it - so the gate cannot use tnt_ab_deficit_value before the first press.
+### It tests the deciding value directly instead, against the same literal.
+tnt_autobalance = {
+	scope = character
+
+	# THE BUTTON WORKS IN BOTH DIRECTIONS NOW, AND V4 IS WHAT BROKE THE OTHER ONE.
+	# The old row was `tnt_ai_accept_value < 1`, i.e. the button was VALID ONLY WHILE
+	# THE DEAL WAS BAD FOR THE PARTNER. That is exactly backwards for the user's
+	# request: "если увести очки далеко в плюс и нажать 'уравновесить' - добавятся
+	# опции чтобы довести до максимального приблежения к +1". Pushing the treaty to
+	# +80 and pressing the button did nothing at all, because the gate refused before
+	# the effect ever ran - and the effect itself has always had a surplus branch.
+	#
+	# The predicate is "the deal is not already exactly +1", written as an OR of two
+	# named-value-against-literal comparisons because that is the only comparison
+	# form Law R7 permits (a named value against a variable is forbidden).
+	is_valid = {
+		# This row is both the readable reason and the cheap fail-closed boundary.
+		# Everything which evaluates tnt_ai_accept_value sits inside the guarded
+		# trigger_if below, so a closed or invalidated table cannot flood the log.
+		custom_description = {
+			text = tnt_err_no_partner
+			exists = var:tnt_open
+			exists = var:tnt_partner
+		}
+		trigger_if = {
+			limit = {
+				exists = var:tnt_open
+				exists = var:tnt_partner
+			}
+		custom_description = {
+			text = tnt_err_ab_empty
+			# A selected threat is a real priced term, but deliberately is not part
+			# of tnt_items_count_value: threat-only must never become sendable and
+			# farm dread/opinion. It may, however, seed Equalize so the effect can
+			# add genuine consideration on the partner's side.
+			OR = {
+				tnt_offer_nonempty_trigger = yes
+				AND = {
+					exists = var:tnt_threat_p
+					var:tnt_threat_p > 0
+					tnt_val_threat_p_value > 0
+				}
+			}
+		}
+		custom_description = {
+			text = tnt_err_ab_already_fair
+			OR = {
+				tnt_ai_accept_value < 1
+				tnt_ai_accept_value > 1
+			}
+		}
+
+		#==============================================================================
+		# TWO INFORMATIONAL ROWS — ITEM 5's SECOND HALF. THEY MUST BE UNCONDITIONALLY
+		# TRUE, AND THAT IS NOT A STYLE POINT.
+		#
+		# is_valid IS the tooltip: the GUI binds `enabled = [TntValid(...)]` next to
+		# `tooltip = [TntTip(...)]` (tnt_types.gui), so every row in here is printed —
+		# and every row in here that reads FALSE also GREYS THE BUTTON OUT. A hint
+		# written as an ordinary custom_description with a real condition would
+		# therefore disable the button on precisely the treaties it is meant to
+		# describe. `always = yes` is the only honest way to say something in a
+		# validity block.
+		#
+		# THE HINT IS ALWAYS SHOWN because it describes what the button does, which is
+		# true before the first press. THE LINE is wrapped in a trigger_if instead:
+		# when the limit is false the whole trigger_if is TRUE and prints nothing, so
+		# the row appears only after a press that actually took something, and the
+		# button's enabled state is untouched either way. tnt_ab_lumpy_n is removed
+		# again by tnt_autobalance_effect when a press took nothing, so `exists` alone
+		# would nearly do — the `> 0` is the belt to that braces.
+		#
+		# Both are variable-against-literal tests (Law R7) and neither costs a script
+		# value evaluation on a per-frame binding (Law R9).
+		#
+		# BOTH SHAPES ARE VANILLA, VERBATIM:
+		#   custom_description = { text = X  always = yes }
+		#     GAME\common\character_interactions\10_tgp_interactions.txt:11246-11249
+		#   trigger_if = { limit = { … }  custom_description = { … } }
+		#     GAME\common\character_interactions\00_alliance.txt:3257
+		#     GAME\common\character_interactions\00_artifact_interactions.txt:4071
+		#     GAME\common\character_interactions\00_diarch_interactions.txt:116
+		#==============================================================================
+		custom_description = {
+			text = tnt_ab_lumpy_hint
+			always = yes
+		}
+		trigger_if = {
+			limit = {
+				exists = var:tnt_ab_lumpy_n
+				var:tnt_ab_lumpy_n > 0
+			}
+			custom_description = {
+				text = tnt_ab_lumpy_line
+				always = yes
+			}
+		}
+		}
+	}
+
+	effect = {
+		if = {
+			limit = {
+				exists = var:tnt_open
+				exists = var:tnt_partner
+			}
+			tnt_autobalance_effect = {
+				MARGIN = 1
+				CEILING = 1
+			}
+		}
+	}
+}

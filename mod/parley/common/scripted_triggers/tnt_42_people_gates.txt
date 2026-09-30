@@ -1,0 +1,1978 @@
+﻿###############################################################################
+# PARLEY — ITEM 19: THE FOUR PEOPLE TERMS. CANDIDATE TRIGGERS, PAIR GATES,
+# SHOW-GATES AND THE TWO SHARED GUARDS.
+#
+# INTEGRATION CONTRACT v1 §1.B assigns this file to B2 and lists, name for name,
+# everything that may live in it. Nothing else is defined here: the eight prices
+# are B1's (tnt_58_person_values.txt), the six fills and eight exec legs are B3's
+# (tnt_3a_people.txt), and every opener / setter / clearer is B4's
+# (tnt_24_people.txt). If an identifier you are looking for is not below, look
+# there before inventing it.
+#
+# THE FOUR TERMS, and the direction of each, FIXED BY THE CONTRACT AND NOT
+# RE-INTERPRETABLE HERE (§1.B). `_p` is always THE PLAYER GIVES.
+# *** THREE OF THE FOUR SURVIVE: the ward was retired in V16, user item 5. ***
+#
+#   HOSTAGE      _p  the player sends one of his own close kin to the partner's
+#                    court as a hostage.               index 16, single pick
+#   WARD         *** RETIRED V16, USER ITEM 5 — too abusable on points, and the
+#                    hostage term above covers the same immersive ground. PART B
+#                    below is a tombstone: all four of its triggers are commented
+#                    out and callerless. Overlay index 17 is DORMANT and must not
+#                    be reassigned (the retired prisoner picker's index 8 was left
+#                    dormant the same way, tnt_21_pickers.txt:304). ***
+#   COURTIER     _p  the player hands over as many of his own courtiers as he
+#                    chooses (the cap of three was retired in V11, user item 2).
+#                                                      index 18, multi-select
+#   INDEPENDENCE _p  the PLAYER RELEASES HIS VASSAL — and the vassal is the
+#                    negotiating partner himself, which is why this term needs
+#                    no picker, no list and no overlay index: the only person it
+#                    can be about is already on the other side of the table.
+#                    It is the exact inverse of the shipped fealty term, and
+#                    ruling C5 orders it to execute BEFORE fealty.
+#
+# ===========================================================================
+# R3 / R-6 — HOW EVERY IDENTIFIER IN THIS FILE IS PROVEN
+#
+# common/trigger_localization/ IS NOT A REGISTRY OF EXISTING TRIGGERS — that
+# folder retains entries for triggers the engine has REMOVED, and it is how
+# defect D1 shipped. Every non-tnt_ identifier below names a file:line under
+# GAME\common\** where vanilla SCRIPT actually calls it, and every one of those
+# lines was opened in the session that wrote this file. The complete audit is in
+# the footer.
+#
+# ===========================================================================
+# WHY VANILLA'S OWN TRIGGERS ARE COPIED ROW BY ROW AND NOT CALLED BY NAME.
+#
+# Three vanilla scripted triggers say almost exactly what this file needs to
+# say, and calling any of the three would have been shorter:
+#
+#   bp2_valid_to_offer_as_hostage_trigger  GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:5-58
+#   can_recruit_character_to_court_trigger GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:332-460
+#   the ward blocks of offer_ward_interaction  GAME\common\character_interactions\00_education_interactions.txt:833-1158
+#     (that third one is now only the provenance of the RETIRED PART B; the
+#      argument below still governs the two surviving parts)
+#
+# ALL THREE CARRY custom_tooltip / custom_description ROWS INSIDE THEM
+# (05_bp2_hostage_triggers.txt:38-41 and :45-55; 00_courtier_guest_management_triggers.txt:339,
+# :433; 00_education_interactions.txt:1063, :1067, :1089, :1093). Every trigger in
+# this file is reached from an EFFECT's `limit` — the six fill effects, E33's
+# tnt_set_show_gate_effect, and the exec legs' re-validation — and a
+# custom_description evaluated during tooltip generation PRINTS ITSELF into that
+# tooltip. That is the D5 class of bug the two shipped trigger files warn about
+# in their headers, and it is not theoretical here: the fills run inside
+# tnt_open_window_effect, whose tooltip the player reads every time he opens the
+# window.
+#
+# So the rows are copied, each with the vanilla line it came from, and the
+# tooltip rows are dropped. Where a row was dropped or narrowed on purpose, the
+# comment says so and says why. THE COPIES MUST BE KEPT IN STEP: if a future
+# author finds one of these terms behaving unlike vanilla's own interaction, the
+# vanilla line named beside the row is the authority.
+#
+# ===========================================================================
+# DESIGN RULES OBEYED BY EVERY TRIGGER IN THIS FILE
+#
+#  1. PURITY. There is no custom_description and no custom_tooltip anywhere in
+#     this file, and none may be added. The four terms have no failure-reporting
+#     wrapper of the T20/T43 kind, deliberately: all four rows are governed by a
+#     tnt_show_* gate under the hide-what-is-impossible ruling, so the player is
+#     never handed a dead control that owes him a reason. If a wrapper is ever
+#     wanted, it goes in a NEW file with the T20 warning copied into its header.
+#
+#  2. EXISTENCE GUARDS (Law R13). Every character-valued parameter is guarded
+#     before it is entered — `trigger_if = { limit = { exists = $X$ } … }` +
+#     `trigger_else = { always = no }` — because callers pass a saved scope that
+#     may not exist yet (no partner, an empty picker slot).
+#     REAL: GAME\common\scripted_triggers\00_activity_triggers.txt:441.
+#
+#  3. NO CROSS-CHARACTER FIELD COMPARISON (Law R7). Nothing here compares a
+#     field of one character with a field of another. The one place that could
+#     want to — "does the guardian already have too many wards" — was vanilla's
+#     own field-against-literal `num_of_relation_ward < 2`, in the RETIRED P6;
+#     the rule stands, and no surviving trigger even comes near needing it.
+#
+#  4. CHEAPNESS, AND WHERE THE COST ACTUALLY IS. The show-gates that read a
+#     list cost one lookup each, because the list was already built. The two
+#     iterating gates are the fills themselves, which run once per window open.
+#     A PAIR GATE IS TESTED BEFORE ANY ITERATION: tnt_can_hostage_trigger and
+#     tnt_can_courtier_trigger are cheap (so was the retired
+#     tnt_can_ward_trigger), so B3's fills
+#     open with them and skip the whole every_* scan for a pair that could never
+#     have used the term. That is why the show-gates ALSO test the pair gate
+#     rather than trusting an empty list to mean the same thing: an empty list
+#     and an illegal pair are different facts, and only one of them survives a
+#     partner who acquires a second hostage while the window is open.
+###############################################################################
+
+
+###############################################################################
+###############################################################################
+##
+##  PART A — HOSTAGES.
+##
+##  THE POPULATION RULE, IN THE ONE SENTENCE THE PLAYER MUST BE ABLE TO READ
+##  (item 7 proved that an unexplainable pool is a defect):
+##
+##    "A hostage is an unlanded, unmarried, unbetrothed close relative of the
+##     sender — his child, grandchild, sibling, niece or nephew — who is at his
+##     own court, is not already a hostage or a ward, is not away travelling,
+##     and is not his regent."
+##
+##  That is vanilla's rule, not ours: every row of tnt_hostage_candidate_trigger
+##  is bp2_valid_to_offer_as_hostage_trigger's, in vanilla's own order.
+###############################################################################
+
+
+# =============================================================================
+# P1  tnt_hostage_candidate_trigger = { SENDER = <character>  RECEIVER = <character> }
+#
+# SCOPE: A CHARACTER — the candidate. May this person be handed over by $SENDER$
+# to $RECEIVER$ as a hostage? PURE.
+#
+# Vanilla original: bp2_valid_to_offer_as_hostage_trigger,
+# GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:5-58, whose live call
+# sites are GAME\common\character_interactions\05_bp2_interactions.txt:22
+# (offer_hostage_interaction's populate_actor_list), :125, :137 and :148
+# (can_be_picked). It takes SENDER only; RECEIVER is ours, and it exists for the
+# two rows vanilla puts in the interaction rather than in the trigger — see
+# below.
+#
+# ROW BY ROW, against 05_bp2_hostage_triggers.txt:
+#   is_hostage = no                :9   — a hostage cannot be re-pledged
+#   NOT this = $SENDER$            :11  — you cannot pledge yourself
+#   liege ?= $SENDER$              :13  — he must be under the sender's roof.
+#                                        `?=` because a pool or wandering
+#                                        character has no liege at all and an
+#                                        absent link must fail the row, not the
+#                                        whole trigger.
+#   is_landed = no                 :15  — a hostage owns nothing
+#   is_landless_ruler = no         :16  — nor rules anything
+#   is_married = no                :17
+#   is_betrothed = no              :18
+#   the four kinship rows          :26-29
+#   the three travel variables     :32-36 — already promised elsewhere
+#   NOT this = $SENDER$.diarch     :40  — you cannot send your own regent away.
+#                                        Vanilla wraps this row in a
+#                                        custom_tooltip; the tooltip is dropped
+#                                        and the test kept, per the header.
+#
+# ONE DELIBERATE NARROWING, and it is ours: vanilla ALLOWS an imprisoned
+# candidate as long as the sender is the jailer (:20-23). We refuse every
+# imprisoned candidate. Reason: this mod already has a prisoner term with its own
+# price, its own list and its own exec leg, and a captive who is priced once as a
+# released prisoner and once as a hostage is the same person sold twice in one
+# treaty. `is_imprisoned = no` — REAL: GAME\common\character_interactions\00_alliance.txt:1158.
+#
+# ONE ROW ADDED, and $RECEIVER$ exists for it:
+#   NOT = { this = $RECEIVER$ } — the warden's own kin standing in the warden's
+#                           own court is not a hostage. Vanilla never needs the
+#                           row because its pool and its recipient are always in
+#                           different realms; ours are not. A liege and his own
+#                           vassal share close family constantly, and the widened
+#                           partner set (T1) puts exactly those pairs at this
+#                           table. `liege ?= $SENDER$` above settles which court
+#                           the candidate is in, but not whose kin he is.
+# =============================================================================
+tnt_hostage_candidate_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $SENDER$
+			exists = $RECEIVER$
+		}
+		NOT = { this = $SENDER$ }
+		NOT = { this = $RECEIVER$ }
+
+		is_hostage = no					# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:9; also GAME\common\character_interactions\00_education_interactions.txt:845
+		liege ?= $SENDER$				# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:13
+		is_landed = no					# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:15
+		is_landless_ruler = no				# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:16; also GAME\common\character_interactions\05_bp2_interactions.txt:97
+		is_married = no					# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:17
+		is_betrothed = no				# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:18
+		is_imprisoned = no				# OUR NARROWING — see the header. REAL: GAME\common\character_interactions\00_alliance.txt:1158
+
+		# USER ITEM 3 (V12). The kinship rows below shield this gate incidentally —
+		# a dragon is nobody's child or sibling in the family tree — but that is a
+		# side effect of another rule, not a decision, and a mod that gives dragons
+		# a dynasty would open it. The row is one flat variable-list test.
+		tnt_person_is_beast_trigger = no
+
+		# Vanilla's four kinship rows, verbatim and in its order.
+		# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:26-29
+		OR = {
+			is_child_of = $SENDER$
+			is_grandchild_of = $SENDER$
+			is_sibling_of = $SENDER$
+			is_nibling_of = $SENDER$
+		}
+
+		# Already promised to somebody, in any of the three directions the
+		# hostage/ward travel system can be mid-flight in.
+		# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:32-36
+		NOR = {
+			exists = var:hostage_travelling_to_warden
+			exists = var:guardian_travelling_to_ward
+			exists = var:ward_travelling_to_guardian
+		}
+
+		# The regent stays home. REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:40
+		# (there inside a custom_tooltip, which is dropped — see the file header);
+		# the same `.diarch` link as a plain row at
+		# GAME\common\character_interactions\00_character_interactions.txt:2199.
+		NOT = { this = $SENDER$.diarch }
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P2  tnt_can_hostage_trigger = { SENDER = <character>  WARDEN = <character> }
+#
+# SCOPE: ANY. May $SENDER$ give $WARDEN$ a hostage AT ALL, whoever the hostage
+# turns out to be? PURE, so B3's fill may open with it and B3's exec leg may
+# re-test it at apply time.
+#
+# Vanilla original: offer_hostage_interaction's is_shown and
+# is_valid_showing_failures_only, GAME\common\character_interactions\05_bp2_interactions.txt:37-144.
+#
+# ROW BY ROW:
+#   $WARDEN$ highest_held_title_tier > tier_barony      :41
+#            "Only significant rulers use hostages" — vanilla's own comment.
+#   $WARDEN$ NOR landless_adventurer / herder           :43-48
+#            "Laamps can't do anything with hostages but return/recall them."
+#   NOT at war with each other                          :66
+#   neither side a theocracy                            :70-75
+#            "Only family oriented governments use hostages."
+#   one hostage per home court                          :79-81
+#            any_warden_hostage with home_court ?= — the warden may not already
+#            be holding a hostage from this court.
+#   both sides landed-or-landless-administrative        :95-106
+#
+# *** ONE VANILLA ROW IS DELIBERATELY NOT COPIED, AND THE REASON IS A REAL BUG
+# IT WOULD HAVE CAUSED. *** :68 refuses the whole interaction when the two are
+# allied ("Allies don't need hostages"). In vanilla that is an AI-relevance
+# filter on a standalone interaction. In OUR window it is a trap: the alliance
+# and the hostage are two rows of ONE treaty, the alliance executes at slot 7 of
+# tnt_apply_deal_effect and the hostage at slot 16, so a treaty that granted both
+# would have created the alliance and then found the hostage leg illegal — the
+# player would have been charged for a hostage that never left home. The show
+# gate is computed at window open and could not have caught it either. Vanilla's
+# own hostage lifecycle has no allied-pair restriction; only its interaction
+# does. The row stays out.
+#
+# NO DLC GATE, AND THAT IS CHECKED, NOT ASSUMED. There is no has_dlc_feature or
+# has_bp2_dlc_trigger row anywhere in offer_hostage_interaction, demand_hostage_interaction,
+# exchange_hostage_interaction or hostage_depart_effect
+# (GAME\common\scripted_effects\05_bp2_hostage_effects.txt:433-598). Vanilla gates
+# the Wards & Wardens FLAVOUR on has_bp2_dlc_trigger — e.g.
+# GAME\common\character_interactions\05_bp2_interactions.txt:2750 — but not the
+# hostage mechanic itself. Adding a DLC row here would hide the term from every
+# player who does not own the pack, on our own authority and against the engine's
+# evidence, so it is not added.
+# =============================================================================
+tnt_can_hostage_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $SENDER$
+			exists = $WARDEN$
+		}
+
+		# RE-ANCHORED for the same reason as P13's 85,778-error fix (see the box
+		# above tnt_can_release_trigger): $SENDER$ is dereferenced INSIDE the
+		# any_warden_hostage walk below, where the current scope is each HOSTAGE
+		# being walked — a caller passing SENDER = var:tnt_partner (the _r opener,
+		# tnt_24_people.txt) would have the variable re-resolved against people
+		# who never carry it, one error triple per hostage per frame the moment
+		# the warden holds anyone. Zero errors measured from this trigger only
+		# because the playtest's wardens held no hostages. Vanilla shape:
+		# GAME\common\scripted_triggers\00_bastard_triggers.txt:95-97, read back
+		# inside a walk at :112-118.
+		$SENDER$ = { save_temporary_scope_as = tnt_hst_sender }
+		$WARDEN$ = { save_temporary_scope_as = tnt_hst_warden }
+
+		NOT = { scope:tnt_hst_sender = { this = scope:tnt_hst_warden } }
+
+		# Not while the two of you are shooting at each other.
+		# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:66
+		NOT = { scope:tnt_hst_sender = { is_at_war_with = scope:tnt_hst_warden } }
+
+		scope:tnt_hst_sender = {
+			is_alive = yes				# REAL: GAME\common\character_interactions\00_choose_favorite_interaction.txt:103
+			# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:70-72
+			NOT = { government_has_flag = government_is_theocracy }
+			# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:95-100
+			OR = {
+				is_landless_ruler = no
+				is_landless_administrative = yes
+			}
+		}
+
+		scope:tnt_hst_warden = {
+			is_alive = yes
+			# "Only significant rulers use hostages."
+			# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:41
+			highest_held_title_tier > tier_barony
+			# "Laamps can't do anything with hostages but return/recall them."
+			# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:43-48
+			NOR = {
+				government_has_flag = government_is_landless_adventurer
+				government_has_flag = government_is_herder
+			}
+			# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:73-75
+			NOT = { government_has_flag = government_is_theocracy }
+			# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:101-106
+			OR = {
+				is_landless_ruler = no
+				is_landless_administrative = yes
+			}
+			# ONE HOSTAGE PER HOME COURT. Vanilla wraps this in a custom_tooltip
+			# ("already_has_your_hostage_tt"); the tooltip is dropped, the test is
+			# kept. THE WALK LINE the re-anchoring above exists for: the current
+			# scope in here is each hostage, so only a saved scope may be read.
+			# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:79-81
+			NOT = {
+				any_warden_hostage = { home_court ?= scope:tnt_hst_sender }
+			}
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P3 / P4  tnt_show_hostage_p_trigger / _r_trigger = { OTHER = <character> }
+#
+# The two TntRow gates. Read once per window open by E33
+# (tnt_refresh_show_gates_effect, tnt_30_effects.txt) into tnt_show_hostage_p /
+# tnt_show_hostage_r, exactly like the twenty-seven that shipped before them.
+#
+# STRUCTURAL, and both halves are: the pair may never use hostages at all (P2),
+# or the giver's household can field nobody (the list). Neither is fixable from
+# inside the window, which is the whole test the hide-what-is-impossible ruling
+# applies.
+#
+# WHY THE PAIR GATE IS TESTED HERE AND NOT LEFT TO THE LIST. This used to say
+# that B3's fill opens with P2 and therefore leaves the list empty for an illegal
+# pair, so the size test alone would give the right answer TODAY. THAT WAS NEVER
+# TRUE (V11, user item 2): tnt_fill_hostage_p/_r_effect guard on
+# `exists = var:tnt_partner` and nothing else, so for an illegal pair the list is
+# filled and only THIS row hides the term. The row is therefore not belt-and-
+# braces, it is the only belt — which is a better reason to keep it than the one
+# that stood here, and the same reason tnt_show_marriage_p_trigger tests both
+# spouse lists. The cost is a handful of character triggers, once per window open.
+# tnt_31_lists.txt's E4 header carries the full correction.
+#
+# has_variable_list FIRST, always. variable_list_size on a list that was never
+# created is the "Failed to fetch variable" class of error that produced 90 000
+# log lines in D5.
+#   has_variable_list   REAL: GAME\common\character_interactions\00_alliance.txt:3305
+#   variable_list_size  REAL: GAME\common\casus_belli_types\07_ep3_wars.txt:5916-5919
+#
+# Both lists live ON THE PLAYER whichever side they describe — the rule every
+# picker list in tnt_31_lists.txt follows — so both tests run in root's scope,
+# unqualified. Do not "fix" this by entering $OTHER$.
+#
+# NO GAME-RULE GATE. tnt_advanced_terms_on (T2) is the "dangerous terms" switch
+# and it governs betrothal, ceding a title and fealty — terms that move LAND or a
+# bloodline permanently. A hostage goes home again; vanilla itself has a
+# return_hostage_interaction (GAME\common\character_interactions\05_bp2_interactions.txt:2040).
+# The same reasoning covers wards and courtiers below. INDEPENDENCE is the one of
+# the four that IS rule-gated — see P13.
+# =============================================================================
+tnt_show_hostage_p_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $OTHER$
+			has_variable_list = tnt_list_hostage_p
+		}
+		tnt_can_hostage_trigger = {
+			SENDER = root
+			WARDEN = $OTHER$
+		}
+		variable_list_size = {
+			name = tnt_list_hostage_p
+			value > 0
+		}
+	}
+	trigger_else = { always = no }
+}
+
+tnt_show_hostage_r_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $OTHER$
+			has_variable_list = tnt_list_hostage_r
+		}
+		tnt_can_hostage_trigger = {
+			SENDER = $OTHER$
+			WARDEN = root
+		}
+		variable_list_size = {
+			name = tnt_list_hostage_r
+			value > 0
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+###############################################################################
+###############################################################################
+##
+##  PART B — WARD / FOSTERAGE.  *** RETIRED V16, USER ITEM 5 ***
+##
+##  ALL FOUR TRIGGERS OF THIS PART ARE COMMENTED OUT AND CALLERLESS: P5
+##  tnt_ward_candidate_trigger, P6 tnt_can_ward_trigger, P7 tnt_show_ward_p_trigger
+##  and P8 tnt_show_ward_r_trigger. Every caller each of them had went with them in
+##  the same pass — tnt_3a_people.txt:184, :216, :473 and tnt_37_ai_offer.txt:2606,
+##  :2636 for P5; tnt_24_people.txt:295, :325, this file's P7/P8 and
+##  tnt_37_ai_offer.txt:2600 for P6.
+##
+##  THE USER'S REASON: the ward term was too abusable on points, and the hostage
+##  term (PART A of this file) already covers the same immersive ground. The
+##  audit agreed and found the abuse STRUCTURAL, not a single number; the full
+##  WARD TOMBSTONE with the worked pricing case is in
+##  common/scripted_effects/tnt_32_apply.txt beside the retired exec calls, and the
+##  pricing half is in common/script_values/tnt_58_person_values.txt section 3.
+##
+##  DO NOT REVIVE PIECEMEAL. P7/P8 are an ATOMIC PAIR with the two gate writes at
+##  tnt_30_effects.txt:618-619 (they are reached BY MACRO, so one live half is a
+##  hard script error on every window open), and P5/P6 are what the two openers and
+##  the two fills call. Reviving any one of the four without its partners is a
+##  load error, not a partial feature.
+##
+##  tnt_person_is_beast_trigger, called from the retired P5 at :484, STAYS LIVE —
+##  it has three other callers (:190 hostage, :780 courtier,
+##  tnt_34_marriage.txt:231).
+##
+##  WHAT FOLLOWS IS THE ORIGINAL PART B HEADER, KEPT VERBATIM AS THE TOMBSTONE.
+##
+##  THE POPULATION RULE, IN ONE SENTENCE:
+##
+##    "A ward is a child at the sender's own court who is fit to travel, is not
+##     already the other ruler's ward, is not a hostage, and is not already away
+##     on a journey."
+##
+##  THE GUARDIAN IS THE PARTNER RULER HIMSELF — there is no guardian sub-picker
+##  (§1.B). That is why P6 is a gate on ONE named person rather than a second
+##  candidate list: vanilla's offer_ward_interaction lets the recipient nominate a
+##  courtier as guardian (populate_recipient_list, GAME\common\character_interactions\00_education_interactions.txt:883-904),
+##  and we deliberately do not, because a treaty term whose beneficiary is a
+##  courtier the player has never heard of is not a term he can price.
+###############################################################################
+
+
+# # =============================================================================
+# # P5  tnt_ward_candidate_trigger = { SENDER = <character>  RECEIVER = <character> }
+# #
+# # SCOPE: A CHARACTER — the candidate child. PURE.
+# #
+# # Vanilla original: offer_ward_interaction's populate_actor_list,
+# # GAME\common\character_interactions\00_education_interactions.txt:833-880. That
+# # block is written out THREE times there (self, every_courtier, every_courtier_away)
+# # with the identical five rows; the five rows are :837, :838, :839-844, :845, :846.
+# #
+# # ROW BY ROW:
+# #   is_adult = no                                  :837
+# #   is_physically_able = yes                       :838  — a child who cannot travel
+# #   NOT any_relation = { type = guardian  this = $RECEIVER$ }
+# #                                                  :839-844 — he is ALREADY this
+# #                                        ruler's ward; the term would be a no-op
+# #                                        with a non-zero price, which is the same
+# #                                        objection T4 raises against a redundant
+# #                                        claim.
+# #   is_hostage = no                                :845
+# #   is_travelling = no                             :846
+# #
+# # is_courtier_of = $SENDER$ is OURS and it is the row that makes the sentence
+# # above true. Vanilla gets the same fact from the iterator it uses; we need it in
+# # the trigger as well, because B4's picker re-validates a stored pick with this
+# # same trigger and by then the child may have moved courts.
+# # REAL: GAME\common\character_interactions\00_education_interactions.txt:987.
+# #
+# # every_courtier_away IS NOT PART OF OUR POOL, and that is a ruling, not an
+# # omission: vanilla offers children who are already fostered abroad, and a picker
+# # row for a child who is not in your court and whom you may not even be able to
+# # recall is not explainable in one sentence. B3's fill iterates every_courtier
+# # only. If that is ever widened, this comment and the player-facing rule string
+# # must change in the same commit.
+# # =============================================================================
+# tnt_ward_candidate_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $SENDER$
+# 			exists = $RECEIVER$
+# 		}
+# 		NOT = { this = $SENDER$ }
+# 		NOT = { this = $RECEIVER$ }
+#
+# 		is_courtier_of = $SENDER$			# OURS — see the header. REAL: GAME\common\character_interactions\00_education_interactions.txt:987
+# 		is_adult = no					# REAL: GAME\common\character_interactions\00_education_interactions.txt:837, :852
+# 		is_physically_able = yes			# REAL: GAME\common\character_interactions\00_education_interactions.txt:838, :853
+#
+# 		# USER ITEM 3 (V12), AND THIS GATE IS THE ONE THAT NEEDED IT MOST. The user
+# 		# saw AGOT dragons in the courtier list, which proves dragons ARE courtiers —
+# 		# and every other row here is satisfied by a hatchling: not adult, physically
+# 		# able, not a hostage, not travelling, not imprisoned. Without this row the
+# 		# fosterage picker would offer to raise somebody's dragon at your court.
+# 		tnt_person_is_beast_trigger = no
+# 		is_hostage = no					# REAL: GAME\common\character_interactions\00_education_interactions.txt:845, :860
+# 		is_travelling = no				# REAL: GAME\common\character_interactions\00_education_interactions.txt:846, :861
+# 		is_imprisoned = no				# REAL: GAME\common\character_interactions\00_education_interactions.txt:1062 (the ward branch of is_valid)
+#
+# 		# He is already this ruler's ward.
+# 		# REAL: GAME\common\character_interactions\00_education_interactions.txt:839-844
+# 		NOT = {
+# 			any_relation = {
+# 				type = guardian
+# 				this = $RECEIVER$
+# 			}
+# 		}
+#
+# 		# Already promised somewhere, in any of the three directions.
+# 		# REAL: GAME\common\character_interactions\00_education_interactions.txt:1065, :1069
+# 		# (there inside custom_tooltip rows, which are dropped — see the file header)
+# 		# and GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:32-36 for the
+# 		# three-name set.
+# 		NOR = {
+# 			exists = var:ward_travelling_to_guardian
+# 			exists = var:hostage_travelling_to_warden
+# 			exists = var:guardian_travelling_to_ward
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+#
+#
+# # =============================================================================
+# # P6  tnt_can_ward_trigger = { SENDER = <character>  GUARDIAN = <character> }
+# #
+# # SCOPE: ANY. May $SENDER$ place a child with $GUARDIAN$ at all? PURE.
+# #
+# # Vanilla original: offer_ward_interaction's populate_recipient_list and
+# # is_valid_showing_failures_only, GAME\common\character_interactions\00_education_interactions.txt:883-904
+# # and :992-1122.
+# #
+# # ROW BY ROW:
+# #   $GUARDIAN$ is_adult = yes                :887, :999  — a child cannot raise a child
+# #   $GUARDIAN$ num_of_relation_ward < 2      :888, :1000 — VANILLA'S CAP OF TWO.
+# #              This is the row that will most often hide the term, and it should:
+# #              a guardian with two wards cannot take a third, in vanilla or here.
+# #              It is a field-against-literal test on one character, so Law R7
+# #              holds without folding anything through a script value.
+# #   $GUARDIAN$ NOT is_theocratic_lessee      :897
+# #   $GUARDIAN$ is_imprisoned = no            :1055
+# #   $GUARDIAN$ is_hostage = no + the three travel variables
+# #                                            :1091, :1095 (guardian branch)
+# #   NOT at war with each other               :1051-1053
+# #
+# # is_consort_of (:898) is not copied: it excludes the RECIPIENT'S CONSORT from
+# # being nominated as guardian, and we never nominate a courtier — the partner
+# # ruler himself is always the guardian, and a ruler is not his own consort.
+# #
+# # ep3_laamp_diplo_range_trigger (:1117) is not copied either: it is vanilla's
+# # substitute for a diplomatic-range test on landless adventurers, and this mod
+# # runs `use_diplomatic_range = no` on its own interaction (tnt_10_interaction.txt)
+# # by explicit ruling. Importing a range test through the back door of one term
+# # would make that term behave unlike the other seventeen.
+# # =============================================================================
+# tnt_can_ward_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $SENDER$
+# 			exists = $GUARDIAN$
+# 		}
+# 		NOT = { $SENDER$ = { this = $GUARDIAN$ } }
+#
+# 		# REAL: GAME\common\character_interactions\00_education_interactions.txt:1051-1053
+# 		NOT = { $SENDER$ = { is_at_war_with = $GUARDIAN$ } }
+#
+# 		$SENDER$ = { is_alive = yes }
+#
+# 		$GUARDIAN$ = {
+# 			is_alive = yes				# REAL: GAME\common\character_interactions\00_education_interactions.txt:966
+# 			is_adult = yes				# REAL: GAME\common\character_interactions\00_education_interactions.txt:887, :999
+# 			num_of_relation_ward < 2		# VANILLA'S CAP. REAL: GAME\common\character_interactions\00_education_interactions.txt:888, :1000, :1004
+# 			is_theocratic_lessee = no		# REAL: GAME\common\character_interactions\00_education_interactions.txt:897 (as `= yes` inside a NOR)
+# 			is_imprisoned = no			# REAL: GAME\common\character_interactions\00_education_interactions.txt:1055
+# 			is_hostage = no				# a hostage keeps no ward. REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:9
+# 			# REAL: GAME\common\character_interactions\00_education_interactions.txt:1091, :1095
+# 			NOR = {
+# 				exists = var:guardian_travelling_to_ward
+# 				exists = var:hostage_travelling_to_warden
+# 			}
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+
+
+# =============================================================================
+# RETIRED V16, USER ITEM 5 — P7 / P8, the two show gates of the ward/fosterage
+# family. ATOMIC PAIR with the two gate writes at
+# common/scripted_effects/tnt_30_effects.txt:618-619, which call
+# tnt_show_$ITEM$_trigger BY MACRO; a live write beside a commented-out trigger
+# is a hard script error on every window open, so both halves went in one edit.
+# Precedent for this pairing: tnt_41_gates.txt:1488, :1535 (the nonwar and
+# prisoner show gates) against tnt_30_effects.txt:586-589.
+# =============================================================================
+# P7 / P8  tnt_show_ward_p_trigger / _r_trigger = { OTHER = <character> }
+#
+# Same two-part shape and the same reasoning as P3 / P4: the pair gate, then the
+# candidate list. Direction, and it is the one that is easy to invert —
+#   _p  the PLAYER'S child goes to the PARTNER: SENDER = root, GUARDIAN = partner
+#   _r  the PARTNER'S child comes to the PLAYER: SENDER = partner, GUARDIAN = root
+# and B3's exec leg tnt_exec_ward_effect { SIDE CHILD GUARDIAN } must be called
+# the same way round. The list name follows the column, not the scope: the _r
+# list is filled from the partner's court and stored on the player.
+# =============================================================================
+# tnt_show_ward_p_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $OTHER$
+# 			has_variable_list = tnt_list_ward_p
+# 		}
+# 		tnt_can_ward_trigger = {
+# 			SENDER = root
+# 			GUARDIAN = $OTHER$
+# 		}
+# 		variable_list_size = {
+# 			name = tnt_list_ward_p
+# 			value > 0
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+#
+# tnt_show_ward_r_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $OTHER$
+# 			has_variable_list = tnt_list_ward_r
+# 		}
+# 		tnt_can_ward_trigger = {
+# 			SENDER = $OTHER$
+# 			GUARDIAN = root
+# 		}
+# 		variable_list_size = {
+# 			name = tnt_list_ward_r
+# 			value > 0
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+
+
+###############################################################################
+###############################################################################
+##
+##  PART C — COURTIER TRANSFER.
+##
+##  THE POPULATION RULE, IN ONE SENTENCE:
+##
+##    "A transferable courtier is a grown, landless member of the giver's own
+##     court who holds no post in it — not his heir, his consort, his regent, his
+##     councillor, a knight, a court-position holder, or anybody's ward,
+##     guardian, mentor or student — and who is not a rival of the man receiving
+##     him."
+##
+##  EVERY EXCLUSION IN THAT SENTENCE IS VANILLA'S OWN, from
+##  can_recruit_character_to_court_trigger
+##  (GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:332-460),
+##  which is the trigger vanilla uses to answer the identical question for
+##  invite_to_court_interaction (GAME\common\character_interactions\00_courtier_and_guest_interactions.txt:615).
+##  The rival row is the exception and it is RULING R5's: the design wanted a
+##  -200 price for handing over a rival, and R5 forbids a negative price anywhere
+##  (invariant I6), so the rival becomes a REFUSAL instead of a discount. The
+##  councillor is the same story at -25 and lands in the same place — vanilla
+##  already refuses a councillor at :397, so that one costs us nothing to obey.
+###############################################################################
+
+
+# =============================================================================
+# P9  tnt_courtier_candidate_trigger = { SENDER = <character>  RECEIVER = <character> }
+#
+# SCOPE: A CHARACTER — the candidate courtier. PURE.
+#
+# ROW BY ROW, against 00_courtier_guest_management_triggers.txt unless said
+# otherwise:
+#   is_imprisoned = no                     :365
+#   is_theocratic_lessee = no              :366
+#   is_diarch = no                         :367 — the regent runs the realm
+#   NOT is_player_heir_of = $SENDER$       :374 — vanilla only protects the heir
+#   NOT is_primary_heir_of = $SENDER$      :382   of an AI/human host respectively;
+#                                                we refuse both without asking who
+#                                                is playing, because a treaty is
+#                                                symmetric and the AI's heir must be
+#                                                as unbuyable as the player's.
+#   NOT is_consort_of = $SENDER$           :386
+#   NOT is_councillor_of = $SENDER$        :397 — and see R5 above
+#   NOT is_knight_of = $SENDER$            :398
+#   NOT any_court_position_employer = $SENDER$
+#                                          :427
+#   none of the four teaching relations toward the sender or his close family
+#                                          :399-426
+#   is_adult = yes                                  — OURS. A child leaves through
+#                                          the WARD term, which has a guardian
+#                                          relation, an education and a price of
+#                                          its own. Without this row the same
+#                                          child could be sold as a courtier at
+#                                          the courtier price. `is_adult` REAL:
+#                                          GAME\common\character_interactions\00_education_interactions.txt:887
+#   is_landed = no                                  — OURS. A landed man is not a
+#                                          courtier; giving him away would be a
+#                                          title transfer with no title leg. REAL:
+#                                          GAME\common\character_interactions\00_character_interactions.txt:26
+#   is_foreign_court_guest = no                     — OURS. A guest is not yours to
+#                                          give. REAL:
+#                                          GAME\common\character_interactions\00_courtier_and_guest_interactions.txt:596
+#   is_hostage = no                                 — OURS, and it is the guard that
+#                                          keeps the three people terms from
+#                                          selling the same body twice. REAL:
+#                                          GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:9
+#   NOT has_relation_rival = $RECEIVER$             — RULING R5. REAL:
+#                                          GAME\common\activities\activity_types\witch_ritual.txt:415
+#
+# WHAT IS DELIBERATELY NOT COPIED from vanilla's trigger:
+#   * the wandering-child branch (:337-363) — it is about recruiting a child from
+#     the pool, and our pool is one court's adults;
+#   * the pressing-claim row (:388-393) — it protects a host from losing a man
+#     whose claim he is pressing, which is a fact about the HOST, and here the
+#     host is the giver who has volunteered him;
+#   * the landless-adventurer branch (:429-449) — it is wrapped in a
+#     custom_tooltip and it restricts a government our partner set already treats
+#     specially at the door (T1).
+# =============================================================================
+tnt_courtier_candidate_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $SENDER$
+			exists = $RECEIVER$
+		}
+		NOT = { this = $SENDER$ }
+		NOT = { this = $RECEIVER$ }
+
+		is_courtier_of = $SENDER$			# REAL: GAME\common\character_interactions\00_education_interactions.txt:987
+		is_adult = yes					# OURS — children leave through the WARD term. REAL: GAME\common\character_interactions\00_education_interactions.txt:887
+		is_landed = no					# OURS. REAL: GAME\common\character_interactions\00_character_interactions.txt:26
+		is_landless_ruler = no				# REAL: GAME\common\character_interactions\05_bp2_interactions.txt:97
+		is_foreign_court_guest = no			# OURS. REAL: GAME\common\character_interactions\00_courtier_and_guest_interactions.txt:596
+		is_hostage = no					# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:9
+		is_imprisoned = no				# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:365
+		is_theocratic_lessee = no			# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:366
+		is_diarch = no					# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:367
+
+		# THE JOBS. Every one of these is a post the giver's realm actually
+		# depends on, and vanilla refuses to let any of them be recruited away.
+		NOT = { is_player_heir_of = $SENDER$ }		# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:374
+		NOT = { is_primary_heir_of = $SENDER$ }		# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:382
+		NOT = { is_consort_of = $SENDER$ }		# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:386
+		NOT = { is_councillor_of = $SENDER$ }		# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:397 — and RULING R5, which turns the design's -25 price into this refusal
+		NOT = { is_knight_of = $SENDER$ }		# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:398
+		NOT = {
+			any_court_position_employer = { this = $SENDER$ }	# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:427
+		}
+
+		# The four teaching relations, vanilla's own set and its own "or his
+		# close family" widening.
+		# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:399-426
+		NOR = {
+			any_relation = {
+				type = ward
+				OR = {
+					this = $SENDER$
+					is_close_family_of = $SENDER$
+				}
+			}
+			any_relation = {
+				type = guardian
+				OR = {
+					this = $SENDER$
+					is_close_family_of = $SENDER$
+				}
+			}
+			any_relation = {
+				type = mentor
+				OR = {
+					this = $SENDER$
+					is_close_family_of = $SENDER$
+				}
+			}
+			any_relation = {
+				type = student
+				OR = {
+					this = $SENDER$
+					is_close_family_of = $SENDER$
+				}
+			}
+		}
+
+		# RULING R5. The design priced a rival at -200; I6 forbids a negative
+		# price, so the rival is refused instead of discounted. Handing a man to
+		# somebody who hates him is not a bargain, it is a sentence.
+		# REAL: GAME\common\activities\activity_types\witch_ritual.txt:415
+		NOT = { has_relation_rival = $RECEIVER$ }
+
+		# NOT A PERSON — P19, V12 user item 3. LAST ROW ON PURPOSE: it is the only
+		# row here that scans a list, and every candidate the flat rows above have
+		# already refused never reaches it. It also re-runs at apply time, because
+		# tnt_exec_courtier_multi_effect re-tests this whole trigger
+		# (tnt_3a_people.txt:401) — a dragon can be added to a court between the
+		# compose and the signature.
+		tnt_person_is_beast_trigger = no
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P10  tnt_can_courtier_trigger = { GIVER = <character>  RECEIVER = <character> }
+#
+# SCOPE: ANY. May $GIVER$ hand courtiers to $RECEIVER$ at all? PURE.
+#
+# THE PARAMETER NAMES ARE MINE. §1.B names this trigger but does not fix its
+# parameter list; GIVER / RECEIVER is chosen to match tnt_can_grant_claim_trigger
+# (T4) and the exec leg's own SIDE / GIVER / RECEIVER signature, so the three
+# read alike.
+#
+# THIS GATE IS DELIBERATELY THIN, and the thinness is the point. Every real
+# restriction on moving a courtier is a fact about the PERSON, and P9 carries all
+# of it; there is no vanilla pair-level gate on invite_to_court_interaction
+# beyond its is_shown, which is about the recruitee
+# (GAME\common\character_interactions\00_courtier_and_guest_interactions.txt:592-603).
+# What remains is the two facts that are about the pair and nothing else: they
+# are two different people, and they are not at war.
+#
+# The at-war row buys nothing at window-open time — item 26a already refuses to
+# OPEN a negotiation between belligerents — and it is here for the other two
+# callers: B3's exec leg re-tests this trigger at apply time, and a war can be
+# declared between the send and the accept. That is the same argument that put a
+# T18 row inside tnt_exec_alliance_effect.
+# =============================================================================
+tnt_can_courtier_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $GIVER$
+			exists = $RECEIVER$
+		}
+		NOT = { $GIVER$ = { this = $RECEIVER$ } }
+		NOT = { $GIVER$ = { is_at_war_with = $RECEIVER$ } }	# REAL: GAME\common\character_interactions\00_alliance.txt:1164
+		$GIVER$ = { is_alive = yes }
+		$RECEIVER$ = { is_alive = yes }
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P11 / P12  tnt_show_courtier_p_trigger / _r_trigger = { OTHER = <character> }
+#
+# Same shape as P3/P4 and P7/P8. This is the one people term whose list is a
+# MULTI-SELECT candidate pool, so the size test is asked of tnt_list_courtier_p /
+# _r — the AVAILABLE half of the two-list invariant — and never of
+# tnt_sel_courtier_p / _r. That matters after the first pick: the shipped
+# tnt_multi_add_effect MOVES the entry out of the available list into the
+# selection, so a pool of exactly one courtier would hide its own row the moment
+# he was chosen. The gate is refreshed only on window open, so it would not
+# actually flicker today — but a future author who calls E33 more often would
+# discover it the hard way, and the two-list invariant is the reason the answer
+# is "size of AVAILABLE plus SELECTED > 0" only if you ask at the wrong moment.
+# Asking at window open, after tnt_reset_offer_effect has emptied the selection,
+# the available list is the whole pool. Do not add a second size test.
+# =============================================================================
+tnt_show_courtier_p_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $OTHER$
+			has_variable_list = tnt_list_courtier_p
+		}
+		tnt_can_courtier_trigger = {
+			GIVER = root
+			RECEIVER = $OTHER$
+		}
+		variable_list_size = {
+			name = tnt_list_courtier_p
+			value > 0
+		}
+	}
+	trigger_else = { always = no }
+}
+
+tnt_show_courtier_r_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $OTHER$
+			has_variable_list = tnt_list_courtier_r
+		}
+		tnt_can_courtier_trigger = {
+			GIVER = $OTHER$
+			RECEIVER = root
+		}
+		variable_list_size = {
+			name = tnt_list_courtier_r
+			value > 0
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+###############################################################################
+###############################################################################
+##
+##  PART D — GRANT INDEPENDENCE.
+##
+##  THERE IS NO POOL AND THERE IS NO PICKER, because there is only ever one
+##  candidate: THE NEGOTIATING PARTNER HIMSELF. `_p` means the player releases
+##  the partner from his fealty; `_r` means the partner releases the player. §1.B
+##  fixes that reading and it may not be inverted — tnt_val_indep_p_value prices
+##  the player letting go of a vassal, and an inverted gate would price the
+##  wrong man's loss.
+##
+##  So the "population rule" for this term is a sentence about the pair:
+##
+##    "You may free the partner when he is your own vassal, holds land of his
+##     own, neither of you is at war, and his realm is not part of your own de
+##     jure inheritance."
+##
+##  THAT LAST CLAUSE IS THE ONE THAT WILL HIDE THIS ROW MOST OFTEN, and it is
+##  vanilla's, not ours: a liege may not grant independence to a vassal whose
+##  primary title lies inside a title he himself holds de jure.
+###############################################################################
+
+
+# =============================================================================
+# P13  tnt_can_release_trigger = { LIEGE = <character>  VASSAL = <character> }
+#
+# SCOPE: ANY. May $LIEGE$ release $VASSAL$? PURE.
+#
+# Vanilla original: grant_independence_interaction,
+# GAME\common\character_interactions\00_character_interactions.txt:2132-2205.
+# Read line by line in this session; every row below names its line.
+#
+#   $VASSAL$ is_vassal_of = $LIEGE$              :2150
+#   $VASSAL$ is_landed = yes                     :2151 — freeing a landless man
+#                                                        frees nothing
+#   the two are not the same person              :2153
+#   NOT at war with each other                   :2157
+#   $LIEGE$ top_liege = this                     :2159 — a vassal cannot free
+#                                                        another man's vassal;
+#                                                        only the top liege can
+#   $LIEGE$ NOT is_at_war = yes                  :2161 — vanilla will not let a
+#                                                        realm shed a vassal in
+#                                                        the middle of a war
+#   no vassal of $LIEGE$ is at war with $VASSAL$ :2167-2173
+#   the de jure test, with vanilla's admin/tribal exception
+#                                                :2179-2194
+#   NOT = { $VASSAL$ ?= $LIEGE$.diarch }         :2199 — the regent is removed by
+#                                                        elevating him, not by
+#                                                        releasing him
+#
+# THE TWO custom_description WRAPPERS at :2164 and :2175 ARE DROPPED and their
+# tests kept, per the file header. The custom_tooltip at :2197 likewise.
+#
+# `$LIEGE$ NOT is_at_war = yes` DESERVES A SECOND LOOK, because it is the one row
+# here that a player can change without closing the window — he can make peace —
+# and the hide-what-is-impossible ruling says a fixable shortfall should stay
+# visible. It is kept HIDDEN anyway, for one reason: making peace is not
+# something the player can do from inside this window, so the row would be a dead
+# control for the whole of a war, which is exactly what the ruling forbids. This
+# is the same call the ruling makes for "the partner is imprisoned".
+#
+# THE DE JURE ROW IS GUARDED BY exists on the primary_title even though
+# is_landed = yes above already implies it. A trigger block is an unordered AND,
+# so the engine may evaluate the scope transition before the landedness row; an
+# unguarded transition off a missing primary_title is the "returned an unset
+# scope" line that this mod has already paid for twice.
+#
+# *** THE ARGUMENTS ARE RE-ANCHORED AS TEMPORARY SCOPES BEFORE ANY NESTED USE —
+# *** THE 85,778-ERROR FIX. DO NOT PUT A BARE $LIEGE$/$VASSAL$ BACK INSIDE ANY
+# *** LIST WALK OR SCOPE BLOCK BELOW. ***
+# $PARAM$ substitution is TEXTUAL, so a caller who passes a var: path (the
+# independence toggles passed VASSAL = var:tnt_partner) has that path re-resolved
+# IN WHATEVER SCOPE THE LINE SITS IN. Inside `any_vassal_or_below = {
+# is_at_war_with = var:tnt_partner }` the current scope is EACH VASSAL BEING
+# WALKED, and no vassal carries the player's tnt_partner variable — the fresh
+# playtest log holds 85,778 script errors, every one of them at this trigger's
+# old walk line via tnt_indep_p_toggle:is_valid, three per vassal per frame
+# ("Failed to fetch variable for 'tnt_partner'" / "Event target link 'var'
+# returned an unset scope" / "is_at_war_with ... was null"). The de jure block's
+# `holder = $LIEGE$` inside the title walk was the same defect lying in wait for
+# the _r direction. A SAVED scope is resolved once and read scope-independently,
+# which is why the P14/P15 show triggers (they pass scope:tnt_gate_partner)
+# never produced a single error in the same 444k-line log.
+# Re-anchoring macro args inside a scripted TRIGGER is vanilla's own shape:
+# GAME\common\scripted_triggers\00_bastard_triggers.txt:95-97
+# (bastard_secret_is_criminal: `$TARGET$ = { save_temporary_scope_as =
+# criminal_bastard }`), and that very trigger then reads the saved scope from
+# INSIDE any_liege_or_above (:112-118) — the exact walk-read this fix needs.
+# The saves sit first in the trigger_if body, as vanilla's do, and the body is
+# only entered after the exists guards above have passed.
+# =============================================================================
+tnt_can_release_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $LIEGE$
+			exists = $VASSAL$
+		}
+
+		# The re-anchoring — see the header box above. Everything below reads
+		# ONLY these two scopes, never a bare parameter.
+		$LIEGE$ = { save_temporary_scope_as = tnt_rel_liege }
+		$VASSAL$ = { save_temporary_scope_as = tnt_rel_vassal }
+
+		# V14, USER ITEM 1: NEITHER SIDE OF A RELEASE MAY BE THE NIGHT'S WATCH.
+		# Independence is the fealty relation read backwards, so it takes the
+		# same gate - T46, common\scripted_triggers\tnt_40_triggers.txt, where
+		# the whole argument and the vanilla-safety proof live. AGOT gates the
+		# very interaction this trigger was copied from with the same both-sides
+		# test: AGOT\common\character_interactions\00_character_interactions.txt
+		# :2344-2347 (grant_independence_interaction). Without this row A17
+		# ("buy my freedom") could free a Night's Watch vassal, or free the
+		# player FROM the Night's Watch - the same lore break in mirror image.
+		# In a vanilla game the row is always true.
+		# *** THE SAVED SCOPES, NOT THE BARE PARAMETERS *** - see the header box
+		# above. Callers pass var: paths (tnt_24_people.txt:932,
+		# VASSAL = var:tnt_partner) and this row must not become the
+		# 85,778-error shape a second time.
+		tnt_vassalage_pair_allowed_trigger = { A = scope:tnt_rel_liege  B = scope:tnt_rel_vassal }
+
+		NOT = { scope:tnt_rel_liege = { this = scope:tnt_rel_vassal } }		# REAL: GAME\common\character_interactions\00_character_interactions.txt:2153
+
+		# REAL: GAME\common\character_interactions\00_character_interactions.txt:2157
+		NOT = { scope:tnt_rel_liege = { is_at_war_with = scope:tnt_rel_vassal } }
+
+		scope:tnt_rel_vassal = {
+			is_alive = yes
+			is_vassal_of = scope:tnt_rel_liege			# REAL: GAME\common\character_interactions\00_character_interactions.txt:2150
+			is_landed = yes						# REAL: GAME\common\character_interactions\00_character_interactions.txt:2151
+		}
+
+		scope:tnt_rel_liege = {
+			is_alive = yes
+			top_liege = this					# only the top liege can free anyone. REAL: GAME\common\character_interactions\00_character_interactions.txt:2159
+			NOT = { is_at_war = yes }				# REAL: GAME\common\character_interactions\00_character_interactions.txt:2160-2162
+			# "is_at_war_with_another_vassal": a realm at war with itself may not
+			# be dismembered mid-fight. THE OLD WALK LINE — every one of the
+			# 85,778 measured errors resolved a var: path against each vassal
+			# walked here; the saved scope is read scope-independently.
+			# REAL: GAME\common\character_interactions\00_character_interactions.txt:2167-2173
+			NOT = {
+				any_vassal_or_below = { is_at_war_with = scope:tnt_rel_vassal }
+			}
+			# The regent leaves by promotion, never by release.
+			# REAL: GAME\common\character_interactions\00_character_interactions.txt:2199
+			NOT = { diarch ?= scope:tnt_rel_vassal }
+		}
+
+		# THE DE JURE TEST. Vanilla's own exception first: an administrative
+		# ruler may release a tribal vassal whatever the de jure map says.
+		# REAL: GAME\common\character_interactions\00_character_interactions.txt:2179-2194
+		trigger_if = {
+			limit = {
+				scope:tnt_rel_liege = { government_has_flag = government_is_administrative }
+				scope:tnt_rel_vassal = { government_has_flag = government_is_tribal }
+			}
+			always = yes
+		}
+		trigger_else = {
+			trigger_if = {
+				limit = { exists = scope:tnt_rel_vassal.primary_title }
+				NOT = {
+					scope:tnt_rel_vassal.primary_title = {
+						any_this_title_or_de_jure_above = {
+							# A title scope holds no tnt_partner variable either;
+							# the saved scope keeps this row safe for the _r
+							# direction (LIEGE = the partner). See the header box.
+							holder = scope:tnt_rel_liege
+						}
+					}
+				}
+			}
+			trigger_else = { always = no }
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P14 / P15  tnt_show_indep_p_trigger / _r_trigger = { OTHER = <character> }
+#
+# No list, no size test — see the PART D header. Pure delegation to P13, in the
+# direction §1.B fixes:
+#     _p  the PLAYER releases the PARTNER   LIEGE = root      VASSAL = partner
+#     _r  the PARTNER releases the PLAYER   LIEGE = partner   VASSAL = root
+# and B3's tnt_exec_indep_effect { SIDE LIEGE VASSAL } must be called the same
+# way round. Getting this backwards does not error: it silently prices the wrong
+# man's loss and frees nobody, which is why the direction is written out at three
+# places in this file and once in the contract.
+#
+# *** THESE TWO ARE THE ONLY ITEM-19 GATES THAT READ THE TIER-4 GAME RULE. ***
+# `exists = var:tnt_advanced` is E1's cached answer to T2
+# (tnt_30_effects.txt:52-64), and it is here because independence is the exact
+# inverse of the shipped fealty term, whose own gates read it
+# (tnt_show_vassal_p/_r_trigger, tnt_41_gates.txt). Both terms rewrite the realm
+# graph and ruling C5 orders them against each other; a campaign that switched
+# the dangerous terms off and could still hand out independence would be
+# incoherent. Hostages, wards and courtiers do NOT read it — see P3's header.
+#
+# T11's ruling is followed, not repeated: the independence row and the fealty row
+# are BOTH left visible when both are legal, and the impossible COMBINATION is
+# refused on the send path by tnt_no_indep_and_vassal_trigger below. Hiding a row
+# the moment its opposite is ticked would make the window jump under the cursor.
+# (In practice the two can rarely both be legal — a partner who is my vassal is
+# not independent, so T5 refuses the fealty row for him — but "rarely" is not
+# "never", and a save restored mid-negotiation can carry both variables.)
+# =============================================================================
+tnt_show_indep_p_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $OTHER$
+			exists = var:tnt_advanced
+		}
+		tnt_can_release_trigger = {
+			LIEGE = root
+			VASSAL = $OTHER$
+		}
+	}
+	trigger_else = { always = no }
+}
+
+tnt_show_indep_r_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $OTHER$
+			exists = var:tnt_advanced
+		}
+		tnt_can_release_trigger = {
+			LIEGE = $OTHER$
+			VASSAL = root
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+###############################################################################
+###############################################################################
+##
+##  PART E — THE TWO SHARED GUARDS.
+##
+##  Both are SEND-PATH guards, not visibility gates. They are the answer to the
+##  question "is this treaty, as a whole, coherent?", which no per-row show-gate
+##  can ask: a show-gate is computed once on window open and knows nothing about
+##  what the player has ticked since.
+##
+##  BOTH READ VARIABLES THAT LIVE ON THE PLAYER, SO BOTH MUST BE CALLED IN THE
+##  PLAYER'S SCOPE. Every intended caller satisfies that by construction — a
+##  scripted_gui is_valid runs with GuiScope.SetRoot( GetPlayer.MakeScope ), and
+##  tnt_apply_deal_effect runs on the player. Do not call either from inside an
+##  iterator over other characters.
+###############################################################################
+
+
+# =============================================================================
+# P16  tnt_person_unique_trigger = { WHO = <character> }
+#
+# ONE BODY MAY APPEAR IN AT MOST ONE PEOPLE-TERM OF ONE TREATY. §1.B, one
+# statement, and this is it.
+#
+# WHY IT HAS TO EXIST. The people terms draw from overlapping pools by
+# construction: a grown son is a hostage candidate AND a courtier candidate. (Up
+# to V16 a young son was also a hostage candidate AND a ward candidate; the ward
+# family is retired, user item 5, and its two rows below went with it — but the
+# hostage/courtier overlap alone is enough to keep this trigger mandatory.)
+# Nothing in the candidate triggers can see the other terms' picks, because a candidate
+# trigger runs in the CANDIDATE's scope and the picks live on the player. So the
+# test belongs here, called from the player's scope, once per pick.
+#
+# WHO CALLS IT (all in files this author does not own — they are in the report):
+#   B4's six setters in tnt_24_people.txt   — refuse the pick that would double-sell
+#   B3's fills in tnt_3a_people.txt         — optional; a fill that skips an
+#                                             already-picked person keeps the
+#                                             picker honest between openings
+#   the send gate                           — the last net
+#
+# THE SHAPE. Each row is a flat `NOT` or a `trigger_if` WITHOUT a trigger_else,
+# and that is deliberate: a trigger_if whose limit fails simply does not apply,
+# which is the correct answer when the list or the variable does not exist yet.
+# Written as a NOR of trigger_ifs it would invert — a missing list would make the
+# NOR's member vacuously true and refuse every pick. The mod already relies on the
+# bare form (tnt_can_stage_pair_trigger, tnt_41_gates.txt) and so does vanilla
+# (GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:42-57).
+#
+# `var:<name> ?= { this = $WHO$ }` reads an object variable that may not be set;
+# the optional form is vanilla's own at
+# GAME\common\character_interactions\00_marriage_interactions.txt:790, and this
+# mod's shipped read-back at tnt_70_on_actions.txt:174.
+# `is_target_in_variable_list` paired with `has_variable_list` is vanilla's own
+# pairing at GAME\common\character_interactions\00_character_interactions.txt:1060-1064.
+# =============================================================================
+tnt_person_unique_trigger = {
+	trigger_if = {
+		limit = { exists = $WHO$ }
+
+		NOT = { var:tnt_hostage_p ?= { this = $WHO$ } }
+		NOT = { var:tnt_hostage_r ?= { this = $WHO$ } }
+		# RETIRED V16, USER ITEM 5 — the two ward rows. Nothing writes tnt_ward_p or
+		# tnt_ward_r any more, so these would be permanently vacuous guards. Same
+		# treatment and the same reason as tnt_3b_log.txt:637-640 gives for the
+		# retired prisoner emitter. The `?=` form soft-fails on an unset variable, so
+		# leaving them live would have been harmless — they are commented for the
+		# reader-with-no-writer rule, not to avoid an error.
+		#		NOT = { var:tnt_ward_p ?= { this = $WHO$ } }
+		#		NOT = { var:tnt_ward_r ?= { this = $WHO$ } }
+
+		trigger_if = {
+			limit = { has_variable_list = tnt_sel_courtier_p }
+			NOT = {
+				is_target_in_variable_list = {
+					name = tnt_sel_courtier_p
+					target = $WHO$
+				}
+			}
+		}
+		trigger_if = {
+			limit = { has_variable_list = tnt_sel_courtier_r }
+			NOT = {
+				is_target_in_variable_list = {
+					name = tnt_sel_courtier_r
+					target = $WHO$
+				}
+			}
+		}
+
+		# PART F — THE TRANSFERRED VASSAL, both sides. Same bare trigger_if
+		# shape and the same reason: on a first pick the list does not exist and
+		# the question does not arise. WITHOUT THESE TWO ROWS the same man could
+		# be sold as a vassal AND promised as a hostage in one treaty — the
+		# pools do not overlap often (a hostage is unlanded, a transferred
+		# vassal is landed) but a landed child of the giver's is a legal hostage
+		# candidate nowhere and a legal subject candidate here, and P16's whole
+		# job is that "not often" is not "never". Cheap: two list membership
+		# tests behind a has_variable_list guard.
+		trigger_if = {
+			limit = { has_variable_list = tnt_sel_subject_p }
+			NOT = {
+				is_target_in_variable_list = {
+					name = tnt_sel_subject_p
+					target = $WHO$
+				}
+			}
+		}
+		trigger_if = {
+			limit = { has_variable_list = tnt_sel_subject_r }
+			NOT = {
+				is_target_in_variable_list = {
+					name = tnt_sel_subject_r
+					target = $WHO$
+				}
+			}
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P17  tnt_no_indep_and_vassal_trigger = yes
+#
+# RULING C5, first half: no treaty may carry both an independence term and a
+# fealty term. Belt and braces in exactly the sense T11 is
+# (tnt_40_triggers.txt:530) — the two pairs of toggles should already be
+# unreachable together, and this is the row that makes it a rule instead of a
+# coincidence, and that survives a save restored mid-negotiation.
+#
+# C5's second half — "if one ever slips through, independence executes BEFORE
+# fealty" — is NOT enforceable from a trigger. It is an ORDERING obligation on
+# tnt_apply_deal_effect, slots 19 and 20 of §6, and it is B3's. Both realm-graph
+# legs rewrite the same subject contracts, and running fealty first would hand
+# the partner a vassal and free him in the same tick.
+#
+# Pure `exists` tests on four numeric variables, never a comparison between two
+# of them (Law R7), exactly as T11.
+# =============================================================================
+tnt_no_indep_and_vassal_trigger = {
+	NOT = {
+		AND = {
+			OR = {
+				exists = var:tnt_indep_p
+				exists = var:tnt_indep_r
+			}
+			OR = {
+				exists = var:tnt_vassal_p
+				exists = var:tnt_vassal_r
+			}
+		}
+	}
+}
+
+
+# =============================================================================
+# P18  tnt_people_pair_trigger = yes
+#
+# RULING C5's two cross-term guards in one call, so that the send gate has ONE
+# name to invoke and cannot acquire half of the rule. *** ONE OF THE TWO SURVIVES:
+# guard 2 was the hostage-vs-ward pair and the ward family is retired (V16, user
+# item 5), so the body below is now the single delegated line. The name and the
+# call site stay because C5 still has a half, and because a third people term
+# added later needs a place to put its cross-guard. ***
+#
+#   1. not both independence and fealty  -> delegated to P17, which is the single
+#      statement of that law. Delegation and not duplication: the day somebody
+#      adds a third fealty-shaped term, P17 is the only place to change.
+#   2. RETIRED V16 — not the same character as hostage AND ward. P16 prevented it
+#      at pick time; this was the send-path net for a treaty assembled before P16
+#      existed, or restored from a save. Nothing writes a ward pick any more, so
+#      the guard had nothing left to compare against.
+#
+# THE FOUR CROSS COMBINATIONS WERE WRITTEN OUT, not folded. `this = <dotted var
+# path>` is the only shape that can compare two object variables without a scope
+# transition on each, and it is vanilla's own — REAL:
+#   GAME\common\achievements\ep1_achievements.txt:107  this = root.var:one_of_a_kind_var
+#   GAME\common\on_action\war_on_actions.txt:278       this = root.var:coronation_event_1005_target
+# `root.` and not a bare `var:`, because the left-hand `var:tnt_hostage_p ?= { }`
+# has already moved the scope onto the hostage; inside that block a bare `var:`
+# would ask the HOSTAGE for the player's ward. That is a silent wrong answer, not
+# an error, which is why it is written out here.
+#
+# The same-side pairs (hostage_p vs ward_p) and the cross-side pairs (hostage_p
+# vs ward_r) are both listed. The cross-side ones are not hypothetical: a child
+# who is the player's hostage-to-give is by definition in the player's court, and
+# the partner cannot offer him — but a child in a court the two rulers SHARE
+# through a marriage can legitimately appear in both columns' candidate lists,
+# and the widened partner set (T1) puts liege/vassal pairs at this table.
+#
+# EACH ROW WAS `exists`-GUARDED ON ITS RIGHT-HAND SIDE — measured defect, fixed.
+# *** THE ROWS ARE RETIRED BUT THE LESSON IS NOT: any cross-guard added to this
+# trigger in future MUST carry the same guard, for the reason measured below. ***
+# The left-hand `var:tnt_hostage_* ?=` soft-fails when the hostage is unset, but
+# the RIGHT-hand `root.var:tnt_ward_*` inside the comparison block was a raw
+# fetch. This trigger runs per frame from tnt_send_offer:is_valid
+# (tnt_20_scripted_guis.txt:1124) while the window is open, so a session with a
+# hostage picked and no ward logged "Failed to fetch variable tnt_ward_p/_r"
+# three lines per row per evaluation — 134 evaluations x 2 live rows x 3 lines
+# = 804 error-log lines in one playtest. The two _r rows stayed silent that run
+# only because tnt_hostage_r was never set: same latent shape, so all four rows
+# carry the guard. Behaviour is identical — an unset ward can never equal a set
+# hostage, so `exists` first and the compare second inside one AND merely skips
+# a row that could only have answered "no match" anyway.
+# =============================================================================
+tnt_people_pair_trigger = {
+	tnt_no_indep_and_vassal_trigger = yes
+
+	# THE THIRD PEOPLE TERM'S CROSS-GUARD, AND THIS IS THE PLACE THE HEADER
+	# ABOVE RESERVED FOR IT (V26). Not both sworn fealty and a transferred
+	# vassal: the two are individually legal and jointly price the same land
+	# twice. Delegated to P25, which is the single statement of that law, for
+	# the same reason rule 1 delegates to P17 — the send gate keeps ONE name and
+	# cannot acquire half the rule.
+	# P25 is pure `exists` + list-size tests, no walk, so it is safe on the
+	# per-frame path this trigger runs on (tnt_send_offer's is_valid).
+	tnt_no_subject_and_vassal_trigger = yes
+
+	# RETIRED V16, USER ITEM 5 — the four hostage-vs-ward cross rows. The ward
+	# family is gone mod-wide, so no character can be a ward pick and there is
+	# nothing left for a hostage pick to collide with. RULE 1 (not both
+	# independence and fealty) is now the WHOLE of the surviving half of ruling C5,
+	# and it is the one delegated line above.
+	# KEEP THE 804-LINE LESSON: these four rows were the measured defect described
+	# in this trigger's header. If any people-term cross-guard is ever added here,
+	# its right-hand side MUST carry `exists = root.var:...` inside the same AND,
+	# because this trigger runs PER FRAME off tnt_send_offer's is_valid
+	# (tnt_20_scripted_guis.txt:1124) and a raw fetch there cost 804 error-log
+	# lines in one playtest.
+	#	NOT = { AND = { exists = root.var:tnt_ward_p  var:tnt_hostage_p ?= { this = root.var:tnt_ward_p } } }
+	#	NOT = { AND = { exists = root.var:tnt_ward_r  var:tnt_hostage_p ?= { this = root.var:tnt_ward_r } } }
+	#	NOT = { AND = { exists = root.var:tnt_ward_p  var:tnt_hostage_r ?= { this = root.var:tnt_ward_p } } }
+	#	NOT = { AND = { exists = root.var:tnt_ward_r  var:tnt_hostage_r ?= { this = root.var:tnt_ward_r } } }
+}
+
+
+# =============================================================================
+# P19  tnt_person_is_beast_trigger = yes
+#
+# SCOPE: A CANDIDATE, no parameters. "Is this 'person' not a person at all?"
+# Answers YES for an A Game of Thrones DRAGON and NO for everything else, in an
+# AGOT game AND in a vanilla-only game. PURE — no custom_description — so the
+# exec legs that re-test their candidate triggers inside a tooltip stay safe.
+#
+# WHY IT EXISTS (V12, user item 3). AGOT dragons are ordinary CHARACTERS put in
+# a ruler's court with plain add_courtier — AGOT 00_agot_dragon_effects.txt:925,
+# :928, :954, :959, :986, :991 and 00_agot_dragon_spawning_effects.txt:157 — so
+# every_courtier yields them and the transfer picker listed a dragon beside the
+# chancellor. Every row of P9 above says yes to a dragon: it is adult, landless,
+# not a ruler, not a guest, holds no post and is nobody's rival.
+#
+# WHY NOT `has_trait = dragon`, WHICH IS WHAT AGOT ITSELF TESTS (its is_human,
+# AGOT\common\scripted_triggers\00_agot_character_triggers.txt:1-2). MOD-LOAD
+# SAFETY: `dragon` is a trait id that exists only in AGOT, and an undefined
+# trait id is a load error in a vanilla-only game. The same disqualifies
+# culture:dragon_culture and faith:valyrian_pan_freehold (AGOT
+# 00_agot_dragon_templates.txt:6, :68-69) and AGOT's is_human trigger itself,
+# which is another mod's scripted trigger. There is NO vanilla-only property
+# that separates a dragon from a human: they are unlanded adult courtiers with
+# no dynasty, an education trait, three personality traits and normal prowess.
+#
+# WHY A GLOBAL VARIABLE LIST IS SAFE WITHOUT AGOT. A variable-list NAME is a
+# plain string the engine never resolves against a definition. In a vanilla-only
+# game nothing writes `living_dragons`, the list does not exist, this trigger is
+# false for everyone, and the six fills behave exactly as they do today.
+#
+# WHY THIS LIST AND NOT A CHARACTER FLAG OR VARIABLE. It is the only marker that
+# is provably true of EVERY living dragon:
+#   * game start sweeps all of them in — `every_living_dragon = {
+#     add_to_global_variable_list = { name = living_dragons  target = this } }`,
+#     AGOT 00_agot_dragon_effects.txt:2916-2922, called unconditionally from
+#     on_game_start at AGOT agot_game_start.txt:1618. The list it walks is
+#     `living_dragon = { base = living_character  conditions = { has_trait =
+#     dragon } }`, AGOT 00_agot_scripted_lists_filler_lists.txt:71-76.
+#   * dragons born afterwards are added by
+#     agot_dragon_transfer_vars_to_story_cycle_effect (same file :2286-2299),
+#     called by all six dragon templates' after_creation
+#     (00_agot_dragon_templates.txt:61, :147, :219, :283, :348, :412) and by all
+#     71 canon spawn effects.
+#   * a dead dragon is removed again, AGOT 00_agot_magic_effects.txt:111-122.
+# The per-character markers all miss somebody: dragon_gender_hidden and
+# dragon_age are written by the templates and the canon spawns but NOT by the
+# history-defined dragons (AGOT history\characters\00_agot_char_dragons.txt:
+# 350-364 — dragon_balerion's birth block sets only the two colour variables),
+# and the owned_dragon flag is only on tamed ones.
+#
+# REAL: is_target_in_global_variable_list with `target = this`, in a trigger,
+# GAME\common\succession_election\01_princely_elective.txt:98; with a scope
+# target inside a candidate loop's limit,
+# GAME\common\decisions\80_major_decisions_middle_europe.txt:851-856.
+#
+# COST. One global-list membership scan per candidate, on CLICK paths only —
+# the six fills, tnt_spouse_try_add_effect and the exec legs' re-validation.
+# Never in a scripted_gui is_valid and never per frame. The list holds every
+# LIVING dragon in the world: zero in most AGOT bookmarks, a few dozen in the
+# Conquest and Dance ones.
+# =============================================================================
+tnt_person_is_beast_trigger = {
+	is_target_in_global_variable_list = {
+		name = living_dragons
+		target = this
+	}
+}
+
+
+# =============================================================================
+# P20  tnt_person_is_sworn_brother_trigger = yes
+#
+# SCOPE: A CANDIDATE, no parameters. "Has this man taken the black?"
+# Answers YES for a member of the Night's Watch in an AGOT game and NO for
+# everybody in a vanilla-only game. PURE — no custom_description — so the exec
+# legs that re-test their candidate triggers inside a tooltip stay safe. Same
+# shape as P19 above, deliberately.
+#
+# WHY IT EXISTS (V15, USER ITEM 3). T48 tnt_not_the_watch_trigger closes every
+# RULER-level door, but one PERSON-level leak survives all of them: the spouse
+# lists iterate every_child and every_close_family_member, which are NOT bounded
+# to a court, so a player's own son or brother who took the black is still a legal
+# groom in a negotiation with some third ruler. Only the LAST pass of each fill is
+# court-bounded, so a sworn brother reaches the list through passes 2 and 3.
+#
+# TODAY THAT IS STOPPED ONLY BY ANOTHER MOD'S OVERRIDE OF A VANILLA TRIGGER —
+# the exact dependency this file already refused to accept for dragons. The
+# per-candidate filter is tnt_spouse_try_add_effect's limit, whose vanilla gate is
+# `marriage_interaction_can_be_picked_trigger = yes`. In AGOT that chain does
+# refuse him, but only because AGOT REWROTE it: AGOT\common\scripted_triggers\
+# 00_marriage_triggers.txt:420 -> can_marry_trigger (:81) -> can_marry_common_trigger
+# (:18), where vanilla's blanket `NOT = { has_trait_with_flag = can_not_marry }` is
+# COMMENTED OUT at :21 and replaced by a trigger_if (:22-31) that admits such a
+# character when `exists = scope:willing_marriage` and three LMF-story conditions
+# hold. Our path never saves scope:willing_marriage, so he is refused — by accident
+# of another mod's story scope. The precedent for adding our own row anyway is on
+# the very line this trigger is called from, beside the dragon row: "REDUNDANT IN
+# AGOT AS SHIPPED ... It is here so the spouse lists stop depending on ANOTHER
+# MOD'S OVERRIDE of a vanilla trigger."
+#
+# WHY THE GOVERNMENT AND NOT THE TRAIT. MOD-LOAD SAFETY: `nightswatch`,
+# `nightswatch_temp` and `nightswatch_historical` are trait ids that exist only in
+# AGOT (AGOT\common\traits\00_agot_traits.txt:410 with `flag = can_not_marry` at
+# :419, :817/:834, and AGOT\common\traits\00_agot_history_traits.txt:10/:26), and an
+# undefined trait id is a load error in a vanilla-only game. A government FLAG is
+# free text — the full proof is in T48's header, common\scripted_triggers\
+# tnt_40_triggers.txt. The government test also catches what the trait test cannot:
+# a LANDED brother whose government AGOT re-applies whenever it drifts
+# (AGOT\common\scripted_effects\00_agot_nightswatch_effects.txt:614-618).
+#
+# WHY THE OR HAS TWO ROWS. The first catches a LANDED brother, who carries
+# nights_watch_government himself. The second catches an UNLANDED one, who does
+# not — but whose liege chain must reach k_the_wall, because that is
+# nights_watch_government's own can_get_government requirement:
+# `has_title = title:k_the_wall` OR `any_liege_or_above = { has_title =
+# title:k_the_wall }`, AGOT\common\governments\00_agot_government_types.txt:189-201.
+# THE WALK FORM IS AGOT'S OWN FOR THIS EXACT QUESTION:
+#   any_liege_or_above = { government_has_flag = government_is_nw }
+#   AGOT\common\character_interactions\00_perk_interactions.txt:954 (inside a NOR
+#   whose other half is the per-side flag test at :952 — i.e. AGOT writes this
+#   trigger's two rows as the same pair), and 00_religious_interactions.txt:5998,
+#   :6008.
+# `any_liege_or_above` in vanilla: GAME\common\scripted_triggers\
+# 00_bastard_triggers.txt:112-118; GAME\common\activities\activity_types\
+# coronation.txt:126.
+#
+# COST. One liege-chain walk per candidate, on a CLICK path only (the marriage
+# picker's eight fill passes per open), strictly cheaper than the global-list scan
+# P19 already does on the same line. Never in a scripted_gui is_valid, never per
+# frame. In a vanilla-only game the first row is false for everyone and the walk
+# finds no flag, so the trigger is CONSTANT FALSE and the fills behave exactly as
+# they do today.
+# =============================================================================
+tnt_person_is_sworn_brother_trigger = {
+	OR = {
+		government_has_flag = government_is_nw
+		any_liege_or_above = { government_has_flag = government_is_nw }
+	}
+}
+
+
+###############################################################################
+###############################################################################
+##
+##  PART F — TRANSFER A VASSAL.  *** THE THIRD PEOPLE TERM. ***
+##
+##  P18's header reserved a place for this term's cross-guard ("a third people
+##  term added later needs a place to put its cross-guard"); P25 below is that
+##  guard and P18 now delegates to it.
+##
+##  THE STEM IS `subject`, NOT `vassal`. tnt_vassal_p/_r is the SWORN FEALTY
+##  term — the partner himself kneeling — and reusing the stem would collide
+##  with its variables, its gates, its price and the game-rule table in
+##  _docs\tools\tnt_rule_conformance.ps1. Before this round the string
+##  `tnt_*subject*` did not occur anywhere under common\, gui\, data_binding\,
+##  events\ or localization\, so the namespace is this term's alone.
+##
+##  THE POPULATION RULE, in the one sentence item 7's ruling demands:
+##
+##    "You may hand over a direct vassal of yours who holds a county or more,
+##     who ranks below the man receiving him, who is at peace with you, with
+##     everyone under him and with the receiver, who is neither your regent nor
+##     your heir, and whom no treaty has already moved in the last three years."
+##
+##  THE WHOLE SET IS VANILLA'S grant_vassal_interaction, read line by line:
+##  GAME\common\character_interactions\00_vassal_interactions.txt:3-337. Its
+##  pool is `scope:actor = { every_vassal = { add_to_list = characters } }`
+##  (:11-17), i.e. the giver's DIRECT vassals, which is `liege ?= $GIVER$`
+##  below; its per-candidate filter is `can_be_picked` (:131-194), evaluated in
+##  the candidate's own scope exactly as this trigger is.
+##
+##  *** IT IS IRREVERSIBLE AND THEREFORE A TIER-4 TERM. *** There is no
+##  interaction anywhere in the game that takes a vassal BACK across a realm
+##  boundary — retract_vassal_interaction only reaches one's own subjects — so a
+##  transferred vassal returns by war or not at all. The two window rows carry
+##  the `TntOn('tnt_advanced')` conjunct for that reason (CLAUDE.md section 4,
+##  the four irreversible families, now five).
+###############################################################################
+
+
+# =============================================================================
+# P21  tnt_subject_candidate_trigger = { GIVER = <character>  RECEIVER = <character> }
+#
+# SCOPE: THE CANDIDATE VASSAL, exactly as P1 and P9 are asked of the candidate
+# person. PURE — no custom_description anywhere — so the apply leg may re-test
+# it inside a rendered tooltip.
+#
+# *** PERFORMANCE, MEASURED AND WRITTEN DOWN SO NOBODY DELETES A ROW AS A LAW-6
+# *** VIOLATION. *** One row here walks a subtree: `any_vassal_or_below`. It is
+# admissible, and here is the arithmetic. This trigger is NEVER called from a
+# scripted_gui is_valid and never per frame — its only callers are the two fills
+# (window open / _show / post-apply refill) and the apply leg (once per signed
+# treaty). The set it is asked of is the giver's DIRECT vassals of county tier
+# and above, which is 5-25 characters in a normal realm, and each one's own
+# sub-tree is small by construction because he is not the top liege. That is
+# strictly cheaper than the every_courtier walk with four any_relation blocks
+# that P9 already pays on the very same paths (tnt_3a_people.txt P5/P6).
+# The walk is vanilla's own row for this exact question (:170-178) and its
+# comment states the mechanical reason it cannot be dropped: transferring a man
+# you are at war with INVALIDATES THE WAR.
+#
+# *** THE AT-WAR ROWS ARE NOT COVERED BY THE DOOR. *** The mod already refuses
+# to open a negotiation between two belligerents, and that buys nothing here:
+# the war this term breaks is an INTERNAL one, between the giver and his own
+# vassal, or between the giver and somebody under that vassal. Neither party to
+# it need be the negotiating partner.
+#
+# THE TWO HEIR ROWS ARE OURS, in vanilla's own shape. Vanilla has no such rule
+# because vanilla's grant_vassal never takes a vassal OUT of the realm — the
+# recipient is the actor's own liege, vassal or religious head (:29-48). This
+# term does take him out, and that opens two exploits at once: on _p, hand your
+# own heir away and the realm never partitions through him; on _r, buy a foreign
+# king's heir and inherit his kingdom through one death. One rule closes both,
+# and the rows are copied verbatim from P9 above, whose vanilla source is
+# GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:374
+# and :382.
+#
+# tnt_subject_moved IS OUR PING-PONG LATCH, and vanilla's own shape: on_send of
+# retract_vassal_interaction stamps the retrieved vassal with
+# `ai_should_not_transfer` for `years = 3` (:441-456) and the grant's
+# is_valid_showing_failures_only refuses a flagged man (:79-81). We stamp the
+# same three years in the apply leg and read it here, so a vassal cannot be sold
+# back and forth between two rulers for points. A character FLAG is a plain
+# string and is mod-load safe (house law 2).
+#
+# *** THE ARGUMENTS ARE RE-ANCHORED AS TEMPORARY SCOPES — THE 85,778-ERROR
+# *** RULE, P13's header. This trigger contains a list walk, which is exactly
+# *** the shape that produced those errors; do not put a bare $GIVER$ back
+# *** inside any_vassal_or_below. ***
+# =============================================================================
+tnt_subject_candidate_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $GIVER$
+			exists = $RECEIVER$
+		}
+
+		# The re-anchoring — see the box above. Everything below reads ONLY
+		# these two scopes, never a bare parameter.
+		$GIVER$ = { save_temporary_scope_as = tnt_sub_giver }
+		$RECEIVER$ = { save_temporary_scope_as = tnt_sub_recv }
+
+		NOT = { this = scope:tnt_sub_giver }
+		NOT = { this = scope:tnt_sub_recv }
+
+		is_alive = yes
+		liege ?= scope:tnt_sub_giver			# REAL: the pool itself, GAME\common\character_interactions\00_vassal_interactions.txt:11-17; the `?=` compare form is GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:13
+		is_landed = yes					# OURS — a landless "vassal" carries nothing across. REAL: GAME\common\character_interactions\00_character_interactions.txt:26
+		highest_held_title_tier > tier_barony		# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:133
+		highest_held_title_tier < scope:tnt_sub_recv.highest_held_title_tier	# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:134
+
+		# THE THREE WAR ROWS. The first two are vanilla's, with vanilla's own
+		# explanation beside them: "blocks explicit transfer of war enemies,
+		# which invalidates the war".
+		NOT = { is_at_war_with = scope:tnt_sub_giver }	# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:157-167
+		NOT = {
+			any_vassal_or_below = { is_at_war_with = scope:tnt_sub_giver }	# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:169-179
+		}
+		# OURS by placement, vanilla's by row: :56 refuses the pair when the
+		# giver is at war with the receiver, and a vassal at war with the man
+		# he is being handed to is the same nonsense one level down.
+		NOT = { is_at_war_with = scope:tnt_sub_recv }	# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:56
+
+		# The regent is removed by elevating him, never by giving him away.
+		# Guarded by `exists` first (R13): `diarch` is an optional link and an
+		# unguarded read of it is the "returned an unset scope" line this mod
+		# has already paid for twice.
+		# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:150-155
+		trigger_if = {
+			limit = { exists = scope:tnt_sub_giver.diarch }
+			NOT = { scope:tnt_sub_giver.diarch = this }
+		}
+
+		# OURS — see the header. Vanilla's rows, our reason.
+		NOT = { is_player_heir_of = scope:tnt_sub_giver }	# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:374
+		NOT = { is_primary_heir_of = scope:tnt_sub_giver }	# REAL: GAME\common\scripted_triggers\00_courtier_guest_management_triggers.txt:382
+
+		# EP3 administrative: a noble family is not a thing to hand over.
+		# Vanilla writes it as a custom_description whose body is this
+		# trigger_if; we keep the test and drop the wrapper, per the file header.
+		# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:181-193
+		trigger_if = {
+			limit = { government_allows = administrative }
+			any_held_title = { is_noble_family_title = no }
+		}
+
+		# THE PING-PONG LATCH — see the header. Vanilla's own three-year flag,
+		# under our own name.
+		# REAL (the shape): GAME\common\character_interactions\00_vassal_interactions.txt:79-81, :441-456
+		NOT = { has_character_flag = tnt_subject_moved }
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P22  tnt_can_subject_trigger = { GIVER = <character>  RECEIVER = <character> }
+#
+# SCOPE: ANY. May $GIVER$ hand vassals to $RECEIVER$ at all? PURE.
+#
+# P10's shape and P10's argument: everything that is really about a PERSON is in
+# P21, and what is left is the handful of facts about the PAIR. Three of them
+# are vanilla's own is_valid_showing_failures_only rows for this interaction —
+# the receiver must be landed (a landless ruler cannot hold vassals) and must
+# not be a gallivanter (:52-54) — plus the two-belligerents row (:56).
+#
+# THE NIGHT'S WATCH ROW IS T46, the same gate the fealty and independence terms
+# take: transferring a vassal INTO or OUT OF the Watch is the same lore break as
+# vassalising it, in mirror image. In a vanilla game the row is always true, and
+# T46 is flat (no walk, no list), so it is legal even in the per-frame
+# environments this trigger reaches through the two openers' is_valid.
+# =============================================================================
+tnt_can_subject_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $GIVER$
+			exists = $RECEIVER$
+		}
+		NOT = { $GIVER$ = { this = $RECEIVER$ } }
+		NOT = { $GIVER$ = { is_at_war_with = $RECEIVER$ } }	# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:56
+		$GIVER$ = { is_alive = yes }
+		$RECEIVER$ = {
+			is_alive = yes
+			is_landed = yes					# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:52
+			NOT = { has_trait = gallivanter }		# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:54
+		}
+		# The wall is never a party to a vassalage term, in either direction.
+		# T46, common\scripted_triggers\tnt_40_triggers.txt.
+		tnt_vassalage_pair_allowed_trigger = { A = $GIVER$  B = $RECEIVER$ }
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P23 / P24  tnt_show_subject_p_trigger / _r_trigger = { OTHER = <character> }
+#
+# P11/P12's shape exactly, INCLUDING THE ONE THING THAT IS EASY TO GET WRONG:
+# the size test is asked of tnt_list_subject_p / _r — the AVAILABLE half of the
+# two-list invariant — and NEVER of tnt_sel_subject_p / _r. tnt_multi_add_effect
+# MOVES an entry out of the available list into the selection, so a pool of
+# exactly one vassal would hide its own row the moment he was chosen. P11's
+# header carries the full argument; do not add a second size test.
+#
+# *** THESE TWO READ THE TIER-4 GAME RULE, like P14/P15 and unlike P3/P4 and
+# *** P11/P12. *** `exists = var:tnt_advanced` is E1's cached answer to T2
+# (tnt_30_effects.txt), and it is here because a transferred vassal is
+# IRREVERSIBLE — see the PART F header. The two .gui rows carry the matching
+# raw conjunct, because a .gui cannot ask has_game_rule and a show-gate alone
+# hides nothing (CLAUDE.md section 3).
+# =============================================================================
+tnt_show_subject_p_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $OTHER$
+			exists = var:tnt_advanced
+			has_variable_list = tnt_list_subject_p
+		}
+		tnt_can_subject_trigger = {
+			GIVER = root
+			RECEIVER = $OTHER$
+		}
+		variable_list_size = {
+			name = tnt_list_subject_p
+			value > 0
+		}
+	}
+	trigger_else = { always = no }
+}
+
+tnt_show_subject_r_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $OTHER$
+			exists = var:tnt_advanced
+			has_variable_list = tnt_list_subject_r
+		}
+		tnt_can_subject_trigger = {
+			GIVER = $OTHER$
+			RECEIVER = root
+		}
+		variable_list_size = {
+			name = tnt_list_subject_r
+			value > 0
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# P25  tnt_no_subject_and_vassal_trigger = yes
+#
+# NO TREATY MAY CARRY BOTH SWORN FEALTY AND A TRANSFERRED VASSAL. This is the
+# cross-guard P18's header reserved a place for, and P17 is its exact model.
+#
+# WHY, AND IT IS A DOUBLE COUNT RATHER THAN A BREAKAGE. Mechanically the two
+# legs coexist: fealty runs at slot 12 and the transfer at slot 14b, and nothing
+# corrupts. THE PRICE IS COUNTED TWICE. tnt_val_vassal_r_value is
+# 100 + 5 x realm_size of the PARTNER'S WHOLE REALM (tnt_50_values.txt) — and
+# that realm already contains the duke he is also handing over, whom
+# tnt_val_subject_multi_r_value prices again at 40 + 5 x HIS realm_size. The
+# partner pays for the same land twice and the auto-balance cannot see it.
+# The mirror holds on _p. There is a plainer objection too: after the fealty the
+# transferred man would have become a sub-vassal anyway, so the term adds only
+# "promote him to a direct vassal" while charging for the whole move.
+#
+# THE ONE SENTENCE THE PLAYER GETS (tnt_err_subject_and_vassal): a treaty that
+# carries the fealty of a whole realm does not need one vassal prised out of it
+# as well.
+#
+# ANY combination is refused, not only the same-side ones. Pure `exists` tests
+# and list-size tests, never a comparison between two variables (Law R7),
+# exactly as T11 and P17.
+#
+# *** THE SHAPE IS AN IMPLICATION AND NOT A `NOT = { AND = { … } }`, AND THAT
+# *** IS LAW 10b RATHER THAN TASTE. *** This trigger IS reached by the
+# description walker: tnt_send_offer's is_valid wraps P18 in
+# `custom_description = { text = tnt_err_people_pair … }`, and P18 delegates
+# here. A BLOCK-FORM engine trigger with no common\trigger_localization\ entry
+# must never be reachable there — `variable_list_size = { name value }` is
+# exactly that, and _docs\tools\tnt_bare_tooltip_row_check.ps1 PASS G fails the
+# tree the moment one appears (it caught this trigger's first draft, where the
+# two size tests sat in the described body).
+# A `limit` body is NEVER described, so the list half lives in the trigger_if's
+# LIMIT and only two scalar `exists` leaves are left on the described path —
+# the identical shape P17 above already ships through the same custom_description.
+# The truth table is unchanged: "if any vassal is on the table, then no fealty
+# term may be", and with nothing selected the trigger_if simply does not apply,
+# which is the correct answer and the bare-trigger_if idiom P16 relies on.
+# DO NOT "SIMPLIFY" IT BACK INTO ONE NOT/AND: that re-arms the PASS G failure.
+# =============================================================================
+tnt_no_subject_and_vassal_trigger = {
+	trigger_if = {
+		limit = {
+			OR = {
+				AND = {
+					has_variable_list = tnt_sel_subject_p
+					variable_list_size = {
+						name = tnt_sel_subject_p
+						value > 0
+					}
+				}
+				AND = {
+					has_variable_list = tnt_sel_subject_r
+					variable_list_size = {
+						name = tnt_sel_subject_r
+						value > 0
+					}
+				}
+			}
+		}
+		NOT = { exists = var:tnt_vassal_p }
+		NOT = { exists = var:tnt_vassal_r }
+	}
+}
+
+
+###############################################################################
+# R3 AUDIT — EVERY NON-tnt_ IDENTIFIER IN THIS FILE, WITH A REAL CALL SITE.
+#
+# Nothing below is justified by trigger_localization, effect_localization or an
+# .info file. Each line names a place where vanilla SCRIPT calls the thing, and
+# every one of those files was opened while this file was written.
+#
+#   G = GAME\common
+#
+#   always                        G\scripted_triggers\00_activity_triggers.txt:441
+#   any_court_position_employer   G\scripted_triggers\00_courtier_guest_management_triggers.txt:427
+#   any_held_title                G\character_interactions\00_vassal_interactions.txt:189
+#   government_allows             G\character_interactions\00_vassal_interactions.txt:103, :106
+#   has_character_flag            G\character_interactions\00_vassal_interactions.txt:80
+#   has_trait (gallivanter)       G\character_interactions\00_vassal_interactions.txt:54
+#   is_noble_family_title         G\character_interactions\00_vassal_interactions.txt:190
+#   save_temporary_scope_as (in a trigger)  G\scripted_triggers\00_bastard_triggers.txt:95-97
+#   any_relation (type = …)       G\character_interactions\00_education_interactions.txt:840-843, :1018-1021;
+#                                 G\scripted_triggers\00_courtier_guest_management_triggers.txt:399-426
+#   any_this_title_or_de_jure_above  G\character_interactions\00_character_interactions.txt:2189
+#   any_vassal_or_below           G\character_interactions\00_character_interactions.txt:2169
+#   any_warden_hostage            G\character_interactions\05_bp2_interactions.txt:80, :197
+#   diarch (link)                 G\character_interactions\00_character_interactions.txt:2199;
+#                                 G\scripted_triggers\05_bp2_hostage_triggers.txt:40
+#   exists                        G\combat_phase_events\00_commander_phase_events.txt:47
+#   any_liege_or_above            G\scripted_triggers\00_bastard_triggers.txt:112-118;
+#                                 G\activities\activity_types\coronation.txt:126
+#   government_has_flag           G\character_interactions\00_alliance.txt:374, :2141
+#     government_is_administrative  G\character_interactions\00_character_interactions.txt:2181
+#     government_is_herder          G\character_interactions\05_bp2_interactions.txt:46
+#     government_is_landless_adventurer  G\character_interactions\05_bp2_interactions.txt:45; 00_character_interactions.txt:1431
+#     government_is_theocracy       G\character_interactions\05_bp2_interactions.txt:71, :74
+#     government_is_tribal          G\character_interactions\00_character_interactions.txt:2182
+#   has_relation_rival            G\activities\activity_types\witch_ritual.txt:415;
+#                                 G\activities\intents\festival_intents.txt:74
+#   has_variable_list             G\character_interactions\00_alliance.txt:3305; G\casus_belli_types\06_ce1_wars.txt:22
+#   highest_held_title_tier       G\character_interactions\05_bp2_interactions.txt:41; 00_alliance.txt:1180
+#   home_court (link)             G\character_interactions\05_bp2_interactions.txt:80
+#   is_adult                      G\character_interactions\00_education_interactions.txt:837, :887
+#   is_alive                      G\character_interactions\00_choose_favorite_interaction.txt:103
+#   is_at_war                     G\character_interactions\00_character_interactions.txt:2161
+#   is_at_war_with                G\character_interactions\00_alliance.txt:1164; 05_bp2_interactions.txt:66;
+#                                 00_education_interactions.txt:1052; 00_character_interactions.txt:2157
+#   is_betrothed                  G\scripted_triggers\05_bp2_hostage_triggers.txt:18
+#   is_child_of                   G\scripted_triggers\05_bp2_hostage_triggers.txt:26
+#   is_close_family_of            G\scripted_triggers\00_courtier_guest_management_triggers.txt:403, :410, :417, :424
+#   is_consort_of                 G\scripted_triggers\00_courtier_guest_management_triggers.txt:386;
+#                                 G\character_interactions\00_education_interactions.txt:898
+#   is_councillor_of              G\scripted_triggers\00_courtier_guest_management_triggers.txt:397
+#   is_courtier_of                G\character_interactions\00_education_interactions.txt:987
+#   is_diarch                     G\scripted_triggers\00_courtier_guest_management_triggers.txt:367
+#   is_foreign_court_guest        G\character_interactions\00_courtier_and_guest_interactions.txt:596
+#   is_grandchild_of              G\scripted_triggers\05_bp2_hostage_triggers.txt:27
+#   is_hostage                    G\scripted_triggers\05_bp2_hostage_triggers.txt:9, :232;
+#                                 G\character_interactions\00_education_interactions.txt:845
+#   is_imprisoned                 G\character_interactions\00_alliance.txt:1158;
+#                                 G\scripted_triggers\00_courtier_guest_management_triggers.txt:365;
+#                                 G\character_interactions\00_education_interactions.txt:1055, :1062
+#   is_knight_of                  G\scripted_triggers\00_courtier_guest_management_triggers.txt:398
+#   is_landed                     G\character_interactions\00_character_interactions.txt:26, :2151
+#   is_landless_administrative    G\character_interactions\05_bp2_interactions.txt:98, :104
+#   is_landless_ruler             G\character_interactions\05_bp2_interactions.txt:97, :103;
+#                                 G\scripted_triggers\05_bp2_hostage_triggers.txt:16
+#   is_married                    G\scripted_triggers\05_bp2_hostage_triggers.txt:17
+#   is_nibling_of                 G\scripted_triggers\05_bp2_hostage_triggers.txt:29
+#   is_physically_able            G\character_interactions\00_education_interactions.txt:838, :853
+#   is_player_heir_of             G\scripted_triggers\00_courtier_guest_management_triggers.txt:374
+#   is_primary_heir_of            G\scripted_triggers\00_courtier_guest_management_triggers.txt:382
+#   is_sibling_of                 G\scripted_triggers\05_bp2_hostage_triggers.txt:28
+#   is_target_in_global_variable_list  G\succession_election\01_princely_elective.txt:98;
+#                                 G\decisions\80_major_decisions_middle_europe.txt:851-856
+#   is_target_in_variable_list    G\character_interactions\00_character_interactions.txt:1060-1064
+#   is_theocratic_lessee          G\scripted_triggers\00_courtier_guest_management_triggers.txt:366;
+#                                 G\character_interactions\00_education_interactions.txt:897
+#   is_travelling                 G\character_interactions\00_education_interactions.txt:846, :861
+#   is_vassal_of                  G\character_interactions\00_character_interactions.txt:2150
+#   liege (link, with ?=)         G\scripted_triggers\05_bp2_hostage_triggers.txt:13
+#   NOR / NAND                    G\character_interactions\05_bp2_interactions.txt:44, :64
+#   num_of_relation_ward          G\character_interactions\00_education_interactions.txt:888, :1000, :1004
+#   primary_title (link)          G\character_interactions\00_character_interactions.txt:2188
+#   this = <dotted var path>      G\achievements\ep1_achievements.txt:107;
+#                                 G\on_action\war_on_actions.txt:278
+#   tier_barony                   G\character_interactions\05_bp2_interactions.txt:41;
+#                                 G\character_interactions\00_marriage_interactions.txt:765
+#   top_liege                     G\character_interactions\00_character_interactions.txt:2159
+#   trigger_if / trigger_else     G\character_interactions\00_alliance.txt:23-28;
+#                                 G\scripted_triggers\05_bp2_hostage_triggers.txt:42-57
+#   var:<name> ?= { }             G\character_interactions\00_marriage_interactions.txt:790
+#   variable_list_size            G\casus_belli_types\07_ep3_wars.txt:5916-5919
+#
+#   VANILLA SCRIPTED TRIGGERS CALLED BY NAME:  NONE. Every vanilla trigger that
+#   answers one of these questions carries custom_tooltip / custom_description
+#   rows and could not be called from an effect's limit — see the file header for
+#   the three of them and the exact lines.
+#
+#   OUR OWN, ALL DEFINED IN THIS FILE:
+#     tnt_hostage_candidate_trigger   tnt_can_hostage_trigger    (P1, P2)
+#     tnt_courtier_candidate_trigger  tnt_can_courtier_trigger   (P9, P10)
+#     tnt_can_release_trigger                                    (P13)
+#     the six live tnt_show_* gates                              (P3, P4,
+#                                                                 P11, P12, P14, P15)
+#     RETIRED V16, USER ITEM 5 — commented out, callerless, never to be revived
+#     piecemeal (see the PART B tombstone):
+#     tnt_ward_candidate_trigger      tnt_can_ward_trigger       (P5, P6)
+#     tnt_show_ward_p_trigger         tnt_show_ward_r_trigger    (P7, P8)
+#     tnt_person_unique_trigger  tnt_no_indep_and_vassal_trigger
+#     tnt_people_pair_trigger                                    (P16, P17, P18)
+#     tnt_person_is_beast_trigger                                (P19)
+#     tnt_person_is_sworn_brother_trigger                        (P20)
+#     tnt_subject_candidate_trigger   tnt_can_subject_trigger    (P21, P22)
+#     tnt_show_subject_p_trigger      tnt_show_subject_r_trigger (P23, P24)
+#     tnt_no_subject_and_vassal_trigger                          (P25)
+#
+#   FROM ANOTHER FILE OF THIS MOD, CALLED BY NAME HERE:
+#     tnt_vassalage_pair_allowed_trigger  (T46, common\scripted_triggers\
+#     tnt_40_triggers.txt) — the Night's Watch gate, called from P22.
+#
+#   COULD NOT PROVE — NOTHING. There is no FALLBACK comment anywhere in this
+#   file, because no identifier in it needed one.
+#
+# BLACKLIST SELF-CHECK. Zero hits in this file for: take_hostage (RULING R7 — a
+# vanilla SCRIPTED EFFECT of that name exists at
+# G\scripted_effects\05_dlc_bp2_effects.txt and silently resolves to
+# add_visiting_courtier; the hostage term applies through hostage_depart_effect
+# and that is B3's leg, not a trigger), educate_child_interaction_effect (R8),
+# has_same_culture_group_as, allow_alliance, has_truce_with, is_liege_of,
+# can_be_vassal, is_alliance_valid.
+###############################################################################

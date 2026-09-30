@@ -1,0 +1,537 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — THE THREAT (V4 expansion 1)
+#
+# THE REQUEST, verbatim: "add an item 'threat' - it adds points to the treaty in
+# the amount of 'the difference in military power' x 'the level of reputation'. If
+# the reputation level is 0, or the difference in military power is not in the
+# sender's favour, 'threat' is not available. After a threat is used in a treaty, an
+# opinion penalty is applied." And, on what "reputation" means, the ruling was
+# BOTH: dread x prestige level.
+#
+# ===========================================================================
+# WHY THE THREAT IS NOT A GIFT, AND WHERE IT ENTERS THE ARITHMETIC
+# ===========================================================================
+# It is NOT added to tnt_gain_total_value, and that is deliberate and load-bearing.
+# V4 fix 5 made opinion a MULTIPLIER on everything inside tnt_gain_total_value, so
+# a partner who hates you (opinion -100) values your gifts at nothing. Fear must
+# work in exactly the opposite direction: it is the instrument for the ruler who
+# will never like you. Putting the threat inside the gift total would have let his
+# hatred cancel your army, which is backwards.
+#
+# So tnt_val_threat_p_value is its own row of tnt_ai_accept_value, beside the four
+# figures, and the balance panel prints it as a fifth figure so the panel's rows
+# still sum to the headline.
+#
+# ===========================================================================
+# *** THE RULING OF 2026-08-24 REPLACED THE WHOLE LADDER WITH ONE NUMBER. ***
+# THE USER'S OWN WORDS, BOTH MESSAGES, SO NO LATER ROUND NEEDS ARCHAEOLOGY
+# ===========================================================================
+# He said "davay srazu na etom postavim tochku" - settle this once and for all -
+# and then, unprompted, refined the first factor himself. THE LIVE FORM IS THE
+# SECOND ONE. The first is kept because it is half the ruling, and because the
+# reason he refined it is the reason the second one is right.
+#
+#   MESSAGE 1 - THE DIFFERENCE FORM, superseded by his own next message:
+#     threat_points = ((warpower_my - warpower_his) * N)
+#                   * ((my_rep_lvl - his_rep_lvl) + 1)
+#                   * (1 + ((my_dread - his_dread) * 0.01))
+#     threat_access = threat_points > 100
+#
+#   MESSAGE 2 - THE RATIO FORM. THIS IS WHAT SHIPS:
+#     ratio         = warpower_my / warpower_his
+#     threat_points = ((ratio - 1) * N)
+#                   * ((my_rep_lvl - his_rep_lvl) + 1)
+#                   * (1 + ((my_dread - his_dread) * 0.01))
+#     threat_access = threat_points > 100
+#
+#   HIS 2026-08-24 WORKED EXAMPLE, SUPERSEDED ONLY IN SCALE ON 2026-08-28:
+#     "N=100 by default, i.e. a TWOFOLD difference in military strength, all else
+#      equal, gives exactly 100 points and the threat becomes AVAILABLE."
+#   After two playtests, N and the access bar were divided by ten and halved.
+#   NEW 2026-09-30: the access minimum is 100 for player and AI alike, but N
+#   remains 2.5/5/7.5/10. At the default N=5 a twofold army produces only 5
+#   raw points and cannot threaten; equal prestige/dread needs a 21:1 army.
+#   N IS A GAME RULE, BY HIS ORDER:
+#     "N can be tuned by game rules - larger to get more threat deals, smaller to
+#      get fewer."
+#   THE GATE AND THE PRICE ARE THE SAME NUMBER, BY HIS ORDER:
+#     "threat_points - eto vliyanie ugrozy na ochki sdelki" - threat_points IS the
+#     threat's effect on the deal's points.
+#
+# WHY THE RATIO AND NOT THE DIFFERENCE, AND IT IS HIS OWN FIX FOR A REAL PROBLEM.
+# max_military_strength is a raw soldier count in the hundreds or thousands, so a
+# DIFFERENCE of war powers would have produced thousands of "points" in a mod whose
+# treaties trade in tens: run D's four APPLIED deals were gave 83/51/58/83 against
+# took 44/53/55/75, and the alliance ceiling is 150. A ratio is dimensionless,
+# behaves identically for a count and for an emperor, and N carries the whole scale
+# in ONE tunable number. DO NOT re-introduce a hidden divisor or a quiet cap "to be
+# safe" - N IS the scale, and the user owns it.
+#
+# ===========================================================================
+# THE THREE THINGS THE RULING DID NOT SETTLE, DECIDED HERE, ONCE
+# ===========================================================================
+# (a) THE BAR IS >= 100, INCLUSIVE, by the user's 2026-09-30 anti-exploit ruling.
+#     The score formula and N are unchanged. Eight literal comparisons agree:
+#     shared threat/demand gates, the checkbox, three tpbar probes, strategic
+#     submission and the selected-price guard. Below 100 a stale selected
+#     threat adds zero and cannot seed Equalize. Exact 100 remains valid.
+# (b) DIVISION BY HIS ARMY IS GUARDED TWICE, BELT AND BRACES.
+#     BELT: `min = 1` INSIDE the divide block, vanilla-verbatim on this very
+#     quantity - GAME\common\script_values\09_mpo_values.txt:33-39,
+#     blood_brother_strength_ratio_value, the actor's max over the recipient's max
+#     with `min = 1` in the divide. The same guard has 20 more vanilla sites, e.g.
+#     GAME\common\character_interactions\00_diarch_interactions.txt:503.
+#     BRACES: both gates refuse the pair outright when either side has no army at
+#     all - `max_military_strength > 0` on A and on B in the trigger_if LIMIT, also
+#     vanilla-verbatim and on this exact field,
+#     GAME\common\scripted_triggers\mpo_scripted_triggers.txt:81-85, which guards
+#     precisely this quantity in front of a ratio script value.
+#     So nobody is ever "infinitely stronger" than a ruined ruler and no engine
+#     error is ever logged.
+# (c) EVERY FACTOR HAS ITS OWN FLOOR AT ZERO, AND A FLOOR ON THE PRODUCT WOULD NOT
+#     HAVE DONE IT. *** THIS IS THE LOAD-BEARING FINDING OF THE ROUND. ***
+#     (ratio - 1) can be negative and (my_rep - his_rep + 1) can be negative, and
+#     NEGATIVE TIMES NEGATIVE IS POSITIVE **BEFORE** any product floor can run - so
+#     a weak, obscure ruler would have qualified to lean on a famous strong one, and
+#     would have been PAID points for being threatened. Only PER-FACTOR floors close
+#     that hole. The product floor ships as well, but purely as belt-and-braces for
+#     the consumers that already assume >= 0 (tnt_50_values.txt, whose
+#     tnt_accept_pos_value carries the note "Both terms are >= 0 by construction";
+#     tnt_32_apply.txt's favour subtraction).
+#     FIDELITY COST IS ZERO in the region his example lives in: the power floor
+#     restates his own V4 words ("if the difference in military power is not in the
+#     sender's favour, threat is not available"), the reputation floor is inert at
+#     difference 0 and at difference -1, and the dread term is provably [0,2] already
+#     because MAX_DREAD = 100 and BASE_DREAD = 0
+#     (GAME\common\defines\00_defines.txt:120-121).
+#
+# TWO DELIBERATE BEHAVIOUR CHANGES, NAMED SO NOBODY REPORTS THEM AS DEFECTS:
+#   * TWO NOBODIES CAN NOW THREATEN EACH OTHER. At prestige_level 0 against 0 the
+#     reputation term is exactly 1, so a twofold army is exactly 5 points and the
+#     threat opens. The retired row `prestige_level >= 1` refused that, and the V4
+#     doctrine "an unknown upstart threatens nobody" is retired BY THE FORMULA, not
+#     by us. One row inside factor 2 restores it if he ever wants it back.
+#   * ONE FAME LEVEL BEHIND IS A HARD CLIFF. At reputation difference -1 the middle
+#     factor is exactly 0, so THREE TIMES the army and one prestige level less than
+#     the victim is worth nothing at all. That is the "+1" HE wrote, not a clamp we
+#     added, and it is the sharpest edge in the whole formula.
+#
+# MEASURED ARITHMETIC AT N = 5, floors applied, so the next round need not
+# re-derive it:
+#     ratio 2.0  rep  0  dread    0  ->      5  UNAVAILABLE (< 100)
+#     ratio 21   rep  0  dread    0  ->    100  AVAILABLE (inclusive minimum)
+#     ratio 3.0  rep +1  dread  +15  ->     23
+#     ratio 0.1  rep -4  dread    0  ->      0  (raw +27 without the floors)
+#     ratio 0.5  rep +4  dread    0  ->      0  (raw -25: a NEGATIVE price)
+#     ratio 1.0  rep +5  dread +100  ->      0  (parity never threatens)
+#     ratio 3.0  rep -1  dread    0  ->      0  <- THE CLIFF, his +1, not a clamp
+#     ratio 2.0  rep  0  dread -100  ->      0
+#     ratio 20   rep +3  dread  +15  ->    437  <- UNCAPPED, and he was told so
+#   Required ratio at reputation and dread parity is 1 + 100/N:
+#     N=2.5 -> 41x   N=5 -> 21x   N=7.5 -> 14 1/3x   N=10 -> 11x
+#   "Larger N = more threat deals" therefore holds exactly.
+#
+# NO max, BY HIS ORDER, AND THE COST IS STATED RATHER THAN HIDDEN. The old
+# `max = 150` retires with the ladder it capped and is NOT replaced by a quieter cap
+# anywhere. The AI side keeps TWO clamps, both on COIN rather than on points, and
+# both live in common\script_values\tnt_56_ai_values.txt:
+#   * tnt_ai_ultimatum_gold_value's min = 10 and its ceiling of 12 x the scale
+#     value - it read max = 400 until 2026-08-25, when the new points scale made it
+#     bind on every qualifying pair and pin every ask to one number;
+#   * tnt_ai_demand_gold_value's purse clamp, 80% of what the payer actually holds.
+#     The letter has had it since B2; the AI-to-AI ultimatum gained it on
+#     2026-08-25, after a run measured that the sandbox's hard `gold >= <ask>` row
+#     refused 49 of 53 extortions and 48 of those victims were WILLING AND BROKE
+#     rather than unafraid. At a measured median AI purse of 73 gold this is the
+#     clamp that actually binds, not the 12 x N ceiling.
+# THE PLAYER SIDE HAS NO DOWNSTREAM CAP AT ALL, on either count.
+# If he ever wants a ceiling it must be HIS number, stated in the lobby text
+# and printed on the panel - one line, `max = <his number>`, on
+# tnt_threat_points_value below. A hidden cap is forbidden; a stated one is his to
+# choose.
+#
+# ===========================================================================
+# THE SCOPE PROLOGUE - WHO IS "ME" AND WHO IS "HIM"
+# ===========================================================================
+# NO ROOT IN AN INTERACTION'S on_accept, so a value names the scope it stands on.
+# Full argument at tnt_52_marriage_values.txt:823-839.
+#
+# *** save_temporary_scope_as INSIDE A SCRIPT VALUE IS THE ONE CONSTRUCT IN THIS
+# *** FILE THAT COULD SILENTLY NO-OP, SO IT IS PROVEN RATHER THAN ASSUMED
+# *** (house law 1). VERIFIED 2026-08-24:
+#   GAME\common\script_values\00_interaction_values.txt:924-958,
+#   marry_close_family_tiers_acceptance_value - a script value that SAVES two
+#   temporary scopes and then READS THEM BACK in its own `add`/`subtract` rows
+#   (`add = scope:tier_comparison_first.highest_held_title_tier` at :955). It even
+#   RE-SAVES the same alias inside an every_close_family_member walk (:928 then
+#   :936), which is the second thing this design depends on. Vanilla ships the
+#   idiom in ~40 more script values and 362 times inside scripted triggers, so
+#   both halves - saving in a value, and re-saving an alias in a walk - are
+#   vanilla practice and not a mod invention.
+#
+# ONLY THE THREE VALUES THAT READ A CHARACTER FIELD CARRY THE PROLOGUE. The power
+# term and the points value read named values only and carry none - that is the
+# minimum number of copies, and it is this file's own shipped shape.
+# *** THE PAIR IS tnt_thr_me / tnt_thr_you SINCE 2026-08-25, AND THE RENAME IS THE
+# *** FIX RATHER THAN A TIDY-UP. *** It was tnt_me / tnt_p - the PRICING family's
+# aliases, 314 reads across 14 files. Every price prologue is GUARDED, so it ADOPTS
+# whatever the threat side left behind: run E priced 17 of 17 A14/A20 settles off
+# the PLAYER's realm through tnt_val_vassal_r_value (tnt_50_values.txt:2175) and
+# pinned each at its max = 200 - 15 of that run's 19 accept<=0 aborts, on the mod's
+# best archetype. This pair is the threat family's OWN and can never be a price.
+# THE PROLOGUE STAYS GUARDED AND THE GATES' SAVES ARE NOT. Both gates save the pair
+# UNGUARDED and FIRST (tnt_can_threat_trigger / tnt_can_demand_trigger,
+# common\scripted_triggers\tnt_41_gates.txt), so it re-points per candidate on the
+# alert's walk and THE GATE ALWAYS WINS. DO NOT make this unconditional: scope:actor
+# outranks `this`, and the sandbox pulse holds one scope:actor for a DIFFERENT man
+# for the whole pulse (tnt_38_ai_world.txt:3030), so a re-seed would mis-price the
+# one path that works today. Doctrine: common\scripted_triggers\tnt_42_people_gates.txt;
+# vanilla: GAME\common\scripted_triggers\00_bastard_triggers.txt:95-97.
+# SCOPE CROSS-TALK, RE-STATED RATHER THAN INHERITED: a saved scope:actor makes the AI
+# "me" (tnt_37_ai_offer.txt), and that is CORRECT - on the letter path the AI IS "me"
+# and A21 reads this number. The player's own price is unreachable there anyway:
+# tnt_val_threat_p_value opens on `exists = var:tnt_threat_p`, absent after reset.
+###############################################################################
+
+
+###############################################################################
+# 1. THE RATIO - MY HOST OVER HIS
+#
+# VANILLA-VERBATIM, SAME QUANTITY, SAME SHAPE: blood_brother_strength_ratio_value,
+# GAME\common\script_values\09_mpo_values.txt:33-39 - the actor's max over the
+# recipient's max, with `min = 1` INSIDE the divide block. That is also where the
+# zero guard lives, which is why the retired tnt_threat_partner_strength_value
+# collapses INTO this one construct instead of standing beside it.
+# max ON BOTH SIDES, NEVER current: GAME\common\character_interactions\
+# 00_fp3_interactions.txt:136 carries PDX's own comment "# For foreign diplomacy,
+# consider recipients max". A current strength is an accident of who happens to
+# have raised levies this month; a threat is about what he COULD bring.
+###############################################################################
+tnt_threat_ratio_value = {
+	# --- THE PROLOGUE, guarded. The gates save this same pair unguarded and
+	# --- first, so the gate always wins. See the header box above.
+	if = {
+		limit = { NOT = { exists = scope:tnt_thr_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_thr_me }
+		}
+		else = { save_temporary_scope_as = tnt_thr_me }
+	}
+	if = {
+		limit = { NOT = { exists = scope:tnt_thr_you } }
+		if = {
+			limit = { exists = scope:recipient }
+			scope:recipient = { save_temporary_scope_as = tnt_thr_you }
+		}
+		else = { var:tnt_partner ?= { save_temporary_scope_as = tnt_thr_you } }
+	}
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_thr_me
+			exists = scope:tnt_thr_you
+		}
+		add = {
+			value = scope:tnt_thr_me.max_military_strength
+			divide = { value = scope:tnt_thr_you.max_military_strength  min = 1 }
+		}
+	}
+}
+
+
+###############################################################################
+# 2. THE POWER TERM = (ratio - 1) * N
+#
+# NO PROLOGUE: it reads two named values and not one character field, so it needs
+# no scopes of its own. That is the minimum number of copies of the prologue.
+# `min = 0` is per-factor floor (c) of the header box, and it also restates the
+# user's own V4 words - "if the difference in military power is not in the sender's
+# favour, threat is not available".
+###############################################################################
+tnt_threat_power_term_value = {
+	value = tnt_threat_ratio_value
+	subtract = 1
+	multiply = tnt_threat_scale_value
+	min = 0
+}
+
+
+###############################################################################
+# 3. THE REPUTATION TERM = (my prestige level - his prestige level) + 1
+#
+# THE CROSS-CHARACTER DIFFERENCE IS VANILLA'S OWN SHAPE, not an invention:
+# GAME\common\character_interactions\00_vassal_interactions.txt:2922-2925 is
+# `value = scope:actor.prestige_level  subtract = scope:recipient.prestige_level`
+# inside a multiply block. The ladder is vanilla's 0..5 - low 1, medium 2, high 3,
+# very_high 4, max 5 (GAME\common\script_values\00_basic_values.txt:681-685).
+# R7 IS SATISFIED BY CONSTRUCTION: the difference is FOLDED INTO THIS VALUE, and
+# nothing anywhere compares one character's field against another's.
+# `min = 0` is per-factor floor (c). It is INERT at difference 0 (term 1) and at
+# difference -1 (term 0); it bites only from -2 downwards, which is exactly the
+# region where a negative middle factor would otherwise have multiplied with a
+# negative power term back into a positive price.
+###############################################################################
+tnt_threat_rep_term_value = {
+	# --- THE PROLOGUE, guarded. See tnt_threat_ratio_value above.
+	if = {
+		limit = { NOT = { exists = scope:tnt_thr_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_thr_me }
+		}
+		else = { save_temporary_scope_as = tnt_thr_me }
+	}
+	if = {
+		limit = { NOT = { exists = scope:tnt_thr_you } }
+		if = {
+			limit = { exists = scope:recipient }
+			scope:recipient = { save_temporary_scope_as = tnt_thr_you }
+		}
+		else = { var:tnt_partner ?= { save_temporary_scope_as = tnt_thr_you } }
+	}
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_thr_me
+			exists = scope:tnt_thr_you
+		}
+		add = {
+			value = scope:tnt_thr_me.prestige_level
+			subtract = scope:tnt_thr_you.prestige_level
+			add = 1
+		}
+	}
+	min = 0
+}
+
+
+###############################################################################
+# 4. THE DREAD TERM = 1 + (my dread - his dread) * 0.01
+#
+# RAW dread on a NAMED scope is vanilla's own form: GAME\common\
+# character_interactions\09_mpo_interactions.txt:4394 (`value = scope:actor.dread`).
+# THE TERM IS PROVABLY [0,2] AND CANNOT GO NEGATIVE: MAX_DREAD = 100 and
+# BASE_DREAD = 0 (GAME\common\defines\00_defines.txt:120-121), so the difference
+# lives in [-100,+100] and 1 + delta * 0.01 lives in [0,2]. `min = 0` ships anyway,
+# as documentation of that bound and as the third per-factor floor.
+# AT PARITY THE TERM IS 1, NOT 0, AND THAT IS THE WHOLE DIFFERENCE FROM THE RETIRED
+# LADDER: dread now MODULATES a threat instead of being a precondition for one.
+# NOT has_dread_level_towards, for three measured reasons: it has no "his" side to
+# subtract from, it is attenuated x0.5 outside the realm and x0.7 for a non-liege
+# (GAME\common\defines\00_defines.txt:1053-1058), and it is the one entry-less
+# block-form leaf house law 10c forbids on a described path - which this value
+# reaches, through tnt_threat_points_value, inside tnt_threat_p_toggle's is_valid.
+###############################################################################
+tnt_threat_dread_term_value = {
+	# --- THE PROLOGUE, guarded. See tnt_threat_ratio_value above.
+	if = {
+		limit = { NOT = { exists = scope:tnt_thr_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_thr_me }
+		}
+		else = { save_temporary_scope_as = tnt_thr_me }
+	}
+	if = {
+		limit = { NOT = { exists = scope:tnt_thr_you } }
+		if = {
+			limit = { exists = scope:recipient }
+			scope:recipient = { save_temporary_scope_as = tnt_thr_you }
+		}
+		else = { var:tnt_partner ?= { save_temporary_scope_as = tnt_thr_you } }
+	}
+	value = 1
+	if = {
+		limit = {
+			exists = scope:tnt_thr_me
+			exists = scope:tnt_thr_you
+		}
+		add = {
+			value = scope:tnt_thr_me.dread
+			subtract = scope:tnt_thr_you.dread
+			multiply = 0.01
+		}
+	}
+	min = 0
+}
+
+
+###############################################################################
+# 5. N - THE USER'S OWN SCALE, AND THE ONLY has_game_rule READ IN THIS FAMILY
+#
+# THE RULE IS tnt_threat_scale, rule 4 of common\game_rules\tnt_80_game_rules.txt.
+#
+# has_game_rule INSIDE a script value is vanilla's own idiom for exactly this - a
+# lobby setting CHOOSING A NUMBER - and there are four real call sites:
+#   GAME\common\script_values\00_basic_values.txt:1759-1780 heterosexuality_chance,
+#       an if/else_if ladder whose every limit is a has_game_rule =
+#       sexuality_distribution_* and whose every branch is a bare `value = <number>`
+#       (`value = 25` at :1766).
+#   GAME\common\script_values\06_ce1_epidemics_values.txt:113-146 - a five-rung
+#       frequency ladder driving one number.
+#   GAME\common\script_values\00_culture_values.txt:444-464 divergence_yearly_chance.
+#   GAME\common\script_values\00_character_values.txt:148-165.
+# A BARE `value` FOLLOWED BY A CONDITIONAL `value` OVERRIDE IS ALSO VANILLA'S OWN
+# SHAPE, and that is the row which makes the fallback below legal:
+# GAME\common\script_values\00_activity_values.txt:2108-2118,
+# roaming_mystic_chance_value - `value = 25`, then `if = { limit = { ... }
+# value = 50 }`. The mod already shipped the has_game_rule-in-a-value shape once,
+# at tnt_ai_world_chance_value in common\script_values\tnt_56_ai_values.txt.
+#
+# THE DEFAULT IS THE BARE `value`, NEVER A BRANCH. A rung one day renamed or dropped
+# then degrades to N=5 instead of to N=0, which would silently delete the whole
+# mechanic with nothing in any log. `min = 1` is the same guard from the other side.
+# tnt_threat_scale_normal therefore has NO branch on purpose: it IS the bare 5
+# above, so the shipped default and the fallback cannot drift apart.
+#
+# ONE has_game_rule READ SITE IN THE WHOLE MOD, AND THAT IS DESIGN RATHER THAN LUCK.
+# (The VALUE has had a second reader since 2026-08-25 - the ceiling on
+# tnt_ai_ultimatum_gold_value - but the RULE is still read once.) N is a FACTOR of
+# tnt_threat_points_value and every consumer of the POINTS calls that value - the
+# window price, the toggle's is_valid, the interaction gate, all three alert pools,
+# the sandbox ultimatum, A21's demand gate and the telemetry probes. So "a rule read
+# in the window but not in the composer" (V13/A16, V17/A14+A20, V18/A8+A10) CANNOT
+# occur here: it needs two read sites that can disagree, and there is one.
+# tnt_rule_conformance.ps1 POSITION D asserts exactly that and FAILS on a second.
+#
+# NO BRIDGE VARIABLE, AND ONE WOULD BE ACTIVELY WRONG. tnt_advanced /
+# tnt_trade_prest_on / tnt_trade_pty_on exist only because a .gui cannot ask
+# has_game_rule; this rule reaches the GUI through the script value the GUI already
+# reads. Only the two window-opening paths write a bridge, so a bridge read on the
+# composer, the sandbox or the alert path would evaluate 0 with nothing in any log.
+#
+# R7: the access bar is the LITERAL 100 and N is a factor INSIDE the points
+# value. `tnt_threat_points_value >= tnt_threat_scale_value` would be a
+# named-value-against-named-value comparison - the exact shape R7 forbids - and it
+# would also break the price/gate identity the user ruled on.
+###############################################################################
+tnt_threat_scale_value = {
+	value = 5
+	if = {
+		limit = { has_game_rule = tnt_threat_scale_rare }
+		value = 2.5
+	}
+	else_if = {
+		limit = { has_game_rule = tnt_threat_scale_frequent }
+		value = 7.5
+	}
+	else_if = {
+		limit = { has_game_rule = tnt_threat_scale_constant }
+		value = 10
+	}
+	min = 1
+}
+
+
+###############################################################################
+# 6. THE POINTS - THE GATE AND THE PRICE, ONE NUMBER
+#
+# "threat_points - eto vliyanie ugrozy na ochki sdelki". The same number is the bar
+# (>= 100 at eight sites - censused in (a) of the header box; the three TELEMETRY
+# ones must compare rather than call a gate, because tpbar counts the bar ALONE,
+# without the 15-year lock) and the price (figure row 5 of tnt_ai_accept_value).
+# ONE DEFINITION, ALL CALL IT (law 9); tnt_ai_threat_points_value is a one-line alias.
+# NO max, BY THE USER'S ORDER. The header box above states what that buys at the
+# extreme, and names the one line that would add a ceiling if he ever asks for one.
+# `min = 0` is belt-and-braces only: the three per-factor floors already make a
+# negative product impossible, and a floor HERE could never have done their job -
+# negative times negative is positive BEFORE the product is floored.
+###############################################################################
+tnt_threat_points_value = {
+	value = tnt_threat_power_term_value
+	multiply = tnt_threat_rep_term_value
+	multiply = tnt_threat_dread_term_value
+	min = 0
+}
+
+
+###############################################################################
+# 7. THE PRICE OF THE THREAT - the one value the deal reads
+#
+# The `if` is the selection test, exactly as every other item's value is written:
+# the term counts when its variable is up. The body is ONE line now, because the
+# whole of the arithmetic lives above and is shared with both gates and with the AI.
+# No `round` here - tnt_ai_accept_value rounds the headline, and the balance panel
+# prints this with |0.
+# THE NAME IS KEPT DELIBERATELY. gui\tnt_panels.gui, figure row 5 of
+# tnt_ai_accept_value in tnt_50_values.txt, the pressure sum in
+# tnt_59_usehook_values.txt and the favour subtraction in tnt_32_apply.txt all bind
+# it, so this round changes the arithmetic of a mechanic without touching a single
+# line of interface.
+###############################################################################
+tnt_val_threat_p_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_threat_p
+			var:tnt_threat_p > 0
+			exists = var:tnt_partner
+			# A stale selected threat below the access bar has no deal value.
+			tnt_threat_points_value >= 100
+		}
+		add = tnt_threat_points_value
+	}
+}
+
+
+###############################################################################
+# TOMBSTONES - RETIRED 2026-08-24 BY THE RATIO RULING
+#
+# Kept readable so a revival needs no archaeology, and NEVER re-used for a different
+# meaning; the bodies are VERBATIM AS SHIPPED, so a revival MUST rename their tnt_p
+# to tnt_thr_you. A live read of one is a hard error (tnt_30_effects.txt, triggers), so
+# every reader moved in the SAME edit: tnt_threat_sub in all nine .yml (repointed
+# onto tnt_threat_ratio_value / tnt_threat_rep_term_value /
+# tnt_threat_dread_term_value), tnt_val_threat_p_value above, and both gates.
+#
+# tnt_threat_partner_strength_value  ->  retired INTO the divide block of
+#     tnt_threat_ratio_value (`divide = { value = ...  min = 1 }`), one construct
+#     instead of two. Its `min = 1` argument survives verbatim there: an army of 1
+#     and an army of 0 are the same thing to a ruler deciding whether to be afraid,
+#     and every real army is in the thousands.
+# tnt_threat_edge_value  ->  tnt_threat_ratio_value plus tnt_threat_power_term_value.
+#     The retired value was a ratio MINUS ONE clamped 0..2; the ruling keeps the
+#     minus one, keeps the floor, and DELETES THE CAP OF 2, because N is the scale
+#     now and a cap there would be the hidden divisor the user forbade.
+# tnt_threat_dread_value  ->  tnt_threat_dread_term_value. The 0/1/2 rung ladder
+#     becomes a continuous factor 1 + (my dread - his dread) * 0.01. Its 78-line
+#     body is deliberately NOT reproduced below: the whole of it was the three-branch
+#     fear ladder, and that ladder survives verbatim as tnt_threat_feared_trigger -
+#     kept defined with zero callers, together with the header that argues why the
+#     engine's dread LEVEL is an instrument of INTERNAL rule - in
+#     common\scripted_triggers\tnt_41_gates.txt. One tombstone for one ladder, not
+#     two copies of it.
+# tnt_threat_prestige_value  ->  tnt_threat_rep_term_value, as a DIFFERENCE against
+#     the victim instead of an absolute reading of the threatener alone.
+#
+#	tnt_threat_partner_strength_value = {
+#		value = 0
+#		if = {
+#			limit = { NOT = { exists = scope:tnt_p } }
+#			var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+#		}
+#		scope:tnt_p ?= { add = max_military_strength }
+#		min = 1
+#	}
+#
+#	tnt_threat_edge_value = {
+#		value = 0
+#		if = {
+#			limit = { exists = var:tnt_partner }
+#			add = {
+#				value = max_military_strength
+#				divide = tnt_threat_partner_strength_value
+#				subtract = 1
+#				min = 0
+#				max = 2
+#			}
+#		}
+#	}
+#
+#	tnt_threat_prestige_value = {
+#		value = prestige_level
+#		min = 0
+#		max = 5
+#	}
+###############################################################################

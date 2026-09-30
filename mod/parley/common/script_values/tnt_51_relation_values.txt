@@ -1,0 +1,707 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — script values, part 2 of 2
+# 10-CONTRACT.md §4.D — the 8 relationship values.  8 + the 47 of
+# tnt_50_values.txt = 55, the frozen total of contract §4.
+#
+# ---------------------------------------------------------------------------
+# WHAT THIS FILE IS
+# ---------------------------------------------------------------------------
+# The standing between the two rulers, in the same 100-points-is-a-year-of-his-
+# income currency as the goods on the table. These eight are the ONLY signed
+# values in the mod: everything in §4.C is >= 0, while these run both ways.
+#
+# They are deliberately NOT part of tnt_balance_value, which stays a pure trade
+# delta (mirroring vanilla's interaction_relative_hostage_value,
+# GAME\common\script_values\05_bp2_hostage_values.txt:849-854).
+# All eight are added, each as its own named row, by tnt_ai_accept_value, and
+# summed without desc by tnt_relation_mod_value — both in tnt_50_values.txt.
+#
+# v2 CHANGE (30-V2-DESIGN §5 / amendment A-3, user item 1.2). Contract §11 row 3
+# used to say the number ON SCREEN was tnt_balance_value while the VERDICT tested
+# tnt_ai_accept_value. That is the defect the user reported: "the moment the
+# points go positive it must mean acceptance". v2 reverses the DISPLAY half —
+# every headline widget (number, tilting scales, two-sided bar, main breakdown
+# tooltip) now reads tnt_ai_accept_value, so these eight values are inside the
+# number the player is looking at. The value split itself is unchanged; nothing
+# in this file moves.
+#
+# NONE of the eight carries `desc =`. Only tnt_balance_value and
+# tnt_ai_accept_value do (contract §4 rule 3 / acceptance check 15).
+#
+# ===========================================================================
+# v3 ITERATION 2 — THE WHOLE LAYER WAS RESCALED ONTO VANILLA'S MAGNITUDES
+# ===========================================================================
+# WHY. The window's currency stopped being "100 points is a year of the partner's
+# income" and became a RAW VANILLA ACCEPTANCE POINT (tnt_50_values.txt, CALIBRATION
+# block). Every per-item price shrank about tenfold. These eight values did not,
+# so for one build they would have been the only thing that mattered: a +30
+# same-faith row would have outweighed a ceded county.
+#
+# THE ONE STRUCTURAL RULE THAT DRIVES ALL EIGHT: **VANILLA CONVERTS OPINION INTO
+# ACCEPTANCE WITH A MULTIPLIER, AND EVERYTHING ELSE IT ADDS IS SMALL.**
+#   x0.75  marriage    GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:662-670
+#                      (`opinion_modifier = { who = scope:recipient
+#                                             target = scope:actor
+#                                             multiplier = 0.75 }`)
+#   x1.0   alliance    GAME\common\character_interactions\00_alliance.txt:626
+#          and vassal contracts, 00_modifiy_vassal_contract.txt:1473-1482
+#   asymmetric         00_alliance.txt:1762-1775 — negotiate_alliance uses
+#                      `multiplier = 0.25  min = 0` on the upside and
+#                      `multiply = 1.0  max = 0` on the downside
+# We take **0.75**, because the marriage is this iteration's acceptance test and
+# 0.75 is the number vanilla itself uses there. Against it, vanilla's own FLAT rows
+# for the same decision are tiny: shared language +5 (MSM:779-787), different faith
+# -10 (MSM:1179-1261), a non-admin/admin government mismatch -25 (MSM:544-582).
+# So the flats below are 5 / 10 / 20 / 35 / 50, on vanilla's offset ladder
+# (GAME\common\script_values\00_ai_values.txt:22-34: very_low 10 / low 20 /
+# medium 35 / high 50 / very_high 75 / dominant 200), and NOT the 20..150 they were.
+# (NOTE: the ladder is at :22-34. An earlier revision of this header cited :70-82,
+# which is wrong, and :60-64 is the unrelated *_ai_values_divergence scale.)
+#
+# THE PARITY ARITHMETIC THAT PINS THE SCALE, and it is worth keeping in front of you
+# when retuning: vanilla's +12 for an ordinary marriage decomposes as either
+# 0.75 x 16 = 12, or 0.75 x 10 = 7.5 plus the +5 shared-language row = 12.5. Our
+# layer reproduces the SECOND decomposition exactly — opinion x 0.75 plus a +5
+# same-culture row — so a bare marriage between same-faith, same-culture strangers
+# with opinion +10 reads +12.5 in this window against vanilla's +12. That number is
+# the whole reason these eight values look the way they do. If you raise any flat
+# here, you break it.
+#
+# THE EIGHT. (v3 iteration 2 added a gate to row 8; v4 item 22 deleted the gated
+# row itself, so there is no longer any gate in this file — every row here is
+# unconditional standing, and nothing a player puts ON THE TABLE switches one on.
+# That property is what makes I4 checkable by inspection here.)
+#   1 opinion   x0.75, the vanilla marriage conversion (was x1.1)
+#   2 faith     0 same / -10 different / -35 actively hostile   (was +30 / 0 / -45)
+#               vanilla gives NO bonus for a shared faith, so neither do we now:
+#               a same-faith bonus is what pushed an ordinary deal 30 points above
+#               its vanilla twin before anything was even offered.
+#   3 culture   +5 same culture / 0 same heritage / -10 different heritage
+#               the +5 IS vanilla's speaks_same_language row (MSM:779-787); same
+#               culture implies a shared language.        (was +20 / 0 / -15)
+#   4 kin       +10 blood, +10 same dynasty, stacking      (was +55 / +30)
+#   5 relations best friend +35 / friend +20, lover +15, nemesis -50 / rival -35
+#                                                          (was +110/+65/+50/-150/-85)
+#   6 dread     dread x 0.25, ceiling 50                   (was x0.45, no ceiling)
+#   7 war       +10 when the partner is at war             (was +40)
+#   8 ally      +10 already allied to us. ONE ROW, AND NOTHING ELSE.
+#               ***V4 ITEM 22 DELETED THE -15-PER-ALLY PENALTY FROM THIS FILE.***
+#               It was gated on `var:tnt_alliance_p > 0`, which meant offering an
+#               alliance switched on a penalty of up to -45 x unit and the headline
+#               FELL when the player added a term — I4 broken outright. The charge
+#               now lives inside tnt_val_alliance_p_value as a multiplier
+#               (tnt_50_values.txt §3, tnt_ally_glut_self/partner), which is the one
+#               shape that cannot invert a term. See value 8 for the whole argument.
+#
+# ---------------------------------------------------------------------------
+# GUARD DISCIPLINE (the reason every test is wrapped in `scope:tnt_p ?= { }`)
+# ---------------------------------------------------------------------------
+# Contract R0.4's prologue gives us scope:tnt_p. If the window was opened, the
+# partner died, and a frame is drawn before the GUI closes, that scope is gone.
+# `limit = { exists = var:tnt_partner  <test on scope:tnt_p> }` is NOT enough:
+# the clauses of a limit are an unordered AND, so the dereference can still be
+# attempted. Wrapping the test in `scope:tnt_p ?= { … }` makes the missing-scope
+# case evaluate to plain false with no error.log line — and, as a bonus, lets
+# every test read `root` for the player, which is the one scope that always
+# exists here.
+# `scope:x ?= { … }` inside a script value:
+#   GAME\common\script_values\00_scheme_values.txt:2436
+# a dotted path with `?= { … }`:
+#   GAME\common\script_values\00_diarchy_values.txt:2172 (`liege.primary_spouse ?= { has_relation_best_friend = prev }`)
+# `<link> ?= { … }`:
+#   GAME\common\factions\00_populist_faction.txt:218 (`faith ?= { … }`)
+# `<link> ?= <value>` (optional equality):
+#   GAME\common\script_values\00_dlc_fp3_script_values.txt:1098 (`house ?= scope:attacker.house`)
+#   GAME\common\script_values\00_interaction_values.txt:81 (`liege ?= scope:actor`)
+###############################################################################
+
+
+###############################################################################
+# 1. RAW OPINION — the single largest relationship term, and vanilla's own
+#    conversion rate: x0.75, giving a +-75 swing across the full +-100 of opinion.
+#
+# v3 ITERATION 2: was x1.1. The multiplier is not a free parameter — it is
+# `opinion_modifier = { who = scope:recipient  target = scope:actor
+#                       multiplier = 0.75 }`
+# from vanilla's marriage_ai_accept_modifier,
+# GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:662-670, the
+# single row that dominates the +12 the user measured. Vanilla uses 1.0 for
+# alliances (00_alliance.txt:626) and vassal contracts
+# (00_modifiy_vassal_contract.txt:1473-1482), and an asymmetric 0.25-up / 1.0-down
+# for negotiate_alliance (00_alliance.txt:1762-1775). 0.75 sits inside that range
+# and is the figure for the case this iteration is measured against.
+#
+# `add = "opinion(<target>)"` is THE ONLY way to read opinion as a number.
+# `add = opinion` does not work: opinion is a two-parameter trigger, not a field
+# (report 06 §3.2). The quoted-call form is vanilla three times over:
+#   GAME\common\script_values\00_diarchy_values.txt:80-83   value = "opinion(liege)"
+#   GAME\common\script_values\07_ep3_values.txt:5716-5717   add = "opinion(root)"
+#   GAME\common\script_values\00_scheme_values.txt:2442     scope:temp_target = { value = "opinion(scope:owner)" }
+#
+# Read in the PARTNER'S scope with root as the target: what he thinks of us.
+###############################################################################
+# =============================================================================
+# V4 FIX 5 — OPINION IS NOW A MULTIPLIER ON YOUR OFFER, NOT A GIFT OF POINTS.
+#
+# THE EXPLOIT IT CLOSES, in the user's words: "it simply adds - it should be a
+# multiplier depending on opinion: opinion 100 gives +100% to the points, opinion
+# -100 gives -100%, i.e. the treaty cannot be moved at all."
+#
+# The old body was `opinion x 0.75`, a flat +-75 handed to the headline before a
+# single item was placed on the table. A player who spent a while making a
+# neighbour like him arrived with 75 points of credit he could spend on nothing,
+# and - the worse half - a HATED partner was only 75 points away, so enough gold
+# always bought a yes from someone who despises you.
+#
+# THE NEW BODY IS THE SAME NUMBER TIMES WHAT YOU ARE ACTUALLY OFFERING:
+#       (opinion / 100, clamped to -1 .. +1)  x  tnt_gain_total_value
+# so it is the DELTA of a multiplier, not the multiplier itself. Written as a
+# delta on purpose: this value is one desc row of the breakdown tooltip
+# (tnt_50_values.txt:3571) and the tooltip's rows must sum to the headline. A real
+# `multiply` at the top of tnt_ai_accept_value would be invisible in that tooltip
+# and the sum would stop closing. Arithmetically the two are identical:
+#       gain + gain*(op/100)  ==  gain * (1 + op/100)
+#
+# WHAT IT MEANS AT THE EDGES
+#   opinion +100  your gifts count double
+#   opinion    0  they count for exactly what they are worth (this is the neutral
+#                 case, and it is now the case where the window agrees with vanilla)
+#   opinion -100  your gifts count for nothing at all. The treaty cannot be bought:
+#                 whatever you pile on the table cancels itself, so the headline is
+#                 what is left - your demands, the other relationship rows and the
+#                 threshold - and that is negative. Exactly the "cannot be moved"
+#                 the user asked for.
+#
+# ONLY THE OFFER IS SCALED, NOT THE DEMANDS. tnt_loss_total_value keeps its full
+# weight. That asymmetry is the point: affection makes a ruler generous with what
+# he is given, it does not make him blind to what is being taken. Scaling the net
+# instead would have made a GENEROUS friend refuse a lopsided treaty twice as hard,
+# which is backwards.
+#
+# THE 0.75 IS GONE, and with it the last piece of the "everywhere" offset. Vanilla's
+# 0.75 (00_marriage_scripted_modifiers.txt:662-670) is a rate for converting opinion
+# into acceptance points; there are no points to convert here any more, only a
+# proportion. -100..+100 maps to -100%..+100% because that is the request, and it is
+# the only mapping in which opinion 0 changes nothing.
+#
+# NO CYCLE. tnt_gain_total_value (tnt_50_values.txt:2304) sums the SIXTEEN
+# tnt_val_*_p_value terms over 25 add rows - fifteen until the alliance joined on
+# 2026-08-23; re-counted 2026-08-24 - and the nine obligations (item 13). None of
+# them reads tnt_relation_mod_value or tnt_ai_accept_value, so this value may read
+# it and be read by it in turn. Checked by hand across all six script-value files.
+# =============================================================================
+tnt_relmod_opinion_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	scope:tnt_p ?= { add = "opinion(scope:tnt_me)" }
+	# THE ROW IS A PERCENTAGE NOW, NOT A NUMBER OF POINTS, and it no longer does its
+	# own multiplication. Every one of the seven relationship rows is scaled by the
+	# same tnt_gain_scale_unit_value at the point of use (tnt_ai_accept_value), which
+	# is what makes an empty treaty read exactly zero for all of them at once instead
+	# of for this one alone. Full argument at that unit's definition.
+	#
+	# -100..+100 straight through, so opinion 100 doubles the offer and opinion -100
+	# cancels it. The old x0.75 conversion is gone with the old model: there are no
+	# acceptance points to convert any more, only a proportion, and 1:1 is the only
+	# mapping in which opinion 0 changes nothing.
+	min = -100
+	max = 100
+}
+
+
+###############################################################################
+# 2. FAITH — 0 shared, -10 merely different, -35 actively hostile
+#
+# v3 ITERATION 2: was +30 shared / 0 different / -45 hostile.
+# THE SHARED-FAITH BONUS IS GONE ON PURPOSE. Vanilla's marriage modifier has no row
+# that rewards a shared faith; it only PENALISES difference — -10 for a different
+# faith, -25 if the other faith is astray, -1000 if it is hostile
+# (GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:1179-1261).
+# A +30 for agreeing with the partner's religion meant every ordinary deal opened
+# 30 points above its vanilla twin before a single item was placed on the table,
+# and that is a third of the "everywhere" offset the user reported.
+# -10 is vanilla's own figure. -35 rather than vanilla's -1000: this is a general
+# treaty and not a wedding, so a hostile faith must be expensive rather than a veto.
+# -35 is `medium` on the ladder (00_ai_values.txt:22-34) and sits at the top of
+# vanilla's "clear no" band once anything else is going wrong.
+#
+# faith equality as a trigger: GAME\common\character_interactions\00_character_interactions.txt:269
+#   (`faith = scope:actor.faith`). NOTE: `has_same_faith` DOES NOT EXIST and is
+#   blacklisted — the equality comparison is the sanctioned form.
+# faith_hostility_level inside a script value:
+#   GAME\common\script_values\00_ep1_script_values.txt:74-80 (verbatim shape)
+#   GAME\common\script_values\00_diarchy_values.txt:2051
+# faith_hostile_level = 2: GAME\common\script_values\02_religion_values.txt:5-12
+###############################################################################
+tnt_relmod_faith_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	# Two branches only, and NO branch for a shared faith: it scores 0, and an
+	# `add = 0` row would be dead weight. `exists = var:tnt_partner` is in both
+	# limits so that a window drawn after the partner died scores 0 rather than
+	# falling through to the -10 (a bare `NOT = { … ?= … }` is TRUE when the scope
+	# is gone, which is exactly the trap the guard-discipline note above describes).
+	if = {
+		limit = {
+			exists = var:tnt_partner
+			scope:tnt_p ?= {
+				faith ?= {
+					faith_hostility_level = {
+						target = scope:tnt_me.faith
+						value >= faith_hostile_level
+					}
+				}
+			}
+		}
+		add = -35
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_partner
+			NOT = { scope:tnt_p ?= { faith = scope:tnt_me.faith } }
+		}
+		add = -10
+	}
+}
+
+
+###############################################################################
+# 3. CULTURE — +5 the same culture, -10 not even the same HERITAGE
+#
+# v3 ITERATION 2: was +20 / -15. THE +5 IS NOT A GUESS — it is vanilla's own
+# `speaks_same_language_interaction_reason` row, worth exactly +5 in the marriage
+# acceptance sum (GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:779-787),
+# and two rulers of the same culture necessarily share a language. This single row
+# is half of the reference decomposition of the user's +12 (0.75 x 10 opinion = 7.5,
+# plus 5 = 12.5), which is why it is +5 and not +10.
+# -10 for a different HERITAGE is the `very_low` rung of the ladder and matches the
+# size of vanilla's own different-faith penalty (MSM:1179), a comparable kind of
+# estrangement. A different culture within the same heritage still scores 0: a
+# Frankish count and a Saxon count are both Germanic and do not hold it against
+# each other.
+#
+# DEFECT D1, FIXED (50-RUNTIME-LOG-FINDINGS §D1, 30-V2-DESIGN §9 D1).
+# The shipped line read `NOT = { has_same_culture_group_as = root }` and the
+# engine answered, once per load:
+#     [E][pdx_persistent_reader.cpp:216]: Error: "Unknown trigger:
+#     has_same_culture_group_as, near line: 142" in file:
+#     "common/script_values/tnt_51_relation_values.txt"
+# — and rejected THE WHOLE ENTRY, so culture scored 0 in every deal ever made.
+#
+# WHY IT SHIPPED, AND THE RULE THAT REPLACES THAT REASONING:
+# the author found the name in GAME\common\trigger_localization\
+# 00_character_triggers.txt:716 and treated the entry as proof of existence.
+# `common/trigger_localization/` IS NOT A REGISTRY OF EXISTING TRIGGERS. It keeps
+# entries for triggers the engine has REMOVED. Verified in this session:
+#     has_same_culture_group_as  ->  0 hits anywhere under GAME\common\** or
+#                                    GAME\events\** outside *_localization.
+#     has_same_culture_as        ->  29 such hits.
+#     has_same_culture_heritage  ->  163 such hits.
+# A trigger, effect or field is proven ONLY by a real call site in
+# GAME\common\** / GAME\events\**, or by a hit in the engine string table.
+# The same caution applies to common/effect_localization/ (add_hook_strong and
+# add_hook_perpetual live there and do not exist as effects).
+# See 30-V2-DESIGN §8 R-6. Never cite *_localization as an oracle again.
+#
+# THE TWO REPLACEMENTS, each with a REAL CALL SITE:
+#
+#   exact culture match     has_same_culture_as = <character>
+#     GAME\common\character_interactions\00_character_interactions.txt:233
+#       has_same_culture_as = scope:recipient
+#     and inside a script value's own `limit`, which is our context:
+#     GAME\common\script_values\04_ep2_wedding_values.txt:58
+#       NOT = { has_same_culture_as = scope:impress_check }
+#
+#   "same culture group", which in 1.19 IS THE HERITAGE
+#                           culture = { has_same_culture_heritage = X.culture }
+#     the trigger runs IN A CULTURE SCOPE and takes a CULTURE as its argument,
+#     which is why the vanilla shape wraps it in `culture = { }`:
+#     GAME\common\character_interactions\00_education_interactions.txt:1425
+#       culture = { has_same_culture_heritage = scope:recipient.culture }
+#       (negated at :1436)
+#     and, verbatim our negated form, inside a script value:
+#     GAME\common\script_values\00_war_values.txt:122
+#       NOT = { culture = { has_same_culture_heritage = scope:defender.culture } }
+#     plus GAME\common\script_values\06_ce1_legends_values.txt:334 (affirmative).
+#
+# `culture ?= { }` rather than vanilla's plain `culture = { }`: harmless belt and
+# braces in a value that is also evaluated on a frame where the partner may have
+# just died. `<link> ?= { … }` is proven at
+# GAME\common\factions\00_populist_faction.txt:218.
+#
+# Intent preserved exactly: +20 the same culture, -15 not even the same heritage,
+# 0 for "different culture but the same heritage" (a Frankish count and a Saxon
+# count are both Germanic and do not hold it against each other).
+###############################################################################
+tnt_relmod_culture_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= { has_same_culture_as = scope:tnt_me }
+		}
+		add = 5
+	}
+	else_if = {
+		limit = {
+			scope:tnt_p ?= {
+				culture ?= {
+					NOT = { has_same_culture_heritage = scope:tnt_me.culture }
+				}
+			}
+		}
+		add = -10
+	}
+}
+
+
+###############################################################################
+# 4. KINSHIP — +10 blood, +10 the same dynasty, and they stack (so +20 for both)
+#
+# v3 ITERATION 2: was +55 / +30. Vanilla's marriage sum has NO flat kin bonus at
+# all — kinship reaches acceptance through opinion, which family members already
+# have towards each other, and through the dynasty-prestige row
+# (GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:1013-1023,
+# `5 x dynasty_prestige_level - 5`, i.e. 0 at level 1 and +20 at level 5). Keeping a
+# flat row is our own choice — a treaty between kin is genuinely different from a
+# treaty between strangers, and the window has no other place to say so — but it
+# must be the size of vanilla's comparable rows, not four times it. +10 each is
+# `very_low`, and the +20 stack matches the top of vanilla's dynasty-prestige row.
+#
+# is_close_or_extended_family_of — REAL call site inside a script value:
+#   GAME\common\script_values\00_mongol_values.txt:142
+#     is_close_or_extended_family_of = scope:old_mongol_emperor
+#   (281 further call sites under GAME\common\** outside *_localization; the old
+#    trigger_localization citation was deleted in the D1 sweep — see §3 above.)
+# The dynasty test uses the optional-equality form so a lowborn partner is
+# simply "no match" instead of an error.
+###############################################################################
+tnt_relmod_kin_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= { is_close_or_extended_family_of = scope:tnt_me }
+		}
+		add = 10
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= { dynasty ?= scope:tnt_me.dynasty }
+		}
+		add = 10
+	}
+}
+
+
+###############################################################################
+# 5. PERSONAL RELATIONS — friendship and hatred, the two biggest single FLAT swings
+#
+# best friend +35 / friend +20 are exclusive (else_if); lover +15 stacks on top;
+# nemesis -50 / rival -35 are exclusive with each other but stack with the rest,
+# so a friend who is also a rival nets out rather than one silently winning.
+#
+# v3 ITERATION 2: was +110 / +65 / +50 / -150 / -85. Those numbers were sized for
+# the old income currency and on the vanilla scale they were absurd — a single
+# friendship outweighed a ceded kingdom. The new rungs are vanilla's ladder
+# (GAME\common\script_values\00_ai_values.txt:22-34) mapped onto vanilla's own
+# observed bands: +35 and +20 sit in "comfortable yes" (+25..+75), -50 sits at the
+# top of "clear no" (-50..-200). A nemesis therefore makes a deal hard but still
+# buyable, which is right — vanilla reserves the -975/-1000 vetoes for doctrine and
+# polygamy (00_marriage_scripted_modifiers.txt:1214, :1265), not for dislike.
+# Vanilla's own scheme-agent equivalents are the sanity check: +50 for a strong hook
+# and +30 for council rights (00_scheme_scripted_modifiers.txt:624, :642) are the
+# largest single non-veto rows it prints anywhere in that menu.
+#
+# has_relation_* — REAL call sites, all inside script values (the old
+# trigger_localization citation was deleted in the D1 sweep — see §3 above):
+#   GAME\common\script_values\00_court_position_values.txt:52  has_relation_best_friend = prev
+#   GAME\common\script_values\00_diarchy_values.txt:2172-2212  best_friend / rival / nemesis
+#                                                              all inside `?= { … }`
+# Counts under GAME\common\** outside *_localization, measured this session:
+#   best_friend 211 · friend 410 · lover 325 · nemesis 261 · rival 388.
+###############################################################################
+tnt_relmod_relation_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= { has_relation_best_friend = scope:tnt_me }
+		}
+		add = 35
+	}
+	else_if = {
+		limit = {
+			scope:tnt_p ?= { has_relation_friend = scope:tnt_me }
+		}
+		add = 20
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= { has_relation_lover = scope:tnt_me }
+		}
+		add = 15
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= { has_relation_nemesis = scope:tnt_me }
+		}
+		add = -50
+	}
+	else_if = {
+		limit = {
+			scope:tnt_p ?= { has_relation_rival = scope:tnt_me }
+		}
+		add = -35
+	}
+}
+
+
+###############################################################################
+# 6. DREAD — fear makes a ruler agreeable. dread x 0.25, ceiling 50.
+#
+# The test lives in the PARTNER'S scope with target = root, i.e. "he is
+# intimidated by us" — the shape of vanilla's INTIMIDATED_REASON,
+# GAME\common\character_interactions\00_alliance.txt:2168-2178.
+# The magnitude is OUR dread stat: `value = dread` at the top level of this
+# value resolves on root, the player.
+#
+# v3 ITERATION 2 — THE CEILING IS VANILLA'S OWN NUMBER, now that the scale is raw
+# acceptance points. Vanilla's two dread rows are
+#   intimidated_reason_value = 50    GAME\common\script_values\00_basic_values.txt:752
+#   cowed_reason_value      = 100    GAME\common\script_values\00_basic_values.txt:767
+# consumed at 00_alliance.txt:2171 and :2181. BUT both are gated on
+# `target_is_liege_or_above` — vanilla only lets dread move acceptance between a
+# liege and his own vassal. We apply it to any partner, so the coefficient is
+# halved from 0.45 to 0.25 (dread 100 -> +25, half of vanilla's intimidated figure)
+# and hard-capped at 50 so it can never exceed the vanilla row it is modelled on.
+# The `has_dread_level_towards >= 1` gate is unchanged and is what keeps the row
+# from firing for a partner who is not actually afraid.
+# dread as a field: GAME\common\script_values\00_lifestyle_values.txt:616,1043
+# has_dread_level_towards: GAME\common\script_values\00_diarchy_values.txt:103-107
+#
+# CONTRACT DEVIATION (operator only, no identifier changed): contract §4.D
+# writes `level = 1`. That is an equality, so a partner who is fully cowed
+# (level 2) would score ZERO dread — the opposite of the intent. Vanilla uses
+# `level >= 1` when it wants "any dread at all"
+# (GAME\common\script_values\00_diarchy_values.txt:104) and reserves `level = 1`
+# for its two-rung INTIMIDATED / COWED pair, which we do not have. `>= 1` it is.
+###############################################################################
+# =============================================================================
+# NO CALLERS AS OF V4, AND THE REASON IS A DOUBLE-COUNT THIS BUILD CREATED.
+#
+# This row used to pay up to +50 for being feared, passively, in every treaty.
+# Expansion 1 then added the THREAT option, which prices the same fear again -
+# 25 x edge x dread_level x prestige_level, up to 150 (tnt_57_threat_values.txt).
+# One frightened neighbour, two payments, and the passive half could not be
+# declined or explained to the player.
+#
+# The user's ruling settles which one goes: "the threat is simply an option that
+# gives points". So fear now does nothing until the player reaches for it, and the
+# passive row is dropped from BOTH tnt_ai_accept_value and tnt_relation_mod_value -
+# both or neither, or the panel's figures stop summing to the headline.
+#
+# THE DEFINITION AND ITS LOCALIZATION KEY ARE KEPT. Deleting them would be a
+# gratuitous break for anything that reads them, and the dread ladder here is the
+# only place in the mod that converts raw `dread` into points - if a future
+# iteration wants a passive component again, it is written and calibrated.
+# =============================================================================
+tnt_relmod_dread_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= {
+				has_dread_level_towards = {
+					target = scope:tnt_me
+					level >= 1
+				}
+			}
+		}
+		add = {
+			value = dread
+			multiply = 0.25
+			max = 50
+		}
+	}
+}
+
+
+###############################################################################
+# 7. THE PARTNER IS AT WAR — +10, a man with a war on his hands signs faster
+#
+# v3 ITERATION 2: was +40. This row has no direct vanilla twin — vanilla's
+# war-related acceptance rows are the ±50/±100 struggle catalysts on
+# purchase_truce (GAME\common\character_interactions\03_fp2_interactions.txt:2273,
+# :2283) and the ×0.5 halving of DESIRES_ALLIANCE when the ACTOR is at war
+# (00_marriage_scripted_modifiers.txt:205-212), neither of which is "the decider is
+# distracted". So +10 is ours, snapped to `very_low` on the ladder
+# (00_ai_values.txt:22-34), and deliberately small: the partner's war already moves
+# the alliance term by ×1.5 and the non-aggression term through the power ratio, so
+# a large flat here would be the third charge for one circumstance.
+#
+# is_at_war inside a script value: GAME\common\script_values\00_artifact_values.txt:96,
+#   GAME\common\script_values\00_difficulty_values.txt:911
+###############################################################################
+tnt_relmod_war_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= { is_at_war = yes }
+		}
+		add = 10
+	}
+}
+
+
+###############################################################################
+# 8. EXISTING ALLIANCES — +10 if he is ALREADY allied to us. That is the whole row.
+#
+# *** V4 ITEM 22 DELETED THE -15-PER-ALLY BLOCK FROM HERE. DO NOT PUT IT BACK. ***
+#
+# WHAT WAS HERE: `add = { value = 0  scope:tnt_p ?= { every_ally = { add = -15 } }
+# min = -45 }`, wrapped in `if = { limit = { exists = var:tnt_alliance_p
+# var:tnt_alliance_p > 0 } … }` — vanilla's 00_alliance.txt:2148-2169 figure, gated
+# on an alliance actually sitting on the table.
+#
+# WHY IT IS GONE, AND IT IS NOT A TIDY-UP — IT IS THE I4 FIX.
+# I4 says: adding value to the table can never LOWER the headline. The relmod rows are
+# multiplied by tnt_gain_scale_unit_value and summed into tnt_ai_accept_value, so this
+# row's gate made TICKING THE ALLIANCE BOX switch on a penalty worth up to
+# -45 x unit. A player facing a partner with three allies watched his own headline
+# FALL when he offered that partner an alliance. That is I4 broken in the plainest
+# possible way, and the gate — added in v3 iteration 2 for a good reason, to stop the
+# penalty firing on gold-for-a-county deals it had nothing to do with — is exactly
+# what created it. Removing the gate and keeping the row would restore the v3 bug;
+# keeping the gate and keeping the row keeps the I4 break. So the row leaves.
+#
+# WHERE THE CHARGE WENT: into tnt_val_alliance_p_value itself (tnt_50_values.txt §3),
+# as a MULTIPLIER — tnt_ally_glut_self_value x tnt_ally_glut_partner_value, on
+# vanilla's own marriage-modifier scale (MSM:181-204, x0.5 per ally past the first
+# two). A multiplier in [0,1] on a non-negative addend can only pull the term toward
+# zero, never through it, so the same real circumstance is now priced in the one shape
+# that cannot break I4. It also charges BOTH sides, which vanilla does
+# (00_alliance.txt:2126-2146 actor, :2148-2169 recipient) and this row never did — it
+# only ever counted the partner's allies, i.e. it charged the wrong man for the
+# serial-alliance exploit item 22 exists to close.
+#
+# THE ROW THAT STAYS: +25 -> +10 in v3 for a pact we ALREADY have (`very_low`), and it
+# stays at +10 and stays ungated. It is a statement about standing — we are his ally
+# already, he thinks better of us — not a price for anything on the table, so no
+# treaty term switches it on or off and I4 cannot see it.
+#
+# is_allied_to inside a script value:
+#   GAME\common\script_values\09_mpo_values.txt:1318
+###############################################################################
+tnt_relmod_ally_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			scope:tnt_p ?= { is_allied_to = scope:tnt_me }
+		}
+		add = 10
+	}
+}

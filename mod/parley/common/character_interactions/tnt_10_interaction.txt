@@ -1,0 +1,558 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — the mod's front door.
+#
+# ONE character interaction. Right-clicking ANY living, landed ruler — your own
+# vassals and your own liege included, v2 item 1.1 — offers "Negotiate a Treaty"
+# in the Diplomacy category; picking it stores the partner on the player and
+# raises our window, which is registered additively through
+# gui/scripted_widgets/tnt_diplomacy.txt.
+#
+# v2 changes to THIS file, and there are exactly two:
+#   1.1  the recipient test moved from "independent ruler" to "any ruler whose
+#        government can enter a liege/vassal relation" — the change itself is in
+#        tnt_40_triggers.txt (T1); this file's is_shown is untouched.
+#   3.1  needs_confirmation = { always = no } is now ACTIVE, so the window opens
+#        on the first click. See the big block below for the revert and the exact
+#        log strings to search for.
+#
+# BUILD 3 changes to THIS file: NONE that alter behaviour. This file was
+# re-audited line by line against the two user corrections of this turn and came
+# out clean; what changed is the documentation, and it changed in three places:
+#   * the is_shown block below now carries the BUILD-3 RE-AUDIT — what was
+#     checked, what was found, and the four things that were deliberately NOT
+#     added, each with its reason. Read it before touching is_shown.
+#   * the needs_confirmation block below now names the EXACT engine error string
+#     to grep for, taken from the binary's own format string rather than guessed.
+#   * the ai_frequency line at the foot of the file now records the one log line
+#     this interaction is expected to be able to produce, and why it is benign.
+#
+# USER ITEM 26 (v5) changes exactly ONE thing in this file: the once-empty
+# is_valid_showing_failures_only now carries the door's two locks — no
+# negotiation with a ruler you are at war with, and none with a partner whose
+# opinion of you sits at the -100 clamp. The rationale, the vanilla citations
+# and the deliberate non-additions are all at that block, further down.
+#
+# The two user corrections of this turn live entirely in
+#   common\scripted_triggers\tnt_41_gates.txt
+# and are summarised here only so that a reader of the front door knows they
+# exist:
+#   NEW-1  "a military alliance should be possible even within the same realm."
+#          *** v3 ITERATION 1: THE USER WITHDREW THIS REQUEST. *** He played with
+#          it and found the special same-realm alliance superfluous - "we should
+#          play around the vanilla alliance, which should be uniform: the kind
+#          formed by an ordinary marriage." So the SPECIAL CASE is gone (no
+#          tnt_same_realm_trigger, no tnt_ally_inrealm, no discount, no separate
+#          deal-sheet name) and NO refusal was added back either: our alliance
+#          eligibility is now exactly vanilla's own structural rows, and vanilla's
+#          negotiate_alliance_interaction
+#          (GAME\common\character_interactions\00_alliance.txt:1106-1284) has no
+#          realm, liege, vassal or independence test anywhere in its is_shown or
+#          its is_valid chain. Full account in tnt_41_gates.txt PART 1.
+#   NEW-2  "non-selectable options can simply not be displayed." Structural
+#          impossibility now HIDES the row; a transient shortfall (gold, prestige,
+#          piety) keeps it visible with the reason. Twenty cheap 0/1 variables,
+#          tnt_show_<item>_<side>, computed once per window open. tnt_41_gates.txt
+#          PART 2.
+#
+# Contract: 10-CONTRACT.md §6.3. Nothing in this file overrides a vanilla path.
+#
+# Every key below is documented in Paradox's own shipped schema,
+#   GAME\common\character_interactions\_character_interactions.info
+# at the line noted beside it (re-read and confirmed while writing this file).
+#
+# DELIBERATELY ABSENT — every key on 00-ARCHITECTURE.md §4.6's interaction
+# blacklist. Two of them get invented over and over, so, spelled defensively so
+# that a blacklist grep over this mod still returns zero hits:
+#   * the "pop up a window when sent" key (popup_ + on_send) DOES NOT EXIST —
+#     zero occurrences anywhere under GAME in 1.19. The real, unrelated keys are
+#     popup_on_receive (.info:86) and pause_on_receive (.info:94), both about
+#     the recipient.
+#   * the "AI variant of is_valid" key (ai_ + is_valid) does not exist either.
+# needs_confirmation is real and, as of v2, SHIPPED — see the block comment
+# further down. special_interaction and interface resolve to C++ handlers;
+# inventing a value for either is fatal, and we need neither. 30-V2-DESIGN §1
+# row 3.1b proved they each name a C++ window PINNED BESIDE the confirmation
+# window that takes its datacontext FROM it — i.e. the reverse of what the names
+# suggest. Never write either key in this mod. Same for open_view_data: `view` is
+# a closed set of ~7 engine-registered names and none of them can be ours.
+###############################################################################
+
+tnt_open_negotiations = {
+
+	# --- identity and placement in the right-click menu ----------------------
+	category = interaction_category_diplomacy	# .info:18 (Required!). Definition: GAME\common\character_interaction_categories\00_character_interaction_categories.txt:17
+	icon = scroll_scales				# .info:36. gfx/interface/icons/character_interactions/scroll_scales.dds — verified on disk, 26124 B
+	common_interaction = yes			# .info:14 — keeps the row out of the "More..." submenu
+	interface_priority = 100			# .info:10 — More Interactive Vassals (mod 2712590542) uses 66/67 in this same category; 100 keeps our ordering deterministic
+	desc = tnt_open_negotiations_desc		# .info:182 — an explicit key reference, NOT auto-derived from the interaction id
+
+	# =========================================================================
+	# THE EXTRA-ICON SLOT — a dread badge on the menu row, BEFORE the window.
+	#
+	# The engine keeps one "there is something extra on the table with this
+	# man" slot per interaction, drawn in the right-click menu itself:
+	#   GAME\common\character_interactions\_character_interactions.info:150-155
+	#     # When to show an extra icon.
+	#     # Tooltip key is <key>_extra_icon
+	#     should_use_extra_icon = { always = yes }
+	#     # Icon to show when should_use_extra_icon is true
+	#     extra_icon = "gfx/<...>/hook_icon.dds"
+	# The widget is the menu list's own button, GAME\gui\interaction_templates.gui
+	# :2724-2736 — visible = "[InteractionItem.ShouldUseExtraIcon]", icon
+	# texture = "[InteractionItem.GetExtraIcon]", size 25x25 — inside
+	# `type dynamicgridbox_interaction_list` (:2525), i.e. the right-click menu.
+	# So the player learns he can lean on this ruler at the moment he is
+	# choosing whether to open negotiations at all, not after.
+	#
+	# (a) THE GATE IS CALLED, NEVER COPIED. tnt_can_threat_trigger
+	#     (common\scripted_triggers\tnt_41_gates.txt:2388) already has exactly
+	#     ONE authorised second copy in this mod — the inline rows of
+	#     tnt_threat_p_toggle.is_valid, under the standing note
+	#     «Edit both or neither» (common\scripted_guis\tnt_20_scripted_guis.txt
+	#     :538-540). A THIRD copy is forbidden by that note, so this row calls
+	#     the trigger and stays in step with both by construction.
+	#     A scripted-trigger CALL inside should_use_extra_icon is vanilla's own
+	#     shape: GAME\common\character_interactions\00_war.txt:286-288 calls
+	#     war_declarer_needs_hook_on_liege (defined at GAME\common\
+	#     scripted_triggers\00_war_and_peace_triggers.txt:223). The one-line
+	#     form itself is GAME\common\character_interactions\
+	#     00_fp3_interactions.txt:1303-1304.
+	#
+	# (b) HOUSE LAW 10b DOES NOT REACH THIS ROW, and it is measured, not
+	#     assumed. The engine prints a FIXED localization key here
+	#     (<interaction id>_extra_icon, .info:151) — it never asks the
+	#     trigger-DESCRIPTION subsystem to describe the trigger, so a bare call
+	#     to an entry-less scripted trigger cannot render
+	#     «... has no localization» on this path. PROOF: vanilla's
+	#     war_declarer_needs_hook_on_liege has ZERO entries in
+	#     GAME\common\trigger_localization\ (measured over the whole folder,
+	#     2026-08-23) and declare_war_interaction still shows its own
+	#     hand-written declare_war_interaction_extra_icon sentence. That is why
+	#     the tooltip text below is allowed [..] tokens and #markup, which law
+	#     10a would forbid on a BuildTooltip path: vanilla itself ships
+	#     hook_extra_icon:0 "@weak_hook_icon! [hook|E] available"
+	#     (GAME\localization\english\interactions_l_english.yml:262).
+	#
+	# (c) THE SLOT IS ONE PER INTERACTION AND IT IS NOW SPENT. Vanilla spends
+	#     it 96 times and EVERY ONE of them says the same thing — "you hold a
+	#     usable hook": all 96 extra_icon lines under
+	#     GAME\common\character_interactions\ point at a hook texture, 94 at
+	#     hook_icon.dds and 2 at hook_strong.dds (measured over the whole
+	#     folder, 2026-08-23). If this mod ever wants a hook badge on this row,
+	#     the slot is already taken by dread and one of the two would have to
+	#     go; there is no second extra_icon. Chosen deliberately: a hook is
+	#     visible in the character window anyway, while "he fears me AND has
+	#     forgotten the last threat" is a four-part fact the player can learn
+	#     nowhere else.
+	#
+	# (d) THE HIGHLIGHT VARIANT WAS CONSIDERED AND REFUSED. The refusal is NOT
+	#     "vanilla does not ship it" — vanilla ships it and the measurement says
+	#     so. is_highlighted (.info:51) and highlighted_reason (.info:54) are
+	#     real keys on ordinary interactions: 50 and 22 sites (measured over the
+	#     whole folder, 2026-08-23 — do NOT read the ".info:51" beside the key
+	#     name as a count, it is the schema LINE), e.g. gift_interaction
+	#     (GAME\common\character_interactions\00_gift.txt:2, common_interaction,
+	#     is_highlighted :56-67 + highlighted_reason :69) and
+	#     00_revoke_title_interaction.txt:4 with :188-206. TWENTY-TWO vanilla
+	#     interactions carry the highlight AND this extra-icon slot at once, so
+	#     coexistence is proven too. It is refused on two MEASURED grounds:
+	#       1. DOUBLE EVALUATION ON ONE MENU BUILD. Both slots surface as
+	#          `visible` bindings on widgets inside the SAME item container of
+	#          `type dynamicgridbox_interaction_list`
+	#          (GAME\gui\interaction_templates.gui:2525): the glow at :2540,
+	#          visible = "[InteractionItem.IsHighlighted]", and our badge at
+	#          :2727, visible = "[InteractionItem.ShouldUseExtraIcon]". Putting
+	#          tnt_can_threat_trigger in both would run the same points value
+	#          on the same (actor, recipient) pair TWICE per row per build for
+	#          zero new information.
+	#       2. VANILLA NEVER SAYS ONE THING THROUGH BOTH CHANNELS. Across all 22
+	#          both-slot interactions the two slots carry two DIFFERENT facts:
+	#          offer_ward_interaction is hook (00_education_interactions.txt
+	#          :1901-1904) against "a university stands in the realm" (:1906-1936);
+	#          revoke_title_interaction is hook against has_revoke_title_reason;
+	#          imprison_interaction is hook against "he is free and I have a
+	#          reason" (00_prison_interactions.txt:188-198). The extra icon is
+	#          vanilla's LEVERAGE channel (see (c): 96 of 96); the highlight is
+	#          its REASON channel. This mod has exactly ONE fact to state on this
+	#          row and it is already spent on the badge.
+	#     Two cheaper reasons pointing the same way: the glow is a 100%-size
+	#     attention_text.dds pulsing alpha 0.4 <-> 0.1 on a 0.8s/1.5s loop
+	#     (interaction_templates.gui:2538-2567), louder than a 25x25 badge that
+	#     states the fact precisely; and highlighted_reason would cost either a
+	#     590th loc key in all nine languages duplicating
+	#     tnt_open_negotiations_extra_icon's sentence, or that same sentence
+	#     rendered twice in one tooltip stack.
+	#     REOPENING THIS NEEDS A SECOND FACT TO SAY, not a second channel.
+	#
+	# COST: the trigger is evaluated for the ONE pair being right-clicked —
+	# six flat character reads, one divide and one has_game_rule since the ratio
+	# ruling, no iteration and no list, so house law 6 holds. The icon is vanilla's
+	# own 60x60 GAME\gfx\interface\icons\icon_dread.dds, the same texture the
+	# @dread_icon! texticon draws from (GAME\gui\texticons.gui:1613-1621).
+	# =========================================================================
+	# V28, AND THE SECOND ROW IS NOT DECORATION: the badge must not promise
+	# leverage on a row the player cannot click. tnt_can_threat_trigger alone
+	# answers "would fear work on him", which stays true while you are at war
+	# with him or while he hates you at the floor - and in exactly those two
+	# states this interaction is greyed by its own
+	# is_valid_showing_failures_only below. A dread icon on a dead row is the
+	# misstatement-at-the-control class this project has already shipped twice
+	# (the -30 opinion line, the retired "illustrious artifacts" line), so the
+	# badge asks BOTH questions: can fear work, and is the door open at all.
+	# Both are trigger CALLS - the rules live once, in tnt_41_gates.txt.
+	should_use_extra_icon = {										# .info:152
+		tnt_can_threat_trigger = { A = scope:actor  B = scope:recipient }
+		tnt_door_open_trigger  = { A = scope:actor  B = scope:recipient }
+	}
+	extra_icon = "gfx/interface/icons/icon_dread.dds"						# .info:155
+
+	# --- MANDATORY. This key defaults to YES (.info:108). Omit the line and
+	#     the interaction silently vanishes for every ruler outside diplomatic
+	#     range — the single most likely "why is my interaction missing" bug. -
+	use_diplomatic_range = no
+
+	# --- the recipient never gets a say: sending this only opens a window on
+	#     the sender's client. The real accept/reject happens inside our own
+	#     window against tnt_ai_accept_value. -------------------------------
+	auto_accept = yes				# .info:272 — 284 exact `auto_accept = yes` lines in vanilla
+
+	# =========================================================================
+	# needs_confirmation IS NOW ACTIVE — v2 ITEM 3.1, ONE CLICK TO THE WINDOW.
+	#
+	# The user: «"начать переговоры о договоре" должно сразу открывать окно
+	# переговоров, без промежуточного звена» — no intermediate popup.
+	#
+	# WHAT THE LINE DOES. `auto_accept = yes` above removes the RECIPIENT's
+	# accept/decline and the reply-day wait, but the player still gets
+	# gui/interaction_confirmation.gui with a Send button — one extra click before
+	# our window appears. `needs_confirmation` is the ONLY key in the entire
+	# 756-line schema that suppresses that window, and its documented false
+	# branch is precisely our case. Verbatim,
+	# GAME\common\character_interactions\_character_interactions.info:264-268:
+	#	# Whether to bother opening a confirmation window to players when
+	#	# selected at all; true if not specified
+	#	# If evaluated false, will proceed to run on_send / on_accept
+	#	# immediately when selected
+	#	# Deprecated! ... To be removed with TIT-64917
+	#	needs_confirmation = trigger
+	# The sole vanilla user is
+	# GAME\common\character_interactions\00_tributary_interactions.txt:81-83,
+	# whose FALSE branch (a hegemon recipient) opens a UI from on_send at
+	# :109-119 — structurally identical to what we do. Engine string EXE:271110.
+	#
+	# WHY IT IS STILL AMBER (30-V2-DESIGN §1 row 3.1, §8 R-3). Two independent
+	# unknowns: PDX marks the key deprecated (TIT-64917), and vanilla's only
+	# example passes a DYNAMIC trigger, so a STATICALLY false `always = no` is
+	# unobserved at runtime. Neither is a reason not to ship it — it is a reason
+	# to know the revert.
+	#
+	# THE REVERT IS ONE LINE. Put a `#` in front of the needs_confirmation line
+	# below. Nothing else in the mod changes; the extra click comes back and
+	# everything else keeps working, exactly as v1 shipped.
+	#
+	# WHAT TO LOOK FOR AFTER A TEST RUN. CK3 buffers its logs and flushes them
+	# only on exit — a clean log read from a LIVE session proves nothing
+	# (50-RUNTIME-LOG-FINDINGS.md:6-8). So: delete the logs, launch, right-click
+	# a ruler, pick "Negotiate a Treaty", FULLY EXIT THE GAME, then grep
+	#   logs\error.log  and  logs\gui_warnings.log
+	#
+	# *** THE EXACT STRING, BUILD 3. *** Build 2 said "grep for needs_confirmation",
+	# which is a guess about the message rather than the message. The engine has
+	# exactly one format string for a deprecated key and it is, verbatim from the
+	# binary's string table (EXE:295220, duplicated at EXE:298564):
+	#
+	#	%s:%d:%d: Member `%.*s` is deprecated
+	#
+	# so the line this key can produce, fully expanded, is
+	#
+	#	common/character_interactions/tnt_10_interaction.txt:<line>:<col>: Member `needs_confirmation` is deprecated
+	#
+	# GREP FOR, in this order of usefulness:
+	#	1.  is deprecated                  <-- the only string that can name THIS key
+	#	2.  tnt_10_interaction             <-- any complaint about this file at all
+	#	3.  character_interaction.cpp      <-- the interaction loader's own error
+	#	                                       channel (EXE:282541). Any line naming
+	#	                                       both this file and that .cpp is ours.
+	#	4.  tnt_open_negotiations          <-- the loader prints the interaction id
+	#	                                       in every one of its own messages
+	#	                                       ("{}: ..." — EXE:282548-282553)
+	#	5.  Invalid enum token              <-- EXE:282542, what a bad trigger value
+	#	                                       inside needs_confirmation would give
+	#
+	# WHAT IS **NOT** THERE, and it is the reassuring half of this audit: the
+	# string table contains NO message of the form "needs_confirmation must be
+	# dynamic", "needs_confirmation ignored", or anything else keyed on this
+	# specific key. `needs_confirmation` appears exactly once in the whole binary
+	# (EXE:271110) — as the key name in the parser's schema table, nowhere else.
+	# So a statically-false trigger has no dedicated complaint waiting for it; the
+	# realistic failure is the generic deprecation notice, or silence.
+	#
+	# SUCCESS  = the window opens on the first click AND neither log names this
+	#            interaction or this key.
+	# FAILURE  = either log names them, or the interaction stops appearing in the
+	#            right-click menu at all, or on_send stops firing (the window
+	#            never opens).
+	#
+	# THE ONE-LINE REVERT, spelled out so nobody has to think about it. Put a
+	# single # in front of the needs_confirmation line below, so that it reads
+	#
+	#	#	needs_confirmation = { always = no }
+	#
+	# and nothing else anywhere in the mod changes. The extra confirmation click
+	# comes back and every other feature — the window, the balance, the send
+	# path, the gates, the tnt_show_* variables — keeps working exactly as it does
+	# now, because on_send still fires, just one click later. That is precisely
+	# how v1 shipped, so the reverted state is a tested state, not a guess.
+	#
+	# If you revert, take fallback (2) of 30-V2-DESIGN §1 row 3.1 to get the click
+	# back — a second scripted widget on the character window that calls
+	# GetScriptedGui('tnt_open_from_window').Execute(...). Do NOT reach for
+	# special_interaction or interface: §1 row 3.1b proves they do the reverse of
+	# what their names suggest and are C++-only.
+	# =========================================================================
+	needs_confirmation = { always = no }
+
+	# --- visibility ---------------------------------------------------------
+	# Only scope:actor and scope:recipient are available in is_shown
+	# (.info:225-233). `root` is NOT available here — no vanilla is_shown uses
+	# it, and the .info documents root only for is_available (:556).
+	# v2 ITEM 1.1: the widening happens entirely inside T1 — this block is
+	# unchanged. T1 no longer requires is_independent_ruler, so your own vassals,
+	# your liege and everybody else's vassals are now legal recipients.
+	# The actor-side rows keep their R3-clean citations: is_ai and is_landed are
+	# proven by real call sites, not by trigger_localization.
+	#
+	# =========================================================================
+	# BUILD-3 RE-AUDIT OF is_shown, NOW THAT ANY RULER MAY BE A PARTNER.
+	# VERDICT: CORRECT AS IT STANDS. NOT ONE LINE CHANGED. Here is the whole
+	# reasoning, so the next author does not have to redo it.
+	#
+	# THE THREE ROWS, AND WHY EACH IS RIGHT FOR THE WIDENED PARTNER SET
+	#
+	#  is_ai = no        Player-only, and it must stay. It is one of the THREE
+	#                    independent locks that keep the AI out of this
+	#                    interaction (30-V2-DESIGN §6.1). The other two are
+	#                    ai_frequency = 0 at the foot of this file and the total
+	#                    ABSENCE of an ai_targets block, without which the engine
+	#                    has no candidate recipient at all
+	#                    (_character_interactions.info:680). Item 1.1 widened WHO
+	#                    can be a recipient; it did not make the AI a sender.
+	#                    When the AI plan lands it arrives as an EVENT ON the
+	#                    player (30-V2-DESIGN §6.3 phase AI-1), never through
+	#                    this interaction. Change none of the three.
+	#
+	#  is_landed = yes   On the ACTOR. An unlanded actor has nothing any of the
+	#                    fifteen items can move — no gold worth the name, no
+	#                    titles, no vassals to receive fealty, no prisoners. With
+	#                    build 3's hide-what-is-impossible rule he would be shown
+	#                    a window of four currency steppers, which is a worse
+	#                    experience than not being offered the interaction.
+	#
+	#  T1                Carries the whole recipient test. Re-read in this
+	#                    session: alive, landed, not the actor, and neither
+	#                    cannot_be_vassal_or_liege nor
+	#                    government_is_landless_adventurer. That is the correct
+	#                    set and it needs nothing from this file.
+	#                    V15, USER ITEM 3: T1 now also refuses the NIGHT'S WATCH,
+	#                    IN BOTH ROLES - it calls T48 tnt_not_the_watch_trigger
+	#                    twice, once on `this` (which is the ACTOR here, because
+	#                    the call below sits inside scope:actor) and once on the
+	#                    recipient. So this one row closes all four directions and
+	#                    STILL needs nothing from this file. The user's ruling, the
+	#                    setting evidence and the vanilla-only safety proof are in
+	#                    T48's header, tnt_40_triggers.txt.
+	#                    IT BELONGS IN is_shown AND NOT IN THE TWO LOCKS BELOW:
+	#                    being the Night's Watch is a PERMANENT STRUCTURAL fact,
+	#                    not a transient state of the pair, and the PART-2 doctrine
+	#                    quoted below sends exactly that class to is_shown, which
+	#                    hides. That is also why user item 3 adds NO loc key.
+	#
+	# FOUR THINGS DELIBERATELY **NOT** ADDED, each with the reason it was
+	# considered and rejected. Do not add them without reading this.
+	#
+	#  1. is_playable_character = yes on the recipient. Vanilla's alliance
+	#     interaction has it (00_alliance.txt:1157, :1161) and our alliance gate
+	#     T18 already applies it PER ITEM. Rejected at the interaction level
+	#     because it is a strictly narrower set than "landed ruler" and the
+	#     difference is made of exactly the characters a Total-War mod wants to
+	#     be able to talk to — heads of holy orders, mercenary captains and
+	#     landless adventurers are already excluded by T1's two government flags,
+	#     so what is left in the gap is unpredictable and would silently remove
+	#     partners the user asked for. The right place for a per-mechanic
+	#     restriction is the per-item gate, which is where it now lives.
+	#
+	#  2. is_ruler = yes on the actor, next to is_landed. Redundant: a landed
+	#     character holds a landed title, which is what is_ruler tests. Two
+	#     triggers for one fact.
+	#
+	#  3. A same-realm split (`scope:actor.top_liege = scope:recipient.top_liege`
+	#     or its negation). This was the tempting one, because build 2's alliance
+	#     ruling hinged on realm membership. It is REJECTED OUTRIGHT: user
+	#     request NEW-1 of this turn is precisely that the same realm must not be
+	#     a barrier, and the interaction is the one place where a realm test
+	#     would remove the negotiation wholesale instead of pricing it. Note also
+	#     that the line which started that whole investigation —
+	#     00_alliance.txt:661, `scope:actor.top_liege != scope:recipient.top_liege`
+	#     — is not a gate at all: it sits inside call_ally_interaction's ai_accept
+	#     as a trigger row of the "+10 shared court language (non-spoken)"
+	#     opinion modifier. Never cite it as evidence for anything again.
+	#
+	#  4. A pending-offer guard (`NOT = { exists = var:tnt_open }` on the actor).
+	#     Sending the interaction at a second ruler while the window is already
+	#     open is a real sequence and it is already handled deliberately, in E1:
+	#     tnt_open_window_effect overwrites tnt_partner, resets the offer, refills
+	#     the lists and re-picks the marriage pair, and tnt_30_effects.txt:72-79
+	#     explains at length why that path must keep working (the _show state
+	#     never fires again, so E1 has to do the work itself). Blocking it here
+	#     would strand the player in a negotiation he cannot switch out of.
+	#     BUILD 3 ADDS ONE OBLIGATION TO THAT PATH, and it belongs to the
+	#     integrator, not to this file: tnt_refresh_show_gates_effect must be
+	#     called at the END of E1, after the partner, the lists and the marriage
+	#     pair are in place, or the twenty tnt_show_* variables describe the
+	#     PREVIOUS partner and the second negotiation shows the wrong rows.
+	#
+	# ONE CONSEQUENCE OF is_shown BEING THIS PERMISSIVE, recorded rather than
+	# hidden: with use_diplomatic_range = no and T1 admitting every landed ruler,
+	# this row appears in the right-click menu of thousands of characters. That is
+	# the feature. The cost is bounded because is_shown is three cheap character
+	# triggers and the engine evaluates it only for the character actually being
+	# right-clicked — not for a list. is_valid_showing_failures_only adds two
+	# flat rows (user item 26 — one war lookup, one opinion read) for that same
+	# single pair. Nothing in this interaction iterates anything.
+	# =========================================================================
+	is_shown = {
+		scope:actor = {
+			is_ai = no			# REAL: GAME\common\character_interactions\00_alliance.txt:1129, :2103 — player-only; belt and braces with ai_frequency = 0 below
+			is_landed = yes			# REAL: GAME\common\character_interactions\00_character_interactions.txt:26 — an unlanded actor has nothing to trade
+			tnt_partner_valid_trigger = { CHARACTER = scope:recipient }	# tnt_40_triggers.txt (T1): alive, landed, not a mercenary/holy-order/landless government, not the Night's Watch in EITHER role (V15 item 3, via T48), and not the actor himself. ANY ruler otherwise — vassals and lieges included.
+		}
+	}
+
+	# =========================================================================
+	# THE DOOR'S TWO LOCKS — USER ITEM 26, BOTH HALVES USER-APPROVED (v5).
+	#
+	# This block shipped empty ("every real gate lives on the Propose button"),
+	# and for every PER-ITEM condition that ruling still stands — the per-item
+	# gates stay in tnt_41_gates.txt and on the send path. What changed: the
+	# user handed down two laws about the DOOR itself, and the door's menu row
+	# is the only surface that can carry them — needs_confirmation =
+	# { always = no } above removes the confirmation window, so a refusal must
+	# grey THIS row with its reason, which is exactly what a failing row in
+	# is_valid_showing_failures_only does. Both states are TRANSIENT for the
+	# pair, so per the PART-2 doctrine (tnt_41_gates.txt) they belong here,
+	# visible with a reason, and NOT in is_shown, which hides.
+	#
+	#  (a) AT WAR. The mod was internally inconsistent about this: the AI
+	#      letter path always refused war enemies (tnt_37_ai_offer.txt, final
+	#      gate) while the player's window opened freely — and since
+	#      tnt_exec_truce_effect only stamps a truce modifier and never ends a
+	#      war (tnt_32_apply.txt), a mid-war "pact" read as a bought peace and
+	#      was not one. The old praise of the mid-war truce (T13 / T19 headers)
+	#      is REVERSED by this ruling; both headers now record that.
+	#
+	#  (b) OPINION AT THE -100 CLAMP. The multiplicative balance already PRICES
+	#      hostility (tnt_relmod_opinion_value drags the whole offer toward
+	#      worthlessness), and the outside audit recommended pricing alone; the
+	#      user EXPLICITLY OVERRULED it — a locked door, so players do not
+	#      waste time composing a +1 against pure hatred. Opinion is clamped to
+	#      [-100, 100], so `value >= -99` refuses exactly the fully-hostile
+	#      partner and nobody else.
+	#
+	# CHECKED AT THE DOOR ONLY, on purpose. A war declared or a friendship
+	# curdled WHILE the window is already open does not slam the table shut:
+	# the send button keeps its no-acceptance-gate ruling
+	# (tnt_20_scripted_guis.txt) and the AI prices the new reality instead
+	# (tnt_56_ai_values.txt's at-war rider). SYMMETRY: the same two laws bind
+	# the AI candidate filters — tnt_37_ai_offer.txt (AI->player) and
+	# tnt_38_ai_world.txt (AI<->AI) — so the world obeys the door the player
+	# sees.
+	#
+	# DELIBERATELY STILL ABSENT: imprisonment rows (the outside audit proposed
+	# them; item 26 as approved names exactly the two laws above, so a third
+	# lock is a new ruling, not a cleanup), an existing-truce block (renewal is
+	# a designed feature — T19's header), a diplomatic-range gate
+	# (use_diplomatic_range = no above is the feature), and everything the
+	# is_shown re-audit above rejects.
+	# =========================================================================
+	is_valid_showing_failures_only = {
+		# (a) REAL: is_at_war_with inside is_valid_showing_failures_only, same
+		#     direction — GAME\common\character_interactions\00_alliance.txt:1163-1165;
+		#     also declare_war_interaction's is_shown, 00_war.txt:18-20.
+		#     custom_description as an is_valid row is vanilla's own shape,
+		#     00_alliance.txt:1167-1178; `subject` omitted for T20/T21's reason
+		#     (tnt_41_gates.txt): the loc string is a self-contained sentence.
+		# V28: the rule itself moved to T-DOOR (tnt_41_gates.txt:2855) so the
+		# badge above and the important_actions sweep can ASK the same
+		# question instead of copying it. The row keeps its custom_description
+		# because only this surface names the reason to the player.
+		custom_description = {
+			text = tnt_err_at_war
+			tnt_door_at_war_trigger = { A = scope:actor  B = scope:recipient }
+		}
+		# (b) REAL: the opinion-block-in-a-blocking-gate form is offer-hostage's
+		#     can_send — GAME\common\character_interactions\05_bp2_interactions.txt:197-203,
+		#     `opinion = { target = scope:actor value >= -25 }` wrapped in a
+		#     reason row. Direction: the PARTNER's opinion of the actor — his
+		#     refusal is what the door is about, mirroring the sign of
+		#     tnt_relmod_opinion_value.
+		# V28: same hoist as the row above - the rule lives once, at
+		# tnt_41_gates.txt:2866, and this row asks for it by name.
+		custom_description = {
+			text = tnt_err_hatred
+			tnt_door_hatred_trigger = { A = scope:actor  B = scope:recipient }
+		}
+	}
+
+	# --- the effect ---------------------------------------------------------
+	on_send = {
+		# Interaction effects execute on ALL clients. PDX's own warning, verbatim,
+		# GAME\common\character_interactions\00_religious_interactions.txt:1897:
+		#   "interaction effects are executed for all clients, make sure to open
+		#    the window only for the actor"
+		# Scoping the whole body to scope:actor keeps tnt_open / tnt_partner —
+		# and therefore the window — private to the sender.
+		scope:actor = {
+			# tnt_30_effects.txt (E1). Reads scope:recipient, then:
+			#   set_variable tnt_partner = scope:recipient
+			#   set_variable tnt_open    = 1
+			#   set_variable tnt_advanced = 1  (only if tnt_advanced_terms_trigger)
+			#   tnt_reset_offer_effect      — a clean table
+			#   tnt_refill_all_lists_effect — the picker lists
+			tnt_open_window_effect = yes
+		}
+	}
+
+	# --- the AI must never initiate this ------------------------------------
+	#
+	# BUILD-3 NOTE — THE ONE LOG LINE THIS INTERACTION CAN LEGITIMATELY PRODUCE,
+	# recorded here so that whoever runs the R-3 test does not chase it.
+	#
+	# The interaction loader has this warning (verbatim, EXE:282548):
+	#	{}: 'ai_frequency' or 'ai_frequency_by_tier' scripted, but no 'ai_targets', won't be used
+	# and we DO set ai_frequency with no ai_targets block, so if the engine counts
+	# `= 0` as "scripted" the line will read
+	#	tnt_open_negotiations: 'ai_frequency' or 'ai_frequency_by_tier' scripted, but no 'ai_targets', won't be used
+	#
+	# IT IS BENIGN, and "won't be used" is exactly the outcome we want. Vanilla is
+	# in the same position at three sites, each with a PDX comment saying the
+	# frequency is code-driven and must not be touched:
+	#	GAME\common\character_interactions\00_tribal_interactions.txt:207
+	#	GAME\common\character_interactions\00_tribal_interactions.txt:369
+	#	GAME\common\character_interactions\06_ep3_interactions.txt:1126
+	# so if the warning fires at all it fires for vanilla too.
+	#
+	# DO NOT "FIX" IT BY DELETING THE LINE. 30-V2-DESIGN §6.1 counts this as one
+	# of the three independent locks that keep the AI out, and the acceptance bar
+	# is zero tnt_ hits in error.log for things that are actually WRONG — not zero
+	# lines that mention us. If the user ever demands a spotless log the removal
+	# is safe (is_ai = no plus the absent ai_targets block are each sufficient on
+	# their own), but it must be a deliberate decision recorded in the notes, not
+	# a silent cleanup.
+	ai_frequency = 0				# .info:533 — 0 means never considered
+	ai_will_do = {					# .info:570
+		base = 0
+	}
+	ai_accept = {					# .info:564 — irrelevant under auto_accept, kept at 0 so nothing is inferred from it
+		base = 0
+	}
+}

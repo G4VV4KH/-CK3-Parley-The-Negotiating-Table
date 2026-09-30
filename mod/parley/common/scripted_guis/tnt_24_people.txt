@@ -1,0 +1,1481 @@
+﻿######################################################################################
+# PARLEY — SCRIPTED GUIS, FILE 5 OF 5: THE FOUR PEOPLE TERMS  (user item 19)
+#
+# Owner: B4.  16 LIVE entries (was 22 before V16, user item 5, retired the ward
+# family's six), and nothing else:
+#   GROUP A  4  panel openers      tnt_pick_hostage_{p,r}_open
+#                                  tnt_multi_courtier_{p,r}_open
+#                                  [RETIRED V16: tnt_pick_ward_{p,r}_open]
+#   GROUP B  2  single-object sets tnt_pick_hostage_{p,r}_set
+#                                  [RETIRED V16: tnt_pick_ward_{p,r}_set]
+#   GROUP C  2  term clears        tnt_pick_hostage_{p,r}_clear
+#                                  [RETIRED V16: tnt_pick_ward_{p,r}_clear]
+#   GROUP D  6  courtier trio x2   tnt_sel_courtier_{p,r}_{add,remove,clear}
+#   GROUP E  2  independence       tnt_indep_{p,r}_toggle
+#
+# THE WARD / FOSTERAGE FAMILY IS RETIRED (V16, user item 5): too abusable on points,
+# and the hostage term covers the same immersive ground. All six of its entries are
+# commented out in place with tombstones on the group headers below; nothing is
+# deleted and overlay index 17 is dormant, not free. Full WARD TOMBSTONE:
+# common\scripted_effects\tnt_32_apply.txt.
+#
+# WHY THIS FILE EXISTS AT ALL. Item 19 shipped complete on every other axis — the
+# eight prices (common\script_values\tnt_58_person_values.txt), the gates
+# (common\scripted_triggers\tnt_42_people_gates.txt), the six candidate fills and
+# four apply legs (common\scripted_effects\tnt_3a_people.txt), the eight show-gate
+# rows of E33 (tnt_30_effects.txt:604-611), the reset lines
+# (tnt_30_effects.txt:860-867) and both GUI files — and every one of those pieces
+# names scripted_guis that did not exist. tnt_30_effects.txt:837-838 says so in as
+# many words: "WRITTEN BY common\scripted_guis\tnt_24_people.txt (the pickers, the
+# two independence toggles and the courtier add/remove)". Six live rows therefore
+# had inert buttons: gui\tnt_diplomacy_window.gui called 22 names into the void
+# (:1289-1458 for the _p column, :2288-2412 for the _r column) and
+# gui\tnt_panel_people.gui called the same names from its six panels. THIS FILE IS
+# THAT BRIDGE AND ONLY THAT BRIDGE — no value, no gate, no list, no apply leg is
+# defined here, because all four of those belong to other authors (R14/R18).
+#
+# LEGAL KEYS. A scripted_gui accepts exactly scope / saved_scopes / is_shown /
+# is_valid / effect (the set 00-ARCHITECTURE §3.6 settles and that all four shipped
+# scripted_gui files obey). is_shown is used by NO entry here — row visibility is
+# driven from the GUI by the cached tnt_show_<item>_<side> variables E33 writes, and
+# a second, per-frame answer to the same question would be both slower and able to
+# disagree with the first. saved_scopes appears on the 8 entries that receive a
+# clicked object, and on those 8 only.
+#
+#-------------------------------------------------------------------------------------
+# THE OVERLAY INDICES ARE THE GUI'S, NOT THIS FILE'S CHOICE
+#-------------------------------------------------------------------------------------
+# gui\tnt_panel_people.gui gates its six panels on exactly these numbers, twice each
+# (once per side), and they are quoted here from its own `visible` lines:
+#   16 hostage  :131 (side 0) · :185 (side 1)
+#   17 ward     RETIRED V16, USER ITEM 5 — the two panels and both `tnt_picker` == 17
+#               tests are commented out in gui\tnt_panel_people.gui section 2. The
+#               index is DORMANT, NOT FREE.
+#   18 courtier :427 (side 0) · :522 (side 1)
+# (These four line numbers were re-measured after the V16 edit; the pre-V16 file had
+#  them at :108/:162 and :375/:465.)
+# An opener that wrote any other number would open nothing at all, silently — the
+# overlay would come up empty, because every panel in the mod tests the index and the
+# side and nothing else. The already-taken indices are 5 the marriage panel
+# (gui\tnt_panel_marriage.gui:671), 6 title, 7 claim, 10 artifact and 12 the vassal
+# contract sheet (tnt_22c_hooks_contracts.txt:646-677). Indices 8 (prisoners),
+# 11 (non-aggression) and 13 (the captive multi-select) are RETIRED, which in this
+# mod means TAKEN, not freed: their code is commented out in tnt_21_pickers.txt and
+# tnt_22b_multiselect.txt and no index is ever renumbered or reused, exactly as
+# index 2 (the yearly tribute) has been since it was withdrawn. 14 and 15 are held by
+# the frozen table for the piety and influence row identities
+# (gui\tnt_panel_people.gui:22-26). None of them is reused below.
+#
+# GRANT INDEPENDENCE HAS NO INDEX because it has no panel: it is a bool about the two
+# people already at the table, so the row is a plain toggle and group E is two
+# entries, not six (tnt_42_people_gates.txt:855-873, PART D).
+#
+#-------------------------------------------------------------------------------------
+# THE VARIABLE NAMES ARE READ BACK BY CODE THAT ALREADY SHIPPED — A NEAR MISS HERE IS
+# A SILENT DEAD TERM, NOT AN ERROR
+#-------------------------------------------------------------------------------------
+# Every name below was matched against the two files that consume it, character by
+# character, before it was written:
+#   tnt_hostage_p / _r   priced tnt_58_person_values.txt:109-152, applied
+#                        tnt_3a_people.txt:527-539 (tnt_exec_hostage_effect)
+#   tnt_ward_p / _r      RETIRED V16, USER ITEM 5. Nothing in the mod reads or writes
+#                        either variable on a live line any more; the price
+#                        (tnt_58_person_values.txt section 3) and the apply leg
+#                        (tnt_3a_people.txt P8 tnt_exec_ward_effect) are commented out
+#                        in the same pass.
+#   tnt_indep_p / _r     priced tnt_58_person_values.txt:207-228, applied
+#                        tnt_3a_people.txt:608-609 — and note the apply leg tests
+#                        `var:tnt_indep_$SIDE$ > 0`, which is why group E writes the
+#                        literal 1 and never a bare flag
+#   tnt_sel_courtier_p / _r   priced tnt_58_person_values.txt:446-449, :515-518,
+#                        counted :571-591, applied tnt_3a_people.txt:369-372
+# and the candidate-pool lists this file refills, tnt_list_hostage_p/_r
+# and tnt_list_courtier_p/_r, are the ones the panels read
+# (gui\tnt_panel_people.gui:138, :192, :443, :533). tnt_list_ward_p/_r are retired
+# with the family (V16, user item 5) and no panel reads them any more.
+#
+# R-CLEAN IS SATISFIED WITHOUT A LINE IN THIS FILE, and that was checked rather than
+# assumed: all six term variables and both selection lists are removed by
+# tnt_reset_offer_effect (tnt_30_effects.txt:1149-1167), the six candidate lists are
+# cleared by tnt_clear_lists_effect (tnt_30_effects.txt:325-330), and the two picker
+# variables are owned by tnt_picker_close (tnt_21_pickers.txt:583-590) and by the
+# reset. This file writes nothing that nothing removes, and it writes no variable onto
+# any object that is not the player.
+#
+#-------------------------------------------------------------------------------------
+# THE TWO HOUSE LAWS, AND WHERE EACH ONE SHOWS UP BELOW
+#-------------------------------------------------------------------------------------
+# 1. A CLEAR IS NEVER REFUSABLE. Groups C and D's clears and removes carry NO is_valid
+#    at all. The precedent is the V5 pass: tnt_hook_p_clear / tnt_hook_r_clear
+#    (tnt_22c_hooks_contracts.txt:711-743, "a removal must never be refused ... an
+#    is_valid that can say no to taking something OFF the table dead-clicks exactly
+#    when availability drifts false mid-session") and tnt_wed_grand_clear
+#    (tnt_22a_marriage.txt:802-826). It matters most here of all: two of these three
+#    surviving terms are gated on the OTHER man's circumstances — a warden who acquires
+#    a second hostage, a liege who goes to war (and, until V16 retired it, a guardian
+#    who takes a second ward) — so the gate
+#    can turn false while the player is looking at the row he already filled.
+#    GROUP E'S TOGGLES OBEY THE SAME LAW THROUGH A DIFFERENT DOOR; see the group header.
+# 2. ANYTHING THAT CHANGES THE TABLE VOIDS THE AUTO-BALANCE VERDICT. tnt_ab_state is
+#    the stored outcome of the last auto-balance press and the button's tooltip reads
+#    it (tnt_39_autobalance.txt:700-711); every amount helper in that file ends with
+#    `remove_variable = tnt_ab_state` for exactly this reason (:75-77). Where a whole
+#    variable goes away, this file calls the shared tnt_cur_clear_effect
+#    (tnt_39_autobalance.txt:338-341), which IS `remove_variable = $VAR$` plus that
+#    line — the same one-line body tnt_hook_p_clear and tnt_wed_grand_clear use, so the
+#    rule stays stated in one place. Where a list or a flag changes instead, the line
+#    is inlined, because tnt_cur_clear_effect cannot express it.
+#    THE OPENERS DO NOT DO THIS, deliberately: opening a panel and refreshing a
+#    candidate pool changes what the player may CHOOSE, never what is on the table.
+#    *** KNOWN INCONSISTENCY, AND IT IS THE OLDER FILES' — NOT THIS ONE'S. *** The
+#    shipped pickers (tnt_21_pickers.txt), the shipped multi-select trio
+#    (tnt_22b_multiselect.txt) and the shipped toggles (tnt_20_scripted_guis.txt) do
+#    not void the verdict at all, so today a stale "the partner would accept" can
+#    survive a title being added. That is in the build report; it is not fixed here,
+#    because those files have owners (R18).
+#
+#-------------------------------------------------------------------------------------
+# WHY THE REPORTING WRAPPERS ARE WRITTEN OUT IN THIS FILE INSTEAD OF BEING CALLED
+#-------------------------------------------------------------------------------------
+# *** THIS FILE'S CHOICE WAS RIGHT AND V17 PROVED IT THE HARD WAY. ***
+# The shipped gated entries USED to pair a `custom_description` row with a REPORTING
+# WRAPPER trigger that carried its own reasons — tnt_vassal_p_toggle's is_valid was
+# the model: one custom_description for the game rule, then a bare call to
+# T15 tnt_vassal_available_trigger, which supplied nine specific reasons of its own.
+# THAT MODEL WAS THE DEFECT the user reported four times. A BARE row — a call to one
+# of our own scripted triggers with no enclosing custom_description — inside an
+# is_valid that [TntTip(...)] reaches makes the engine's trigger-DESCRIPTION walker
+# describe the NAME, and with no `common\trigger_localization\` entry for it (we ship
+# no such folder) it RENDERS «<name> has no localization» into the tooltip instead of
+# the reasons. V17 inlined T15's and T21's rows into the three offending is_valid
+# blocks (tnt_20_scripted_guis.txt) and tombstoned both wrappers.
+# SO THE RULE BELOW IS NOW GENERAL, not a local workaround: every row the engine must
+# describe sits inside a custom_description, here and everywhere else on that path.
+# The mechanical check is _docs\tools\tnt_bare_tooltip_row_check.ps1 (CLAUDE.md §6.11).
+# ITEM 19 HAS NO SUCH WRAPPER AND MAY NOT GROW ONE IN ITS GATE FILE:
+# tnt_42_people_gates.txt:69-74 states the rule in its own header — "PURITY. There is
+# no custom_description and no custom_tooltip anywhere in this file, and none may be
+# added" — because every one of those triggers is reached from an EFFECT's `limit`
+# (the six fills, E34, and the four apply legs' re-validation), and a custom_description
+# evaluated during tooltip generation prints itself into that tooltip. That is the D5
+# class of defect and it is not hypothetical: the fills run inside
+# tnt_open_window_effect, whose tooltip the player reads on every open.
+# So each gated entry below wraps the PURE pair gate in its own custom_description
+# here, in a file no effect's limit can ever reach. This is the only shape available,
+# and it is the shape tnt_pick_title_p_open already uses (tnt_21_pickers.txt:85-90).
+#
+# COST. Six openers and two toggles are bound with `enabled = "[TntValid(...)]"` plus
+# `tooltip = "[TntTip(...)]"` (gui\tnt_diplomacy_window.gui:1305-1306, :1349-1350,
+# :1395-1396, :1456-1457, :2304-2305, :2338-2339, :2373-2374, :2410-2411), and an
+# `enabled` is re-evaluated on every layout pass. Seven of the eight gates are cheap
+# character triggers. THE EIGHTH WAS NOT, AND IT BIT: tnt_can_release_trigger walks
+# any_vassal_or_below, and running it from the toggles' is_valid per layout pass —
+# the trade tnt_20_scripted_guis.txt:896-915 had made with open eyes for the fealty
+# toggles — produced 85,778 script errors in the fresh playtest log (all of the
+# session's script errors; the walk also re-resolved the var:tnt_partner argument
+# against every vassal walked, see P13's header box). The fix that passage had
+# pre-registered has now been TAKEN: E33 (tnt_30_effects.txt) evaluates P13 once per
+# window open/refresh into tnt_indep_ok_p / tnt_indep_ok_r, exactly as
+# tnt_refresh_v2_mirrors_effect does for the influence rows, and group E's is_valid
+# reads the cached 0/1 instead of walking. The independence rows are additionally
+# hidden altogether unless var:tnt_show_indep_p/_r was set at window open, so even
+# the cache is consulted only by the handful of pairs where the term is legal.
+#
+# `exists = var:tnt_partner` APPEARS IN EXACTLY TWO PLACES IN THIS FILE — the two
+# toggle EFFECTS' switch-on branches, as the stale-click guard in front of their one
+# live P13 re-check (a click is rare; a layout pass is not). Every pair gate the
+# is_valid rows call opens with `trigger_if = { limit = { exists = $SENDER$
+# exists = $WARDEN$ } … }` and a `trigger_else = { always = no }`
+# (tnt_42_people_gates.txt, all five P-gates), so a missing partner already answers
+# "no" without entering an empty scope — Law R13 inside the callee, where the
+# shipped T15 wrapper puts it too. What the callee guard did NOT stop — an argument
+# that is itself a var: path being re-resolved inside a list walk — is fixed inside
+# P2/P13 by re-anchoring (their header boxes carry the measured proof).
+#
+#-------------------------------------------------------------------------------------
+# LOCALIZATION OWED (this file may not edit localization\*.yml — the eight keys are in
+# the build report as loc requests). Two keys it uses ALREADY EXIST and are reused
+# rather than duplicated: tnt_err_advanced_off (the Tier-4 game rule, shared with the
+# title, marriage and fealty rows) and, indirectly, nothing else.
+#   tnt_err_hostage_p_unavailable   tnt_err_hostage_r_unavailable
+#   tnt_err_ward_p_unavailable      tnt_err_ward_r_unavailable
+#     ^^ RETIRED V16, USER ITEM 5: these two lose their only call site with the two
+#        ward openers. THE KEYS STAY DEFINED in both .yml files as deliberate orphans
+#        (the mod's key count is pinned at 570), so loc parity is unchanged; the token
+#        checker simply has two fewer keys to check.
+#   tnt_err_courtier_p_unavailable  tnt_err_courtier_r_unavailable
+#   tnt_err_indep_p_unavailable     tnt_err_indep_r_unavailable
+# Until they land the tooltip prints the raw key, which is ugly and harmless — never a
+# crash, because a custom_description's text is not a script value.
+######################################################################################
+
+
+######################################################################################
+# GROUP A — THE SIX PANEL OPENERS
+#
+# Shape, verbatim from the shipped openers (tnt_21_pickers.txt GROUP C and
+# tnt_22b_multiselect.txt GROUP A): write tnt_picker = <index>, write tnt_picker_side
+# (0 = _p, 1 = _r), then rebuild this side's candidate pool. The panel appears because
+# its `visible` matches those two numbers; no GetScriptedGui is called from any
+# visible anywhere (Law R11).
+#
+# THE FILL IS NOT OPTIONAL. A picker panel's datamodel is a saved VARIABLE LIST, not a
+# live query — `datamodel = "[TntList('tnt_list_hostage_p')]"` — so without the fill
+# the panel would show whatever the pool looked like when the window opened, and a
+# child who has since married or travelled would still be offered. The six fills are
+# tnt_3a_people.txt P1-P6 and each opens with clear_variable_list, so calling one is
+# always a full rebuild and never an append.
+#
+# THE TWO COURTIER OPENERS ALSO PRUNE, and the order fill-then-prune is the invariant,
+# not a preference: the fill rebuilds the AVAILABLE list from every_courtier, which
+# puts the already-chosen courtiers straight back among the candidates, and the prune
+# takes them out again. tnt_35_multiselect.txt:241-243 states the pair for all six
+# shipped openers and :306-313 carries the courtier lines in the refill-everything
+# path for the identical reason. In a two-list panel a row's COLUMN is its selection
+# state (there is no membership datafunction), so a courtier visible in both columns
+# is not cosmetic — it is a row that lies about the offer.
+#
+# THE NAME tnt_multi_courtier_<side>_open IS THE GUI'S, and the distinction from the
+# tnt_pick_ form is load-bearing rather than stylistic: gui\tnt_panel_people.gui:70-79
+# flagged that the contract's register lists courtier add/remove/clear but no opener,
+# chose this name from the shipped precedent (tnt_multi_title_p_open, and
+# tnt_multi_prisoner_p_open, since RETIRED with its term) and gave that same prune
+# argument. The window then bound
+# it at :1447, :1455 and :2401, :2409. The name is settled by those five call sites.
+#
+# GATED, AND REFUSING AN OPENER STRANDS NOTHING. If the pair gate turns false while a
+# hostage is already chosen, the "Choose..." button greys out — but the row's little X
+# calls a group C entry, which carries no gate at all, so the term can always still be
+# taken off the table. That division is the whole reason the clears are separate
+# entries instead of a second branch of the opener.
+######################################################################################
+
+# 16 / side 0 — the hostage the PLAYER sends into the PARTNER's keeping.
+# Gate P2: tnt_can_hostage_trigger = { SENDER WARDEN }, the pair-level half of the
+# hostage rules (both alive, neither a theocracy, the warden a real ruler above
+# barony tier, not at war, and the warden not already holding a hostage from this
+# court). The candidate-level half is P1 and it is inside the fill, which is why this
+# is_valid does not repeat it.
+tnt_pick_hostage_p_open = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_hostage_p_unavailable
+			tnt_can_hostage_trigger = {
+				SENDER = root
+				WARDEN = var:tnt_partner
+			}
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 16
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+		tnt_fill_hostage_p_effect = yes
+	}
+}
+
+# 16 / side 1 — the hostage the PARTNER sends. The gate is the SAME trigger with the
+# two roles swapped, because "may a hostage pass between these two" is not a symmetric
+# question: the warden's tier, his government and his existing hostages are tested on
+# the receiving man only.
+tnt_pick_hostage_r_open = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_hostage_r_unavailable
+			tnt_can_hostage_trigger = {
+				SENDER = var:tnt_partner
+				WARDEN = root
+			}
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 16
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 1
+		}
+		tnt_fill_hostage_r_effect = yes
+	}
+}
+
+#-------------------------------------------------------------------------------------
+# RETIRED V16, USER ITEM 5 — THE TWO WARD / FOSTERAGE OPENERS.
+#
+# THE USER'S REASON: the term was too abusable on points, and the hostage term
+# (the two openers directly above) already covers the same immersive ground. The
+# audit agreed and found the abuse STRUCTURAL rather than a single number; the
+# full WARD TOMBSTONE with the worked pricing case is in
+# common/scripted_effects/tnt_32_apply.txt.
+#
+# EVERYTHING THESE TWO REACHED IS RETIRED IN THE SAME PASS: the gate
+# tnt_can_ward_trigger (P6, tnt_42_people_gates.txt), the fills
+# tnt_fill_ward_p/_r_effect (tnt_3a_people.txt P3/P4), and overlay index 17's two
+# picker panels (gui/tnt_panel_people.gui section 2). OVERLAY INDEX 17 IS DORMANT,
+# NOT FREE — never reassign it; the retired prisoner picker's index 8 was left
+# dormant the same way (tnt_21_pickers.txt:304).
+#
+# THE TWO LOC KEYS tnt_err_ward_p_unavailable / tnt_err_ward_r_unavailable STAY
+# DEFINED in both .yml files as deliberate orphans (the mod's key count is pinned
+# at 570 and a retirement never changes it). They lose their only call site, so
+# _docs\tools\tnt_loc_token_check.ps1 now checks two fewer keys.
+#-------------------------------------------------------------------------------------
+# # 17 / side 0 — the PLAYER's child goes to the PARTNER to be raised, and the partner
+# # ruler IS the guardian; there is no guardian sub-picker (tnt_42_people_gates.txt:410-416
+# # gives the reason: a term whose beneficiary is a courtier the player has never heard
+# # of is not a term he can price).
+# # Gate P6: tnt_can_ward_trigger = { SENDER GUARDIAN }. Its heaviest row is vanilla's
+# # own cap — num_of_relation_ward < 2 — which is the row that will most often grey this
+# # button, and correctly so.
+# tnt_pick_ward_p_open = {
+# 	scope = character
+#
+# 	is_valid = {
+# 		custom_description = {
+# 			text = tnt_err_ward_p_unavailable
+# 			tnt_can_ward_trigger = {
+# 				SENDER = root
+# 				GUARDIAN = var:tnt_partner
+# 			}
+# 		}
+# 	}
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 17
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 0
+# 		}
+# 		tnt_fill_ward_p_effect = yes
+# 	}
+# }
+#
+# # 17 / side 1 — the PARTNER's child comes into the PLAYER's care. The direction is
+# # fixed by contract §1.B and is stated at four places in the gate file; getting it
+# # backwards does not error, it silently prices the wrong man's loss, which is why the
+# # roles are written out here as well.
+# tnt_pick_ward_r_open = {
+# 	scope = character
+#
+# 	is_valid = {
+# 		custom_description = {
+# 			text = tnt_err_ward_r_unavailable
+# 			tnt_can_ward_trigger = {
+# 				SENDER = var:tnt_partner
+# 				GUARDIAN = root
+# 			}
+# 		}
+# 	}
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 17
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 1
+# 		}
+# 		tnt_fill_ward_r_effect = yes
+# 	}
+# }
+
+# 18 / side 0 — the courtiers the PLAYER hands over. THE ONLY MULTI-SELECT OF THE FOUR
+# people terms, hence the prune and hence group D instead of a setter.
+# Gate P10: tnt_can_courtier_trigger = { GIVER RECEIVER } is deliberately thin — two
+# different living people, not at war — because every real restriction on moving a
+# courtier is a fact about the PERSON and lives in P9, inside the fill.
+tnt_multi_courtier_p_open = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_courtier_p_unavailable
+			tnt_can_courtier_trigger = {
+				GIVER = root
+				RECEIVER = var:tnt_partner
+			}
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 18
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+		tnt_fill_courtier_p_effect = yes
+		tnt_multi_prune_effect = { SEL = tnt_sel_courtier_p  LIST = tnt_list_courtier_p }
+		# ITEM 3 — THE ORDER. Same line, same reason and the same idempotence as the
+		# title and artifact entries in tnt_22b_multiselect.txt: the fill above
+		# rebuilds the candidate column from the world in engine order, and the prune
+		# only shortens. Argument in common\scripted_effects\tnt_35a_sort.txt.
+		tnt_sort_all_effect = yes
+	}
+}
+
+# 18 / side 1 — the courtiers the PARTNER hands over.
+tnt_multi_courtier_r_open = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_courtier_r_unavailable
+			tnt_can_courtier_trigger = {
+				GIVER = var:tnt_partner
+				RECEIVER = root
+			}
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 18
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 1
+		}
+		tnt_fill_courtier_r_effect = yes
+		tnt_multi_prune_effect = { SEL = tnt_sel_courtier_r  LIST = tnt_list_courtier_r }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_multi_courtier_p_open above
+	}
+}
+
+
+######################################################################################
+# GROUP B — THE FOUR SINGLE-OBJECT SETTERS
+#
+# HOW THE CLICKED ROW GETS HERE, and it is the one mechanism in this file that cannot
+# be guessed: the panel's row calls `onclick = "[TntPickChar('tnt_pick_hostage_p_set')]"`
+# (gui\tnt_panel_people.gui:148, :202, :269, :323), the TntPickChar macro performs
+# exactly ONE .AddScope('tnt_picked', Character.MakeScope), and the entry declares
+# `saved_scopes = { tnt_picked }` to receive it. One AddScope, never two chained —
+# tnt_21_pickers.txt:20-22 records that two chained AddScope calls are unverified
+# anywhere and must never be written. This is the same declaration the prisoner family
+# made (tnt_22b_multiselect.txt, now commented out with that RETIRED term — the
+# argument stands, only the example is retired).
+#
+# `exists = scope:tnt_picked` guards every body: the character may have died between
+# the row being laid out and the click landing, and a GUI-supplied scope is exactly
+# what report 02 §2.3 says to guard.
+#
+# THE UNIQUENESS TEST IS THE REASON THESE ARE NOT THREE-LINE CLONES. P16
+# tnt_person_unique_trigger (tnt_42_people_gates.txt:1126-1155) states the law "one
+# body may appear in at most one people-term of one treaty", and its header names this
+# file's setters as its first caller. It is needed because the pools OVERLAP by
+# construction — a grown son is both a hostage candidate and a courtier candidate
+# (and until V16 a young son was both a hostage and a ward candidate; the ward rows of
+# P16 are retired with the family, the hostage/courtier overlap alone keeps P16
+# mandatory) — and no candidate trigger can see the
+# other terms' picks, since a candidate trigger runs in the CANDIDATE's scope while
+# the picks live on the player. It is called here in the PLAYER's scope with
+# WHO = scope:tnt_picked, which is the only scope its `var:tnt_hostage_p` rows read
+# correctly.
+#
+# IT IS IN THE EFFECT'S `limit`, NOT IN is_valid, and that is deliberate twice over:
+#   * P16 is PURE — the whole of tnt_42_people_gates.txt is, by its own header rule —
+#     so an effect's limit may reach it without any risk of a custom_description
+#     printing itself into the confirm tooltip;
+#   * whether a saved_scope is visible to is_valid at Execute time is not proven
+#     anywhere in this mod, and a gate that silently never fires is worse than no gate.
+# A refused pick is a SILENT no-op. That is the shipped answer for the same situation
+# elsewhere (tnt_22b_multiselect.txt:244-249 on the cap: "a click at the cap is a
+# silent no-op, and that is deliberate"), because these rows carry no `enabled` and no
+# TntTip binding and there is nowhere for a reason to be shown — Law R11 forbids
+# adding one per row.
+#
+# THE CANDIDATE TRIGGER IS *NOT* RE-TESTED HERE, on purpose. It would have to be asked
+# inside `scope:tnt_picked = { … }`, and a bare `var:tnt_partner` inside that block
+# reads the CANDIDATE's variable, not the player's — a silent wrong answer, and the
+# very trap tnt_42_people_gates.txt:1210-1213 documents for the same shape. The list
+# was rebuilt by the opener one click earlier, and the apply legs re-validate every
+# person against the same trigger that built the list (tnt_3a_people.txt:447-451,
+# :532-535), which is where staleness is actually caught.
+#
+# `remove_variable = tnt_picker` closes the panel and is OUTSIDE the guard, exactly as
+# in all eight shipped setters: one pick is the whole interaction here (unlike a
+# multi-select panel, which must stay open). tnt_picker_side is left alone — harmless
+# residue, overwritten by the next opener, removed by tnt_picker_close and by
+# tnt_reset_offer_effect.
+######################################################################################
+
+tnt_pick_hostage_p_set = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+				tnt_person_unique_trigger = { WHO = scope:tnt_picked }
+			}
+			set_variable = {
+				name = tnt_hostage_p
+				value = scope:tnt_picked
+			}
+			remove_variable = tnt_ab_state
+		}
+		remove_variable = tnt_picker
+	}
+}
+
+tnt_pick_hostage_r_set = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+				tnt_person_unique_trigger = { WHO = scope:tnt_picked }
+			}
+			set_variable = {
+				name = tnt_hostage_r
+				value = scope:tnt_picked
+			}
+			remove_variable = tnt_ab_state
+		}
+		remove_variable = tnt_picker
+	}
+}
+
+# RETIRED V16, USER ITEM 5 — the two ward setters. Their panels, their fills, their
+# gate and their price all went in the same pass; the tombstone is on the two
+# openers above. tnt_person_unique_trigger, which they called, STAYS LIVE — four
+# callers remain (the two hostage setters and the two hostage fills).
+# tnt_pick_ward_p_set = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		if = {
+# 			limit = {
+# 				exists = scope:tnt_picked
+# 				tnt_person_unique_trigger = { WHO = scope:tnt_picked }
+# 			}
+# 			set_variable = {
+# 				name = tnt_ward_p
+# 				value = scope:tnt_picked
+# 			}
+# 			remove_variable = tnt_ab_state
+# 		}
+# 		remove_variable = tnt_picker
+# 	}
+# }
+#
+# tnt_pick_ward_r_set = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		if = {
+# 			limit = {
+# 				exists = scope:tnt_picked
+# 				tnt_person_unique_trigger = { WHO = scope:tnt_picked }
+# 			}
+# 			set_variable = {
+# 				name = tnt_ward_r
+# 				value = scope:tnt_picked
+# 			}
+# 			remove_variable = tnt_ab_state
+# 		}
+# 		remove_variable = tnt_picker
+# 	}
+# }
+
+
+######################################################################################
+# GROUP C — THE FOUR TERM CLEARS
+#
+# Bound to the little X of the filled row in both columns
+# (gui\tnt_diplomacy_window.gui:1351, :1397, :2340, :2375) and to the deal sheet's own
+# X for the same term (gui\tnt_panels.gui:1108, :1126, :1470, :1488). Both call sites
+# are the reason law 1 exists: the sheet's X must work whatever the world has done
+# since the term was composed.
+#
+# NO is_valid, NO saved_scopes, one line each. The body is the shared
+# tnt_cur_clear_effect (tnt_39_autobalance.txt:306-309), so "clearing removes the
+# variable AND voids the auto-balance verdict" is written once in the mod rather than
+# eight times here — the same choice tnt_hook_p_clear and tnt_wed_grand_clear made,
+# and the reason those two exist at all instead of reusing their toggles.
+#
+# remove_variable on an absent variable is silent, which is what makes a double click
+# on an already-empty row harmless (tnt_21_pickers.txt:444-446 cites vanilla removing
+# the same variable twice in one block).
+######################################################################################
+
+tnt_pick_hostage_p_clear = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_hostage_p
+		}
+	}
+}
+
+tnt_pick_hostage_r_clear = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_hostage_r
+		}
+	}
+}
+
+# RETIRED V16, USER ITEM 5 — the two ward clears. Their deal-sheet X buttons in
+# gui/tnt_panels.gui went with them in the same edit. tnt_cur_clear_effect, which
+# they called, STAYS LIVE — the two hostage clears above still use it (its real
+# address is tnt_39_autobalance.txt:306-309).
+# tnt_pick_ward_p_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		tnt_cur_clear_effect = {
+# 			VAR = tnt_ward_p
+# 		}
+# 	}
+# }
+#
+# tnt_pick_ward_r_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		tnt_cur_clear_effect = {
+# 			VAR = tnt_ward_r
+# 		}
+# 	}
+# }
+
+
+######################################################################################
+# GROUP D — THE COURTIER TRIO, TWICE
+#
+# A click in the AVAILABLE column adds, a click in the CHOSEN column removes, and both
+# leave tnt_picker SET so the panel stays open for the next pick — the one behavioural
+# difference from group B, stated at tnt_35_multiselect.txt:111-116. Both receive the
+# clicked character exactly as group B does, through TntPickChar's single AddScope
+# (gui\tnt_panel_people.gui:408, :429, :498, :519).
+#
+# *** RETIRED: THE CAP OF THREE. *** (V11, USER ITEM 2 — "какой-то лимит на количество
+# придворных для передачи".)
+# The user hit an invisible wall on the fourth courtier and suspected the domain-limit
+# counter. IT WAS NOT THE DOMAIN COUNTER, and that is checked rather than assumed: the
+# ten tnt_domain_* values (tnt_54_multiselect_values.txt:746-905) count TITLES on the
+# table and feed only the title panel's red counter line, and neither
+# tnt_courtier_candidate_trigger nor tnt_can_courtier_trigger (tnt_42_people_gates.txt
+# :686-757 and :784-796) contains domain_size, domain_limit or vassal_limit_available.
+# Moving a courtier moves no land, so no domain value can reach these two entries.
+# The wall was a HARD LITERAL 3, hand-written into these two add-entries, and it was
+# enforced INVISIBLY: a refused click executed nothing at all — not even
+# `remove_variable = tnt_ab_state` — the row stayed in the AVAILABLE column and no
+# message was printed anywhere, because the panel's cap warning is hard-wired off for
+# want of a cap flag to read (gui\tnt_panel_people.gui).
+#
+# IT IS GONE, so that courtiers behave like every other multi-select term. V4 deleted
+# the same cap from the shared tnt_multi_add_effect and said why —
+# tnt_35_multiselect.txt:126-140, "the mod applied two different rules to two
+# neighbouring rows of the same window ... removing it here makes all four terms
+# behave alike" — and this hand-written copy was the last survivor, so the very
+# incoherence that removal was meant to end had quietly outlived it. The six cap
+# FLAGS are hard zeros (tnt_54_multiselect_values.txt:303-325) and now tell the truth,
+# and that file's own summary — "THE CAP IS OFF FOR ALL SIX LISTS NOW" (:119-131) —
+# is finally true of the seventh and eighth lists as well.
+# WHAT DISCOURAGES AN OVER-LARGE OFFER IS THE BALANCE ITSELF, the same argument that
+# file gives for every uncapped list: every extra head is another 10-50 points the
+# partner has to be paid for, and the more he is given the less each further head
+# moves an already-satisfied partner.
+# The price file's ceiling arithmetic was rewritten in the same commit
+# (tnt_58_person_values.txt) — the term now has no ceiling, only a per-head price.
+#
+# *** THE ADD IS STILL WRITTEN OUT INSTEAD OF CALLING tnt_multi_add_effect, AND THE
+# *** REASON IS NOW ONLY tnt_person_unique_trigger. ***
+# That trigger must be asked in the PLAYER's scope, because it reads his four people
+# variables and both courtier selection lists; the shared effect has no parameter for
+# it and takes only SEL and LIST. If tnt_multi_add_effect ever grows a per-candidate
+# hook, these two entries should fold into it.
+#
+# THE DUPLICATE GUARD IS THE UNIQUENESS TRIGGER, not a second copy of it. P16
+# tnt_person_unique_trigger already asks `is_target_in_variable_list` of BOTH courtier
+# selection lists (tnt_42_people_gates.txt, P16's body) as well as of the two hostage
+# variables (its two ward rows are retired with the family, V16 user item 5),
+# so it refuses a double click on the same row and a man who is
+# already promised as a hostage in one test. Writing the shipped duplicate guard beside
+# it would be the same question asked twice.
+#
+# THE REMOVE DELEGATES, because there is nothing to add to tnt_multi_remove_effect: no
+# cap can be exceeded by taking something off, and it already guards both halves of the
+# move. It carries NO is_valid (law 1) and NO veto-memory line — and that last absence
+# is a fact, not an oversight: the auto-balance button may add a partner TITLE or CLAIM
+# by itself, which is why tnt_sel_title_r_remove teaches it a veto
+# (tnt_22b_multiselect.txt:431-459), but it never touches any of item 19's four people
+# terms in either direction (tnt_39_autobalance.txt:602-607, integration-contract C4).
+# A veto list for a term the button cannot add would be dead state in the savegame.
+######################################################################################
+
+tnt_sel_courtier_p_add = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+
+				# One body, one term — and this also IS the duplicate guard.
+				# (The cap of three stood here and is RETIRED — see the group header.)
+				tnt_person_unique_trigger = { WHO = scope:tnt_picked }
+			}
+
+			add_to_variable_list = {
+				name = tnt_sel_courtier_p
+				target = scope:tnt_picked
+			}
+
+			# The other half of the MOVE: out of the AVAILABLE column, so the row's
+			# column keeps telling the truth about the offer. Guarded so that nothing is
+			# asked of a list that does not exist and a candidate who is somehow already
+			# gone from it is simply left alone.
+			if = {
+				limit = {
+					has_variable_list = tnt_list_courtier_p
+					is_target_in_variable_list = {
+						name = tnt_list_courtier_p
+						target = scope:tnt_picked
+					}
+				}
+				remove_list_variable = {
+					name = tnt_list_courtier_p
+					target = scope:tnt_picked
+				}
+			}
+
+			remove_variable = tnt_ab_state
+		}
+
+		# ITEM 3 — OUTSIDE the if, so a click refused by tnt_person_unique_trigger
+		# still leaves both columns in the one canonical order. Idempotent.
+		tnt_sort_all_effect = yes
+	}
+}
+
+tnt_sel_courtier_r_add = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+
+				# (The cap of three stood here and is RETIRED — see the group header.)
+				tnt_person_unique_trigger = { WHO = scope:tnt_picked }
+			}
+
+			add_to_variable_list = {
+				name = tnt_sel_courtier_r
+				target = scope:tnt_picked
+			}
+
+			if = {
+				limit = {
+					has_variable_list = tnt_list_courtier_r
+					is_target_in_variable_list = {
+						name = tnt_list_courtier_r
+						target = scope:tnt_picked
+					}
+				}
+				remove_list_variable = {
+					name = tnt_list_courtier_r
+					target = scope:tnt_picked
+				}
+			}
+
+			remove_variable = tnt_ab_state
+		}
+
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_courtier_p_add above
+	}
+}
+
+tnt_sel_courtier_p_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_remove_effect = { SEL = tnt_sel_courtier_p  LIST = tnt_list_courtier_p }
+		# ITEM 3 — THE DEFECT'S OWN SITE, courtier column. The hand-back inside
+		# tnt_multi_remove_effect (tnt_35_multiselect.txt:252) can only APPEND.
+		tnt_sort_all_effect = yes
+		remove_variable = tnt_ab_state
+	}
+}
+
+tnt_sel_courtier_r_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_remove_effect = { SEL = tnt_sel_courtier_r  LIST = tnt_list_courtier_r }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_courtier_p_remove above
+		remove_variable = tnt_ab_state
+	}
+}
+
+# THE WHOLE-COLUMN CLEAR. Bound to the item row's X (gui\tnt_diplomacy_window.gui:1458,
+# :2412), to the deal sheet's X (gui\tnt_panels.gui:1149, :1506) and to the panel's own
+# clear control (gui\tnt_panel_people.gui:381, :471) — three call sites, all of them
+# "take this off the table", none of them refusable.
+#
+# The second line is the interesting one and it is the shipped answer
+# (tnt_22b_multiselect.txt:500-518): instead of handing every chosen courtier back one
+# by one, the AVAILABLE list is simply rebuilt from the world. With the selection now
+# empty there is nothing left to prune, so the fill alone restores the exactly correct
+# candidate set — including dropping anyone who has become untransferable meanwhile.
+# It is also mandatory rather than tidy: the adds MOVED those men out of the candidate
+# list, so without the refill the panel would open on an empty "available" column.
+######################################################################################
+
+tnt_sel_courtier_p_clear = {
+	scope = character
+
+	effect = {
+		clear_variable_list = tnt_sel_courtier_p
+		tnt_fill_courtier_p_effect = yes
+		# ITEM 3. The clear leaves nothing to order, but the FILL beside it rebuilds
+		# the candidate column from the world in engine order.
+		tnt_sort_all_effect = yes
+		remove_variable = tnt_ab_state
+	}
+}
+
+tnt_sel_courtier_r_clear = {
+	scope = character
+
+	effect = {
+		clear_variable_list = tnt_sel_courtier_r
+		tnt_fill_courtier_r_effect = yes
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_courtier_p_clear above
+		remove_variable = tnt_ab_state
+	}
+}
+
+
+######################################################################################
+# GROUP E — THE TWO INDEPENDENCE TOGGLES
+#
+# No panel, no list, no index: the only person this term can be about is the man on the
+# other side of the table (tnt_42_people_gates.txt:855-873). So it is a bool pair and
+# these two entries are the whole of its bridge — bound at
+# gui\tnt_diplomacy_window.gui:1288-1306 and :2292-2305.
+#
+# DIRECTION, and it may not be inverted: _p is the PLAYER, as liege, releasing the
+# PARTNER from his fealty; _r is the partner releasing the player. Contract §1.B fixes
+# it, tnt_val_indep_p_value prices the player letting go of a vassal, and
+# tnt_exec_indep_effect is called { SIDE = p  LIEGE = the player  VASSAL = the partner }.
+# Inverting the gate would not error — it would price the wrong man's loss and free
+# nobody.
+#
+# THE VALUE IS THE LITERAL 1 BECAUSE THE APPLY LEG TESTS `> 0`
+# (tnt_3a_people.txt:608-609) and so does the price (tnt_58_person_values.txt:208, :228).
+# A bare `set_variable = { name = X }` with no value would satisfy `exists` and fail
+# `> 0`: a term that shows on the sheet, is priced at nothing and frees nobody.
+#
+# TWO is_valid ROWS, AND A trigger_if AROUND BOTH OF THEM — THIS IS WHERE LAW 1 IS
+# OBEYED BY A TOGGLE.
+#   * The gate rows: the Tier-4 game rule (P14/P15 read `exists = var:tnt_advanced`,
+#     the answer E1 caches once per window opening at tnt_30_effects.txt:173-176 —
+#     `limit = { tnt_advanced_terms_trigger = yes }`, a map lookup here rather than a
+#     trigger tree per layout pass — because independence is
+#     the exact inverse of the fealty term and a campaign that switched the dangerous
+#     terms off but could still hand out independence would be incoherent) and the
+#     CACHED answer to P13 tnt_can_release_trigger — vanilla's own
+#     grant_independence rules, of which the de jure clause and "the liege is not at
+#     war" are the two that most often say no. The cache (tnt_indep_ok_p/_r, written
+#     by E33 once per open/refresh) replaced the live call after the 85,778-error
+#     measurement — see the toggles' own comment boxes; the rules CAN turn false
+#     while the window is open, which is why the switch-ON effect keeps one live
+#     re-check even though the per-frame is_valid may not.
+#   * The trigger_if: they apply ONLY when the term is not already on the table. A
+#     trigger_if whose limit fails simply does not apply — the bare form
+#     tnt_person_unique_trigger relies on for exactly this kind of "the question does
+#     not arise" row (tnt_42_people_gates.txt:1111-1117) — so once tnt_indep_p exists,
+#     is_valid is vacuously true, `enabled` stays on, and the player can always untick
+#     what he ticked. Without it a liege who went to war after ticking the box would be
+#     unable to withdraw the term and unable to send the offer either, since the send
+#     gate re-tests it. That is the dead-click the hook zeroers were written to end
+#     (tnt_22c_hooks_contracts.txt:711-724), reached here without a second entry
+#     because the window gives this row one control, not a control plus an X.
+#     A trigger_if/trigger_else pair inside a scripted_gui's is_valid is not novel: the
+#     shipped fealty toggle carried one until the T15 wrapper absorbed it
+#     (tnt_20_scripted_guis.txt:920-925).
+#
+# THE `else` BRANCH RE-TESTS THE GATE — layer 2 of the three-layer arrangement
+# tnt_22c_hooks_contracts.txt:28-42 sets out, and its reason applies verbatim here: it
+# is not established that Execute consults is_valid at all, so the write itself must
+# refuse. Switching OFF carries no such test, by the same file's rule.
+#
+# NOTHING IS CLEARED ON THE OTHER SIDE. tnt_vassal_p_toggle drops tnt_vassal_r when it
+# turns itself on, but that is one term's two directions; independence and fealty are
+# two different terms, and C5 forbids only their COMBINATION. That combination is
+# refused on the send path by tnt_no_indep_and_vassal_trigger (P17) and ordered
+# defensively at apply time, so a toggle here that silently deleted a fealty term the
+# player had composed would be doing another row's job behind his back.
+######################################################################################
+
+tnt_indep_p_toggle = {
+	scope = character
+
+	# NESTING: custom_description OUTSIDE, trigger_if INSIDE — and that order is
+	# the correction, not a preference. The first draft put trigger_if outside so
+	# that a ticked term could always be unticked, citing
+	# tnt_20_scripted_guis.txt:920-925 as precedent; that passage documents the
+	# REMOVAL of exactly such a construct ("the build-1 outer trigger_if/
+	# trigger_else pair is gone"). The shape the mod actually ships live is this
+	# one — tnt_20_scripted_guis.txt:1269-1285 and :1290-1307. Third ref dropped 08-24.
+	# It also fixes a visible defect the other order caused: with the rows inside
+	# the trigger_if, a ticked term left is_valid with NO rows at all, so the
+	# window's `tooltip = "[TntTip('tnt_indep_p_toggle')]"` built an EMPTY tooltip
+	# on a row that binds one. Here each row is always present and simply passes
+	# vacuously once the term is on the table, so unticking can never be refused
+	# and the tooltip always has something to say.
+	#
+	# *** THE SECOND ROW READS THE E33 CACHE, NOT THE TRIGGER — LOAD-BEARING,
+	# *** 85,778 ERRORS MEASURED. *** This is_valid is bound as `enabled` and
+	# re-evaluated on every layout pass; when it called tnt_can_release_trigger
+	# directly it ran an any_vassal_or_below walk per frame AND handed the walk
+	# `var:tnt_partner`, which the walk re-resolved against each vassal — the
+	# fresh playtest log holds 85,778 script errors, every single one from this
+	# entry's old line (tnt_24_people.txt:877 -> the walk in
+	# tnt_42_people_gates.txt). tnt_indep_ok_p is P13's answer evaluated ONCE by
+	# E33 (tnt_30_effects.txt) at window open/refresh, where the partner exists
+	# by construction — the exact fix the file header's COST paragraph had
+	# pre-registered. exists-then-value, ordered by the inner trigger_if's limit,
+	# so an absent cache is a silent "no" and never a fetch (Law R13).
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			trigger_if = {
+				limit = { NOT = { exists = var:tnt_indep_p } }
+				exists = var:tnt_advanced
+			}
+		}
+		custom_tooltip = {
+			text = tnt_err_indep_p_unavailable
+			trigger_if = {
+				limit = { NOT = { exists = var:tnt_indep_p } }
+				trigger_if = {
+					limit = { exists = var:tnt_indep_ok_p }
+					var:tnt_indep_ok_p = 1
+				}
+				trigger_else = { always = no }
+			}
+		}
+		# V14, USER ITEM 1: NAME THE REAL REASON. P13 now refuses a Night's
+		# Watch pair (tnt_42_people_gates.txt, the T46 call), so the cache row
+		# above already goes to 0 on its own and this toggle dies without any
+		# edit here - but it would report "they are not your vassal" about a man
+		# who plainly is. This row says what actually happened.
+		# LEGAL IN A PER-FRAME is_valid: government_has_flag and has_variable on
+		# a culture are FLAT reads on the character's government / culture
+		# object - no iteration, no script value, no walk. That is precisely the
+		# distinction the 85,778-error note above turns on, and this row is on
+		# the right side of it.
+		# The inner exists guard makes the row pass VACUOUSLY when there is no
+		# partner, which is the shape tnt_42_people_gates.txt:1137-1143
+		# prescribes for this file. In a vanilla game it is always true.
+		custom_tooltip = {
+			text = tnt_err_vassal_wall
+			trigger_if = {
+				limit = {
+					NOT = { exists = var:tnt_indep_p }
+					exists = var:tnt_partner
+				}
+				tnt_vassalage_pair_allowed_trigger = { A = root  B = var:tnt_partner }
+			}
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_indep_p }
+			remove_variable = tnt_indep_p
+			remove_variable = tnt_ab_state
+		}
+		else_if = {
+			# A CLICK IS RARE, so switching ON keeps ONE live re-check of the
+			# real trigger (the cache is refreshed only at open/refresh and the
+			# liege can go to war while the window sits). The exists row is the
+			# stale-click guard: with no partner the walk is never entered, so a
+			# click that lands after a torn-down session cannot fetch-crash.
+			# P13 itself re-anchors its arguments now, so the var: path is safe
+			# to pass once exists has held.
+			limit = {
+				exists = var:tnt_advanced
+				exists = var:tnt_partner
+				tnt_can_release_trigger = {
+					LIEGE = root
+					VASSAL = var:tnt_partner
+				}
+			}
+			set_variable = {
+				name = tnt_indep_p
+				value = 1
+			}
+			# INSIDE the guard, matching the four setters in this file: a click the
+			# else_if refuses changed nothing, so it must not void a balance verdict.
+			remove_variable = tnt_ab_state
+		}
+		else = {
+			# STALE-CACHE FALLBACK (V8 verifier F2): the E33 cache can outlive its
+			# truth within one open window (the vassal dies, the liege goes to
+			# war), leaving an enabled button whose click the live re-check above
+			# rightly refuses - silently. Dropping the cache here turns the first
+			# dead click into a greyed row with its reason, instead of a button
+			# that eats clicks forever.
+			remove_variable = tnt_indep_ok_p
+		}
+	}
+}
+
+tnt_indep_r_toggle = {
+	scope = character
+
+	# Same nesting correction AND the same cache-read as the _p twin above — see
+	# its comment box. The _r cache carries the swapped roles (LIEGE = partner),
+	# evaluated by the same E33 block.
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			trigger_if = {
+				limit = { NOT = { exists = var:tnt_indep_r } }
+				exists = var:tnt_advanced
+			}
+		}
+		custom_tooltip = {
+			text = tnt_err_indep_r_unavailable
+			trigger_if = {
+				limit = { NOT = { exists = var:tnt_indep_r } }
+				trigger_if = {
+					limit = { exists = var:tnt_indep_ok_r }
+					var:tnt_indep_ok_r = 1
+				}
+				trigger_else = { always = no }
+			}
+		}
+		# V14, USER ITEM 1 - the _p twin's row, unchanged but for the cache name.
+		# See it for the whole argument and for why a flat flag lookup is legal
+		# in a per-frame is_valid. THE A/B ARGUMENTS ARE DELIBERATELY THE SAME
+		# SPELLING IN BOTH TOGGLES: T46 is symmetric, so one call serves both
+		# directions and there is no second form to keep in step.
+		custom_tooltip = {
+			text = tnt_err_vassal_wall
+			trigger_if = {
+				limit = {
+					NOT = { exists = var:tnt_indep_r }
+					exists = var:tnt_partner
+				}
+				tnt_vassalage_pair_allowed_trigger = { A = root  B = var:tnt_partner }
+			}
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_indep_r }
+			remove_variable = tnt_indep_r
+			remove_variable = tnt_ab_state
+		}
+		else_if = {
+			# One live re-check on the rare click, exists-guarded — see the _p twin.
+			limit = {
+				exists = var:tnt_advanced
+				exists = var:tnt_partner
+				tnt_can_release_trigger = {
+					LIEGE = var:tnt_partner
+					VASSAL = root
+				}
+			}
+			set_variable = {
+				name = tnt_indep_r
+				value = 1
+			}
+			remove_variable = tnt_ab_state
+		}
+		else = {
+			# Stale-cache fallback - the mirror of the _p twin's, see there (V8 F2).
+			remove_variable = tnt_indep_ok_r
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP F — THE TRANSFERRED VASSAL, TWICE   *** THE THIRD PEOPLE TERM (V26) ***
+#
+# OVERLAY INDEX 19, the first index the people family has claimed since 18. It was
+# marked "still free" in gui\tnt_panel_people.gui's frozen table and nowhere else;
+# 8, 11, 13 and 17 are RETIRED and were not touched.
+#
+# SHAPE: THE COURTIER TRIO, TWICE, and every line of it is group A's opener plus
+# group D's add / remove / clear with `courtier` swapped for `subject`. Read those
+# two group headers first — everything they argue applies here unchanged:
+#   * the opener is tnt_multi_* and not tnt_pick_*, because only the tnt_multi_
+#     form runs the PRUNE after the fill, and in a two-list panel a row's COLUMN
+#     IS its selection state;
+#   * the ADD is written out instead of delegating to tnt_multi_add_effect, for
+#     the one reason group D still has: tnt_person_unique_trigger must be asked in
+#     the PLAYER's scope, and the shared effect takes only SEL and LIST;
+#   * the REMOVE delegates, because nothing can be over-filled by taking something
+#     off, and it carries no veto-memory line — the auto-balance button cannot add
+#     or remove a person in either direction (tnt_39_autobalance.txt, contract C4);
+#   * the CLEAR empties the selection and then REFILLS the candidate column from
+#     the world, which is mandatory rather than tidy: the adds MOVED those men out
+#     of the candidate list.
+#
+# THE SECOND is_valid ROW IS NEW TO THIS FILE AND IT IS THE CROSS-GUARD'S ONLY
+# PLAYER-FACING SURFACE. P25 tnt_no_subject_and_vassal_trigger refuses a treaty
+# that carries BOTH sworn fealty and a transferred vassal (the same land priced
+# twice — the full argument is in P25's header). The send gate already enforces it
+# through P18, but it does so with ONE name and one message for the whole people
+# family; here the player learns at the moment he reaches for the panel, which is
+# the moment he can still do something about it.
+#   THE trigger_if IS NOT DECORATION. Without it a player who selected vassals and
+#   THEN ticked fealty would find the panel greyed shut with his own selection
+#   inside it — the dead-control defect group E's header names. The row therefore
+#   applies only while this side's selection is still EMPTY; once something is on
+#   the table the row passes vacuously and the panel always reopens.
+#   NESTING IS custom_description OUTSIDE, trigger_if INSIDE — the correction group
+#   E records at tnt_24_people.txt's independence toggles, and the only shape this
+#   mod ships live.
+#   THE TWO ROWS ARE WRITTEN OUT INSTEAD OF CALLING P25, and that is deliberate
+#   twice over. (1) DIRECTION: P25 is the send-path law, "if a vassal is on the
+#   table then no fealty term may be", and it is vacuously TRUE before the player
+#   has picked anybody — which is exactly the moment this row has to speak. The
+#   two rows here are the other half of the same rule, "while nothing is picked,
+#   a fealty term shuts this panel". (2) LAW 10b: only SCALAR leaves may sit on a
+#   described custom_description path, so the list test lives in the trigger_if's
+#   LIMIT (never described) and the described part is two plain `exists` reads —
+#   the identical shape P17 already ships through tnt_send_offer.
+#   has_variable_list BEFORE variable_list_size, always: a size query on a list
+#   that was never created is an error line per frame (Law R13's list half).
+#
+# LOC: tnt_err_subject_p_unavailable / _r_unavailable and tnt_err_subject_and_vassal
+# are reached by BuildTooltip through [TntTip('tnt_multi_subject_<side>_open')], so
+# all three are written in WORDS with no [..] token of any kind — house law 10a,
+# which prints the raw key and writes nothing to any log.
+######################################################################################
+
+# 19 / side 0 — the vassals the PLAYER hands over.
+# Gate P22: tnt_can_subject_trigger = { GIVER RECEIVER } is the pair-level half —
+# two different living rulers, not at war, the receiver landed and no gallivanter,
+# and neither of them the Night's Watch. Everything about the MAN is P21, inside
+# the fill.
+tnt_multi_subject_p_open = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_subject_p_unavailable
+			tnt_can_subject_trigger = {
+				GIVER = root
+				RECEIVER = var:tnt_partner
+			}
+		}
+		custom_tooltip = {
+			text = tnt_err_subject_and_vassal
+			trigger_if = {
+				limit = {
+					NOT = {
+						AND = {
+							has_variable_list = tnt_sel_subject_p
+							variable_list_size = {
+								name = tnt_sel_subject_p
+								value >= 1
+							}
+						}
+					}
+				}
+				NOT = { exists = var:tnt_vassal_p }
+				NOT = { exists = var:tnt_vassal_r }
+			}
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 19
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+		tnt_fill_subject_p_effect = yes
+		tnt_multi_prune_effect = { SEL = tnt_sel_subject_p  LIST = tnt_list_subject_p }
+		# ITEM 3 — THE ORDER. Same line, same reason and the same idempotence as
+		# the courtier entries above: the fill rebuilds the candidate column from
+		# the world in engine order, and the prune only shortens.
+		tnt_sort_all_effect = yes
+	}
+}
+
+# 19 / side 1 — the vassals the PARTNER hands over.
+tnt_multi_subject_r_open = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_subject_r_unavailable
+			tnt_can_subject_trigger = {
+				GIVER = var:tnt_partner
+				RECEIVER = root
+			}
+		}
+		custom_tooltip = {
+			text = tnt_err_subject_and_vassal
+			trigger_if = {
+				limit = {
+					NOT = {
+						AND = {
+							has_variable_list = tnt_sel_subject_r
+							variable_list_size = {
+								name = tnt_sel_subject_r
+								value >= 1
+							}
+						}
+					}
+				}
+				NOT = { exists = var:tnt_vassal_p }
+				NOT = { exists = var:tnt_vassal_r }
+			}
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 19
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 1
+		}
+		tnt_fill_subject_r_effect = yes
+		tnt_multi_prune_effect = { SEL = tnt_sel_subject_r  LIST = tnt_list_subject_r }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_multi_subject_p_open above
+	}
+}
+
+tnt_sel_subject_p_add = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+
+				# One body, one term — and this also IS the duplicate guard.
+				# P16 now asks the two subject selection lists as well.
+				tnt_person_unique_trigger = { WHO = scope:tnt_picked }
+			}
+
+			add_to_variable_list = {
+				name = tnt_sel_subject_p
+				target = scope:tnt_picked
+			}
+
+			# The other half of the MOVE: out of the AVAILABLE column, so the
+			# row's column keeps telling the truth about the offer.
+			if = {
+				limit = {
+					has_variable_list = tnt_list_subject_p
+					is_target_in_variable_list = {
+						name = tnt_list_subject_p
+						target = scope:tnt_picked
+					}
+				}
+				remove_list_variable = {
+					name = tnt_list_subject_p
+					target = scope:tnt_picked
+				}
+			}
+
+			remove_variable = tnt_ab_state
+		}
+
+		# ITEM 3 — OUTSIDE the if, so a click refused by tnt_person_unique_trigger
+		# still leaves both columns in the one canonical order. Idempotent.
+		tnt_sort_all_effect = yes
+	}
+}
+
+tnt_sel_subject_r_add = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+				tnt_person_unique_trigger = { WHO = scope:tnt_picked }
+			}
+
+			add_to_variable_list = {
+				name = tnt_sel_subject_r
+				target = scope:tnt_picked
+			}
+
+			if = {
+				limit = {
+					has_variable_list = tnt_list_subject_r
+					is_target_in_variable_list = {
+						name = tnt_list_subject_r
+						target = scope:tnt_picked
+					}
+				}
+				remove_list_variable = {
+					name = tnt_list_subject_r
+					target = scope:tnt_picked
+				}
+			}
+
+			remove_variable = tnt_ab_state
+		}
+
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_subject_p_add above
+	}
+}
+
+tnt_sel_subject_p_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_remove_effect = { SEL = tnt_sel_subject_p  LIST = tnt_list_subject_p }
+		# ITEM 3 — the hand-back inside tnt_multi_remove_effect can only APPEND.
+		tnt_sort_all_effect = yes
+		remove_variable = tnt_ab_state
+	}
+}
+
+tnt_sel_subject_r_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_remove_effect = { SEL = tnt_sel_subject_r  LIST = tnt_list_subject_r }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_subject_p_remove above
+		remove_variable = tnt_ab_state
+	}
+}
+
+tnt_sel_subject_p_clear = {
+	scope = character
+
+	effect = {
+		clear_variable_list = tnt_sel_subject_p
+		tnt_fill_subject_p_effect = yes
+		# ITEM 3. The clear leaves nothing to order, but the FILL beside it
+		# rebuilds the candidate column from the world in engine order.
+		tnt_sort_all_effect = yes
+		remove_variable = tnt_ab_state
+	}
+}
+
+tnt_sel_subject_r_clear = {
+	scope = character
+
+	effect = {
+		clear_variable_list = tnt_sel_subject_r
+		tnt_fill_subject_r_effect = yes
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_subject_p_clear above
+		remove_variable = tnt_ab_state
+	}
+}
+
+
+######################################################################################
+# IDENTIFIER AUDIT — EVERY NON-tnt_ NAME IN THIS FILE, WITH ITS PROVENANCE
+#
+# HOW TO READ THIS. The vanilla file:line citations below are QUOTED FROM this mod's
+# own R3 audits and headers, each named beside the line; those mod lines were opened
+# while this file was written, the GAME files were not re-opened for it. Where no
+# vanilla line is quoted, the proof offered is a shipped call site in this mod, which
+# is the stronger evidence for a bridge file in any case: it is code that runs today.
+#
+#   scope / saved_scopes / is_valid / effect   the legal key set, measured over all 7
+#       vanilla scripted_gui files plus 12 installed mods —
+#       tnt_22c_hooks_contracts.txt:11-16, tnt_22b_multiselect.txt:11-13
+#   set_variable / remove_variable             every scripted_gui file in this mod;
+#       remove_variable on an absent variable is silent, vanilla doing it twice in one
+#       block is cited at tnt_21_pickers.txt:444-446
+#   if / else_if / limit                       tnt_22c_hooks_contracts.txt:190-217
+#   trigger_if without a trigger_else          tnt_42_people_gates.txt:1111-1117, which
+#       cites GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:42-57
+#   custom_description in a scripted_gui's is_valid
+#                                              tnt_21_pickers.txt:85-90,
+#       tnt_20_scripted_guis.txt:929-933, tnt_22c_hooks_contracts.txt:183-188
+#   exists                                     tnt_42_people_gates.txt:1250, quoting
+#       GAME\common\combat_phase_events\00_commander_phase_events.txt:47
+#   has_variable_list                          tnt_42_people_gates.txt:1259, quoting
+#       GAME\common\character_interactions\00_alliance.txt:3305
+#   variable_list_size                         tnt_42_people_gates.txt:1310, quoting
+#       GAME\common\casus_belli_types\07_ep3_wars.txt:5916-5919
+#   is_target_in_variable_list                 tnt_42_people_gates.txt:1293, quoting
+#       GAME\common\character_interactions\00_character_interactions.txt:1060-1064
+#   add_to_variable_list / remove_list_variable / clear_variable_list
+#                                              shipped throughout
+#       tnt_22b_multiselect.txt:309-326 and tnt_35_multiselect.txt M1/M2
+#   NOT                                        everywhere in this mod's triggers
+#
+#   OURS, ALL DEFINED ELSEWHERE AND ONLY CALLED HERE:
+#     tnt_can_hostage_trigger · tnt_can_courtier_trigger ·
+#     tnt_can_release_trigger · tnt_person_unique_trigger ·
+#     tnt_can_subject_trigger · tnt_no_subject_and_vassal_trigger  (V26, group F)
+#         common\scripted_triggers\tnt_42_people_gates.txt (P2, P10, P13, P16,
+#         P22, P25)
+#         [RETIRED V16, USER ITEM 5: tnt_can_ward_trigger (P6) — this file held its
+#          last two callers, so it is commented out and callerless]
+#     tnt_fill_hostage_p/_r_effect ·
+#     tnt_fill_courtier_p/_r_effect ·
+#     tnt_fill_subject_p/_r_effect  (V26, group F)
+#         common\scripted_effects\tnt_3a_people.txt (P1-P6, P21-P22)
+#         [RETIRED V16, USER ITEM 5: tnt_fill_ward_p/_r_effect (P3/P4)]
+#     tnt_multi_prune_effect · tnt_multi_remove_effect
+#         common\scripted_effects\tnt_35_multiselect.txt (M3, M2)
+#     tnt_cur_clear_effect
+#         common\scripted_effects\tnt_39_autobalance.txt:306-309 (A8) — the two
+#         surviving hostage clears keep it alive
+#     the variables tnt_picker · tnt_picker_side · tnt_advanced · tnt_partner ·
+#     tnt_ab_state · tnt_indep_ok_p · tnt_indep_ok_r (the last two written by E33
+#     once per open/refresh and removed by E2, tnt_30_effects.txt — the 85k-error
+#     cache), all owned and removed elsewhere — see the R-CLEAN paragraph in the
+#     file header.
+#
+#   NOT DEFINED ANYWHERE YET — THE EIGHT LOC KEYS, listed in the header and raised as
+#   loc requests in the build report. They are the only unsatisfied names in this file.
+######################################################################################

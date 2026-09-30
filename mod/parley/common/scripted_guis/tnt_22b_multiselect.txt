@@ -1,0 +1,737 @@
+﻿######################################################################################
+# PARLEY: THE NEGOTIATING TABLE — MULTI-SELECT SCRIPTED GUIS  (user item 2.2)
+#
+# Owner: multiselect.  24 entries, in four groups of six:
+#   A  openers   tnt_multi_<item>_<side>_open      (6)
+#   B  add       tnt_sel_<item>_<side>_add         (6)
+#   C  remove    tnt_sel_<item>_<side>_remove      (6)
+#   D  clear     tnt_sel_<item>_<side>_clear       (6)
+# where <item> is title | claim | artifact and <side> is p | r.
+#
+# Legal keys only: scope, saved_scopes, is_shown, is_valid, effect
+# (00-ARCHITECTURE §3.6 settles the set; ai_is_valid, confirm_title,
+# ai_chance, is_hidden, alert and on_click do NOT exist). is_shown is used
+# by no entry here. is_valid is used by exactly two — the two title
+# openers, because ceding a title is game-rule gated, which is exactly
+# what the shipped tnt_pick_title_p_open / _r_open do
+# (tnt_21_pickers.txt:85-90, :109-114).
+#
+#-------------------------------------------------------------------------------------
+# HOW A MULTI-SELECT PANEL WORKS, END TO END
+#-------------------------------------------------------------------------------------
+#  1. The item row's "Choose..." button calls an OPENER (group A). It writes
+#     tnt_picker = <frozen item index, contract R0.8> and tnt_picker_side
+#     (0 = _p, 1 = _r), rebuilds the available list, and then PRUNES the
+#     objects that are already chosen out of it. Order matters: the fill
+#     effects in tnt_31_lists.txt open with clear_variable_list and rebuild
+#     from the world, so without the prune every already-chosen title would
+#     reappear in the "available" column and be shown twice.
+#  2. gui/tnt_panel_multiselect.gui's panel shows because tnt_picker and
+#     tnt_picker_side match its two EqualTo_CFixedPoint tests. No
+#     GetScriptedGui is called from any visible, anywhere (Law R11).
+#  3. A click in the AVAILABLE column calls an ADD (group B). A click in the
+#     CHOSEN column calls a REMOVE (group C). Both receive the row object as
+#     scope:tnt_picked through exactly ONE .AddScope — chaining two is
+#     unverified and forbidden (Law R8). Both leave tnt_picker SET, so the
+#     panel stays open for the next pick. That is the one behavioural
+#     difference from the shipped single-object setters, which end with
+#     `remove_variable = tnt_picker` because one pick is the whole
+#     interaction.
+#  4. The panel's Done button and its close button both call the SHIPPED
+#     tnt_picker_close (tnt_21_pickers.txt), which clears tnt_picker and
+#     tnt_picker_side. This file adds no closer of its own.
+#  5. There is NO `down =` on any row and NO membership test anywhere,
+#     because a row's COLUMN is its state. The engine has no list-membership
+#     datafunction; that absence is what the two-list shape is for.
+#
+#-------------------------------------------------------------------------------------
+# WHAT THIS FILE SUPERSEDES (nothing is deleted anywhere)
+#-------------------------------------------------------------------------------------
+# tnt_21_pickers.txt:33-71 predicted this file entry by entry. Its own audit
+# says: the 10 openers "ALL SURVIVE UNCHANGED", 6 of its 8 setters are
+# "SUPERSEDED, not yet dead", and 6 of its 9 clearers likewise. This file
+# does NOT touch that file (Law R18, exclusive ownership). Instead it adds
+# parallel entries under new names, and the GUI owner re-points six buttons:
+#     tnt_pick_title_p_open     ->  tnt_multi_title_p_open
+#     tnt_pick_title_r_open     ->  tnt_multi_title_r_open
+#     tnt_pick_claim_p_open     ->  tnt_multi_claim_p_open   BOTH NAMES NOW RETIRED
+#     tnt_pick_claim_r_open     ->  tnt_multi_claim_r_open   BOTH NAMES NOW RETIRED
+#       (V13, user item 1: the granted claim is a design refusal. The supersession
+#        happened and then the whole family was withdrawn, so NEITHER generation is
+#        live. See TOMBSTONE C in common\scripted_effects\tnt_32_apply.txt.)
+#     tnt_pick_artifact_p_open  ->  tnt_multi_artifact_p_open
+#     tnt_pick_artifact_r_open  ->  tnt_multi_artifact_r_open
+# Until that swap lands, the shipped single-object path keeps working and
+# nothing here is reachable — so this file can ship before the GUI does.
+# The six superseded setters and six superseded clearers stay live and
+# harmless; they write tnt_title_p and friends, which nothing reads once the
+# valuation and the deal sheet point at the selection lists. A later cleanup
+# pass may delete them, together with the tnt_title_* rows in
+# tnt_reset_offer_effect and the dead re-validation rows in
+# tnt_send_offer's is_valid.
+#
+#-------------------------------------------------------------------------------------
+# COST
+#-------------------------------------------------------------------------------------
+# Nothing in this file is on a hot path. The only is_valid rows are the two
+# title openers' single `exists = var:tnt_advanced` test, evaluated once per
+# frame on ONE button each — the same test the shipped title openers already
+# carry. No entry here is bound to a per-row visible or down (Law R11), and
+# the panel's per-frame cost is four script values (two counts, one cap flag,
+# and the domain pair inside the title panels), read once per panel, never
+# once per row.
+######################################################################################
+
+
+######################################################################################
+# GROUP A — THE SIX OPENERS
+#
+# Item indices are the frozen ones (contract R0.8): 6 = title, 7 = claim,
+# 10 = artifact. They are shared with the shipped single-object openers on
+# purpose — the overlay index identifies the ITEM, not the panel shape, and
+# only one panel per (index, side) is ever visible because the GUI owner
+# replaces the old panel with the new one at the same index.
+#
+# INDEX 13 (the captive multi-panel, at the bottom of this file) is RETIRED with
+# the prisoner terms, and so is index 8 — retired, NOT free: neither is ever
+# renumbered or reused, exactly as index 2 has been since the tribute went.
+#
+# THE FILL-THEN-PRUNE PAIR IS NOT OPTIONAL. See step 1 above and
+# tnt_35_multiselect.txt M3.
+######################################################################################
+
+# Titles the PLAYER cedes. tnt_can_cede_title_trigger inside
+# tnt_fill_title_p_effect does the filtering (own held titles, county or
+# above, not the primary title, not the capital).
+#
+# Game-rule gated, exactly like the shipped opener it replaces: ceding land
+# is one of the three Tier-4 terms behind tnt_advanced (the others are
+# marriage and fealty). tnt_advanced is written once per window opening by
+# tnt_open_window_effect, so this is a map lookup and not a trigger tree.
+tnt_multi_title_p_open = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 6
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+		tnt_fill_title_p_effect = yes
+		tnt_multi_prune_effect = { SEL = tnt_sel_title_p  LIST = tnt_list_title_p }
+		# ITEM 3 — THE ORDER. The fill above rebuilds the candidate list from the
+		# world in engine order, so the sort has to follow it, and it has to follow
+		# the prune too (the prune only shortens). One line, no parameters, and
+		# idempotent — every mutation site in the subsystem carries this same line;
+		# the whole argument is in common\scripted_effects\tnt_35a_sort.txt.
+		tnt_sort_all_effect = yes
+	}
+}
+
+# Titles the PARTNER cedes.
+tnt_multi_title_r_open = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 6
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 1
+		}
+		tnt_fill_title_r_effect = yes
+		tnt_multi_prune_effect = { SEL = tnt_sel_title_r  LIST = tnt_list_title_r }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_multi_title_p_open above
+	}
+}
+
+#######################################################################################
+# RETIRED - THE GRANTED CLAIM. V13, USER ITEM 1. EIGHT ENTRIES IN THIS FILE.
+# The full tombstone is TOMBSTONE C in common\scripted_effects\tnt_32_apply.txt; read
+# it before touching anything here. In short: vanilla gates the MANUFACTURE of claims
+# behind a LEARNING investment (the Court Chaplain's task_fabricate_claim, whose
+# outcome is keyed to the learning skill), and selling a finished claim across this
+# table short-circuits that investment. THIS IS A DESIGN REFUSAL, NOT A BUG FIX.
+# All eight entries below are commented out together with their .gui rows, their two
+# fill effects, their two candidate lists and their two selection lists. A .gui row and
+# its scripted_gui go together; a clear_variable_list and its writer go together.
+#######################################################################################
+
+# Claims the PLAYER grants on his OWN held titles — symmetric with the cede
+# picker on purpose, so granting a claim is a real concession rather than a
+# free gift of somebody else's land. Not game-rule gated, matching the
+# shipped claim openers.
+# tnt_multi_claim_p_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 7
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 0
+# 		}
+# 		tnt_fill_claim_p_effect = yes
+# 		tnt_multi_prune_effect = { SEL = tnt_sel_claim_p  LIST = tnt_list_claim_p }
+# 	}
+# }
+#
+# tnt_multi_claim_r_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 7
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 1
+# 		}
+# 		tnt_fill_claim_r_effect = yes
+# 		tnt_multi_prune_effect = { SEL = tnt_sel_claim_r  LIST = tnt_list_claim_r }
+# 	}
+# }
+
+# Artifacts. The list is built in script with every_character_artifact and
+# read back as Scope.Artifact; Character.GetInventory.GetArtifacts is a real
+# datamodel but vanilla only ever wraps it in IsDataModelEmpty(), never as
+# `datamodel =`, so it is not used here either.
+tnt_multi_artifact_p_open = {
+	scope = character
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 10
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+		tnt_fill_artifact_p_effect = yes
+		tnt_multi_prune_effect = { SEL = tnt_sel_artifact_p  LIST = tnt_list_artifact_p }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_multi_title_p_open above
+	}
+}
+
+tnt_multi_artifact_r_open = {
+	scope = character
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 10
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 1
+		}
+		tnt_fill_artifact_r_effect = yes
+		tnt_multi_prune_effect = { SEL = tnt_sel_artifact_r  LIST = tnt_list_artifact_r }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_multi_title_p_open above
+	}
+}
+
+
+######################################################################################
+# GROUP B — THE SIX "ADD" SETTERS   (a click in the AVAILABLE column)
+#
+# saved_scopes = { tnt_picked } on all six. GUI macro per type, one AddScope
+# each (tnt_macros.txt:78-94):
+#   titles / claims -> TntPickTitle('tnt_sel_title_p_add')
+#   artifacts       -> TntPickArtifact('tnt_sel_artifact_p_add')
+#
+# The whole body is one call into tnt_multi_add_effect, which owns the
+# existence guard and the duplicate guard. IT NO LONGER OWNS A CAP: the cap of
+# 3 was deleted from it in V4 (tnt_35_multiselect.txt:124-137), so claims and
+# artifacts are as unbounded as titles — and the four claim/artifact cap FLAGS
+# have followed it to hard zeros (tnt_54_multiselect_values.txt §2: they kept
+# firing at >= 3 and lighting tnt_err_too_many, whose domain-limit wording was
+# the reported "artifacts count toward the domain limit" bug). Keeping the
+# logic in ONE effect rather than six copies is why deleting the cap was a
+# four-line change. *** v3 ITEM 5: THE TWO TITLE SETTERS DO NOT USE IT — see
+# the box above them. Claims and artifacts still do. (The captive list did too,
+# until the prisoner terms were RETIRED — tombstone at E22 in
+# common\scripted_effects\tnt_32_apply.txt. The shared effects themselves are
+# untouched: they are also the courtier transfer's machinery.) ***
+#
+# NO is_valid. A click is never refused, and that is deliberate twice over:
+# there is no cap left to refuse it, and an is_valid here would have to be
+# evaluated by the GUI per row per frame to grey the rows, which is exactly
+# what Law R11 forbids.
+######################################################################################
+
+######################################################################################
+# *** THE TWO TITLE ADD SETTERS DO NOT GO THROUGH tnt_multi_add_effect ANY MORE ***
+# v3 ITEM 5. The user: "let us remove the limit, and instead make exceeding the
+# domain limit give fewer points."
+#
+# tnt_multi_add_effect's SECOND guard WAS the cap —
+#     trigger_if = { limit = { has_variable_list = $SEL$ }
+#                    NOT = { variable_list_size = { name = $SEL$  value >= 3 } } }
+# — and there was no parameter to switch it off for titles alone, which is why
+# these two setters stopped calling the shared body and wrote it out by hand.
+# V4 then deleted that guard from the shared body too
+# (tnt_35_multiselect.txt:124-137), so claims and artifacts are now just as
+# uncapped, and the difference between these two hand-written setters and the
+# shared effect is history, not behaviour.
+#
+# The remaining two guards ARE reproduced below, verbatim in shape and in order,
+# because both are load-bearing:
+#   1. `exists = scope:tnt_picked` — the title may have been destroyed between the
+#      row being laid out and the click landing;
+#   3. the duplicate guard, wrapped in `trigger_if = { limit = { has_variable_list …`
+#      because on the FIRST pick of a session the list does not exist at all and
+#      is_target_in_variable_list would then be asked about an unset list (defect
+#      D5's class of error). trigger_if simply does not fire and the pick succeeds,
+#      which is the correct answer. Same shape as tnt_31_lists.txt:301-313.
+# and so is the second half of the MOVE — removing the object from the AVAILABLE
+# list, guarded so that nothing is asked of a list that does not exist.
+#
+# tnt_picker is deliberately LEFT SET, exactly as tnt_multi_add_effect leaves it:
+# a multi-select panel must stay open so the player can pick the next title.
+#
+# WHAT NOW BOUNDS THE TITLE LISTS: NOTHING AT ALL, and that is deliberate as of
+# user item 13. The price that used to bound them (tnt_domain_penalty_p/_r_value,
+# common\script_values\tnt_54_multiselect_values.txt §4b) has been deleted, so
+# going over the domain limit no longer costs a single point. The only thing left
+# is the WARNING: §4 of that file still computes tnt_domain_over_p/_r_value and the
+# panels still colour their two counter lines red. A player may put his whole realm
+# on the table and will be told so, but not charged for it.
+######################################################################################
+
+tnt_sel_title_p_add = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_title_p }
+					NOT = {
+						is_target_in_variable_list = {
+							name = tnt_sel_title_p
+							target = scope:tnt_picked
+						}
+					}
+				}
+			}
+
+			add_to_variable_list = {
+				name = tnt_sel_title_p
+				target = scope:tnt_picked
+			}
+
+			if = {
+				limit = {
+					has_variable_list = tnt_list_title_p
+					is_target_in_variable_list = {
+						name = tnt_list_title_p
+						target = scope:tnt_picked
+					}
+				}
+				remove_list_variable = {
+					name = tnt_list_title_p
+					target = scope:tnt_picked
+				}
+			}
+		}
+
+		# ITEM 3 — THE ORDER, and it is OUTSIDE the if on purpose: a refused click
+		# (a double click, or a row the prune has not caught) then still leaves both
+		# columns in the one canonical order instead of in click order. Idempotent,
+		# so being called on a no-op costs one guard that fails.
+		tnt_sort_all_effect = yes
+	}
+}
+
+tnt_sel_title_r_add = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = {
+				exists = scope:tnt_picked
+
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_title_r }
+					NOT = {
+						is_target_in_variable_list = {
+							name = tnt_sel_title_r
+							target = scope:tnt_picked
+						}
+					}
+				}
+			}
+
+			add_to_variable_list = {
+				name = tnt_sel_title_r
+				target = scope:tnt_picked
+			}
+
+			if = {
+				limit = {
+					has_variable_list = tnt_list_title_r
+					is_target_in_variable_list = {
+						name = tnt_list_title_r
+						target = scope:tnt_picked
+					}
+				}
+				remove_list_variable = {
+					name = tnt_list_title_r
+					target = scope:tnt_picked
+				}
+			}
+		}
+
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_add above
+	}
+}
+
+# RETIRED with the granted claim. See TOMBSTONE C in tnt_32_apply.txt.
+# tnt_sel_claim_p_add = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		tnt_multi_add_effect = { SEL = tnt_sel_claim_p  LIST = tnt_list_claim_p }
+# 	}
+# }
+#
+# tnt_sel_claim_r_add = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		tnt_multi_add_effect = { SEL = tnt_sel_claim_r  LIST = tnt_list_claim_r }
+# 	}
+# }
+
+tnt_sel_artifact_p_add = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_add_effect = { SEL = tnt_sel_artifact_p  LIST = tnt_list_artifact_p }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_add above
+	}
+}
+
+tnt_sel_artifact_r_add = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_add_effect = { SEL = tnt_sel_artifact_r  LIST = tnt_list_artifact_r }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_add above
+	}
+}
+
+
+######################################################################################
+# GROUP C — THE SIX "REMOVE" SETTERS   (a click in the CHOSEN column)
+#
+# The mirror of group B: the object moves back to "available" and becomes
+# pickable again. Same one AddScope, same saved scope name.
+#
+# These are also what the deal sheet's own rows may call if the GUI owner
+# wants a term removable straight from the centre column — the object is in
+# the datacontext there too, and nothing in the effect depends on a panel
+# being open.
+######################################################################################
+
+tnt_sel_title_p_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_remove_effect = { SEL = tnt_sel_title_p  LIST = tnt_list_title_p }
+		# ITEM 3 — THIS IS THE DEFECT'S OWN SITE. The hand-back inside
+		# tnt_multi_remove_effect (tnt_35_multiselect.txt:252) can only APPEND, so
+		# without this line the object returns to the bottom of the available column
+		# instead of to its own place. All six removers carry it; the fix survives in
+		# exactly one column if one of them is forgotten.
+		tnt_sort_all_effect = yes
+	}
+}
+
+########################################################################
+# THE TWO `_r` REMOVERS CARRY ONE EXTRA LINE — ITEM 5's VETO MEMORY.
+#
+# The auto-balance button may now put a partner title or a partner claim on the
+# table by itself (tnt_39_autobalance.txt section D). Taking one of those off again
+# is the player saying "not this one", and tnt_ab_note_veto_effect is what makes
+# the next press hear it: it moves the object out of the button's "I added this"
+# list and into its veto list, and the walk skips vetoed objects.
+#
+# IT IS A NO-OP FOR EVERYTHING ELSE. A title the PLAYER picked was never in
+# tnt_ab_added_title, so removing it teaches the button nothing — deliberately: a
+# term the player put up and thought better of is his own business, and the mod
+# does not read a second meaning into it.
+#
+# ONLY THE `_r` PAIR. The button cannot add anything on the `_p` side at all
+# (integration contract R9), so a `_p` remover has nothing to remember.
+# The line goes AFTER the move, which is arbitrary — the added/veto lists are
+# disjoint from both selection lists — but it reads in the order it happens.
+########################################################################
+
+tnt_sel_title_r_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_remove_effect = { SEL = tnt_sel_title_r  LIST = tnt_list_title_r }
+		tnt_ab_note_veto_effect = { ADDED = tnt_ab_added_title  VETO = tnt_ab_veto_title }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_remove above
+	}
+}
+
+# RETIRED with the granted claim. See TOMBSTONE C in tnt_32_apply.txt.
+# The _r remove was also one of the two writers of tnt_ab_veto_claim; the other is the
+# clear below. Both go, so the auto-balance memory list tnt_ab_veto_claim has no writer
+# and its clear in tnt_30_effects.txt is retired with it.
+# tnt_sel_claim_p_remove = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		tnt_multi_remove_effect = { SEL = tnt_sel_claim_p  LIST = tnt_list_claim_p }
+# 	}
+# }
+#
+# tnt_sel_claim_r_remove = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		tnt_multi_remove_effect = { SEL = tnt_sel_claim_r  LIST = tnt_list_claim_r }
+# 		# The veto memory, see the box above tnt_sel_title_r_remove.
+# 		tnt_ab_note_veto_effect = { ADDED = tnt_ab_added_claim  VETO = tnt_ab_veto_claim }
+# 	}
+# }
+
+tnt_sel_artifact_p_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_remove_effect = { SEL = tnt_sel_artifact_p  LIST = tnt_list_artifact_p }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_remove above
+	}
+}
+
+tnt_sel_artifact_r_remove = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		tnt_multi_remove_effect = { SEL = tnt_sel_artifact_r  LIST = tnt_list_artifact_r }
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_remove above
+	}
+}
+
+
+######################################################################################
+# GROUP D — THE SIX "CLEAR THIS TERM" ENTRIES
+#
+# Bound to the little X in the item row (tooltip tnt_btn_none), the same
+# affordance the shipped single-object clearers use, and to the panel's own
+# "clear" control if the GUI owner wants one.
+#
+# Two lines each, and the second one is the interesting one: instead of
+# handing every chosen object back individually, the available list is
+# simply REBUILT from the world by the shipped fill effect. With the
+# selection list now empty there is nothing to prune, so fill alone restores
+# the exact correct "available" set — including dropping anything that has
+# become uncedeable in the meantime. That is strictly more correct than a
+# hand-back loop and it is two lines instead of ten.
+#
+# The names deliberately do NOT collide with the shipped clearers
+# (tnt_title_p_clear, tnt_claim_p_clear, tnt_artifact_p_clear) — those
+# remove the single-object variables and stay live until the cleanup pass.
+######################################################################################
+
+tnt_sel_title_p_clear = {
+	scope = character
+
+	effect = {
+		clear_variable_list = tnt_sel_title_p
+		tnt_fill_title_p_effect = yes
+		# ITEM 3. The clear leaves nothing to order, but the FILL beside it rebuilds
+		# the candidate column from the world in engine order, so this line is not
+		# optional here either.
+		tnt_sort_all_effect = yes
+	}
+}
+
+tnt_sel_title_r_clear = {
+	scope = character
+
+	effect = {
+		# ITEM 5's VETO MEMORY, THE WHOLE-COLUMN CASE. One click removed everything,
+		# including whatever the auto-balance button had put there, so everything the
+		# button put there is refused at once. It must run BEFORE the two lines below
+		# only in the reader's mind — it walks tnt_ab_added_title, which neither the
+		# clear nor the refill touches — but running it first is the order the player
+		# experiences and the order that survives someone later adding a line here.
+		tnt_ab_veto_all_effect = { ADDED = tnt_ab_added_title  VETO = tnt_ab_veto_title }
+		clear_variable_list = tnt_sel_title_r
+		tnt_fill_title_r_effect = yes
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_clear above
+	}
+}
+
+# RETIRED with the granted claim. See TOMBSTONE C in tnt_32_apply.txt.
+# A clear_variable_list COUNTS AS A USE of the list, so these two could not be left
+# standing beside commented-out writers - that is the exact "is used but is never set"
+# error class the codebase already paid 26 engine errors for.
+# tnt_sel_claim_p_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		clear_variable_list = tnt_sel_claim_p
+# 		tnt_fill_claim_p_effect = yes
+# 	}
+# }
+#
+# tnt_sel_claim_r_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		# The veto memory, whole-column case. See tnt_sel_title_r_clear above.
+# 		tnt_ab_veto_all_effect = { ADDED = tnt_ab_added_claim  VETO = tnt_ab_veto_claim }
+# 		clear_variable_list = tnt_sel_claim_r
+# 		tnt_fill_claim_r_effect = yes
+# 	}
+# }
+
+tnt_sel_artifact_p_clear = {
+	scope = character
+
+	effect = {
+		clear_variable_list = tnt_sel_artifact_p
+		tnt_fill_artifact_p_effect = yes
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_clear above
+	}
+}
+
+tnt_sel_artifact_r_clear = {
+	scope = character
+
+	effect = {
+		clear_variable_list = tnt_sel_artifact_r
+		tnt_fill_artifact_r_effect = yes
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_sel_title_p_clear above
+	}
+}
+
+######################################################################################
+# RETIRED - THE CAPTIVE MULTI-SELECT QUARTET (three handlers + the index-13 opener).
+# Full tombstone: the FAMILY B block that heads E22 in
+# common\scripted_effects\tnt_32_apply.txt. The mechanic was built, shipped and
+# played, then considered and withdrawn for an indefinite period, because doing
+# prisoners properly means leaning on the VANILLA prisoner system rather than on this
+# mod's own filter, ladder and release loop. Nothing is deleted.
+#
+# WHAT IS *NOT* COMMENTED OUT, AND MUST NOT BE: tnt_multi_add_effect /
+# tnt_multi_remove_effect / tnt_multi_prune_effect (tnt_35_multiselect.txt). They are
+# shared with titles, claims, artifacts and the courtier transfer; only the prisoner
+# CALLS are gone. Likewise tnt_count_sel_prisoner_p_value stays live in
+# tnt_54_multiselect_values.txt — two kept loc keys resolve it by name.
+######################################################################################
+# ######################################################################################
+# # PRISONERS: THE THREE HANDLERS  (V4 item A1)
+# #
+# # Same three controls every other multi-select term has, and they delegate to the same
+# # shared effects - tnt_multi_add_effect / tnt_multi_remove_effect - so a captive cannot
+# # end up in the selection and in the candidate list at once. Only the two list names
+# # differ.
+# #
+# # ONE-SIDED: there is no _r trio. Choosing WHICH of the partner's captives to demand
+# # would need his dungeon enumerated in the player's window; the partner's side stays on
+# # the all-or-nothing term until that lands.
+# #
+# # tnt_sel_prisoner_p_clear refills the candidate list after emptying the selection,
+# # exactly as the title version does - otherwise the panel would show an empty list of
+# # candidates after a clear, because the entries were MOVED out of it rather than copied.
+# ######################################################################################
+# tnt_sel_prisoner_p_add = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		tnt_multi_add_effect = { SEL = tnt_sel_prisoner_p  LIST = tnt_list_prisoner_p }
+# 	}
+# }
+#
+# tnt_sel_prisoner_p_remove = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		tnt_multi_remove_effect = { SEL = tnt_sel_prisoner_p  LIST = tnt_list_prisoner_p }
+# 	}
+# }
+#
+# tnt_sel_prisoner_p_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		clear_variable_list = tnt_sel_prisoner_p
+# 		tnt_fill_prisoner_p_effect = yes
+# 	}
+# }
+# ######################################################################################
+# # tnt_multi_prisoner_p_open — THE CAPTIVE PICKER  (V4 item A1, panel index 13)
+# #
+# # Index 13 because 5-8 and 10-12 are taken and 9 is left alone: it sits inside the
+# # block the frozen index table (10-CONTRACT R0.8) handed to the single-object pickers,
+# # and a new panel has no business squatting there.
+# #
+# # fill THEN prune, in that order, exactly as the other six openers do: the fill rebuilds
+# # the candidate list from the world, which would put already-chosen captives back among
+# # the candidates, and the prune takes them out again. That pair IS the two-list
+# # invariant (tnt_35_multiselect.txt).
+# ######################################################################################
+# tnt_multi_prisoner_p_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 13
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 0
+# 		}
+# 		tnt_fill_prisoner_p_effect = yes
+# 		tnt_multi_prune_effect = { SEL = tnt_sel_prisoner_p  LIST = tnt_list_prisoner_p }
+# 	}
+# }

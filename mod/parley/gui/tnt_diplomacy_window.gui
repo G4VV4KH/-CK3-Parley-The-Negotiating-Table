@@ -1,0 +1,3661 @@
+######################################################################
+### PARLEY: THE NEGOTIATING TABLE - the negotiation table
+###
+### This file is registered additively from
+###   gui/scripted_widgets/tnt_diplomacy.txt  ->  gui/tnt_diplomacy_window.gui = tnt_diplomacy_window
+### WITHOUT that one line the window is created by nobody and is SILENTLY
+### INVISIBLE. The right-hand side of that line is the name = "..." below,
+### not a type name (proven by MOD\Warcraft-Guardians-of-Azeroth-2-dev:
+### gui/raise_dead_widget.gui = widget_raise_dead).
+###
+### Reusable types live in gui/tnt_types.gui and gui/tnt_panels.gui (both
+### types-only, both need no registration of their own).
+### Macros (Tnt*) live in data_binding/tnt_macros.txt.
+###
+### ZERO vanilla files are overridden by this mod.
+###
+### v3 ITERATION 1 CHANGES IN THIS FILE
+###   ITEM 9  `layer = middle` -> `layer = events`. The character window is ALSO
+###        layer = middle (GAME\gui\window_character.gui:11), and two windows on
+###        one layer have no defined z-order, which is why the table sometimes
+###        appeared UNDER the character sheet. Full reasoning, including what
+###        `events` keeps above us and why not `top`, at the property itself.
+###   ADD 4  ALLIANCE AND NON-AGGRESSION ARE SINGLE MUTUAL ROWS. The four rows
+###        tnt_row_alliance_p/_r and tnt_row_truce_p/_r are DELETED from the two
+###        columns and replaced by two 34 px tnt_toggle_line rows in the CENTRE
+###        column, filled through the new block "tnt_balance_mutual" on
+###        tnt_balance_panel. One pact = one row = one variable pair
+###        (tnt_alliance_p, tnt_truce_p); ticking the partner's copy used to price
+###        a second, non-existent pact and subtract points.
+###        tnt_alliance_r, tnt_truce_r, tnt_show_alliance_r and tnt_show_truce_r
+###        now have NO reader in any .gui of this mod.
+###   CAP  the selection cap is gone from script. The cap warning is silenced AT
+###        THE SOURCE: the derived types in gui\tnt_panel_multiselect.gui no
+###        longer fill block "tnt_multi_cap_visible" at all (the type's default
+###        is hidden). The instance-level `visible = no` overrides this file
+###        used to carry were DELETED - they never worked, see the note at the
+###        six instantiations below. The domain counters in the centre card
+###        became the first two lines of that card (tnt_panels.gui) - they are
+###        now the only signal that a big gift is a bad idea.
+###   The frozen row index table below is NOT renumbered: 3 and 4 stay reserved.
+###
+### v2 BUILD 2 CHANGES IN THIS FILE
+###   NEW  HIDE UNAVAILABLE ROWS (the user's own new request). All 28 gateable
+###        rows now carry `visible = "[TntRow('tnt_show_<item>_<side>')]"`, a
+###        plain two-map-lookup variable read of the answers author:gating
+###        computes ONCE at window open. NEVER a GetScriptedGui - Law R11, and 28
+###        rows x every frame is exactly the shape that rule exists to forbid.
+###        The 15th item, INFLUENCE, has no tnt_show_ pair on purpose: it is
+###        already gated on tnt_influence_ok_value, which asks a harder question
+###        (both governments must hold influence), and gating one row two ways is
+###        two ways for it to disappear. 14 items x 2 sides = the 28 answers.
+###        Hidden rows collapse because `vbox "tnt_column_rows"` carries
+###        `ignoreinvisible = yes` (tnt_types.gui, type tnt_column).
+###   2.2  MULTI-SELECT. The six single-object variables tnt_title_p/_r,
+###        tnt_claim_p/_r, tnt_artifact_p/_r are DELETED (30-V2-DESIGN 3.1) and
+###        replaced by the six selection LISTS tnt_sel_*. Those three rows per
+###        side now show a count badge, and picker indices 6 / 7 / 10 host
+###        tnt_panel_multi instead of the single-select tnt_picker_panel.
+###   2.3  HOOK TIERS. The two hook rows are tnt_item_row_hook (not
+###        tnt_item_row_toggle) and host tnt_control_hook_tier bound to
+###        tnt_hook_p / tnt_hook_r as 0..3.
+###   2.1  MARRIAGE EDITOR at overlay index 5 (tnt_panel_marriage). The row's
+###        grey line names tnt_spouse_p/_r, not the deleted tnt_marriage_child_*.
+###   2.5  VASSAL CONTRACT SHEET at overlay index 12 (tnt_panel_contract).
+###   U1a  the two domain counters, in the centre column's contextual card -
+###        two instances of author:multiselect's tnt_multi_domain_line inside
+###        type tnt_context_card (tnt_panels.gui; a tnt_domain_counter type was
+###        written there and deleted, see tnt_panels.gui section 3b).
+###
+### THE TWO COMPOUND-EDITOR PANELS TEST THE INDEX ONLY, NOT THE SIDE, and that is
+### deliberate. Index 5 edits BOTH spouses at once (a left list and a right list
+### in one panel) and index 12 edits the single contract that T11 guarantees can
+### only exist on one side, so neither panel has a per-side twin. Testing only the
+### index also means the panel appears whichever value an opener happens to write
+### into tnt_picker_side, which removes a whole class of cross-agent mismatch. The
+### nine single/multi-select panels keep their two-key index+side test unchanged.
+###
+### WHERE THE PANEL TYPES COME FROM. Four of the types instantiated below are NOT
+### defined in this mod's gui/tnt_types.gui or gui/tnt_panels.gui - they belong to
+### three other authors, under names the build-2 naming contract fixed in advance:
+###   tnt_panel_marriage    gui/tnt_panel_marriage.gui     (author:marriage)
+###   tnt_panel_multi       gui/tnt_panel_multiselect.gui  (author:multiselect)
+###   tnt_panel_contract    gui/tnt_panel_contract.gui     (author:hooks-contracts)
+###   tnt_control_hook_tier gui/tnt_panel_contract.gui     (author:hooks-contracts)
+### All four are in types-only files and need no gui/scripted_widgets entry, the
+### same rule tnt_types.gui and tnt_panels.gui already rely on. If one is missing
+### the engine cannot resolve its type; the documented one-for-one replacements are
+### the five build-1 shells in tnt_panels.gui section 5, and the hook control's
+### swap recipe is written out in full at `type tnt_item_row_hook` in
+### tnt_types.gui.
+###
+### v2 BUILD 1 CHANGES IN THIS FILE
+###   3.2  window 1400x900 -> 1480 x 88%; `using = Window_Movable` replaces the
+###        hand-written movable/min_dist pair; three columns instead of two.
+###   3.3  every picker row gains a two-state control slot - the empty state is
+###        the old button, the filled state is a content-shaped control.
+###   3.4  the centre column is a full summary: scales, headline, decomposition,
+###        verdict, the deal sheet and one contextual card.
+###   D3   the two prisoners rows no longer hang a container off a blockoverride;
+###        the list is a normal panel at picker index 8, and the hover tooltip
+###        that remains is the fixed, flowcontainer-based type. BOTH ROWS AND
+###        BOTH PANELS ARE NOW RETIRED (user item 7) and commented out in place;
+###        the composition RULE D3 proved still governs every type in this file.
+###   2.4  three new currency steppers per side: prestige, piety, influence.
+###
+### ROW INDEX TABLE (frozen by 10-CONTRACT R0.8, extended by 30-V2-DESIGN 3.4).
+### The overlay's `visible` expressions test these numbers, so they must never be
+### renumbered:
+###    1 gold        2 RETIRED      3 RETIRED      4 RETIRED
+###    5 marriage    6 title        7 RETIRED      8 RETIRED
+###    9 hook       10 artifact    11 RETIRED     12 vassal
+###   13 prestige   14 piety       15 influence
+###   16 hostage    17 RETIRED     18 courtier    19 subject (V26)
+### Index 2 was the yearly tribute; the mechanic was retired and its code purged.
+### The index is NOT reused and NOT renumbered - the numbers are frozen.
+###
+### Index 8 was THE PRISONER TERMS and index 11 THE THIRD-PARTY NON-AGGRESSION
+### PROMISE. Both were retired on the user's ruling (items 7 and 1). Unlike the
+### tribute, their code is NOT purged - it is commented out in place behind a
+### tombstone, so the decision stays legible and the mechanic can be revived
+### without re-deriving it. Same standing rule either way: NEVER reused, NEVER
+### renumbered.
+###
+### V13 USER ITEM 1 RETIRED THREE MORE: index 3 THE ALLIANCE, index 4 THE
+### NON-AGGRESSION TRUCE, and index 7 THE GRANTED CLAIM (row index AND overlay
+### index 7, both halves). Same treatment and the same standing rule - commented
+### out in place behind a tombstone, never deleted, NEVER reused, NEVER
+### renumbered. THIS ONE IS A DESIGN REFUSAL, NOT A BUG FIX: all three terms let
+### a player buy at this table what vanilla deliberately gates behind investing a
+### lifestyle focus - alliance management and truce-buying behind the Diplomacy
+### perk defensive_negotiations_perk
+### (GAME\common\character_interactions\00_alliance.txt:1184 and
+### GAME\common\scripted_triggers\03_fp2_scripted_triggers.txt:732), claim
+### fabrication behind Learning and a Court Chaplain
+### (GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088). Tombstones A, B
+### and C sit on the retired blocks themselves, further down this file.
+###
+### V16 USER ITEM 5 RETIRED ONE MORE: index 17 THE WARD / FOSTERAGE, row index and
+### overlay index alike. Same treatment and the same standing rule - commented out
+### in place behind a tombstone, never deleted, NEVER reused, NEVER renumbered.
+### The user's reason: too abusable on points, and the hostage term at index 16
+### already covers the same immersive ground. The audit found the abuse STRUCTURAL
+### rather than a matter of one number; the WARD TOMBSTONE that records the worked
+### case is in common/scripted_effects/tnt_32_apply.txt, and the row tombstone sits
+### on the retired _p row itself, further down this file.
+###
+### ITEM 19 (integration contract v1, section 3) ADDED THREE OVERLAY INDICES and
+### one term with none. 16 / 17 / 18 hosted the hostage, ward and courtier panels
+### of gui/tnt_panel_people.gui, both sides each; 17 is now dormant with the ward
+### family retired, so only 16 and 18 are live. GRANT INDEPENDENCE gets NO
+### index at all: it is a bool pair, and the fealty row already proves a bool
+### needs only tnt_item_row_toggle plus a tnt_show_ gate.
+### 14 and 15 stay untouched although technically free - the table above still
+### names them as the PIETY and INFLUENCE row identities and it is quoted from
+### four files. OVERLAY 13 is RETIRED with the captive picker, and side 1 of it -
+### once RESERVED for the partner-side captive panel "the day someone builds it"
+### - is released with it. Neither half is reused. (The PRESTIGE ROW keeps the
+### identity 13 in the table above: it is a stepper with no panel, which is why
+### the overlay half of 13 could be spent on the captive picker in the first
+### place. The row lives; only the overlay slot is retired.)
+###
+### Overlay indices in use: 5, 6, 10, 12, 16, 17, 18.
+### Still free: 1, 9, 14, 15, 19+.
+### RETIRED, not free: 2, 3, 4, 7, 8, 11, 13.
+######################################################################
+
+window = {
+	name = "tnt_diplomacy_window"
+
+	# type window defaults to layer = windows_layer, which sits BELOW the HUD
+	# (GAME\gui\preload\defaults.gui:216, layer table GAME\gui\shared\windows.gui:1-62).
+	#
+	# V3 ITEM 9 - "the deal window does not cover the character window".
+	# It was `layer = middle`, and so is the character window
+	# (GAME\gui\window_character.gui:11). Two windows on ONE layer have no defined
+	# z-order between them, which is exactly what the user saw: sometimes his own
+	# window, sometimes the character sheet on top of it.
+	# The layer table (GAME\gui\shared\windows.gui:1-62) is, by priority:
+	#   debug 50, confirmation 11, frontend 10, tutorial 9, top 8, events 7,
+	#   middle 6, royal_court 5, hud_layer 4, windows_layer 3, bottom 2,
+	#   bottom_bottom 1.
+	# `events` (7) is the LEAST intrusive layer that strictly beats middle (6), and
+	# it is the one chosen. What it puts us BELOW is the point of choosing it:
+	#   tutorial   (9) GAME\gui\window_tutorial.gui:349      - callouts stay visible
+	#   confirmation(11) GAME\gui\shared\dialogs.gui:6,
+	#                    window_resign_confirmation.gui:3,
+	#                    window_save_game.gui:5              - dialogs stay on top
+	#   top        (8) GAME\gui\hud_top.gui:7 (the always-present top bar),
+	#                  GAME\gui\interaction_menu_window.gui:20,
+	#                  GAME\gui\window_combat.gui:8, window_lineage.gui:12,
+	#                  jomini\encyclopedia\jomini_encyclopedia.gui:5
+	# `top` would have worked too, but it would put a 1480x88% window at an
+	# undefined z-order against the permanently visible top HUD bar, trading a rare
+	# collision for a constant one.
+	# WHAT SHARES `events`: the event popups - character_event.gui:12,
+	# letter_event.gui:5, anonymous_letter_event.gui:7, duel_event.gui:7,
+	# scheme_preparations_event.gui:7, big_event_window.gui:14. An event that fires
+	# while the table is open is therefore at an undefined z-order against it. That
+	# is the accepted cost, and the documented fallback is `layer = top` if an event
+	# is ever seen buried under this window.
+	# *** CORRECTED. THIS WINDOW BELONGS ON `middle`, LIKE EVERY OTHER GAME WINDOW. ***
+	#
+	# It was on `events`, and that single line caused three separate reported faults,
+	# because the layer order is  debug, confirmation, frontend, tutorial, top,
+	# events, middle, ...  - i.e. `events` is ABOVE `middle`:
+	#
+	#   * the interaction confirmation window is layer = middle
+	#     (GAME\gui\interaction_confirmation.gui:10) and so is the matchmaker
+	#     (GAME\gui\interaction_marriage.gui:14). Both therefore opened BEHIND this
+	#     window. That is the whole of "the classic-marriage button does not work":
+	#     the click always arrived and the screen always opened, out of sight.
+	#   * event popups are layer = events, the same layer as this window was, so the
+	#     deal-confirmation dilemma drew at an undefined z-order against it and lost -
+	#     "the event appears behind the deal window and its option is unclickable".
+	#
+	# The note that used to be here named `layer = top` as the fallback. That is the
+	# wrong direction: to let an event show ABOVE us we must sit LOWER, not higher.
+	#
+	# Being on `middle` alongside the character window is fine, because within one
+	# layer draw order follows creation order and anything opened later wins - which
+	# is exactly how every vanilla window opens an interaction on top of itself. The
+	# character window is no longer out-layered; it is CLOSED, by close_view in
+	# tnt_open_window_effect (tnt_30_effects.txt). That is the half of user item 9
+	# that was assigned but never written, and it is why the layer was raised instead.
+	layer = middle
+
+	# LEGAL: a window is not a child of a layout container, so it may anchor and
+	# position itself. R-LAYOUT applies to children of hbox/vbox/flowcontainer only.
+	parentanchor = center
+	position = { 0 0 }
+
+	# ITEM 3.2. 1480 wide fits 452 + 12 + 470 + 12 + 452 = 1398 plus the 40+40 of
+	# Window_Margins = 1478. Vanilla's widest in-game window is 1390
+	# (GAME\gui\window_activity.gui:3), so this is a 90 px step, not a new class of
+	# window. A percentage height is vanilla-proven - `Window_Size_CharacterList`
+	# is `size = { 745 88% }`, GAME\gui\shared\windows.gui:79-82.
+	# If 88% ever misbehaves, the flat fallback is size = { 1480 940 }.
+	size = { 1480 88% }
+	allow_outside = yes
+
+	# Replaces the hand-written `movable = yes` + `min_dist_from_screen_edge = 200`
+	# pair with the vanilla template that IS that pair
+	# (template Window_Movable, GAME\gui\shared\windows.gui:573-577).
+	using = Window_Movable
+
+	alwaystransparent = no
+	filter_mouse = all
+
+	using = Window_Background
+	using = Window_Decoration_Spike
+
+	# Opened by the interaction's on_send (tnt_open_window_effect sets tnt_open = 1).
+	# The typed validity guard fail-closes the whole binding subtree if the partner
+	# dies or the session is invalidated, so sheet values cannot read a null scope.
+	visible = "[And( TntOn('tnt_open'), TntVar('tnt_partner').Char.IsValid )]"
+
+	# MakeScope.GetList is a persistent save-game variable list, not a live query,
+	# so every picker list is rebuilt each time the window appears.
+	state = {
+		name = _show
+		using = Animation_FadeIn_Quick
+		using = Sound_WindowShow_Standard
+
+		on_start = "[TntExec('tnt_refresh_lists')]"
+	}
+
+	state = {
+		name = _hide
+		using = Animation_FadeOut_Quick
+		using = Sound_WindowHide_Standard
+	}
+
+	# AUTOPAUSE: REMOVED ENTIRELY, BY USER RULING ("вообще убрать автопаузу").
+	# Opening this window does NOT pause the game. Three mechanisms were tried
+	# across three sessions and none proved reliable:
+	#   1. message auto_pause (common\messages + message_filter_types, long
+	#      deleted): the pause was lost whenever the letter event's own pause
+	#      channel released on close — the field is unexercised by vanilla.
+	#   2. [OnPause] from a widget state's on_start (widget tnt_pause_on_open,
+	#      formerly here): fired inconsistently across the two opening doors
+	#      (interaction vs. AI letter).
+	#   3. the tnt_pause_latch rework of that widget (a GetVariableSystem latch
+	#      plus a second latcher widget and _show/_hide clears): still failed
+	#      the user's third playtest — the window opened with no pause at all.
+	# Verdict: not expressible reliably with the engine surface available to a
+	# no-override mod. Do NOT reintroduce a pauser here or in script; the
+	# script-side twin of this tombstone is tnt_30_effects.txt:73-85.
+
+	# ESC handling. header_pattern's own close button loses its shortcut below
+	# (we replace button_close_tooltip), so exactly one widget owns close_window.
+	# Trick from MOD\2519175282\gui\interaction_menu_window.gui:24-29.
+	# V3 ITERATION 3: the second line is the ONLY cleanup the preset overlay
+	# needs. 'tnt_preset_menu' is a GUI variable, not a character variable, so
+	# tnt_close_window_effect cannot and must not touch it - but it does outlive
+	# the window, and a menu left open would be on screen the instant the window
+	# was reopened. Every preset button and the menu's own Close already clear it.
+	#
+	# THIS SITE IS THE ONE THAT MATTERS, and it is the ESC handler rather than the
+	# header's X for a reason: tnt_preset_overlay is declared AFTER the window's
+	# main vbox, so while a menu is open it draws over the header and the footer
+	# and `filter_mouse = all` swallows their clicks - the X is unreachable. A
+	# keyboard `shortcut` does not care about z-order, so ESC is the only way to
+	# close the window with a menu still up. The same line is repeated on the X
+	# purely defensively, in case a later change reorders the overlay.
+	# Stacked onclick, both lines fire: GAME\gui\hud.gui:988-989.
+	button_normal = {
+		name = "tnt_esc"
+		size = { 0 0 }
+		shortcut = "close_window"
+		onclick = "[TntExec('tnt_close_window')]"
+		onclick = "[GetVariableSystem.Clear( 'tnt_preset_menu' )]"
+	}
+
+	vbox = {
+		using = Window_Margins
+		layoutpolicy_horizontal = expanding
+		layoutpolicy_vertical = expanding
+		spacing = 6
+
+		####################################################################
+		### HEADER
+		####################################################################
+		header_pattern = {
+			layoutpolicy_horizontal = expanding
+
+			blockoverride "header_text"
+			{
+				text = "tnt_window_title"
+			}
+
+			blockoverride "button_close_tooltip"
+			{
+				tooltip = "tnt_btn_close"
+			}
+
+			blockoverride "button_close"
+			{
+				onclick = "[TntExec('tnt_close_window')]"
+				onclick = "[GetVariableSystem.Clear( 'tnt_preset_menu' )]"
+			}
+		}
+
+		####################################################################
+		### THE THREE COLUMNS
+		### Left   = what the player gives   (_p variables)
+		### Centre = the balance, the decomposition and the deal sheet
+		### Right  = what the partner gives  (_r variables)
+		### Each column's datacontext is set EXPLICITLY. Never rely on an
+		### ambient Character. Proof of the .Char-as-datacontext form:
+		### GAME\gui\window_situation_list.gui:1031.
+		####################################################################
+		hbox = {
+			name = "tnt_table"
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			spacing = 12
+
+			### V3 FIX, REVISED BY USER ITEM 17(c). V3 hid this whole hbox behind any
+			### open picker (visible = Not(TntOn('tnt_picker'))) because the column
+			### heads' portrait_head_small is rendered in a later pass than flat
+			### widgets and punched through tnt_picker_overlay's dim. But an invisible
+			### widget leaves LAYOUT, so the window snapped down to header + footer -
+			### the "collapse" the user reported. The table therefore stays drawn now:
+			### dimmed and click-proof under the overlay (filter_mouse = all), exactly
+			### as it already behaves under tnt_preset_overlay, which dims without
+			### hiding anything. Only what actually punches through is gated - the
+			### column-head portrait (tnt_column, gui\tnt_types.gui) and the
+			### chosen-character head (tnt_chosen_char, gui\tnt_panels.gui) - which
+			### the nonwar rows were the original consumers of, until user item 1
+			### retired them; the hostage rows still use it (the ward rows did too
+			### until V16 user item 5 retired that family) - both gated on
+			### the picker AND the preset variable, which the old table hide never
+			### covered.
+			###
+			### The blue diagnostic marker that once sat here proved the V3 hide took
+			### effect and eliminated the column head as the thing covering the
+			### marriage button; the real culprit was a non-transparent caption
+			### inside the panel itself.
+			### FIRST-LAUNCH CHECK (mandatory): open each picker and a preset menu
+			### and confirm no portrait sits above the dim - coats of arms draw flat
+			### and are expected covered. Fallback if a run disproves the z-order
+			### claim: restore visible = "[Not( TntOn('tnt_picker') )]" on this hbox.
+
+			################################################################
+			### LEFT COLUMN - YOU OFFER
+			################################################################
+			tnt_column = {
+				name = "tnt_column_actor"
+				datacontext = "[GetPlayer]"
+
+				blockoverride "tnt_column_header"
+				{
+					text = "tnt_col_actor"
+				}
+
+				blockoverride "tnt_column_rows"
+				{
+					####################################################
+					### HOW EVERY ROW BELOW IS GATED - read this once.
+					###
+					### visible = "[TntRow('tnt_show_<item>_<side>')]"
+					###
+					### That macro (data_binding/tnt_macros.txt) expands to
+					###   Or( tnt_show_X > 0, Not( tnt_gate_live > 0 ) )
+					### i.e. "show it if the gating pass said yes, OR if the gating
+					### pass never ran". The second half is the safety net, and it
+					### is not decoration: TntOn on an UNSET variable reads 0,
+					### which means HIDE, so a bare TntOn would empty the entire
+					### window the moment the gating effect was missing or the
+					### integrator forgot to call it. That is defect B-3 of build 1
+					### (a row gated on a variable nothing wrote, invisible in every
+					### game) multiplied by 28. With tnt_gate_live absent the window
+					### degrades to build 1 - every row shown - which is a
+					### degradation the player can still use.
+					###
+					### THREE ROWS COMBINE THE GATE WITH THE GAME RULE:
+					### marriage, title and vassal keep TntOn('tnt_advanced')
+					### inside an And(), because the advanced-terms game rule is a
+					### user preference and the gating answer is a legality fact.
+					### Both must be true. And( a, b ) is vanilla
+					### (GAME\gui\hud_outliner.gui:1567).
+					###
+					### THE INFLUENCE ROW IS THE ONE EXCEPTION and keeps only
+					### TntPos('tnt_influence_ok_value') - see the file header.
+					####################################################
+
+					####################################################
+					### V3 ITERATION 3, ADDITIONS 2 AND 3 - THE FOUR
+					### CURRENCY ROWS ON EACH SIDE ARE
+					### tnt_item_row_currency + tnt_stepper_full. (They
+					### replaced a narrower tnt_item_row_stepper +
+					### tnt_stepper pair, both types now deleted.)
+					###
+					### Each gains a COARSE pair of buttons (+/-1000, and
+					### +/-250 on influence, whose own cap is 1000) and one
+					### PRESET OPENER that raises the modal at the bottom of
+					### this file. There is no third mouse button to bind -
+					### author:script measured every .gui and .txt under GAME
+					### and found zero onshiftclick / onctrlclick /
+					### onaltclick / onmiddleclick sites - so the coarse tier
+					### had to become its own pair of controls.
+					###
+					### THE PRESET OPENER IS A GUI VARIABLE, NOT A SCRIPTED
+					### GUI. GetVariableSystem.Set stores the ROW KEY, and
+					### that one flag both raises tnt_preset_overlay and
+					### picks which of its eight panels is visible. See the
+					### long note on type tnt_preset_overlay in
+					### gui/tnt_types.gui for why this is not a tnt_picker
+					### index: every tnt_picker index is written by a
+					### scripted gui, and no scripted gui opens a preset
+					### menu, so reusing an index would have meant inventing
+					### an identifier (R2).
+					####################################################
+
+					### 1 - GOLD (fine LMB +/-10 RMB +/-100, coarse +/-1000, presets)
+					tnt_item_row_currency = {
+						name = "tnt_row_gold_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_gold_p')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_gold" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_gold_desc" }
+
+						blockoverride "tnt_stepper_full_block"
+						{
+							tnt_stepper_full = {
+								parentanchor = vcenter|right
+								position = { -10 0 }
+
+								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_gold_p_sub_huge')]" }
+								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_gold_p_sub')]" }
+								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_gold_p_sub_big')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_gold_p_add')]" }
+								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_gold_p_add_big')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_gold_p_add_huge')]" }
+								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_gold_p')|0]" }
+								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_tt" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_tt" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'gold_p' )]" }
+							}
+						}
+					}
+
+					### Row index 2 (yearly tribute) is RETIRED - see the row
+					### index table at the top of this file.
+
+					### 13 - PRESTIGE (item 2.4). NEW.
+					### There is no transfer effect for prestige, so the apply leg
+					### is two independent add_prestige calls; that is the effects
+					### author's problem, not this file's.
+					###
+					### USER ITEM 3, "the prestige and piety icons are BLACK while
+					### gold is fine". The old path - flat_icons\prestige.dds, cited
+					### here from GAME\gui\window_ledger.gui:9534 - EXISTS and was
+					### never wrong as a path. It is simply a black alpha MASK: every
+					### opaque pixel in it is RGB 0,0,0, meant to be tinted by the
+					### consumer. The ledger is its only vanilla consumer and draws it
+					### over a light plate. Gold looked right because
+					### character_interactions\icon_gold.dds is a full-colour icon.
+					### The level-texture datafunction returns the coloured,
+					### faith-correct icon instead:
+					### GAME\gui\hud.gui:6521-6525 (prestige_icon) and :6586-6590
+					### (piety_icon), both `texture = "[GetPlayer.Get*LevelTexture]"`.
+					### GetPlayer, not Character: it needs no datacontext, so the same
+					### one line is correct in both columns and in the deal sheet
+					### (gui\tnt_panels.gui), which has no Character in scope. If the
+					### partner's OWN faith glyph is ever wanted in the right-hand
+					### column, [Character.GetPietyLevelTexture] is proven at
+					### GAME\gui\window_character.gui:5363-5367 and tnt_column does set
+					### a datacontext - but only in THIS file, never in the sheet.
+					tnt_item_row_currency = {
+						name = "tnt_row_prestige_p"
+						layoutpolicy_horizontal = expanding
+						### V17, USER ITEM 4 (step 0) - THE SECOND CONJUNCT IS WHAT
+						### ACTUALLY HIDES THIS ROW. TntRow alone cannot hide anything:
+						### its first disjunct keys on tnt_hide_unavailable, which
+						### NOTHING in the mod writes (V4 retired it deliberately), so
+						### TntRow is unconditionally true. Until V17 the game rule
+						### tnt_trade_prestige = off therefore left this row visible,
+						### its steppers live and the apply leg paying, while the lobby
+						### text promised the row would disappear.
+						### tnt_trade_prest_on is the bridge variable written by E1
+						### tnt_open_window_effect and by tnt_ai_offer_counter_effect,
+						### removed by E2 - a .gui cannot ask has_game_rule at all.
+						### THE SHAPE IS THE PROVEN ONE, four rows above at :826 and in
+						### four other places: And( TntRow(...), TntOn(<raw var>) ).
+						### TntOn of an unset variable is 0, so the row really vanishes.
+						visible = "[And( TntRow('tnt_show_prestige_p'), TntOn('tnt_trade_prest_on') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_prestige" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_prestige_desc" }
+
+						blockoverride "tnt_stepper_full_block"
+						{
+							tnt_stepper_full = {
+								parentanchor = vcenter|right
+								position = { -10 0 }
+
+								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_prestige_p_sub_huge')]" }
+								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_prestige_p_sub')]" }
+								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_prestige_p_sub_big')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_prestige_p_add')]" }
+								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_prestige_p_add_big')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_prestige_p_add_huge')]" }
+								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_prestige_p')|0]" }
+								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_prestige_tt" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_prestige_tt" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'prestige_p' )]" }
+							}
+						}
+					}
+
+					### 14 - PIETY (item 2.4). NEW.
+					### Icon: same black-alpha-mask defect and same cure as the
+					### prestige row above - was flat_icons\piety.dds (cited from
+					### GAME\gui\window_ledger.gui:9531), now the coloured level
+					### texture from GAME\gui\hud.gui:6586-6590.
+					tnt_item_row_currency = {
+						name = "tnt_row_piety_p"
+						layoutpolicy_horizontal = expanding
+						### V17, USER ITEM 4 (step 0) - the piety twin of the prestige
+						### row above; the whole argument is there.
+						visible = "[And( TntRow('tnt_show_piety_p'), TntOn('tnt_trade_pty_on') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_piety" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_piety_desc" }
+
+						blockoverride "tnt_stepper_full_block"
+						{
+							tnt_stepper_full = {
+								parentanchor = vcenter|right
+								position = { -10 0 }
+
+								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_piety_p_sub_huge')]" }
+								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_piety_p_sub')]" }
+								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_piety_p_sub_big')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_piety_p_add')]" }
+								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_piety_p_add_big')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_piety_p_add_huge')]" }
+								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_piety_p')|0]" }
+								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_piety_tt" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_piety_tt" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'piety_p' )]" }
+							}
+						}
+					}
+
+					### 15 - INFLUENCE (item 2.4). NEW, and CONDITIONAL.
+					### Influence only exists for a government carrying the
+					### government_has_influence flag
+					### (GAME\common\governments\00_government_types.txt:490).
+					### The GUI cannot call government_has_flag, so the row is
+					### gated on the script value tnt_influence_ok_value
+					### (MOD\common\script_values\tnt_53_currency_values.txt:236),
+					### which is 1 only when BOTH governments can hold influence.
+					### It reads the two mirror variables tnt_infl_ok_p /
+					### tnt_infl_ok_r that tnt_refresh_v2_mirrors_effect writes on
+					### the player once per window open
+					### (MOD\common\scripted_effects\tnt_30_effects.txt:178).
+					###
+					### BOTH sides, not one: tnt_exec_influence_effect requires the
+					### flag on the giver AND the receiver
+					### (tnt_33_currency_apply.txt:281-282), because
+					### change_influence on a receiver with no influence pool is a
+					### silent no-op - a term with a price and no effect. The same
+					### value gates tnt_balance_value's influence rows and
+					### tnt_items_count_value's influence slots, and
+					### tnt_53_currency_values.txt:230 names this as the value the
+					### GUI should bind the row's visible to.
+					### If the mirrors are never written the rows simply stay
+					### hidden, which is the correct and safe degradation.
+					### NEVER bind this to government_has_flag.
+					### Icon confirmed on disk:
+					### GAME\gfx\interface\icons\character_interactions\icon_influence_01.dds
+					tnt_item_row_currency = {
+						name = "tnt_row_influence_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntPos('tnt_influence_ok_value')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_influence_01.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_influence" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_influence_desc" }
+
+						### THE COARSE STEP ON THIS ROW IS 250, NOT 1000, and the
+						### scripted gui name is the only place that says so -
+						### tnt_influence_p_add_huge itself steps 250, because
+						### influence caps at 1000 and a +1000 button would be a
+						### jump to the ceiling, which is what the `_max` preset
+						### already does in one click and labels honestly. 250 is
+						### vanilla's own monumental_influence_value. The shared
+						### tooltip key tnt_tt_step_huge_add names both amounts.
+						blockoverride "tnt_stepper_full_block"
+						{
+							tnt_stepper_full = {
+								parentanchor = vcenter|right
+								position = { -10 0 }
+
+								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_influence_p_sub_huge')]" }
+								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_influence_p_sub')]" }
+								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_influence_p_sub_big')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_influence_p_add')]" }
+								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_influence_p_add_big')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_influence_p_add_huge')]" }
+								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_influence_p')|0]" }
+								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_influence_tt" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_influence_tt" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'influence_p' )]" }
+							}
+						}
+					}
+
+					### 3 / 4 - MILITARY ALLIANCE AND NON-AGGRESSION PACT
+					###     ARE NOT IN THIS COLUMN ANY MORE (V3 ADDITION 4).
+					###
+					###     They used to appear TWICE, once per column, and the user
+					###     found what that costs: an alliance is one pact between two
+					###     rulers, so ticking it on the partner's side priced a second,
+					###     non-existent alliance and SUBTRACTED points from a deal that
+					###     had not changed. Two variables (tnt_alliance_p /
+					###     tnt_alliance_r) for one fact is the defect; one row is the
+					###     fix, not a cosmetic move.
+					###     Both pacts are now single MUTUAL rows in the centre column,
+					###     between the two parties, next to the balance that prices them
+					###     - see blockoverride "tnt_balance_mutual" on tnt_balance_panel
+					###     below. They keep the canonical variables tnt_alliance_p and
+					###     tnt_truce_p, their gates tnt_show_alliance_p /
+					###     tnt_show_truce_p, and the T14 / T16 enabled+tooltip pair.
+					###     The full comment on the two-terms-one-row Select_CString
+					###     rename (tnt_ally_inrealm: "Alliance" vs "Mutual defence
+					###     pact") moved with them.
+					###
+					###     The two indices 3 and 4 are NOT reused and NOT renumbered -
+					###     the row index table is frozen (10-CONTRACT R0.8) and the
+					###     overlay's `visible` expressions test those numbers. Nothing
+					###     opens a panel at 3 or 4 today, and both stay reserved.
+					###
+					###     V13 USER ITEM 1: BOTH PACTS ARE NOW RETIRED OUTRIGHT. The
+					###     centre lines they moved to are commented out behind
+					###     TOMBSTONE A and TOMBSTONE B (search this file for them), and
+					###     the paragraph above is history: it explains why they left
+					###     this column, not why they are gone. THE REASON THEY ARE GONE
+					###     IS A DESIGN REFUSAL - vanilla gates both behind the Diplomacy
+					###     perk defensive_negotiations_perk, so buying them here
+					###     short-circuits a lifestyle investment. Indices 3 and 4 stay
+					###     reserved on exactly the same terms as before, now as RETIRED
+					###     rather than as free-but-unused.
+
+					### 5 - MARRIAGE PACT (item 2.1, BUILD 2).
+					###     The auto-picked child is gone: tnt_marriage_child_p/_r
+					###     are deleted (30-V2-DESIGN 3.1) together with the effect
+					###     tnt_pick_marriage_pair_effect that wrote them, and the
+					###     player now chooses BOTH spouses and the line himself, in
+					###     tnt_panel_marriage at overlay index 5.
+					###     The grey line names this side's chosen spouse
+					###     (tnt_spouse_p, written by tnt_pick_spouse_p_set), and the
+					###     small round button in the toggle row's extra slot opens
+					###     the editor. That slot already exists - the prisoners row
+					###     was its first consumer, before user item 7 retired it - so
+					###     no new row type is needed.
+					tnt_item_row_toggle = {
+						name = "tnt_row_marriage_p"
+						layoutpolicy_horizontal = expanding
+						### SUPERSEDED BY tnt_mutual_marriage IN THE CENTRE COLUMN.
+						### Marriage is a mutual term and is now a single line there, so
+						### this per-side row is switched off rather than duplicating it.
+						### The markup is left in place for one release so the change is
+						### easy to read and to revert; it should be deleted in a cleanup
+						### pass, together with the right-hand twin and the tnt_panel_marriage
+						### instantiation.
+						visible = no
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_marriage.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_marriage" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_marriage_desc" }
+						### V3 ITERATION 4: the grey line counts the COUPLES, it no longer
+						### names one spouse. tnt_spouse_p is a staging cursor now -
+						### tnt_wed_add empties it on every commit - so the old read would
+						### have gone blank exactly when the term became real. The count
+						### comes from GetDataModelSize inside tnt_wed_count, over the same
+						### list the sheet and the editor draw from.
+						blockoverride "tnt_row_sub"
+						{
+							visible = "[TntAny('tnt_wed_list')]"
+							text = "tnt_wed_count"
+							default_format = "#high"
+						}
+						### Opens the pair editor. BOTH marriage rows call the SAME
+						### opener, because index 5 is one panel holding both sides'
+						### candidate lists - there is nothing per-side to open.
+						blockoverride "tnt_toggle_extra"
+						{
+							widget = {
+								name = "tnt_marriage_edit_holder_p"
+								size = { 32 100% }
+
+								button_round = {
+									name = "tnt_marriage_edit_p"
+									size = { 28 28 }
+									parentanchor = center
+									tooltip = "tnt_btn_edit_marriage"
+									using = tooltip_es
+									onclick = "[TntExec('tnt_pick_marriage_open')]"
+
+									icon = {
+										name = "tnt_marriage_edit_icon_p"
+										size = { 20 20 }
+										parentanchor = center
+										texture = "gfx/interface/icons/character_interactions/icon_marriage.dds"
+										alwaystransparent = yes
+									}
+								}
+							}
+						}
+						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_marriage_p_toggle')]" }
+						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_marriage_p')]" }
+						blockoverride "tnt_toggle_enabled" { enabled = "[TntValid('tnt_marriage_p_toggle')]" }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_marriage_p_toggle')]" }
+					}
+
+					### 5b - THE GRAND-WEDDING PROMISE   (V3 ITERATION 4)
+					###
+					###     IT IS A PROMISE, AND THE TEXT SAYS PROMISE. What the
+					###     script author rides is vanilla's own
+					###     set_grand_wedding_betrothal_variables: the honoured couple
+					###     is BETROTHED rather than wed, the player becomes the
+					###     promised host, a countdown runs and vanilla itself warns
+					###     him (ep2_wedding.0001) before it lapses. THIS MOD CREATES
+					###     NO ACTIVITY AND SCHEDULES NOTHING - the host still has to
+					###     plan and pay for the wedding, and vanilla's own opinion
+					###     penalty falls on him if he never does. tnt_wed_grand and
+					###     tnt_wed_grand_desc are written to exactly that and must
+					###     never be reworded into "a grand wedding will be held".
+					###
+					###     ONE ROW, NOT A PAIR OF ROWS, and no _r twin: vanilla
+					###     allows ONE outstanding promise per HOST, the host is the
+					###     player, and the honoured couple is one of the pairs -
+					###     tnt_wed_principal. The row's grey line names that couple
+					###     by reading the variable (tnt_wed_grand_couple), never by
+					###     position, because a CK3 variable list has no index access
+					###     and "the first pair" is not expressible.
+					###
+					###     V4 FIX 2 DELETED THE ROW. THIS IS THE "SEPARATE TREATY ITEM"
+					###     THE USER MEANT: a tnt_item_row_toggle named
+					###     tnt_row_wed_grand stood here in the LEFT column with its own
+					###     checkbox, its own [TntTip('tnt_wed_grand_toggle')] and the
+					###     honoured couple in its grey line. The ruling was "there must
+					###     be no separate treaty item 'promise a grand wedding' -
+					###     everything is stated in the pair-selection window", and it
+					###     is right: vanilla's matchmaker already ships the toggle
+					###     (GAME\gui\interaction_marriage.gui:332), our interaction
+					###     already declares the matching send_option
+					###     flag = grand_wedding_promise with the full host gate on it,
+					###     and as of this fix the preview line in that window PRICES it
+					###     (tnt_marriage_grand_value now reads the flag through
+					###     tnt_grand_promised_trigger). Two switches for one promise, in
+					###     two windows, is how they end up disagreeing.
+					###
+					###     WHAT STILL REPORTS IT: tnt_sheet_wed_grand in the deal sheet,
+					###     because a promise IS a term of the treaty and the sheet's job
+					###     is to list the terms. It is a read-out, not a switch.
+					###
+					###     The mirror line that briefly lived in the CENTRE mutual block
+					###     is gone for the same reason - see the note there.
+
+					### 6 - CEDE TITLES (item 2.2, MULTI-SELECT; game-rule gated)
+					###
+					###     This row changed shape more than any other in build 2.
+					###     tnt_title_p is gone; the term is the variable LIST
+					###     tnt_sel_title_p. The row's two mutually exclusive states
+					###     are driven by TntAny / TntNone, which are
+					###     Not(IsDataModelEmpty(MakeScope.GetList)) and its
+					###     negation - no script value, no scripted gui, and the
+					###     datafunction is already shipped and running in this mod
+					###     in every picker panel's empty state.
+					###
+					###     The COUNT, on the other hand, comes from
+					###     author:multiselect's tnt_count_sel_title_p_value and the
+					###     loc key tnt_multi_count_title_p, not from a second
+					###     mechanism of this file's own. That value is what prices
+					###     the term and what the panel's own counter prints, so the
+					###     row, the panel and the deal sheet all read one number
+					###     from one place and cannot disagree.
+					###
+					###     ITEM 3.3 SURVIVES, in the form multi-select allows: the
+					###     filled state is no longer one title's coat of arms
+					###     (there may be five titles) but a COUNT BADGE,
+					###     tnt_chosen_count, which clicks straight back into the
+					###     panel. The full list of names is in the centre column's
+					###     deal sheet, which is where item 3.4 asked for it.
+					###
+					###     The opener is UNCHANGED - tnt_pick_title_p_open still
+					###     writes picker 6 / side 0, which is exactly what the new
+					###     panel's `visible` tests. The CLEAR button moved to
+					###     author:multiselect's tnt_sel_title_p_clear, the same gui
+					###     that panel's own "clear all" button calls.
+					tnt_item_row_picker = {
+						name = "tnt_row_title_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[And( TntRow('tnt_show_title_p'), TntOn('tnt_advanced') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_title" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_title_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntAny('tnt_sel_title_p')]"
+							text = "tnt_multi_count_title_p"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_count = {
+								name = "tnt_chosen_title_p"
+
+								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_title_p')]" }
+								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_title_p_open')]" }
+								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+								blockoverride "tnt_chosen_count_label" { text = "[TntSV('tnt_count_sel_title_p_value')|0]" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"    { visible = "[TntNone('tnt_sel_title_p')]" }
+						blockoverride "tnt_picker_clear_state"   { visible = "[TntAny('tnt_sel_title_p')]" }
+						blockoverride "tnt_picker_open_sgui"     { onclick = "[TntExec('tnt_multi_title_p_open')]" }
+						blockoverride "tnt_picker_open_enabled"  { enabled = "[TntValid('tnt_multi_title_p_open')]" }
+						blockoverride "tnt_picker_open_tooltip"  { tooltip = "[TntTip('tnt_multi_title_p_open')]" }
+						blockoverride "tnt_picker_clear_sgui"    { onclick = "[TntExec('tnt_sel_title_p_clear')]" }
+					}
+
+					####################################################################
+					### TOMBSTONE C - RETIRED: THE GRANTED CLAIM ("Peredat pretenziyu"),
+					### BOTH GENERATIONS.  V13 USER ITEM 1.
+					###
+					### The mechanic was BUILT, SHIPPED AND PLAYED TWICE: first as a
+					### single-object picker per column (tnt_claim_p/_r), then rebuilt as
+					### an unlimited multi-select with two candidate lists, two selection
+					### lists, two overlay panels at index 7, a per-tier price at half the
+					### land ladder, a re-validating apply leg running add_unpressed_claim
+					### per title, an AI archetype that sold paper claims (A11), and an
+					### auto-balance rung that reached for a claim when the scales were 12
+					### points out. It was CONSIDERED AND WITHDRAWN FOR AN INDEFINITE
+					### PERIOD.
+					###
+					### THIS IS A DESIGN REFUSAL, NOT A BUG FIX. The user's ruling:
+					### vanilla gates the MANUFACTURE of claims behind a LEARNING
+					### investment. Claims are fabricated by the Court Chaplain's council
+					### task - task_fabricate_claim,
+					### GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088 - and
+					### what you get out of it is keyed to LEARNING: a duchy-tier claim
+					### only above mediocre_skill_rating (:1120), vassal opinion and piety
+					### penalties below high_skill_rating (:1126, :1132). You invest in
+					### Learning, you staff a chaplain, you wait years, and you accept the
+					### side effects. Buying a finished claim at this table
+					### short-circuits all of it. THE MOD REFUSES THE TERM ON PURPOSE.
+					###
+					### THE PRICE WAS ALWAYS AN ADMISSION. common\script_values\
+					### tnt_50_values.txt section 7 said it in its own words: "*** INVENTED
+					### NUMBER, SAID PLAINLY. *** No vanilla interaction grants a title
+					### claim through an ai_accept." There was no vanilla anchor because
+					### vanilla has no such transaction - only a council task you invest in.
+					###
+					### NOTHING IS DELETED. DO NOT RE-ENABLE ONE HALF - this row's opener
+					### and its clear both call scripted_guis that retire with it, and the
+					### two overlay panels it opens are commented out with it (this file's
+					### panel section, and the two types in
+					### gui\tnt_panel_multiselect.gui).
+					###
+					### WHAT A REVIVAL MUST DO DIFFERENTLY: do not sell the claim. Sell the
+					### CONSENT - put the partner's chaplain to work, or let the treaty
+					### shorten a fabrication already running, so the Learning investment
+					### is still the thing that produces the claim and the treaty only
+					### unblocks it.
+					###
+					### ROW INDEX 7 AND OVERLAY INDEX 7 ARE RETIRED, not free: never
+					### renumbered, never reused. ARCHETYPE INDEX 11 IS RETIRED.
+					### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+					####################################################################
+#					### 7 - GRANT CLAIMS (item 2.2, MULTI-SELECT) over the giver's
+#					###     OWN held titles. Same shape as row 6 above.
+#					tnt_item_row_picker = {
+#						name = "tnt_row_claim_p"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_claim_p')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_claim_pressed.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_claim" }
+#						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_claim_desc" }
+#						blockoverride "tnt_picker_label"
+#						{
+#							visible = "[TntAny('tnt_sel_claim_p')]"
+#							text = "tnt_multi_count_claim_p"
+#						}
+#
+#						blockoverride "tnt_picker_content"
+#						{
+#							tnt_chosen_count = {
+#								name = "tnt_chosen_claim_p"
+#
+#								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_claim_p')]" }
+#								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_claim_p_open')]" }
+#								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+#								blockoverride "tnt_chosen_count_label" { text = "[TntSV('tnt_count_sel_claim_p_value')|0]" }
+#							}
+#						}
+#
+#						blockoverride "tnt_picker_open_state"  { visible = "[TntNone('tnt_sel_claim_p')]" }
+#						blockoverride "tnt_picker_clear_state" { visible = "[TntAny('tnt_sel_claim_p')]" }
+#						blockoverride "tnt_picker_open_sgui"   { onclick = "[TntExec('tnt_multi_claim_p_open')]" }
+#						blockoverride "tnt_picker_clear_sgui"  { onclick = "[TntExec('tnt_sel_claim_p_clear')]" }
+#					}
+
+					####################################################################
+					### RETIRED - THE PRISONER TERMS ("Osvobozhdenie plennikov" and
+					### "Osvobodit vybrannykh").  USER ITEM 7.
+					###
+					### The mechanic was BUILT, SHIPPED AND PLAYED: an all-or-nothing release toggle
+					### on both columns, a read-only dungeon panel per side at overlay index 8, a
+					### per-captive selection list on the player's side at index 13 with a rank
+					### ladder for a price, an apply leg that re-tested its filter at signing time,
+					### and an AI archetype that wrote a ransom letter when the player held the AI's
+					### own kin. It was CONSIDERED AND WITHDRAWN FOR AN INDEFINITE PERIOD on the
+					### user's ruling.
+					###
+					### WHY IT IS NOT SIMPLY DELETED, AND WHAT A REVIVAL MUST DO DIFFERENTLY:
+					### DOING PRISONERS PROPERLY MEANS LEANING ON THE VANILLA PRISONER SYSTEM RATHER
+					### THAN ON THIS MOD'S OWN BOOKKEEPING. Vanilla already owns imprisonment end to
+					### end - the prison type, ransom_cost_value and the ransom interactions, the
+					### imprisonment reasons, the release and execution on_actions, and the opinion
+					### and hook consequences each of them carries. This mod duplicated only the
+					### parts it could see: a private relevance filter, a private rank ladder, a
+					### private release loop and a private candidate list, none of which knew what
+					### vanilla charges for the same man or what vanilla does to the jailer
+					### afterwards. That divergence is why the term never read as diplomacy and never
+					### felt worth its price. A revival should PRICE AND EXECUTE THROUGH VANILLA'S
+					### OWN RANSOM PATH and let this window merely place that interaction on the
+					### table.
+					###
+					### NOTHING IS DELETED. The code stays readable behind these comments so the
+					### decision is legible and the mechanic can be revived without re-deriving it.
+					### DO NOT RE-ENABLE ONE HALF: a .gui row and its scripted_gui go together.
+					###
+					### Overlay indices 8 and 13 are RETIRED, not free - and index 13 side 1, once
+					### reserved for a partner-side captive panel, is released with them.
+					### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+					####################################################################
+#					### 8 - RELEASE PRISONERS.
+#					###     D3: v1 hung a container off this row's tooltip block
+#					###     and the composition was illegal. The list is now a
+#					###     normal panel at overlay index 8, opened by the small
+#					###     round button in the row's extra control slot, and the
+#					###     hover tooltip that remains is the FIXED
+#					###     flowcontainer-based tnt_prisoner_list_tooltip.
+#					###     The column's datacontext (the jailer) feeds both.
+#					tnt_item_row_toggle = {
+#						name = "tnt_row_prisoners_p"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_prisoners_p')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/prison.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_prisoners" }
+#						blockoverride "tnt_row_tooltip"
+#						{
+#							tooltipwidget = {
+#								tnt_prisoner_list_tooltip = {
+#									blockoverride "tnt_prisoner_tooltip_header"
+#									{
+#										text = "tnt_item_prisoners_desc"
+#									}
+#								}
+#							}
+#						}
+#						blockoverride "tnt_toggle_extra"
+#						{
+#							widget = {
+#								name = "tnt_prisoners_view_holder_p"
+#								size = { 32 100% }
+#
+#								button_round = {
+#									name = "tnt_prisoners_view_p"
+#									size = { 28 28 }
+#									parentanchor = center
+#									tooltip = "tnt_btn_view"
+#									using = tooltip_es
+#									onclick = "[TntExec('tnt_pick_prisoners_p_open')]"
+#
+#									icon = {
+#										name = "tnt_prisoners_view_icon_p"
+#										size = { 20 20 }
+#										parentanchor = center
+#										texture = "gfx/interface/icons/character_interactions/prison.dds"
+#										alwaystransparent = yes
+#									}
+#								}
+#							}
+#						}
+#						blockoverride "tnt_toggle_sgui" { onclick = "[TntExec('tnt_prisoners_p_toggle')]" }
+#						blockoverride "tnt_toggle_var"  { checked = "[TntOn('tnt_prisoners_p')]" }
+#					}
+
+					####################################################################
+					### RETIRED WITH THE PRISONER TERMS - USER ITEM 7. Built, shipped and played;
+					### considered and WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling. A
+					### revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+					### ransom interactions, the release on_actions and the opinion/hook consequences
+					### they carry) instead of this mod's private bookkeeping. Nothing is deleted;
+					### do not re-enable one half. Full tombstone: the prisoners row earlier in this
+					### file, and common\scripted_effects\tnt_32_apply.txt.
+					####################################################################
+#					### V4 ITEM A1: RELEASE CHOSEN CAPTIVES, beside the all-or-nothing row above.
+#					###
+#					### TWO ROWS AND NOT ONE, deliberately. The flag row opens the whole dungeon
+#					### in one click and is what the AI writes into an offer; this row hands the
+#					### player a list. They cannot double-count: tnt_val_prisoners_p_value stands
+#					### down whenever this selection is non-empty (tnt_50_values.txt).
+#					###
+#					### The shape is tnt_item_row_picker, identical to titles, claims and
+#					### artifacts - open when nothing is chosen, a count badge that reopens the
+#					### panel when something is, and a clear control. Nothing about captives
+#					### needed a new widget.
+#					tnt_item_row_picker = {
+#						name = "tnt_row_prisoner_multi_p"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_prisoners_p')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/prison.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_prisoner_multi" }
+#						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_prisoner_multi_desc" }
+#						blockoverride "tnt_picker_label"
+#						{
+#							visible = "[TntAny('tnt_sel_prisoner_p')]"
+#							text = "tnt_multi_count_prisoner_p"
+#						}
+#
+#						blockoverride "tnt_picker_content"
+#						{
+#							tnt_chosen_count = {
+#								name = "tnt_chosen_prisoner_p"
+#
+#								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_prisoner_p')]" }
+#								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_prisoner_p_open')]" }
+#								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+#								blockoverride "tnt_chosen_count_label" { text = "[TntSV('tnt_count_sel_prisoner_p_value')|0]" }
+#							}
+#						}
+#
+#						blockoverride "tnt_picker_open_state"  { visible = "[TntNone('tnt_sel_prisoner_p')]" }
+#						blockoverride "tnt_picker_clear_state" { visible = "[TntAny('tnt_sel_prisoner_p')]" }
+#						blockoverride "tnt_picker_open_sgui"   { onclick = "[TntExec('tnt_multi_prisoner_p_open')]" }
+#						blockoverride "tnt_picker_clear_sgui"  { onclick = "[TntExec('tnt_sel_prisoner_p_clear')]" }
+#					}
+
+					### 9 - HOOK, BY TIER (item 2.3, BUILD 2).
+					###
+					###     tnt_hook_p stopped being a 0/1 flag and became a TIER
+					###     INDEX 0..3 - 0 none, 1 favour, 2 strong, 3 eternal
+					###     (30-V2-DESIGN 3.2, and W-12 there lists every reader
+					###     that had to move with it). A checkbox cannot express
+					###     four states, so the row type changed from
+					###     tnt_item_row_toggle to tnt_item_row_hook and the control
+					###     slot hosts tnt_control_hook_tier.
+					###
+					###     THE TWO SCRIPTED GUIS. onclick keeps the SHIPPED name
+					###     tnt_hook_p_toggle, whose body the sgui author turns from
+					###     a 0/1 flip into a tier step; onrightclick is the new
+					###     tnt_hook_p_toggle_back. Reusing the existing name for the
+					###     forward direction is deliberate insurance: if the
+					###     reverse-cycle gui is late, only right-click is dead and
+					###     the row still works. "cycle on click, reverse on
+					###     right-click" is the design's own wording (30-V2-DESIGN
+					###     3.2 table).
+					###
+					###     BOTH SIDES OVERRIDE THE BUTTONS BLOCK, INCLUDING THIS ONE,
+					###     even though tnt_control_hook_tier's own defaults already
+					###     ARE the _p side. That is belt and braces, not a
+					###     necessity: those defaults (tnt_panel_contract.gui:176-179)
+					###     name tnt_hook_p_toggle and tnt_hook_p_toggle_back, the
+					###     same pair written here, and they are correct.
+					###     CORRECTED IN BUILD 3 - this note used to claim the
+					###     defaults named tnt_hook_p_tier_next / _prev and that
+					###     "NEITHER EXISTS". The claim was about a stale COMMENT in
+					###     that file, not about its code; the code was always right.
+					###     The two names are tnt_hook_p_toggle
+					###     (tnt_20_scripted_guis.txt, forward) and
+					###     tnt_hook_p_toggle_back (tnt_22c_hooks_contracts.txt:123,
+					###     reverse).
+					###     `enabled` IS written, on the forward gui. As of build 3
+					###     tnt_hook_p_toggle carries an is_valid whose one row is
+					###     `tnt_hook_free_p_value > 0`, so this line is now what
+					###     greys the control - and its tooltip is what tells the
+					###     player why - when the receiver already holds a hook over
+					###     the giver. tnt_hook_p_toggle_back deliberately has no
+					###     is_valid: taking a term OFF the table must never be
+					###     refused.
+					###
+					###     `tooltip` is NOT taken from TntTip, and that is the one
+					###     compromise in this row. The type declares
+					###     tnt_hook_tier_tooltip AFTER tnt_hook_tier_buttons, so a
+					###     dynamic tooltip written in the buttons block would be
+					###     overwritten by the static key anyway; and a BuildTooltip
+					###     that is empty whenever nothing is wrong would leave a
+					###     novel cycling control with no explanation of its two mouse
+					###     buttons at all. The static tnt_stepper_hook_tt therefore
+					###     stays, and the loc author is asked to name the single
+					###     reason a raise can fail inside it.
+					###
+					###     `parentanchor` + `position` on tnt_control_hook_tier are
+					###     LEGAL here: the block they land in is declared inside the
+					###     plain `widget "tnt_hook_slot"` of tnt_item_row_hook, and
+					###     a plain widget arranges nothing. Identical mechanism to
+					###     the eight tnt_stepper_full instantiations, and the
+					###     layout scanner buckets it the same way
+					###     (60-BUILD2-REPORT section 2 R-5).
+					tnt_item_row_hook = {
+						name = "tnt_row_hook_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_hook_p')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/hook_icon.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_hook" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_hook_desc" }
+
+						blockoverride "tnt_hook_control_block"
+						{
+							tnt_control_hook_tier = {
+								name = "tnt_hook_tier_p"
+								parentanchor = vcenter|right
+								position = { -8 0 }
+
+								### `down` sits pressed for tiers 1..3 and up for 0,
+								### so the row shows "there is a hook on the table"
+								### without the player reading the label.
+								blockoverride "tnt_hook_tier_buttons"
+								{
+									onclick      = "[TntExec('tnt_hook_p_toggle')]"
+									onrightclick = "[TntExec('tnt_hook_p_toggle_back')]"
+									enabled      = "[TntValid('tnt_hook_p_toggle')]"
+									down         = "[TntOn('tnt_hook_p')]"
+								}
+
+								blockoverride "tnt_hook_tier_label"
+								{
+									text = "[TntHookTier('tnt_hook_p')]"
+								}
+							}
+						}
+					}
+
+					### 10 - ARTIFACTS (item 2.2, MULTI-SELECT).
+					###      ITEM 3.3, the row the user named first, DID lose its
+					###      button_artifact filled state, and this is the one place
+					###      build 2 trades a build-1 feature away. The reason is
+					###      arithmetic: button_artifact renders ONE artifact's icon
+					###      in ONE rarity frame from a single Artifact datacontext,
+					###      and a term that can hold three artifacts has no single
+					###      Artifact to hand it. The count badge replaces it, and
+					###      every artifact's real icon and rarity is still on screen
+					###      in the panel at index 10 and named in the deal sheet.
+					###      tnt_chosen_artifact stays DEFINED in tnt_panels.gui: if
+					###      the user prefers single-select artifacts, reverting this
+					###      one row needs no new code.
+					tnt_item_row_picker = {
+						name = "tnt_row_artifact_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_artifact_p')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/artifact.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_artifact" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_artifact_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntAny('tnt_sel_artifact_p')]"
+							text = "tnt_multi_count_artifact_p"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_count = {
+								name = "tnt_chosen_artifact_p"
+
+								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_artifact_p')]" }
+								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_artifact_p_open')]" }
+								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+								blockoverride "tnt_chosen_count_label" { text = "[TntSV('tnt_count_sel_artifact_p_value')|0]" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"  { visible = "[TntNone('tnt_sel_artifact_p')]" }
+						blockoverride "tnt_picker_clear_state" { visible = "[TntAny('tnt_sel_artifact_p')]" }
+						blockoverride "tnt_picker_open_sgui"   { onclick = "[TntExec('tnt_multi_artifact_p_open')]" }
+						blockoverride "tnt_picker_clear_sgui"  { onclick = "[TntExec('tnt_sel_artifact_p_clear')]" }
+					}
+
+					####################################################################
+					### RETIRED - THE THIRD-PARTY NON-AGGRESSION PROMISE
+					### ("Obeshchanie ne napadat").  USER ITEM 1.
+					###
+					### The mechanic was BUILT, SHIPPED AND PLAYED: a one-sided ten-year truce sworn
+					### to a third ruler, a per-side candidate list built from realm neighbours and
+					### the holders of claimed titles, a picker in BOTH columns, a price, an apply
+					### leg, and a yearly GC for the permanent record it left behind. It was
+					### CONSIDERED AND WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling: for
+					### pleasant play it is surplus - a term about somebody who is not at the table,
+					### for which the other side owes nothing in return.
+					###
+					### NOTHING IS DELETED. The code stays readable behind these comments so the
+					### decision is legible and the mechanic can be revived without re-deriving it.
+					### DO NOT RE-ENABLE ONE HALF: a .gui row and its scripted_gui go together, and a
+					### gate-write line and its gate trigger are a single atomic pair.
+					###
+					### STILL LIVE ON PURPOSE: the old-save sweeps and the loc key tnt_truce_nonwar,
+					### which names truces still running in pre-retirement saves. *** NOT
+					### tnt_nonwar_promises: its sweeper tnt_gc_promises_effect is RETIRED (V12), so
+					### that name is inert residue in old saves rather than something swept. 08-24 ***
+					### Overlay index 11 is RETIRED, not free: never renumbered, never reused.
+					### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+					####################################################################
+#					### 11 - PROMISE NOT TO ATTACK (picker over a shared candidate list)
+#					###      ITEM 3.3, the second row the user named: the filled
+#					###      state is the third party's own portrait.
+#					###      STILL SINGLE-SELECT, on purpose: 30-V2-DESIGN 3.1 lists
+#					###      exactly six variables to delete and tnt_nonwar_p/_r are
+#					###      not among them, so this row keeps its portrait control.
+#					tnt_item_row_picker = {
+#						name = "tnt_row_nonwar_p"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_nonwar_p')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_retreat.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_nonwar" }
+#						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_nonwar_desc" }
+#						blockoverride "tnt_picker_label"
+#						{
+#							visible = "[TntVar('tnt_nonwar_p').Char.IsValid]"
+#							text = "[TntVar('tnt_nonwar_p').Char.GetUINameNoTooltip]"
+#						}
+#
+#						blockoverride "tnt_picker_content"
+#						{
+#							tnt_chosen_char = {
+#								name = "tnt_chosen_nonwar_p"
+#
+#								blockoverride "tnt_chosen_visible" { visible = "[TntVar('tnt_nonwar_p').Char.IsValid]" }
+#								blockoverride "tnt_chosen_context" { datacontext = "[TntVar('tnt_nonwar_p').Char]" }
+#								blockoverride "tnt_chosen_click"   { onclick = "[TntExec('tnt_pick_nonwar_p_open')]" }
+#								blockoverride "tnt_chosen_tooltip" { tooltip = "tnt_btn_change" }
+#							}
+#						}
+#
+#						blockoverride "tnt_picker_open_state"  { visible = "[Not( TntVar('tnt_nonwar_p').Char.IsValid )]" }
+#						blockoverride "tnt_picker_clear_state" { visible = "[TntVar('tnt_nonwar_p').Char.IsValid]" }
+#						blockoverride "tnt_picker_open_sgui"   { onclick = "[TntExec('tnt_pick_nonwar_p_open')]" }
+#						blockoverride "tnt_picker_clear_sgui"  { onclick = "[TntExec('tnt_nonwar_p_clear')]" }
+#					}
+
+					### 12 - SWEAR FEALTY (item 2.5, game-rule gated). On this side it
+					###      means "I become your vassal", and the round button in the
+					###      extra slot opens the nine-row obligation sheet at overlay
+					###      index 12 (tnt_panel_contract).
+					###
+					###      ONE PANEL, TWO ROWS, ONE OPENER. The nine tnt_ob_*
+					###      variables carry NO side suffix, because T11 already
+					###      forbids both sides swearing fealty in one deal
+					###      (30-V2-DESIGN 1 row 2.5), so there is only ever one
+					###      contract to edit and nothing per-side to open.
+					tnt_item_row_toggle = {
+						name = "tnt_row_vassal_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[And( TntRow('tnt_show_vassal_p'), TntOn('tnt_advanced') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_vassal" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_vassal_desc" }
+						blockoverride "tnt_toggle_extra"
+						{
+							widget = {
+								name = "tnt_contract_edit_holder_p"
+								size = { 32 100% }
+
+								button_round = {
+									name = "tnt_contract_edit_p"
+									size = { 28 28 }
+									parentanchor = center
+									tooltip = "tnt_btn_edit_contract"
+									using = tooltip_es
+									onclick = "[TntExec('tnt_pick_contract_open')]"
+
+									icon = {
+										name = "tnt_contract_edit_icon_p"
+										size = { 20 20 }
+										parentanchor = center
+										texture = "gfx/interface/icons/character_interactions/icon_vassal.dds"
+										alwaystransparent = yes
+									}
+								}
+							}
+						}
+						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_vassal_p_toggle')]" }
+						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_vassal_p')]" }
+						blockoverride "tnt_toggle_enabled" { enabled = "[TntValid('tnt_vassal_p_toggle')]" }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_vassal_p_toggle')]" }
+					}
+
+					####################################################
+					### ITEM 19 - THE FOUR PEOPLE TERMS.
+					###
+					### They sit here, at the bottom of the column and directly under
+					### fealty, because that is where the eye leaves off: the rows above
+					### hand over things, these four hand over PEOPLE, and independence
+					### is the exact inverse of the fealty row it follows. The deal
+					### sheet in gui/tnt_panels.gui repeats this order, so a term can
+					### still be tracked from the column it was set in down to the
+					### sheet.
+					###
+					### TWO OF THEM OPEN A PANEL IN gui/tnt_panel_people.gui at the
+					### overlay indices the contract froze - 16 hostage and 18
+					### courtier - and independence opens nothing at all, because a
+					### bool pair needs only a checkbox and a gate. Index 17 was the
+					### ward, RETIRED V16 user item 5; it is dormant, not free.
+					###
+					### EVERY `enabled` + `tooltip` PAIR BELOW IS THE VANILLA TRIPLE
+					### (enabled = IsValid / onclick = Execute / tooltip = BuildTooltip
+					### on ONE widget, GAME\gui\window_faith.gui:900-902). If a scripted
+					### gui named here turns out to carry no is_valid, both halves
+					### degrade to exactly what writing nothing would have given -
+					### always enabled, empty tooltip - which is why the pair is written
+					### even where the gating author's is_valid is not yet on disk.
+					####################################################
+
+					### 12b - GRANT INDEPENDENCE. NO overlay index, by the contract.
+					###
+					###      _p MEANS THE PLAYER RELEASES HIS OWN VASSAL, and that
+					###      direction is fixed by the contract (section 1.B) because it
+					###      is the direction tnt_val_indep_p_value prices. It may not be
+					###      inverted here: this column is what the PLAYER gives, and
+					###      what he gives is a vassal's freedom.
+					###
+					###      It cannot appear in the same treaty as the fealty row above
+					###      - tnt_no_indep_and_vassal_trigger forbids the pair - and the
+					###      checkbox's own tooltip is where that refusal is explained,
+					###      which is why the enabled+tooltip pair is not optional on
+					###      this row.
+					###
+					###      Icon verified on disk and in use: vanilla's own
+					###      grant_independence_interaction carries `icon = independence`
+					###      (GAME\common\character_interactions\00_character_interactions.txt:2136),
+					###      i.e. gfx/interface/icons/character_interactions/independence.dds.
+					tnt_item_row_toggle = {
+						name = "tnt_row_indep_p"
+						layoutpolicy_horizontal = expanding
+						### V19: THE tnt_advanced CONJUNCT WAS MISSING HERE AND ON THE _r ROW.
+						### tnt_rule_conformance.ps1 reported both as its only two FAILs for
+						### several rounds - "the rule blocks the term without hiding it". With
+						### tnt_advanced_terms off the row stayed on screen while the term was
+						### refused, which is a control that does nothing, and the .gui cannot
+						### ask has_game_rule itself: the raw-variable conjunct IS how every
+						### other gated row does it (title_p :842, vassal_p :1311, marriage_p
+						### :2020, title_r :2290, vassal_r :2546 - five call sites, one shape).
+						visible = "[And( TntRow('tnt_show_indep_p'), TntOn('tnt_advanced') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/independence.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_indep" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_indep_desc" }
+						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_indep_p_toggle')]" }
+						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_indep_p')]" }
+						### THE enabled BINDING IS UNCHANGED BUT NO LONGER HOT: the
+						### is_valid behind TntValid used to run an any_vassal_or_below
+						### walk per layout pass and produced ALL 85,778 script errors
+						### of the fresh playtest log; it now reads var:tnt_indep_ok_p,
+						### the answer E33 caches once per open/refresh
+						### (tnt_30_effects.txt), so this line costs a map lookup.
+						blockoverride "tnt_toggle_enabled" { enabled = "[TntValid('tnt_indep_p_toggle')]" }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_indep_p_toggle')]" }
+					}
+
+					### 16 - HOSTAGES (single character, panel at overlay index 16)
+					###
+					###      SINGLE-SELECT, so the filled state is the hostage's own head
+					###      (tnt_chosen_char) and not a count badge - the same shape and
+					###      the same reasoning as the promise-not-to-attack row above,
+					###      which is this window's other one-character term.
+					###
+					###      Icon: vanilla's hostage family uses `icon = icon_hostage`
+					###      (GAME\common\character_interactions\05_bp2_interactions.txt:15)
+					###      and the file is drawn as a plain texture at
+					###      GAME\gui\window_war_overview.gui:3127.
+					tnt_item_row_picker = {
+						name = "tnt_row_hostage_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_hostage_p')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_hostage.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_hostage" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_hostage_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntVar('tnt_hostage_p').Char.IsValid]"
+							text = "[TntVar('tnt_hostage_p').Char.GetUINameNoTooltip]"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_char = {
+								name = "tnt_chosen_hostage_p"
+
+								blockoverride "tnt_chosen_visible" { visible = "[TntVar('tnt_hostage_p').Char.IsValid]" }
+								blockoverride "tnt_chosen_context" { datacontext = "[TntVar('tnt_hostage_p').Char]" }
+								blockoverride "tnt_chosen_click"   { onclick = "[TntExec('tnt_pick_hostage_p_open')]" }
+								blockoverride "tnt_chosen_tooltip" { tooltip = "tnt_btn_change" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"   { visible = "[Not( TntVar('tnt_hostage_p').Char.IsValid )]" }
+						blockoverride "tnt_picker_clear_state"  { visible = "[TntVar('tnt_hostage_p').Char.IsValid]" }
+						blockoverride "tnt_picker_open_sgui"    { onclick = "[TntExec('tnt_pick_hostage_p_open')]" }
+						blockoverride "tnt_picker_open_enabled" { enabled = "[TntValid('tnt_pick_hostage_p_open')]" }
+						blockoverride "tnt_picker_open_tooltip" { tooltip = "[TntTip('tnt_pick_hostage_p_open')]" }
+						blockoverride "tnt_picker_clear_sgui"   { onclick = "[TntExec('tnt_pick_hostage_p_clear')]" }
+					}
+
+					####################################################################
+					### 17 - WARD / FOSTERAGE.  *** RETIRED V16, USER ITEM 5 ***
+					###
+					### The row below is commented out, and so is its _r twin in the right
+					### column (search tnt_row_ward_r). REASON, in the user's words: the
+					### term was too abusable on points, and the hostage row directly
+					### above already covers the same immersive ground. The audit agreed
+					### and found the abuse STRUCTURAL, not a single number - the full
+					### WARD TOMBSTONE with the worked pricing case is in
+					### common/scripted_effects/tnt_32_apply.txt.
+					###
+					### EVERYTHING THIS ROW TOUCHED WENT WITH IT: the gate variable
+					### tnt_show_ward_p (write retired at
+					### common/scripted_effects/tnt_30_effects.txt:618), the picker panel
+					### at overlay index 17 (gui/tnt_panel_people.gui section 2, plus its
+					### instantiation further down this file), the two scripted guis
+					### tnt_pick_ward_p_open / _clear
+					### (common/scripted_guis/tnt_24_people.txt), and the price
+					### tnt_val_ward_p_value (common/script_values/tnt_58_person_values.txt
+					### section 3).
+					###
+					### OVERLAY INDEX 17 IS DORMANT, NOT FREE - never reassign it. The
+					### retired prisoner picker's index 8 was left dormant the same way
+					### (common/scripted_guis/tnt_21_pickers.txt:304).
+					###
+					### The shared type tnt_item_row_picker STAYS LIVE - the hostage and
+					### courtier rows in both columns still derive from it.
+					####################################################################
+#					### 17 - WARD / FOSTERAGE (single child, panel at overlay index 17)
+#					###
+#					###      _p MEANS THE PLAYER'S CHILD GOES TO THE PARTNER'S COURT.
+#					###      There is no guardian sub-picker anywhere in this feature:
+#					###      the partner ruler IS the guardian (contract section 1.B), so
+#					###      one child is the only thing to choose.
+#					###
+#					###      Icon: vanilla's educate_child_interaction carries
+#					###      `icon = child`
+#					###      (GAME\common\character_interactions\00_education_interactions.txt:8),
+#					###      i.e. gfx/interface/icons/character_interactions/child.dds -
+#					###      the picture the game itself uses for wardship.
+#					tnt_item_row_picker = {
+#						name = "tnt_row_ward_p"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_ward_p')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/child.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_ward" }
+#						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_ward_desc" }
+#						blockoverride "tnt_picker_label"
+#						{
+#							visible = "[TntVar('tnt_ward_p').Char.IsValid]"
+#							text = "[TntVar('tnt_ward_p').Char.GetUINameNoTooltip]"
+#						}
+#
+#						blockoverride "tnt_picker_content"
+#						{
+#							tnt_chosen_char = {
+#								name = "tnt_chosen_ward_p"
+#
+#								blockoverride "tnt_chosen_visible" { visible = "[TntVar('tnt_ward_p').Char.IsValid]" }
+#								blockoverride "tnt_chosen_context" { datacontext = "[TntVar('tnt_ward_p').Char]" }
+#								blockoverride "tnt_chosen_click"   { onclick = "[TntExec('tnt_pick_ward_p_open')]" }
+#								blockoverride "tnt_chosen_tooltip" { tooltip = "tnt_btn_change" }
+#							}
+#						}
+#
+#						blockoverride "tnt_picker_open_state"   { visible = "[Not( TntVar('tnt_ward_p').Char.IsValid )]" }
+#						blockoverride "tnt_picker_clear_state"  { visible = "[TntVar('tnt_ward_p').Char.IsValid]" }
+#						blockoverride "tnt_picker_open_sgui"    { onclick = "[TntExec('tnt_pick_ward_p_open')]" }
+#						blockoverride "tnt_picker_open_enabled" { enabled = "[TntValid('tnt_pick_ward_p_open')]" }
+#						blockoverride "tnt_picker_open_tooltip" { tooltip = "[TntTip('tnt_pick_ward_p_open')]" }
+#						blockoverride "tnt_picker_clear_sgui"   { onclick = "[TntExec('tnt_pick_ward_p_clear')]" }
+#					}
+
+					### 18 - COURTIER TRANSFER (MULTI-SELECT, panel at overlay index 18)
+					###
+					###      Same shape as titles, claims, artifacts and captives: a
+					###      count badge that reopens the panel, and a clear control.
+					###
+					###      THE BADGE COUNTS THE LIST IN THE GUI, and it is the only row
+					###      in this window that does. Every other multi-select row reads
+					###      author:multiselect's tnt_count_sel_<item>_<side>_value, but
+					###      the contract registers no count value for courtiers, and
+					###      binding a badge to a script value that does not exist logs on
+					###      EVERY evaluation. GetDataModelSize over a script variable
+					###      list is already shipped and running in this mod
+					###      (gui/tnt_panels.gui, tnt_sheet_wed_taper's `visible`), and
+					###      vanilla both compares it (GAME\gui\frontend_bookmarks.gui:1679)
+					###      and prints it (GAME\gui\debug\window_watch_character_pool.gui:21).
+					###      The moment a tnt_count_sel_courtier_<side>_value lands, this
+					###      one expression per row is where it goes.
+					###
+					###      THE OPENER IS tnt_multi_courtier_p_open, NOT
+					###      tnt_pick_courtier_p_open, and the difference is not cosmetic:
+					###      only the tnt_multi_* opener runs the prune after the fill, so
+					###      the already-chosen courtiers leave the available column. The
+					###      name is not in the contract's register - see the build report.
+					###
+					###      Icon: vanilla's offer_courtier_interaction carries
+					###      `icon = courtier_interaction`
+					###      (GAME\common\character_interactions\00_tributary_interactions.txt:3005).
+					tnt_item_row_picker = {
+						name = "tnt_row_courtier_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_courtier_p')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/courtier_interaction.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_courtier" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_courtier_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntAny('tnt_sel_courtier_p')]"
+							text = "tnt_sel_count_courtier_p"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_count = {
+								name = "tnt_chosen_courtier_p"
+
+								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_courtier_p')]" }
+								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_courtier_p_open')]" }
+								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+								blockoverride "tnt_chosen_count_label" { text = "[GetDataModelSize( TntList('tnt_sel_courtier_p') )]" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"   { visible = "[TntNone('tnt_sel_courtier_p')]" }
+						blockoverride "tnt_picker_clear_state"  { visible = "[TntAny('tnt_sel_courtier_p')]" }
+						blockoverride "tnt_picker_open_sgui"    { onclick = "[TntExec('tnt_multi_courtier_p_open')]" }
+						blockoverride "tnt_picker_open_enabled" { enabled = "[TntValid('tnt_multi_courtier_p_open')]" }
+						blockoverride "tnt_picker_open_tooltip" { tooltip = "[TntTip('tnt_multi_courtier_p_open')]" }
+						blockoverride "tnt_picker_clear_sgui"   { onclick = "[TntExec('tnt_sel_courtier_p_clear')]" }
+					}
+
+					### 19 - TRANSFER A VASSAL (MULTI-SELECT, panel 19 / side 0)  V26
+					###
+					###      _p MEANS THE PLAYER HANDS ONE OF HIS OWN DIRECT VASSALS
+					###      to the partner, with everything under that vassal. It is
+					###      the same two-list shape as the courtier row above and it
+					###      is NOT the fealty row: fealty is the PARTNER kneeling,
+					###      this is a third man changing liege. The two may not
+					###      appear in one treaty at all - P25
+					###      tnt_no_subject_and_vassal_trigger, delegated from P18 on
+					###      the send path and surfaced on the opener's own tooltip.
+					###
+					###      *** THE SECOND CONJUNCT IS THE GAME RULE AND IT IS NOT
+					###      *** OPTIONAL. *** A transferred vassal is IRREVERSIBLE -
+					###      no interaction takes him back across a realm boundary -
+					###      so the term joins the tnt_advanced_terms family, which
+					###      now numbers five. `TntRow` alone gates NOTHING (nothing
+					###      writes tnt_hide_unavailable), so without
+					###      `TntOn('tnt_advanced')` the rule would block the term
+					###      while leaving a live-looking control on screen: the
+					###      defect this project shipped four times, closed by
+					###      _docs\tools\tnt_rule_conformance.ps1, whose $RULES table
+					###      carries the `subject` stem.
+					###
+					###      THE BADGE COUNTS THE LIST IN THE GUI, exactly like the
+					###      courtier row's, for the same reason and with the same
+					###      escape hatch: tnt_count_sel_subject_p_value DOES exist
+					###      (tnt_58_person_values.txt), and this one expression is
+					###      where it goes if a script-value badge is ever preferred.
+					###      GetDataModelSize is kept for symmetry with the courtier
+					###      pair and costs one list read.
+					###
+					###      Icon: vanilla's own grant_vassal_interaction carries
+					###      `icon = icon_vassal`
+					###      (GAME\common\character_interactions\00_vassal_interactions.txt:7),
+					###      i.e. gfx/interface/icons/character_interactions/icon_vassal.dds.
+					tnt_item_row_picker = {
+						name = "tnt_row_subject_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[And( TntRow('tnt_show_subject_p'), TntOn('tnt_advanced') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_subject" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_subject_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntAny('tnt_sel_subject_p')]"
+							text = "tnt_sel_count_subject_p"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_count = {
+								name = "tnt_chosen_subject_p"
+
+								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_subject_p')]" }
+								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_subject_p_open')]" }
+								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+								blockoverride "tnt_chosen_count_label" { text = "[GetDataModelSize( TntList('tnt_sel_subject_p') )]" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"   { visible = "[TntNone('tnt_sel_subject_p')]" }
+						blockoverride "tnt_picker_clear_state"  { visible = "[TntAny('tnt_sel_subject_p')]" }
+						blockoverride "tnt_picker_open_sgui"    { onclick = "[TntExec('tnt_multi_subject_p_open')]" }
+						blockoverride "tnt_picker_open_enabled" { enabled = "[TntValid('tnt_multi_subject_p_open')]" }
+						blockoverride "tnt_picker_open_tooltip" { tooltip = "[TntTip('tnt_multi_subject_p_open')]" }
+						blockoverride "tnt_picker_clear_sgui"   { onclick = "[TntExec('tnt_sel_subject_p_clear')]" }
+					}
+
+					### 13 - THE THREAT (V4 expansion 1)
+					###
+					###      IT IS IN THIS COLUMN AND IT IS NOT A GIFT. Every other row
+					###      here is something the player hands over; this one is what
+					###      he is instead. It lives here because this column is where
+					###      the player states what HE does, it has no _r twin because
+					###      a mutual threat is two people not negotiating, and it is
+					###      priced OUTSIDE tnt_gain_total_value so that fix 5's opinion
+					###      multiplier cannot cancel it - the balance panel prints it
+					###      as its own fifth figure for exactly that reason
+					###      (tnt_57_threat_values.txt has the full argument).
+					###
+					###      THE ROW HIDES ITSELF unless all three of the user's
+					###      conditions hold - a bigger army, prestige level above 0,
+					###      and a partner who fears us at all - which is
+					###      tnt_show_threat_p_trigger. If it is visible and still
+					###      refuses, the checkbox's own tooltip names which of the
+					###      three is missing. V17: those rows are now written out
+					###      INLINE in tnt_threat_p_toggle.is_valid
+					###      (common\scripted_guis\tnt_20_scripted_guis.txt). The
+					###      wrapper T21 tnt_threat_available_trigger they used to
+					###      live in is tombstoned - called BARE from an is_valid on
+					###      the [TntTip()] path it rendered «<name> has no
+					###      localization» instead of the reasons (house law 10b).
+					###
+					###      icon_dread.dds is the right picture and it exists:
+					###      GAME\gfx\interface\icons\icon_dread.dds. It is NOT under
+					###      character_interactions - that folder has no threat icon at
+					###      all, only declare_war_interaction and the demand_* family,
+					###      each of which would promise a different action.
+					### 14 - SPEND A HOOK WE ALREADY HOLD (V4 item 2)
+					###
+					###      THE OPPOSITE OF ROW 9. That row GRANTS the partner a hook on
+					###      us and is priced as a concession; this one SPENDS the hook we
+					###      hold on him and is priced as pressure - so it sits beside the
+					###      threat, outside the gift total, where the opinion multiplier
+					###      cannot cancel it. Leverage is the instrument for the ruler who
+					###      will never like you.
+					###
+					###      THE ROW IS ALWAYS VISIBLE and its checkbox carries the reason
+					###      when it is dead: tnt_usehook_p_toggle's is_valid says "you hold
+					###      no hook on him". The strength - a favour called in versus
+					###      blackmail-grade leverage - is read by the value and named in the
+					###      grey sub-line, so the player sees WHICH kind he is spending.
+					tnt_item_row_toggle = {
+						name = "tnt_row_usehook_p"
+						layoutpolicy_horizontal = expanding
+
+						### hook_STRONG.dds, and the name is checked: there is no
+						### icon_hook.dds in the game at all. The folder ships hook_icon.dds
+						### (which row 9 uses) and hook_strong.dds, so spending leverage gets
+						### the heavier picture and granting it keeps the plain one - two rows
+						### about hooks that must not look identical.
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/hook_strong.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_usehook" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_usehook_desc" }
+						blockoverride "tnt_row_sub"
+						{
+							visible = yes
+							text = "tnt_usehook_sub"
+							default_format = "#weak"
+						}
+						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_usehook_p_toggle')]" }
+						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_usehook_p')]" }
+						blockoverride "tnt_toggle_enabled" { enabled = "[TntValid('tnt_usehook_p_toggle')]" }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_usehook_p_toggle')]" }
+					}
+
+					### V4 ITEM A2, READ-ONLY: THE PARTNER CALLS IN A DEBT.
+					###
+					### It is in the LEFT column even though the leverage is his, because this
+					### column is what the PLAYER pays and a called-in debt is a cost to him.
+					### It is a tnt_item_row_toggle whose checkbox is permanently disabled: the
+					### player cannot switch this on or off - the AI's composer writes
+					### tnt_usehook_r when it holds a hook on him (tnt_37_ai_offer.txt, A9).
+					###
+					### THE ROW EXISTS SO THE EXTRA DEMAND IS NEVER UNEXPLAINED. The value is
+					### negative (see tnt_59_usehook_values.txt), so the AI asks for more than a
+					### fair price; without a named row the player would only see a treaty that
+					### costs more than it should for no visible reason.
+					tnt_item_row_toggle = {
+						name = "tnt_row_usehook_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntOn('tnt_usehook_r')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/hook_strong.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_usehook_r" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_usehook_r_desc" }
+						### V13 USER ITEM 1 - AN EMPTY CLICK, WRITTEN OUT LOUD.
+						### This row is READ-ONLY (`enabled = no` below) and must execute
+						### NOTHING. It was the ONE tnt_item_row_toggle instantiation in
+						### this file that omitted `tnt_toggle_sgui` - and an omitted
+						### block is not "no click", it INHERITS the type default, which
+						### until this round was `TntExec('tnt_alliance_p_toggle')`
+						### (gui\tnt_types.gui). The alliance is retired this round, so
+						### the inherited target is a commented-out scripted_gui: a live,
+						### visible row calling dead script. The empty body is the
+						### type's own sanctioned form for a row with no click, and it
+						### keeps this row correct no matter what the default says next.
+						blockoverride "tnt_toggle_sgui" {}
+						blockoverride "tnt_toggle_var"     { checked = yes }
+						blockoverride "tnt_toggle_enabled" { enabled = no }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "tnt_item_usehook_r_desc" }
+					}
+
+					tnt_item_row_toggle = {
+						name = "tnt_row_threat_p"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_threat_p')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/icon_dread.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_threat" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_threat_desc" }
+						blockoverride "tnt_row_sub"
+						{
+							visible = "[TntOn('tnt_threat_p')]"
+							text = "tnt_threat_sub"
+							default_format = "#high"
+						}
+						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_threat_p_toggle')]" }
+						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_threat_p')]" }
+						# A selected threat can always be removed, even after its power drops.
+						blockoverride "tnt_toggle_enabled" { enabled = "[Or(TntOn('tnt_threat_p'), TntValid('tnt_threat_p_toggle'))]" }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_threat_p_toggle')]" }
+					}
+				}
+			}
+
+			################################################################
+			### CENTRE - THE SCALES, THE DECOMPOSITION AND THE DEAL SHEET
+			################################################################
+			### THE CENTRE "BOTH OF YOU" SECTION - WHAT IS LEFT OF IT, AND WHY.
+			###
+			### V13 USER ITEM 1 RETIRED BOTH PACTS. This section was built for the
+			### alliance and the non-aggression truce; both are commented out in
+			### place below, behind their own tombstones, and THE BLOCK SURVIVES FOR
+			### THE MARRIAGE LINE ALONE. That line belongs here for the same reason
+			### the pacts did - one marriage is ONE thing both houses enter, not
+			### something each side hands over separately - so the section, its
+			### header key tnt_mutual_header and its background all stay live and
+			### none of the three may be deleted with the pacts.
+			###
+			### THE RETIREMENT IS A DESIGN REFUSAL, NOT A BUG FIX. Nothing here was
+			### broken. The user's ruling: a deal at this table let a player obtain
+			### things vanilla DELIBERATELY GATES BEHIND INVESTING A LIFESTYLE FOCUS.
+			### Both pacts are gated behind the SAME Diplomacy perk - the alliance at
+			### GAME\common\character_interactions\00_alliance.txt:1184, the purchased
+			### truce at GAME\common\scripted_triggers\
+			### 03_fp2_scripted_triggers.txt:725-735, whose OR opens with
+			### `always = no` and whose only general unlock is `has_perk =
+			### defensive_negotiations_perk` (:732). Full tombstones: on the two
+			### commented-out lines below, and common\scripted_effects\tnt_32_apply.txt.
+			###
+			### HISTORICAL, AND KEPT BECAUSE THE SHAPE IS STILL IN USE. V3 addition 4
+			### filled ONE new block on this panel, tnt_balance_mutual, declared at
+			### the TOP of type tnt_balance_panel (tnt_types.gui) - a blockoverride
+			### lands where the block is DECLARED, which is why this section appears
+			### above the scales rather than below the card. It used tnt_toggle_line
+			### and not tnt_item_row_toggle on an arithmetic that still governs the
+			### surviving line: the column rows are 56 px, these are 34 px, and at
+			### 56 px two rows plus a divider cost ~170 px of a centre column that
+			### has ~296 px of slack after the 208 px contextual card, at which point
+			### the deal sheet's minimumsize of 150 makes the panel demand more
+			### height than the window has. tnt_toggle_line's icon block,
+			### tnt_toggle_line_icon, was added for the pacts and is now used by the
+			### marriage line's sibling type tnt_action_line the same way.
+			###
+			### THE VARIABLE CONVENTION, ALSO HISTORICAL: the canonical variable for
+			### a MUTUAL term was the _p one, so tnt_alliance_r / tnt_truce_r and
+			### their tnt_show_*_r gates already had no reader in any .gui of this
+			### mod before this round. Both halves retire together regardless - a
+			### gate write and its gate trigger are one atomic pair.
+			###
+			### TWO LOC KEYS STAY DEFINED THOUGH NOTHING REFERENCES THEM ANY MORE,
+			### and that is deliberate: the key set is pinned at 553 and an undefined
+			### key prints raw. tnt_label_years lost its last reader when the deal
+			### sheet's tnt_sheet_truce_p row retired (gui\tnt_panels.gui);
+			### tnt_mutual_header did NOT - the marriage line still sits under it.
+			tnt_balance_panel = {
+				name = "tnt_balance"
+
+				blockoverride "tnt_balance_mutual"
+				{
+					### A plain vbox, so the section reads as one thing and costs the
+					### panel a single spacing gap instead of three. R4/R5: a vbox as a
+					### direct child of a vbox is legal (only a (flow)container refuses
+					### hbox/vbox children - defect D3), and neither this vbox nor any
+					### of its three children carries a position or an anchor.
+					vbox = {
+						name = "tnt_mutual_block"
+						layoutpolicy_horizontal = expanding
+						spacing = 2
+						margin = { 6 4 }
+						ignoreinvisible = yes
+
+						background = {
+							using = Background_Area_Dark
+						}
+
+						### R-SPILL: autoresize = no, and the inherited elide is left
+						### alone. It prints our own loc rather than game text, but a
+						### long translation must not widen the centre column either.
+						text_single = {
+							name = "tnt_mutual_title"
+							layoutpolicy_horizontal = expanding
+							autoresize = no
+							text = "tnt_mutual_header"
+							align = nobaseline|left
+							default_format = "#high"
+							alwaystransparent = yes
+							fontsize_min = 12
+							using = Font_Type_Flavor
+							using = Font_Size_Medium
+						}
+
+						####################################################################
+						### TOMBSTONE A - RETIRED: THE ALLIANCE ("Voennyy soyuz").
+						### V13 USER ITEM 1.
+						###
+						### The mechanic was BUILT, SHIPPED AND PLAYED: this mutual line
+						### on the centre panel, a checkbox with a gated tooltip, a
+						### deal-sheet row with its own X (gui\tnt_panels.gui), a
+						### forty-times-power-ratio price with two ally-glut ladders and a
+						### three-part personality bias, a re-validating apply leg running
+						### vanilla's own create_alliance, an AI archetype that wrote
+						### alliance letters (A2) and a silent AI-to-AI leg that sold
+						### alliances between neighbours. It was CONSIDERED AND WITHDRAWN
+						### FOR AN INDEFINITE PERIOD.
+						###
+						### THIS IS A DESIGN REFUSAL, NOT A BUG FIX. Nothing here was
+						### broken. The user's ruling, in his own terms: a deal at this
+						### table let a player obtain things that VANILLA DELIBERATELY
+						### GATES BEHIND INVESTING A LIFESTYLE FOCUS. Alliance management
+						### is one of them - vanilla's negotiate_alliance_interaction
+						### admits you through kinship or through a perk you had to spend
+						### a Diplomacy lifestyle on
+						### (GAME\common\character_interactions\00_alliance.txt:1182-1196,
+						### whose FIRST row is `scope:actor = { has_perk =
+						### defensive_negotiations_perk }` at :1184, also :1512 and :2405;
+						### the perk is Diplomacy / Foreign Affairs,
+						### GAME\common\lifestyle_perks\
+						### 00_diplomacy_1_foreign_affairs_tree_perks.txt:262). Buying an
+						### alliance across this table short-circuits that investment: a
+						### ruler who never opened the Diplomacy tree gets the same reach
+						### as one who spent a life on it, and "which focus do I take"
+						### stops mattering. THE MOD REFUSES THE TERM ON PURPOSE.
+						###
+						### THE MOD ALREADY KNEW: T18's header in
+						### common\scripted_triggers\tnt_41_gates.txt says the perk block
+						### was "DELIBERATELY NOT COPIED ... our window's price of
+						### admission is the balance scale". That trade was the mistake;
+						### this is its correction. A PRICE IS NOT A GATE.
+						###
+						### NOTHING IS DELETED. DO NOT RE-ENABLE ONE HALF: a .gui line and
+						### its scripted_gui go together, and a gate-write line and its
+						### gate trigger are a single atomic pair. What a revival must do
+						### differently: gate the line on the player's own INVESTMENT
+						### rather than on his purse.
+						###
+						### THE TYPE DEFAULT WENT WITH IT. gui\tnt_types.gui's
+						### tnt_item_row_toggle used to default its click and its checked
+						### state to this very term; both are repointed at the threat
+						### toggle, and tnt_row_usehook_r - the one row that inherited
+						### them - now carries an empty `tnt_toggle_sgui`.
+						###
+						### ROW INDEX 3 IS RETIRED, not free: never renumbered, never
+						### reused. ARCHETYPE INDEX 2 IS RETIRED, beside 4, 5, 7 and 12.
+						### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+						####################################################################
+#						### 3 - MILITARY ALLIANCE, or MUTUAL DEFENCE PACT inside one
+#						###     realm. The two Select_CString swaps come over
+#						###     unchanged from the row this replaces, and they are now
+#						###     in the one place they belong: tnt_ally_inrealm never
+#						###     had a side suffix, because being inside one realm is a
+#						###     property of the PAIR, exactly like the pact itself.
+#						###     Select_CString( <bool>, Localize(a), Localize(b) ) is
+#						###     verbatim vanilla (GAME\gui\game_rules.gui:110) and the
+#						###     bool is a plain variable read, never a scripted gui (R9).
+#						###
+#						###     T14 still greys the box: gating runs ONCE at window
+#						###     open, while TntValid re-asks every frame, so an
+#						###     alliance formed or a war declared while the window is
+#						###     open still disables a control that gating could not
+#						###     hide. `enabled` and the tooltip that explains it sit on
+#						###     the SAME widget - the checkbox - which is what
+#						###     GAME\gui\window_faith.gui:900-902 requires and what
+#						###     tnt_toggle_line_box_tooltip exists for.
+#						tnt_toggle_line = {
+#							name = "tnt_mutual_alliance"
+#
+#							blockoverride "tnt_toggle_line_visible" { visible = "[TntRow('tnt_show_alliance_p')]" }
+#
+#							blockoverride "tnt_toggle_line_icon"
+#							{
+#								widget = {
+#									name = "tnt_mutual_icon_holder_alliance"
+#									size = { 26 100% }
+#									alwaystransparent = yes
+#
+#									icon = {
+#										name = "tnt_mutual_icon_alliance"
+#										size = { 24 24 }
+#										parentanchor = center
+#										texture = "gfx/interface/icons/character_interactions/alliance.dds"
+#										alwaystransparent = yes
+#									}
+#								}
+#							}
+#
+#							### One uniform alliance, and it is offered IN-REALM TOO as of V4
+#							### fix 1: the realm test in T18 is gone, so this row now appears
+#							### for a liege and for his own vassal - which is what vanilla does
+#							### when the two of them marry (an accepted marriage runs
+#							### create_alliance with no realm condition). What in-realm cannot
+#							### do is answer a call to arms; tnt_item_alliance_desc says so
+#							### rather than the row hiding itself. Plain keys, no Select_CString.
+#							blockoverride "tnt_toggle_line_label"       { text = "tnt_item_alliance" }
+#							blockoverride "tnt_toggle_line_tooltip"     { tooltip = "tnt_item_alliance_desc" }
+#							blockoverride "tnt_toggle_line_sgui"        { onclick = "[TntExec('tnt_alliance_p_toggle')]" }
+#							blockoverride "tnt_toggle_line_var"         { checked = "[TntOn('tnt_alliance_p')]" }
+#							blockoverride "tnt_toggle_line_enabled"     { enabled = "[TntValid('tnt_alliance_p_toggle')]" }
+#							blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "[TntTip('tnt_alliance_p_toggle')]" }
+#						}
+
+						####################################################################
+						### TOMBSTONE B - RETIRED: THE NON-AGGRESSION PACT BETWEEN THE TWO
+						### PARTIES ("Pakt o nenapadenii"), THE MUTUAL TEN-YEAR TRUCE.
+						### V13 USER ITEM 1. NOT to be confused with the third-party
+						### promise retired earlier (user item 1 of an earlier round) -
+						### that one was about somebody who was not at the table.
+						###
+						### The mechanic was BUILT, SHIPPED AND PLAYED: this line beside
+						### the alliance, a signed price clamped -20..50, an apply leg
+						### running add_truce_both_ways for ten years under our own loc
+						### name, TWO AI archetypes (A1 the plain pact, A6 the proud pact
+						### paid in prestige), a silent AI-to-AI leg that was the single
+						### commonest thing in the world's diplomacy at weight 30, and a
+						### war-reachability gate written only last round to keep the term
+						### honest. CONSIDERED AND WITHDRAWN FOR AN INDEFINITE PERIOD.
+						###
+						### THIS IS A DESIGN REFUSAL, NOT A BUG FIX. Same ruling as the
+						### alliance, and vanilla puts the purchased truce behind THE SAME
+						### Diplomacy investment: purchase_truce_interaction
+						### (GAME\common\character_interactions\03_fp2_interactions.txt:2016)
+						### delegates its is_shown to
+						### fp2_purchase_truce_interaction_soft_requirements_trigger
+						### (GAME\common\scripted_triggers\
+						### 03_fp2_scripted_triggers.txt:725-735), whose OR OPENS WITH
+						### `always = no` and whose only general unlock is `has_perk =
+						### defensive_negotiations_perk` (:732) - the Diplomacy / Foreign
+						### Affairs perk. Selling peace at this table for coin alone lets
+						### a ruler who never invested a focus buy what vanilla makes a
+						### lifestyle decision. THE MOD REFUSES THE TERM ON PURPOSE.
+						###
+						### NOTHING IS DELETED. DO NOT RE-ENABLE ONE HALF.
+						###
+						### A6's PRESTIGE ROW: PRESTIGE IS NOT RETIRED. A6 wrote
+						### tnt_prestige_r as its payment leg; the currency itself stays
+						### priced, applied and reachable through the settle ladder's
+						### prestige rung and the player's own stepper. What retires is
+						### the only ARCHETYPE that wrote it directly.
+						###
+						### THE INDEPENDENCE GRANT'S OWN TRUCE IS UNTOUCHED: the
+						### TRUCE_GRANT_INDEPENDENCE add_truce_both_ways in
+						### common\scripted_effects\tnt_3a_people.txt is VANILLA's rule
+						### about releasing a vassal, not this term.
+						###
+						### ROW INDEX 4 IS RETIRED, not free. ARCHETYPE INDICES 1 AND 6
+						### ARE RETIRED and must never be reused.
+						### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+						####################################################################
+#						### 4 - NON-AGGRESSION PACT (T16's enabled+tooltip pair, kept)
+#						tnt_toggle_line = {
+#							name = "tnt_mutual_truce"
+#
+#							blockoverride "tnt_toggle_line_visible" { visible = "[TntRow('tnt_show_truce_p')]" }
+#
+#							blockoverride "tnt_toggle_line_icon"
+#							{
+#								widget = {
+#									name = "tnt_mutual_icon_holder_truce"
+#									size = { 26 100% }
+#									alwaystransparent = yes
+#
+#									icon = {
+#										name = "tnt_mutual_icon_truce"
+#										size = { 24 24 }
+#										parentanchor = center
+#										texture = "gfx/interface/icons/character_interactions/negotiate_settlement_interaction.dds"
+#										alwaystransparent = yes
+#									}
+#								}
+#							}
+#
+#							blockoverride "tnt_toggle_line_label"       { text = "tnt_item_truce" }
+#							blockoverride "tnt_toggle_line_tooltip"     { tooltip = "tnt_item_truce_desc" }
+#							blockoverride "tnt_toggle_line_sgui"        { onclick = "[TntExec('tnt_truce_p_toggle')]" }
+#							blockoverride "tnt_toggle_line_var"         { checked = "[TntOn('tnt_truce_p')]" }
+#							blockoverride "tnt_toggle_line_enabled"     { enabled = "[TntValid('tnt_truce_p_toggle')]" }
+#							blockoverride "tnt_toggle_line_box_tooltip" { tooltip = "[TntTip('tnt_truce_p_toggle')]" }
+#						}
+
+						### MARRIAGE, AS A MUTUAL TERM, IN THE CENTRE (V3).
+						###
+						### It belongs beside the alliance and the pact for the same
+						### reason they are here: one marriage is ONE thing both houses
+						### enter, not something each side hands over separately. It used
+						### to be two rows, one per column, both opening the same editor -
+						### the old code said so itself: "BOTH marriage rows call the SAME
+						### opener ... there is nothing per-side to open." Those rows are
+						### hidden now and this is the single term.
+						###
+						### THE CLICK GOES STRAIGHT TO VANILLA'S MATCHMAKER. No panel of
+						### ours in between: no home-made candidate columns, no staging
+						### strip, and no second pair list carrying its own grand-wedding
+						### switch. The absolute TntPartner form is used deliberately -
+						### it needs no datacontext, and a datacontext on a wrapper is
+						### exactly what made the old launch button unreachable by the
+						### mouse.
+						###
+						### V4 FIX 3: A BUTTON, NOT A CHECKBOX. The line used to be a
+						### tnt_toggle_line whose `checked` merely echoed "is the couple
+						### list non-empty" - so a ticked box could not be unticked, and
+						### clicking it opened the screen again. Marriage is a screen you
+						### open, so the control is now type tnt_action_line
+						### (gui\tnt_panels.gui): icon, then one wide button that carries
+						### the wording and the tooltip and is the only widget on the line
+						### the mouse can hit.
+						tnt_action_line = {
+							name = "tnt_mutual_marriage"
+
+							blockoverride "tnt_action_line_visible" { visible = "[And( TntRow('tnt_show_marriage_p'), TntOn('tnt_advanced') )]" }
+
+							blockoverride "tnt_action_line_icon"
+							{
+								widget = {
+									name = "tnt_mutual_icon_holder_marriage"
+									size = { 26 100% }
+									alwaystransparent = yes
+
+									icon = {
+										name = "tnt_mutual_icon_marriage"
+										size = { 24 24 }
+										parentanchor = center
+										texture = "gfx/interface/icons/character_interactions/icon_marriage.dds"
+										alwaystransparent = yes
+									}
+								}
+							}
+
+							blockoverride "tnt_action_line_text"    { text = "tnt_btn_stage_marriage" }
+							blockoverride "tnt_action_line_tooltip" { tooltip = "tnt_btn_stage_marriage_full" }
+							blockoverride "tnt_action_line_click"   { onclick = "[TntPartner.OpenPlayerInteraction( 'tnt_stage_marriage_interaction' )]" }
+						}
+
+						### THERE IS NO GRAND-WEDDING LINE HERE ANY MORE (V4 fix 2).
+						###
+						### It stood here for exactly one iteration. The user's ruling:
+						### "there must be no separate treaty item 'promise a grand
+						### wedding' - everything is stated in the pair-selection window."
+						### And that is where the engine already offers it: vanilla's
+						### matchmaker ships a grand-wedding toggle of its own
+						### (GAME\gui\interaction_marriage.gui:332,
+						### MARRIAGE_GRAND_WEDDING_TOGGLE), and our interaction declares the
+						### matching send_option flag = grand_wedding_promise with every
+						### host gate on it (tnt_12_marriage_picker.txt). Two switches for
+						### one promise, in two windows, is how they end up disagreeing.
+						###
+						### So: the promise is made where the couple is chosen, and it is
+						### PRICED there too - the preview line in that window includes it.
+						### The treaty sheet still reports it (tnt_sheet_wed_grand,
+						### gui\tnt_panels.gui) because it is a term of the deal; it is only
+						### no longer something you can switch from here.
+						###
+						### tnt_wed_grand_toggle in tnt_22a_marriage.txt has no caller left.
+						### It is kept, and its header says why: it holds the one copy of the
+						### host gate written as custom_description rows, which is what the
+						### interaction's own send_option tooltip mirrors.
+					}
+				}
+			}
+
+			################################################################
+			### RIGHT COLUMN - THEY OFFER
+			################################################################
+			tnt_column = {
+				name = "tnt_column_partner"
+				datacontext = "[TntPartner]"
+
+				blockoverride "tnt_column_header"
+				{
+					text = "tnt_col_partner"
+				}
+
+				blockoverride "tnt_column_rows"
+				{
+					### 1 - GOLD
+					### Every row on this side is gated exactly like its _p twin -
+					### see the long note above tnt_row_gold_p.
+					### V3 ITERATION 3: the four currency rows on THIS side are
+					### tnt_item_row_currency too, and their preset row keys end
+					### in _r. The `_max` preset therefore means "everything HE
+					### can afford" here, which is why type tnt_preset_menu keeps
+					### the max label in a block - see the eight panels at the
+					### bottom of this file.
+					tnt_item_row_currency = {
+						name = "tnt_row_gold_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_gold_r')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_gold" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_gold_desc" }
+
+						blockoverride "tnt_stepper_full_block"
+						{
+							tnt_stepper_full = {
+								parentanchor = vcenter|right
+								position = { -10 0 }
+
+								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_gold_r_sub_huge')]" }
+								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_gold_r_sub')]" }
+								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_gold_r_sub_big')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_gold_r_add')]" }
+								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_gold_r_add_big')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_gold_r_add_huge')]" }
+								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_gold_r')|0]" }
+								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_tt" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_tt" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'gold_r' )]" }
+							}
+						}
+					}
+
+					### Row index 2 (yearly tribute) is RETIRED - see the row
+					### index table at the top of this file.
+
+					### 13 - PRESTIGE (item 2.4). NEW.
+					tnt_item_row_currency = {
+						name = "tnt_row_prestige_r"
+						layoutpolicy_horizontal = expanding
+						### V17, USER ITEM 4 (step 0) - the _r twin. Both sides of a
+						### currency must carry the conjunct or the rule half-works,
+						### which is the exact class of defect it is fixing. See the _p
+						### row for the full argument.
+						visible = "[And( TntRow('tnt_show_prestige_r'), TntOn('tnt_trade_prest_on') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_prestige" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_prestige_desc" }
+
+						blockoverride "tnt_stepper_full_block"
+						{
+							tnt_stepper_full = {
+								parentanchor = vcenter|right
+								position = { -10 0 }
+
+								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_prestige_r_sub_huge')]" }
+								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_prestige_r_sub')]" }
+								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_prestige_r_sub_big')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_prestige_r_add')]" }
+								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_prestige_r_add_big')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_prestige_r_add_huge')]" }
+								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_prestige_r')|0]" }
+								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_prestige_tt" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_prestige_tt" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'prestige_r' )]" }
+							}
+						}
+					}
+
+					### 14 - PIETY (item 2.4). NEW.
+					tnt_item_row_currency = {
+						name = "tnt_row_piety_r"
+						layoutpolicy_horizontal = expanding
+						### V17, USER ITEM 4 (step 0) - the fourth and last of the
+						### currency-rule rows. See the prestige _p row above.
+						visible = "[And( TntRow('tnt_show_piety_r'), TntOn('tnt_trade_pty_on') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_piety" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_piety_desc" }
+
+						blockoverride "tnt_stepper_full_block"
+						{
+							tnt_stepper_full = {
+								parentanchor = vcenter|right
+								position = { -10 0 }
+
+								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_piety_r_sub_huge')]" }
+								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_piety_r_sub')]" }
+								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_piety_r_sub_big')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_piety_r_add')]" }
+								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_piety_r_add_big')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_piety_r_add_huge')]" }
+								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_piety_r')|0]" }
+								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_piety_tt" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_piety_tt" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'piety_r' )]" }
+							}
+						}
+					}
+
+					### 15 - INFLUENCE (item 2.4). NEW. Same gate as the _p row -
+					###      tnt_influence_ok_value, which is 1 only when BOTH
+					###      governments can hold influence. See the long note on
+					###      tnt_row_influence_p above.
+					tnt_item_row_currency = {
+						name = "tnt_row_influence_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntPos('tnt_influence_ok_value')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_influence_01.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_influence" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_influence_desc" }
+
+						### Coarse step 250, not 1000 - same reason as the _p twin.
+						blockoverride "tnt_stepper_full_block"
+						{
+							tnt_stepper_full = {
+								parentanchor = vcenter|right
+								position = { -10 0 }
+
+								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_influence_r_sub_huge')]" }
+								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_influence_r_sub')]" }
+								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_influence_r_sub_big')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_influence_r_add')]" }
+								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_influence_r_add_big')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_influence_r_add_huge')]" }
+								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_influence_r')|0]" }
+								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_influence_tt" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_influence_tt" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'influence_r' )]" }
+							}
+						}
+					}
+
+					### 3 / 4 - THE TWO PACT ROWS ARE GONE FROM THIS COLUMN TOO
+					###     (V3 ADDITION 4). This is the side the user actually
+					###     complained about: ticking the alliance HERE priced a
+					###     second alliance and subtracted points. An alliance and a
+					###     non-aggression pact are single facts about the PAIR - the
+					###     same reason tnt_ally_inrealm never had a side suffix - so
+					###     they are now single mutual rows in the centre column and
+					###     tnt_alliance_r / tnt_truce_r have NO reader in the GUI
+					###     any more (see the structured output's unused list).
+
+					### 5 - MARRIAGE PACT (item 2.1). Same editor, same opener - see
+					###     the _p twin. V3 ITERATION 4: this side's grey line
+						###     counts the SAME one list of couples, and for the same
+						###     reason as the _p twin - tnt_spouse_r is a staging cursor now.
+					tnt_item_row_toggle = {
+						name = "tnt_row_marriage_r"
+						layoutpolicy_horizontal = expanding
+						### SUPERSEDED BY tnt_mutual_marriage IN THE CENTRE COLUMN - see the
+						### note on the left-hand twin. Switched off, not yet deleted.
+						visible = no
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_marriage.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_marriage" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_marriage_desc" }
+						blockoverride "tnt_row_sub"
+						{
+							visible = "[TntAny('tnt_wed_list')]"
+							text = "tnt_wed_count"
+							default_format = "#high"
+						}
+						blockoverride "tnt_toggle_extra"
+						{
+							widget = {
+								name = "tnt_marriage_edit_holder_r"
+								size = { 32 100% }
+
+								button_round = {
+									name = "tnt_marriage_edit_r"
+									size = { 28 28 }
+									parentanchor = center
+									tooltip = "tnt_btn_edit_marriage"
+									using = tooltip_es
+									onclick = "[TntExec('tnt_pick_marriage_open')]"
+
+									icon = {
+										name = "tnt_marriage_edit_icon_r"
+										size = { 20 20 }
+										parentanchor = center
+										texture = "gfx/interface/icons/character_interactions/icon_marriage.dds"
+										alwaystransparent = yes
+									}
+								}
+							}
+						}
+						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_marriage_r_toggle')]" }
+						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_marriage_r')]" }
+						blockoverride "tnt_toggle_enabled" { enabled = "[TntValid('tnt_marriage_r_toggle')]" }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_marriage_r_toggle')]" }
+					}
+
+					### 6 - CEDE TITLES (item 2.2, MULTI-SELECT - see the _p twin)
+					tnt_item_row_picker = {
+						name = "tnt_row_title_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[And( TntRow('tnt_show_title_r'), TntOn('tnt_advanced') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_title" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_title_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntAny('tnt_sel_title_r')]"
+							text = "tnt_multi_count_title_r"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_count = {
+								name = "tnt_chosen_title_r"
+
+								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_title_r')]" }
+								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_title_r_open')]" }
+								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+								blockoverride "tnt_chosen_count_label" { text = "[TntSV('tnt_count_sel_title_r_value')|0]" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"    { visible = "[TntNone('tnt_sel_title_r')]" }
+						blockoverride "tnt_picker_clear_state"   { visible = "[TntAny('tnt_sel_title_r')]" }
+						blockoverride "tnt_picker_open_sgui"     { onclick = "[TntExec('tnt_multi_title_r_open')]" }
+						blockoverride "tnt_picker_open_enabled"  { enabled = "[TntValid('tnt_multi_title_r_open')]" }
+						blockoverride "tnt_picker_open_tooltip"  { tooltip = "[TntTip('tnt_multi_title_r_open')]" }
+						blockoverride "tnt_picker_clear_sgui"    { onclick = "[TntExec('tnt_sel_title_r_clear')]" }
+					}
+
+					####################################################################
+					### RETIRED WITH THE GRANTED CLAIM - V13 USER ITEM 1. The partner-side
+					### twin of the row retired in the left column above; both generations
+					### of the term went together. A DESIGN REFUSAL, NOT A BUG FIX:
+					### vanilla gates the manufacture of claims behind a LEARNING
+					### investment (task_fabricate_claim,
+					### GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088, with
+					### its outcome keyed to the chaplain's learning at :1120/:1126/:1132),
+					### and buying a finished claim at this table short-circuits it.
+					### Nothing is deleted; do not re-enable one half - the opener and the
+					### clear both call scripted_guis that retire with the row, and the
+					### overlay panel it opened is commented out with it. Overlay index 7
+					### and row index 7 are RETIRED, not free.
+					### Full tombstone: TOMBSTONE C on the left-column claim row earlier in
+					### this file, and common\scripted_effects\tnt_32_apply.txt.
+					####################################################################
+#					### 7 - GRANT CLAIMS (item 2.2, MULTI-SELECT)
+#					tnt_item_row_picker = {
+#						name = "tnt_row_claim_r"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_claim_r')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_claim_pressed.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_claim" }
+#						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_claim_desc" }
+#						blockoverride "tnt_picker_label"
+#						{
+#							visible = "[TntAny('tnt_sel_claim_r')]"
+#							text = "tnt_multi_count_claim_r"
+#						}
+#
+#						blockoverride "tnt_picker_content"
+#						{
+#							tnt_chosen_count = {
+#								name = "tnt_chosen_claim_r"
+#
+#								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_claim_r')]" }
+#								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_claim_r_open')]" }
+#								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+#								blockoverride "tnt_chosen_count_label" { text = "[TntSV('tnt_count_sel_claim_r_value')|0]" }
+#							}
+#						}
+#
+#						blockoverride "tnt_picker_open_state"  { visible = "[TntNone('tnt_sel_claim_r')]" }
+#						blockoverride "tnt_picker_clear_state" { visible = "[TntAny('tnt_sel_claim_r')]" }
+#						blockoverride "tnt_picker_open_sgui"   { onclick = "[TntExec('tnt_multi_claim_r_open')]" }
+#						blockoverride "tnt_picker_clear_sgui"  { onclick = "[TntExec('tnt_sel_claim_r_clear')]" }
+#					}
+
+					####################################################################
+					### RETIRED WITH THE PRISONER TERMS - USER ITEM 7. Built, shipped and played;
+					### considered and WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling. A
+					### revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+					### ransom interactions, the release on_actions and the opinion/hook consequences
+					### they carry) instead of this mod's private bookkeeping. Nothing is deleted;
+					### do not re-enable one half. Full tombstone: the prisoners row earlier in this
+					### file, and common\scripted_effects\tnt_32_apply.txt.
+					####################################################################
+#					### 8 - RELEASE PRISONERS
+#					tnt_item_row_toggle = {
+#						name = "tnt_row_prisoners_r"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_prisoners_r')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/prison.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_prisoners" }
+#						blockoverride "tnt_row_tooltip"
+#						{
+#							tooltipwidget = {
+#								tnt_prisoner_list_tooltip = {
+#									blockoverride "tnt_prisoner_tooltip_header"
+#									{
+#										text = "tnt_item_prisoners_desc"
+#									}
+#								}
+#							}
+#						}
+#						blockoverride "tnt_toggle_extra"
+#						{
+#							widget = {
+#								name = "tnt_prisoners_view_holder_r"
+#								size = { 32 100% }
+#
+#								button_round = {
+#									name = "tnt_prisoners_view_r"
+#									size = { 28 28 }
+#									parentanchor = center
+#									tooltip = "tnt_btn_view"
+#									using = tooltip_es
+#									onclick = "[TntExec('tnt_pick_prisoners_r_open')]"
+#
+#									icon = {
+#										name = "tnt_prisoners_view_icon_r"
+#										size = { 20 20 }
+#										parentanchor = center
+#										texture = "gfx/interface/icons/character_interactions/prison.dds"
+#										alwaystransparent = yes
+#									}
+#								}
+#							}
+#						}
+#						blockoverride "tnt_toggle_sgui" { onclick = "[TntExec('tnt_prisoners_r_toggle')]" }
+#						blockoverride "tnt_toggle_var"  { checked = "[TntOn('tnt_prisoners_r')]" }
+#					}
+
+					### 9 - HOOK, BY TIER (item 2.3 - see the _p twin for the full
+					###     reasoning and for the fallback recipe)
+					tnt_item_row_hook = {
+						name = "tnt_row_hook_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_hook_r')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/hook_icon.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_hook" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_hook_desc" }
+
+						### Same two blocks as the _p twin, with the _r variable and
+						### the _r pair of scripted guis. The third block,
+						### tnt_hook_tier_tooltip, is left at its default on BOTH
+						### sides: its key tnt_stepper_hook_tt explains the two mouse
+						### buttons, which is side-neutral and is the one thing a
+						### cycling control cannot show by itself.
+						blockoverride "tnt_hook_control_block"
+						{
+							tnt_control_hook_tier = {
+								name = "tnt_hook_tier_r"
+								parentanchor = vcenter|right
+								position = { -8 0 }
+
+								blockoverride "tnt_hook_tier_buttons"
+								{
+									onclick      = "[TntExec('tnt_hook_r_toggle')]"
+									onrightclick = "[TntExec('tnt_hook_r_toggle_back')]"
+									enabled      = "[TntValid('tnt_hook_r_toggle')]"
+									down         = "[TntOn('tnt_hook_r')]"
+								}
+
+								blockoverride "tnt_hook_tier_label"
+								{
+									text = "[TntHookTier('tnt_hook_r')]"
+								}
+							}
+						}
+					}
+
+					### 10 - ARTIFACTS (item 2.2, MULTI-SELECT - see the _p twin)
+					tnt_item_row_picker = {
+						name = "tnt_row_artifact_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_artifact_r')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/artifact.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_artifact" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_artifact_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntAny('tnt_sel_artifact_r')]"
+							text = "tnt_multi_count_artifact_r"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_count = {
+								name = "tnt_chosen_artifact_r"
+
+								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_artifact_r')]" }
+								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_artifact_r_open')]" }
+								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+								blockoverride "tnt_chosen_count_label" { text = "[TntSV('tnt_count_sel_artifact_r_value')|0]" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"  { visible = "[TntNone('tnt_sel_artifact_r')]" }
+						blockoverride "tnt_picker_clear_state" { visible = "[TntAny('tnt_sel_artifact_r')]" }
+						blockoverride "tnt_picker_open_sgui"   { onclick = "[TntExec('tnt_multi_artifact_r_open')]" }
+						blockoverride "tnt_picker_clear_sgui"  { onclick = "[TntExec('tnt_sel_artifact_r_clear')]" }
+					}
+
+					####################################################################
+					### RETIRED WITH THE THIRD-PARTY NON-AGGRESSION PROMISE - USER ITEM 1. Built,
+					### shipped and played; considered and WITHDRAWN FOR AN INDEFINITE PERIOD as
+					### surplus for pleasant play - a term about somebody who is not at the table.
+					### Nothing is deleted; do not re-enable one half. Overlay index 11 is RETIRED,
+					### not free. Full tombstone: the non-aggression row earlier in this file, and
+					### common\scripted_effects\tnt_32_apply.txt.
+					####################################################################
+#					### 11 - PROMISE NOT TO ATTACK (still single-select)
+#					tnt_item_row_picker = {
+#						name = "tnt_row_nonwar_r"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_nonwar_r')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_retreat.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_nonwar" }
+#						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_nonwar_desc" }
+#						blockoverride "tnt_picker_label"
+#						{
+#							visible = "[TntVar('tnt_nonwar_r').Char.IsValid]"
+#							text = "[TntVar('tnt_nonwar_r').Char.GetUINameNoTooltip]"
+#						}
+#
+#						blockoverride "tnt_picker_content"
+#						{
+#							tnt_chosen_char = {
+#								name = "tnt_chosen_nonwar_r"
+#
+#								blockoverride "tnt_chosen_visible" { visible = "[TntVar('tnt_nonwar_r').Char.IsValid]" }
+#								blockoverride "tnt_chosen_context" { datacontext = "[TntVar('tnt_nonwar_r').Char]" }
+#								blockoverride "tnt_chosen_click"   { onclick = "[TntExec('tnt_pick_nonwar_r_open')]" }
+#								blockoverride "tnt_chosen_tooltip" { tooltip = "tnt_btn_change" }
+#							}
+#						}
+#
+#						blockoverride "tnt_picker_open_state"  { visible = "[Not( TntVar('tnt_nonwar_r').Char.IsValid )]" }
+#						blockoverride "tnt_picker_clear_state" { visible = "[TntVar('tnt_nonwar_r').Char.IsValid]" }
+#						blockoverride "tnt_picker_open_sgui"   { onclick = "[TntExec('tnt_pick_nonwar_r_open')]" }
+#						blockoverride "tnt_picker_clear_sgui"  { onclick = "[TntExec('tnt_nonwar_r_clear')]" }
+#					}
+
+					### 12 - SWEAR FEALTY (item 2.5). On this side it means
+					###      "you become my vassal". Same single contract sheet at
+					###      overlay index 12, same opener - see the _p twin.
+					tnt_item_row_toggle = {
+						name = "tnt_row_vassal_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[And( TntRow('tnt_show_vassal_r'), TntOn('tnt_advanced') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_vassal" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_vassal_desc" }
+						blockoverride "tnt_toggle_extra"
+						{
+							widget = {
+								name = "tnt_contract_edit_holder_r"
+								size = { 32 100% }
+
+								button_round = {
+									name = "tnt_contract_edit_r"
+									size = { 28 28 }
+									parentanchor = center
+									tooltip = "tnt_btn_edit_contract"
+									using = tooltip_es
+									onclick = "[TntExec('tnt_pick_contract_open')]"
+
+									icon = {
+										name = "tnt_contract_edit_icon_r"
+										size = { 20 20 }
+										parentanchor = center
+										texture = "gfx/interface/icons/character_interactions/icon_vassal.dds"
+										alwaystransparent = yes
+									}
+								}
+							}
+						}
+						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_vassal_r_toggle')]" }
+						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_vassal_r')]" }
+						blockoverride "tnt_toggle_enabled" { enabled = "[TntValid('tnt_vassal_r_toggle')]" }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_vassal_r_toggle')]" }
+					}
+
+					####################################################
+					### ITEM 19 - THE FOUR PEOPLE TERMS, PARTNER SIDE.
+					### Same order, same shapes and the same panels as the _p twins;
+					### only the variables, the lists and the scripted guis change side.
+					### The full reasoning for each row is on its twin in the left
+					### column - the two columns are read side by side, so the argument
+					### is not repeated four times here.
+					####################################################
+
+					### 12b - GRANT INDEPENDENCE.
+					###      _r MEANS THE PARTNER RELEASES THE PLAYER, i.e. the player
+					###      stops being his vassal. That is the contract's fixed reading
+					###      and the inverse of the _p row, not a second copy of it.
+					tnt_item_row_toggle = {
+						name = "tnt_row_indep_r"
+						layoutpolicy_horizontal = expanding
+						### V19: the mirror of the _p row above - same missing conjunct, same
+						### reason, same shape. See the box at tnt_row_indep_p.
+						visible = "[And( TntRow('tnt_show_indep_r'), TntOn('tnt_advanced') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/independence.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_indep" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_indep_desc" }
+						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_indep_r_toggle')]" }
+						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_indep_r')]" }
+						### Cached is_valid, like the _p twin: reads var:tnt_indep_ok_r
+						### (E33), no per-frame vassal walk. See the _p row's box.
+						blockoverride "tnt_toggle_enabled" { enabled = "[TntValid('tnt_indep_r_toggle')]" }
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_indep_r_toggle')]" }
+					}
+
+					### 16 - HOSTAGES (the partner's hostage, panel 16 / side 1)
+					tnt_item_row_picker = {
+						name = "tnt_row_hostage_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_hostage_r')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_hostage.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_hostage" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_hostage_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntVar('tnt_hostage_r').Char.IsValid]"
+							text = "[TntVar('tnt_hostage_r').Char.GetUINameNoTooltip]"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_char = {
+								name = "tnt_chosen_hostage_r"
+
+								blockoverride "tnt_chosen_visible" { visible = "[TntVar('tnt_hostage_r').Char.IsValid]" }
+								blockoverride "tnt_chosen_context" { datacontext = "[TntVar('tnt_hostage_r').Char]" }
+								blockoverride "tnt_chosen_click"   { onclick = "[TntExec('tnt_pick_hostage_r_open')]" }
+								blockoverride "tnt_chosen_tooltip" { tooltip = "tnt_btn_change" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"   { visible = "[Not( TntVar('tnt_hostage_r').Char.IsValid )]" }
+						blockoverride "tnt_picker_clear_state"  { visible = "[TntVar('tnt_hostage_r').Char.IsValid]" }
+						blockoverride "tnt_picker_open_sgui"    { onclick = "[TntExec('tnt_pick_hostage_r_open')]" }
+						blockoverride "tnt_picker_open_enabled" { enabled = "[TntValid('tnt_pick_hostage_r_open')]" }
+						blockoverride "tnt_picker_open_tooltip" { tooltip = "[TntTip('tnt_pick_hostage_r_open')]" }
+						blockoverride "tnt_picker_clear_sgui"   { onclick = "[TntExec('tnt_pick_hostage_r_clear')]" }
+					}
+
+					### 17 - WARD / FOSTERAGE.  *** RETIRED V16, USER ITEM 5 *** - the _r
+					###      twin of the retired _p row in the left column, where the full
+					###      tombstone is. Commented out in the same edit; overlay index 17
+					###      is dormant and must not be reassigned.
+#					### 17 - WARD / FOSTERAGE (the partner's child comes to us, 17 / 1)
+#					tnt_item_row_picker = {
+#						name = "tnt_row_ward_r"
+#						layoutpolicy_horizontal = expanding
+#						visible = "[TntRow('tnt_show_ward_r')]"
+#
+#						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/child.dds" }
+#						blockoverride "tnt_row_name"    { text = "tnt_item_ward" }
+#						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_ward_desc" }
+#						blockoverride "tnt_picker_label"
+#						{
+#							visible = "[TntVar('tnt_ward_r').Char.IsValid]"
+#							text = "[TntVar('tnt_ward_r').Char.GetUINameNoTooltip]"
+#						}
+#
+#						blockoverride "tnt_picker_content"
+#						{
+#							tnt_chosen_char = {
+#								name = "tnt_chosen_ward_r"
+#
+#								blockoverride "tnt_chosen_visible" { visible = "[TntVar('tnt_ward_r').Char.IsValid]" }
+#								blockoverride "tnt_chosen_context" { datacontext = "[TntVar('tnt_ward_r').Char]" }
+#								blockoverride "tnt_chosen_click"   { onclick = "[TntExec('tnt_pick_ward_r_open')]" }
+#								blockoverride "tnt_chosen_tooltip" { tooltip = "tnt_btn_change" }
+#							}
+#						}
+#
+#						blockoverride "tnt_picker_open_state"   { visible = "[Not( TntVar('tnt_ward_r').Char.IsValid )]" }
+#						blockoverride "tnt_picker_clear_state"  { visible = "[TntVar('tnt_ward_r').Char.IsValid]" }
+#						blockoverride "tnt_picker_open_sgui"    { onclick = "[TntExec('tnt_pick_ward_r_open')]" }
+#						blockoverride "tnt_picker_open_enabled" { enabled = "[TntValid('tnt_pick_ward_r_open')]" }
+#						blockoverride "tnt_picker_open_tooltip" { tooltip = "[TntTip('tnt_pick_ward_r_open')]" }
+#						blockoverride "tnt_picker_clear_sgui"   { onclick = "[TntExec('tnt_pick_ward_r_clear')]" }
+#					}
+
+					### 18 - COURTIER TRANSFER (MULTI-SELECT, panel 18 / side 1).
+					###      The badge counts the list in the GUI for the same reason as
+					###      its _p twin - no count value is registered for this term.
+					tnt_item_row_picker = {
+						name = "tnt_row_courtier_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[TntRow('tnt_show_courtier_r')]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/courtier_interaction.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_courtier" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_courtier_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntAny('tnt_sel_courtier_r')]"
+							text = "tnt_sel_count_courtier_r"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_count = {
+								name = "tnt_chosen_courtier_r"
+
+								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_courtier_r')]" }
+								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_courtier_r_open')]" }
+								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+								blockoverride "tnt_chosen_count_label" { text = "[GetDataModelSize( TntList('tnt_sel_courtier_r') )]" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"   { visible = "[TntNone('tnt_sel_courtier_r')]" }
+						blockoverride "tnt_picker_clear_state"  { visible = "[TntAny('tnt_sel_courtier_r')]" }
+						blockoverride "tnt_picker_open_sgui"    { onclick = "[TntExec('tnt_multi_courtier_r_open')]" }
+						blockoverride "tnt_picker_open_enabled" { enabled = "[TntValid('tnt_multi_courtier_r_open')]" }
+						blockoverride "tnt_picker_open_tooltip" { tooltip = "[TntTip('tnt_multi_courtier_r_open')]" }
+						blockoverride "tnt_picker_clear_sgui"   { onclick = "[TntExec('tnt_sel_courtier_r_clear')]" }
+					}
+
+					### 19 - TRANSFER A VASSAL (MULTI-SELECT, panel 19 / side 1)  V26
+					###      The mirror: the PARTNER hands over one of his own direct
+					###      vassals. Same game-rule conjunct as the _p twin, and for
+					###      the same reason - the term is irreversible on either
+					###      side, so both rows read tnt_advanced or neither does.
+					tnt_item_row_picker = {
+						name = "tnt_row_subject_r"
+						layoutpolicy_horizontal = expanding
+						visible = "[And( TntRow('tnt_show_subject_r'), TntOn('tnt_advanced') )]"
+
+						blockoverride "tnt_row_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+						blockoverride "tnt_row_name"    { text = "tnt_item_subject" }
+						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_subject_desc" }
+						blockoverride "tnt_picker_label"
+						{
+							visible = "[TntAny('tnt_sel_subject_r')]"
+							text = "tnt_sel_count_subject_r"
+						}
+
+						blockoverride "tnt_picker_content"
+						{
+							tnt_chosen_count = {
+								name = "tnt_chosen_subject_r"
+
+								blockoverride "tnt_chosen_visible"     { visible = "[TntAny('tnt_sel_subject_r')]" }
+								blockoverride "tnt_chosen_click"       { onclick = "[TntExec('tnt_multi_subject_r_open')]" }
+								blockoverride "tnt_chosen_tooltip"     { tooltip = "tnt_btn_change" }
+								blockoverride "tnt_chosen_count_label" { text = "[GetDataModelSize( TntList('tnt_sel_subject_r') )]" }
+							}
+						}
+
+						blockoverride "tnt_picker_open_state"   { visible = "[TntNone('tnt_sel_subject_r')]" }
+						blockoverride "tnt_picker_clear_state"  { visible = "[TntAny('tnt_sel_subject_r')]" }
+						blockoverride "tnt_picker_open_sgui"    { onclick = "[TntExec('tnt_multi_subject_r_open')]" }
+						blockoverride "tnt_picker_open_enabled" { enabled = "[TntValid('tnt_multi_subject_r_open')]" }
+						blockoverride "tnt_picker_open_tooltip" { tooltip = "[TntTip('tnt_multi_subject_r_open')]" }
+						blockoverride "tnt_picker_clear_sgui"   { onclick = "[TntExec('tnt_sel_subject_r_clear')]" }
+					}
+				}
+			}
+		}
+
+		####################################################################
+		### FOOTER
+		### Exactly ONE button_primary in this window - it silently binds
+		### RETURN and alt+C (GAME\gui\shared\buttons.gui:28-29), so two of
+		### them would fight over the same key.
+		### enabled / tooltip / onclick all come from the tnt_send_offer
+		### scripted gui - the shape of GAME\gui\window_faith.gui:894-905.
+		### R-LAYOUT: neither button carries an anchor; `expand = {}` between them
+		### is what pushes Propose to the right.
+		####################################################################
+		hbox = {
+			name = "tnt_footer"
+			layoutpolicy_horizontal = expanding
+
+			### V3 FIX: an EXPLICIT height. Without it the footer's height was
+			### derived from its children, so the vbox above had to guess how much
+			### room to leave for it while tnt_table was busy claiming everything it
+			### could as an expanding child. A stated height is reserved first and
+			### cannot be squeezed out, which is what a bottom bar must do.
+			### 58 = the 42 px Propose button plus the 8 px vertical margin twice.
+			size = { 100% 58 }
+
+			margin = { 4 8 }
+			spacing = 10
+
+			button_standard = {
+				name = "tnt_clear_button"
+				size = { 190 36 }
+				text = "tnt_btn_clear"
+				onclick = "[TntExec('tnt_clear_all')]"
+			}
+
+			expand = {}
+
+			### THE FOOTER HAS TWO BUTTONS AND NOT THREE.
+			###
+			### A third one lived here for two iterations: Impose by force, which declared
+			### a war whose victory executed the treaty. IT WAS DELETED BY DECISION, not by
+			### accident, and the reasoning is recorded in
+			### _docs/92-IMPOSE-WAR-REJECTED.md - in short: it duplicated and overshadowed
+			### vanilla's own casus belli system, which is the wrong trade for a mod that
+			### exists to extend CK3's diplomacy rather than to replace its wars.
+			### Do not add it back here.
+			button_primary = {
+				name = "tnt_propose_button"
+				size = { 400 42 }
+				text = "tnt_btn_propose"
+				enabled = "[TntValid('tnt_send_offer')]"
+				tooltip = "[TntTip('tnt_send_offer')]"
+				onclick = "[TntExec('tnt_send_offer')]"
+			}
+		}
+	}
+
+	####################################################################
+	### PICKER OVERLAY - twelve panels, at most one visible.
+	### Panel visibility is a pure variable test: the item index from the
+	### frozen index table (R0.8) plus the side. No GetScriptedGui in any
+	### visible=. EqualTo_CFixedPoint over a MakeScope value is verbatim
+	### vanilla: GAME\gui\activity_window_widgets\debate_success_chance.gui:137.
+	### Row shape copied from GAME\gui\activity_window_widgets\
+	### funeral_deceased_selection_widget.gui:55-82. Every row is fixed-size.
+	###
+	### BUILD 2 FILLS THE TWO RESERVED INDICES AND CONVERTS THREE PAIRS.
+	###   5      tnt_panel_marriage  - the spouse pair + line editor (item 2.1)
+	###   6/7/10 tnt_panel_multi     - available|chosen two-list panels, six
+	###                               instances, replacing the single-select
+	###                               tnt_picker_panel at those indices (item 2.2)
+	###   8      RETIRED (user item 7) - was tnt_picker_panel, the read-only
+	###                               dungeon list, one instance per side
+	###   11     RETIRED (user item 1) - was tnt_picker_panel, the single-select
+	###                               non-aggression third party, one per side
+	###   12     tnt_panel_contract  - the nine-row obligation sheet (item 2.5)
+	###   13     RETIRED (user item 7) - was tnt_panel_multi_prisoner_p, the
+	###                               per-captive selection list; side 1 of this
+	###                               index was reserved for a partner-side twin
+	###                               and that reservation is released with it
+	###
+	### ITEM 19 ADDED THREE INDICES AND SIX PANELS, all of them types-only in
+	### gui/tnt_panel_people.gui and all instantiated with one line each at the
+	### bottom of this block. TWO INDICES AND FOUR PANELS SURVIVE:
+	###   16     tnt_panel_hostage_p / _r   - one hostage per side
+	###   17     RETIRED V16, USER ITEM 5 - was tnt_panel_ward_p / _r, one child
+	###          per side. The type declarations are commented out in
+	###          gui/tnt_panel_people.gui section 2 and their two instantiations
+	###          at the bottom of this block in the SAME edit: an instantiation
+	###          of an undeclared type is a .gui LOAD error. Index dormant.
+	###   18     tnt_panel_courtier_p / _r  - courtiers, uncapped since V11,
+	###                                       two-list panels like 6 / 7 / 10
+	### GRANT INDEPENDENCE, the fourth new term, has NO panel and NO index: a
+	### bool pair needs only a checkbox and a gate.
+	### V26 ADDED ONE MORE INDEX AND TWO MORE PANELS, the first claim on a free
+	### index since 18:
+	###   19     tnt_panel_subject_p / _r   - TRANSFER A VASSAL, uncapped,
+	###                                       two-list panels of the same shape
+	###
+	### HOW THE TWO-LIST PANELS WORK, because it is the whole of item 2.2 and it
+	### is easy to "simplify" into something broken. A row click MOVES the object
+	### between two script variable lists: tnt_pick_<item>_<side>_set does
+	### add_to_variable_list on tnt_sel_* plus remove_list_variable from
+	### tnt_list_*, and tnt_pick_<item>_<side>_unset does the reverse
+	### (30-V2-DESIGN 1 row 2.2, and the move-out idiom is already shipped at
+	### MOD\common\scripted_effects\tnt_31_lists.txt). Because the object is only
+	### ever in ONE of the two lists, NO membership datafunction is needed
+	### anywhere - which is exactly why the design chose two datamodels over one
+	### list plus a "is it selected" test that CK3 cannot express. That is also
+	### why the available column's rows are `down = no` and the chosen column's
+	### are `down = yes`: the column a row is IN is the selection state.
+	###
+	### The three fill effects are unchanged and still populate tnt_list_title_*,
+	### tnt_list_claim_* and tnt_list_artifact_* on window open; only the setters
+	### change from set_variable to a list move.
+	####################################################################
+	tnt_picker_overlay = {
+		blockoverride "tnt_picker_panels"
+		{
+			############################################################
+			### 5 - THE MARRIAGE PAIR + LINE EDITOR   (item 2.1)
+			###
+			### TWO LINES, AND THAT IS THE WHOLE INTEGRATION. `tnt_panel_marriage`
+			### carries its own `visible = "[EqualTo_CFixedPoint( TntNum('tnt_picker'),
+			### '(CFixedPoint)5' )]"`, its own `parentanchor = center` (legal: its
+			### parent tnt_picker_overlay is a plain widget) and working defaults in
+			### all four contract blocks, so nothing is overridden from here.
+			###
+			### ONE panel, no per-side twin, and its `visible` tests the INDEX ONLY:
+			### the deal has exactly one betrothal, whose two halves are tnt_spouse_p
+			### and tnt_spouse_r, so both marriage rows open the same editor and
+			### there is nothing for tnt_picker_side to select.
+			###
+			### THIS INSTANTIATION WAS ONCE 90 LINES OF BLOCKOVERRIDES - two
+			### candidate datamodels, a matrilineal toggle built from tnt_toggle_line
+			### and a summary line - written from the naming contract alone, before
+			### gui\tnt_panel_marriage.gui existed. Every one of them was deleted,
+			### and it is worth recording WHY, because "the gui owner fills the
+			### blocks" was a reasonable reading of the contract: three of the four
+			### would have been WRONG. That file's line control is a patrilineal /
+			### matrilineal button PAIR driven by tnt_marriage_set_patri and
+			### tnt_marriage_set_matri, not a single toggle over tnt_marriage_matri;
+			### its summary is a six-state ladder over tnt_marriage_legal and
+			### tnt_marriage_betroth, not one sentence; and its rows carry an age
+			### column the shipped tnt_picker_row_char does not have. Guessing four
+			### block bodies across an agent boundary would have produced a panel
+			### that loaded, looked plausible and drove the wrong effects.
+			### THE RULE THIS LEAVES BEHIND: when a panel author ships working
+			### defaults, the window instantiates and overrides nothing.
+			############################################################
+			### OUR OWN PAIR EDITOR IS SWITCHED OFF (V3).
+			### Requested directly: "we do not need our intermediate window with its
+			### custom picker and all its quirks, including its own list where the grand
+			### wedding still cannot be turned off - clicking should open the vanilla
+			### selection window straight away." The centre marriage line now calls
+			### OpenPlayerInteraction, so nothing routes here any more; overlay index 5
+			### is left reserved and the markup is kept for one release for easy revert.
+			### tnt_panel_marriage.gui itself can be deleted in the cleanup pass.
+			tnt_panel_marriage = {
+				name = "tnt_panel_spouse"
+				visible = no
+			}
+
+			############################################################
+			### 6 / 7 / 10 - THE SIX MULTI-SELECT PANELS   (item 2.2)
+			###
+			### SIX LINES, AND THAT IS THE WHOLE INTEGRATION - the six ready-made
+			### types in gui\tnt_panel_multiselect.gui each carry their own
+			### `visible` (the frozen index 6 / 7 / 10 plus the side), their own
+			### `parentanchor = center` and all four contract blocks already filled.
+			### These six REPLACE the six single-object tnt_picker_panel instances
+			### that stood at the same three indices in build 1; the deleted
+			### variables tnt_title_p/_r, tnt_claim_p/_r, tnt_artifact_p/_r
+			### (30-V2-DESIGN 3.1) are no longer named anywhere in this file.
+			###
+			### EVERY INSTANCE OVERRIDES `name`, and it is not cosmetic: each type
+			### sets a name in its own body, and six same-named direct siblings of
+			### this block make the engine log "Duplicate children with the same
+			### name override previous widgets" - a line carrying tnt_, which the
+			### acceptance bar forbids in error.log.
+			###
+			### These instantiations were also once ~50 lines each of hand-written
+			### blockoverrides, and deleting them removed six wrong identifiers per
+			### panel: the real setters are tnt_sel_<item>_<side>_add / _remove /
+			### _clear, not the tnt_pick_<item>_<side>_set / _unset the design
+			### sketch implied, and the panels also carry an empty-state key and,
+			### on the two title panels, the domain pair - none of which this file
+			### could have named. (They once wired a per-term cap flag too; see
+			### the amended V3 note below for why that wiring is gone.)
+			###
+			### THE SIX ROW-LEVEL OPENERS CHANGED TOO, and this one is easy to get
+			### wrong because the old name still exists and still works. The six
+			### rows now call tnt_multi_<item>_<side>_open, NOT the shipped
+			### tnt_pick_<item>_<side>_open. Both write the same tnt_picker /
+			### tnt_picker_side pair, so both would make the panel appear - but only
+			### the new one runs tnt_multi_prune_effect after the fill, which is what
+			### removes the already-chosen objects from the available list. With the
+			### old opener the panel would show every title in BOTH columns at once,
+			### and since a row's column IS its selection state in the two-list
+			### shape, that is not a cosmetic difference.
+			############################################################
+			### V3 ITEM - THE SELECTION CAP IS GONE, SO NOTHING MAY ANNOUNCE ONE.
+			### AMENDED after the artifact-picker playtest bug ("Сверх предела их
+			### домена" on the third artifact): this file used to override
+			### block "tnt_multi_cap_visible" to `visible = no` on all seven
+			### instances below, on the claim that "an instance-level blockoverride
+			### is the last one in the chain, so it wins". THAT CLAIM WAS FALSE and
+			### had no vanilla citation. A named block stays re-overridable only if
+			### an override RE-DECLARES a named block inside itself (the ledger form
+			### this mod itself documents in the header of type tnt_panel_multi,
+			### gui\tnt_panel_multiselect.gui, citing GAME\gui\window_ledger.gui:
+			### 3402-3407); the derived types'
+			### plain `blockoverride "tnt_multi_cap_visible" { visible = ... }`
+			### CONSUMED the slot, so the seven lines here matched nothing and the
+			### stale cap flags (tnt_cap_hit_claim/artifact_*, still >= 3-triggered
+			### in tnt_54_multiselect_values.txt) kept printing tnt_err_too_many.
+			### FIXED AT THE SOURCE: the derived types no longer fill the block at
+			### all (its type default is hidden), so the dead lines here were
+			### deleted rather than kept as false comfort. If a cap ever comes
+			### back, wire it in the DERIVED TYPES, not here.
+			###
+			### THE COUNT ITSELF STAYS AND IS UNTOUCHED: block "tnt_multi_counter"
+			### keeps printing the panel's tnt_sel_count_<item>_<side> key, and the row
+			### badges keep printing tnt_count_sel_*_value. Those loc strings once said
+			### "of 3"; the loc author has long since reworded them to a bare count
+			### ("Chosen: N") - it could not be done from a .gui, because a `text =`
+			### cannot pass a parameter to a loc key.
+			###
+			### THERE IS NO CAP-DISABLED ADD BUTTON TO FIX. The panels never greyed
+			### their rows: gui\tnt_panel_multiselect.gui's section 2 header says so
+			### explicitly and no tnt_multi_row_* type carries an `enabled`, because
+			### a per-row TntValid would be a scripted-gui evaluation per row per
+			### frame (R9). The counter was the only channel, which is why it is the
+			### only fix.
+			tnt_panel_multi_title_p = {
+				name = "tnt_panel_title_p"
+			}
+
+			tnt_panel_multi_title_r = {
+				name = "tnt_panel_title_r"
+			}
+
+			####################################################################
+			### RETIRED WITH THE GRANTED CLAIM - V13 USER ITEM 1. The two overlay
+			### panels of the claim term, at index 7 side 0 and side 1. They must go
+			### with the rows that opened them AND with the two types they
+			### instantiate: `type tnt_panel_multi_claim_p` and
+			### `type tnt_panel_multi_claim_r` are commented out in
+			### gui\tnt_panel_multiselect.gui, and an instantiation of an undefined
+			### type is an engine error - the atomic pair rule, in its .gui form.
+			### A DESIGN REFUSAL, NOT A BUG FIX: vanilla gates the manufacture of
+			### claims behind a LEARNING investment (task_fabricate_claim,
+			### GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088).
+			### OVERLAY INDEX 7 IS RETIRED, not free: never renumbered, never reused.
+			### Full tombstone: TOMBSTONE C on the left-column claim row earlier in
+			### this file, and common\scripted_effects\tnt_32_apply.txt.
+			####################################################################
+#			tnt_panel_multi_claim_p = {
+#				name = "tnt_panel_claim_p"
+#			}
+#
+#			tnt_panel_multi_claim_r = {
+#				name = "tnt_panel_claim_r"
+#			}
+
+			####################################################################
+			### RETIRED WITH THE PRISONER TERMS - USER ITEM 7. Built, shipped and played;
+			### considered and WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling. A
+			### revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+			### ransom interactions, the release on_actions and the opinion/hook consequences
+			### they carry) instead of this mod's private bookkeeping. Nothing is deleted;
+			### do not re-enable one half. Full tombstone: the prisoners row earlier in this
+			### file, and common\scripted_effects\tnt_32_apply.txt.
+			####################################################################
+#			### 8 / side 0 - the prisoners the PLAYER holds.   NEW (defect D3).
+#			###
+#			### Read-only. The term itself stays the all-or-nothing toggle whose
+#			### scripted gui already exists; releasing SOME prisoners needs the
+#			### wave-3c multi-select machinery.
+#			###
+#			### The datamodel is the ENGINE's own and yields Character-scoped
+#			### items with no Scope.Char unwrap - verbatim vanilla at
+#			### GAME\gui\window_ledger.gui:6098-6106. `datacontext = "[GetPlayer]"`
+#			### is what makes Character.GetPrisoners mean "the player's prisoners";
+#			### the overlay is a child of the window, not of a column, so there is
+#			### no ambient Character to inherit.
+#			############################################################
+#			tnt_picker_panel = {
+#				name = "tnt_panel_prisoners_p"
+#				datacontext = "[GetPlayer]"
+#				visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)8' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+#
+#				blockoverride "tnt_picker_panel_title" { text = "tnt_picker_title_prisoners" }
+#				blockoverride "tnt_picker_panel_empty"
+#				{
+#					text = "tnt_picker_empty"
+#					visible = "[IsDataModelEmpty( Character.GetPrisoners )]"
+#				}
+#				blockoverride "tnt_picker_panel_list"
+#				{
+#					vbox = {
+#						name = "tnt_rows_prisoners_p"
+#						layoutpolicy_horizontal = expanding
+#						spacing = 3
+#						datamodel = "[Character.GetPrisoners]"
+#
+#						item = {
+#							tnt_prisoner_row = {
+#								size = { 0 42 }
+#							}
+#						}
+#					}
+#				}
+#			}
+
+			####################################################################
+			### RETIRED WITH THE PRISONER TERMS - USER ITEM 7. Built, shipped and played;
+			### considered and WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling. A
+			### revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+			### ransom interactions, the release on_actions and the opinion/hook consequences
+			### they carry) instead of this mod's private bookkeeping. Nothing is deleted;
+			### do not re-enable one half. Full tombstone: the prisoners row earlier in this
+			### file, and common\scripted_effects\tnt_32_apply.txt.
+			####################################################################
+#			### 8 / side 1 - the prisoners the PARTNER holds.
+#			############################################################
+#			tnt_picker_panel = {
+#				name = "tnt_panel_prisoners_r"
+#				datacontext = "[TntPartner]"
+#				visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)8' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+#
+#				blockoverride "tnt_picker_panel_title" { text = "tnt_picker_title_prisoners" }
+#				blockoverride "tnt_picker_panel_empty"
+#				{
+#					text = "tnt_picker_empty"
+#					visible = "[IsDataModelEmpty( Character.GetPrisoners )]"
+#				}
+#				blockoverride "tnt_picker_panel_list"
+#				{
+#					vbox = {
+#						name = "tnt_rows_prisoners_r"
+#						layoutpolicy_horizontal = expanding
+#						spacing = 3
+#						datamodel = "[Character.GetPrisoners]"
+#
+#						item = {
+#							tnt_prisoner_row = {
+#								size = { 0 42 }
+#							}
+#						}
+#					}
+#				}
+#			}
+
+			############################################################
+			### 10 - THE TWO ARTIFACT PANELS (item 2.2).
+			###
+			### RISK R-4 of 30-V2-DESIGN section 8 lives behind these two lines:
+			### writing an ARTIFACT into a variable LIST is the one storage shape
+			### this mod has never had runtime proof of. The read-back side IS
+			### proven (Scope.Artifact,
+			### GAME\gui\activity_window_widgets\artifact_rewards.gui:9-14), and
+			### these panels' chosen columns are the first place a tnt_sel_artifact_*
+			### list is rendered. If error.log names tnt_sel_artifact_p, the design's
+			### own fallback is single-select artifacts: delete these two lines,
+			### restore two tnt_picker_panel instances at index 10, and put
+			### tnt_chosen_artifact back in the two artifact rows - all three types
+			### are still defined, none of them was deleted for this build.
+			############################################################
+			tnt_panel_multi_artifact_p = {
+				name = "tnt_panel_artifact_p"
+			}
+
+			####################################################################
+			### RETIRED WITH THE PRISONER TERMS - USER ITEM 7. Built, shipped and played;
+			### considered and WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling. A
+			### revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+			### ransom interactions, the release on_actions and the opinion/hook consequences
+			### they carry) instead of this mod's private bookkeeping. Nothing is deleted;
+			### do not re-enable one half. Full tombstone: the prisoners row earlier in this
+			### file, and common\scripted_effects\tnt_32_apply.txt.
+			####################################################################
+#			### V4 ITEM A1: THE CAPTIVE PICKER, panel index 13.
+#			### Same two lines of integration as its six siblings - the panel type
+#			### carries its own visible test on tnt_picker, so nothing here has to
+#			### know the index. Its cap line reads no flag (a captive selection has
+#			### no cap, see tnt_val_prisoner_multi_p_value) - hidden by type default.
+#			tnt_panel_multi_prisoner_p = {
+#				name = "tnt_panel_prisoner_p"
+#			}
+
+			tnt_panel_multi_artifact_r = {
+				name = "tnt_panel_artifact_r"
+			}
+
+			####################################################################
+			### RETIRED WITH THE THIRD-PARTY NON-AGGRESSION PROMISE - USER ITEM 1. Built,
+			### shipped and played; considered and WITHDRAWN FOR AN INDEFINITE PERIOD as
+			### surplus for pleasant play - a term about somebody who is not at the table.
+			### Nothing is deleted; do not re-enable one half. Overlay index 11 is RETIRED,
+			### not free. Full tombstone: the non-aggression row earlier in this file, and
+			### common\scripted_effects\tnt_32_apply.txt.
+			####################################################################
+#			### 11 / side 0 - the third party the PLAYER promises to spare
+#			### Per-side candidate list since user item 7 (tnt_list_nonwar_p):
+#			### whom the PLAYER could realistically attack. The selection rule
+#			### is printed on the panel itself - the old picker never said who
+#			### qualified and nobody could tell what the list meant.
+#			############################################################
+#			tnt_picker_panel = {
+#				name = "tnt_panel_nonwar_p"
+#				visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)11' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+#
+#				blockoverride "tnt_picker_panel_title" { text = "tnt_picker_title_nonwar_p" }
+#				blockoverride "tnt_picker_panel_empty"
+#				{
+#					text = "tnt_picker_empty_nonwar"
+#					visible = "[IsDataModelEmpty( TntList('tnt_list_nonwar_p') )]"
+#				}
+#				blockoverride "tnt_picker_panel_list"
+#				{
+#					vbox = {
+#						name = "tnt_rows_nonwar_p_outer"
+#						layoutpolicy_horizontal = expanding
+#						spacing = 6
+#
+#						### The rule line. Same text_multi recipe as the
+#						### autobalance status lines (tnt_types.gui:1496-1508),
+#						### minus their align = center - a rule reads as prose.
+#						text_multi = {
+#							name = "tnt_rule_nonwar_p"
+#							layoutpolicy_horizontal = expanding
+#							text = "tnt_picker_rule_nonwar"
+#							autoresize = yes
+#							max_width = 430
+#							default_format = "#weak"
+#							alwaystransparent = yes
+#							fontsize_min = 12
+#							using = Font_Size_Small
+#						}
+#
+#						vbox = {
+#							name = "tnt_rows_nonwar_p"
+#							layoutpolicy_horizontal = expanding
+#							spacing = 3
+#							datamodel = "[TntList('tnt_list_nonwar_p')]"
+#
+#							item = {
+#								tnt_picker_row_char = {
+#									datacontext = "[Scope.Char]"
+#									size = { 0 45 }
+#
+#									blockoverride "tnt_row_onclick" { onclick = "[TntPickChar('tnt_pick_nonwar_p_set')]" }
+#									blockoverride "tnt_row_down"    { down = "[ObjectsEqual( TntVar('tnt_nonwar_p').Char, Character.Self )]" }
+#								}
+#							}
+#						}
+#					}
+#				}
+#			}
+
+			####################################################################
+			### RETIRED WITH THE THIRD-PARTY NON-AGGRESSION PROMISE - USER ITEM 1. Built,
+			### shipped and played; considered and WITHDRAWN FOR AN INDEFINITE PERIOD as
+			### surplus for pleasant play - a term about somebody who is not at the table.
+			### Nothing is deleted; do not re-enable one half. Overlay index 11 is RETIRED,
+			### not free. Full tombstone: the non-aggression row earlier in this file, and
+			### common\scripted_effects\tnt_32_apply.txt.
+			####################################################################
+#			### 11 / side 1 - the third party the PARTNER promises to spare
+#			### Per-side candidate list since user item 7 (tnt_list_nonwar_r):
+#			### whom the PARTNER could realistically attack. Same rule line
+#			### as the _p panel - the rule text speaks of "the promiser" and
+#			### the panel title names who that is.
+#			############################################################
+#			tnt_picker_panel = {
+#				name = "tnt_panel_nonwar_r"
+#				visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)11' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+#
+#				blockoverride "tnt_picker_panel_title" { text = "tnt_picker_title_nonwar_r" }
+#				blockoverride "tnt_picker_panel_empty"
+#				{
+#					text = "tnt_picker_empty_nonwar"
+#					visible = "[IsDataModelEmpty( TntList('tnt_list_nonwar_r') )]"
+#				}
+#				blockoverride "tnt_picker_panel_list"
+#				{
+#					vbox = {
+#						name = "tnt_rows_nonwar_r_outer"
+#						layoutpolicy_horizontal = expanding
+#						spacing = 6
+#
+#						text_multi = {
+#							name = "tnt_rule_nonwar_r"
+#							layoutpolicy_horizontal = expanding
+#							text = "tnt_picker_rule_nonwar"
+#							autoresize = yes
+#							max_width = 430
+#							default_format = "#weak"
+#							alwaystransparent = yes
+#							fontsize_min = 12
+#							using = Font_Size_Small
+#						}
+#
+#						vbox = {
+#							name = "tnt_rows_nonwar_r"
+#							layoutpolicy_horizontal = expanding
+#							spacing = 3
+#							datamodel = "[TntList('tnt_list_nonwar_r')]"
+#
+#							item = {
+#								tnt_picker_row_char = {
+#									datacontext = "[Scope.Char]"
+#									size = { 0 45 }
+#
+#									blockoverride "tnt_row_onclick" { onclick = "[TntPickChar('tnt_pick_nonwar_r_set')]" }
+#									blockoverride "tnt_row_down"    { down = "[ObjectsEqual( TntVar('tnt_nonwar_r').Char, Character.Self )]" }
+#								}
+#							}
+#						}
+#					}
+#				}
+#			}
+
+			############################################################
+			### 12 - THE VASSAL CONTRACT SHEET   (item 2.5)
+			###
+			### ONE panel, index-only `visible`, for the same structural reason as
+			### the marriage editor: the nine tnt_ob_* variables carry NO side
+			### suffix because T11 forbids both sides swearing fealty in one deal
+			### (30-V2-DESIGN 1 row 2.5), so exactly one contract can ever be
+			### edited and there is nothing per-side to open.
+			###
+			### `tnt_contract_rows` AND `tnt_contract_title` ARE BOTH LEFT AT THEIR
+			### DEFAULTS, and that is a division of labour rather than an omission.
+			### Filling the rows means naming eleven controls' worth of identifiers -
+			### tnt_ob_tax / tnt_ob_levy as 0..4 levels, seven 0/1 rights, their
+			### setters, their availability values and their level-name loc keys -
+			### and only author:hooks-contracts knows them: 30-V2-DESIGN 1 row 2.5
+			### names the two levels and then says "seven 0/1 rights" without listing
+			### them. Guessing identifiers across an agent boundary is exactly how
+			### build 1 shipped defect B-3, so the sheet is written in the file that
+			### owns the variables, and this file only decides WHERE it appears.
+			### That author built it out of THIS mod's own reserved shapes -
+			### tnt_panel_contract derives from tnt_editor_panel, and the rows use
+			### tnt_level_stepper and tnt_toggle_line - so build 1's five shells are
+			### no longer merely a fallback set: three of them are load-bearing.
+			###
+			### `visible` IS SET HERE, and it tests the INDEX ONLY - no side clause,
+			### the same shape as the marriage editor at index 5. The opener
+			### tnt_pick_contract_open writes tnt_picker_side = 0 anyway, so a
+			### two-key test would work too; index-only is chosen because it cannot
+			### be broken by a future second opener that writes side 1, and because
+			### there is nothing per-side to select - index 12 edits the single
+			### contract T11 guarantees can only exist on one side.
+			############################################################
+			tnt_panel_contract = {
+				name = "tnt_panel_contract_sheet"
+				visible = "[EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)12' )]"
+			}
+
+			############################################################
+			### 16 / 17 / 18 - THE SIX PEOPLE PANELS   (item 19)
+			###
+			### SIX LINES, AND THAT IS THE WHOLE INTEGRATION - the same deal the
+			### six multi-select panels above are instantiated under. Each type in
+			### gui/tnt_panel_people.gui carries its own two-key `visible` (the
+			### frozen index 16 / 17 / 18 plus the side), its own
+			### `parentanchor = center` and every contract block already filled, so
+			### nothing is overridden from here. The rule THIS file wrote down for
+			### the marriage editor applies unchanged: when a panel author ships
+			### working defaults, the window instantiates and overrides nothing -
+			### guessing block bodies across an agent boundary is how build 1
+			### shipped defect B-3.
+			###
+			### EVERY INSTANCE OVERRIDES `name`, and it is not cosmetic: each type
+			### sets a name in its own body, and a same-named direct sibling of this
+			### block makes the engine log "Duplicate children with the same name
+			### override previous widgets" - a line carrying tnt_, which the
+			### acceptance bar forbids in error.log.
+			###
+			### NO CAP OVERRIDE ON ANY PANEL ANY MORE - the cap warning is silenced
+			### at the source since the artifact-picker fix (see the amended V3 note
+			### above the title/claim instantiations): no derived type fills
+			### block "tnt_multi_cap_visible", and its type default is hidden. The
+			### two courtier types never wired it anyway (the contract registers no
+			### tnt_cap_hit_courtier_<side>_value, and a warning bound to a value
+			### that does not exist logs on every evaluation). The three-courtier
+			### limit is enforced in script.
+			############################################################
+			tnt_panel_hostage_p = {
+				name = "tnt_panel_hostage_p_inst"
+			}
+
+			tnt_panel_hostage_r = {
+				name = "tnt_panel_hostage_r_inst"
+			}
+
+			### RETIRED V16, USER ITEM 5 - the two ward panel instantiations.
+			### ATOMIC PAIR with `type tnt_panel_ward_p` / `_r` in
+			### gui/tnt_panel_people.gui section 2, which are commented out in the
+			### same edit: instantiating a type that is not declared is a .gui LOAD
+			### error, so neither half may be revived alone. Same pairing the mod
+			### already did for the retired claim panels (:2930, :2969 here against
+			### gui/tnt_panel_multiselect.gui:1274, :1355).
+#			tnt_panel_ward_p = {
+#				name = "tnt_panel_ward_p_inst"
+#			}
+#
+#			tnt_panel_ward_r = {
+#				name = "tnt_panel_ward_r_inst"
+#			}
+
+			tnt_panel_courtier_p = {
+				name = "tnt_panel_courtier_p_inst"
+			}
+
+			tnt_panel_courtier_r = {
+				name = "tnt_panel_courtier_r_inst"
+			}
+
+			### 19 - THE TWO TRANSFERRED-VASSAL PANELS (V26). Declared as
+			### `type tnt_panel_subject_p` / `_r` in gui/tnt_panel_people.gui
+			### section 4; ATOMIC PAIR with those declarations, exactly as the
+			### retired ward pair above - instantiating a type that is not
+			### declared is a .gui LOAD error, so neither half may move alone.
+			### They override nothing, like the six above them: each type carries
+			### its own two-key `visible` (index 19 plus the side), its own
+			### `parentanchor = center` and every contract block already filled.
+			tnt_panel_subject_p = {
+				name = "tnt_panel_subject_p_inst"
+			}
+
+			tnt_panel_subject_r = {
+				name = "tnt_panel_subject_r_inst"
+			}
+		}
+	}
+
+	####################################################################
+	### THE PRESET OVERLAY - EIGHT COMPACT MENUS  (V3 iteration 3, addition 2)
+	###
+	### The user's request was "avoid many clicks to move a lot of gold". The
+	### coarse +/-1000 buttons in the rows answer half of it; these menus answer
+	### the other half, because "a year's income" and "everything I can pay" are
+	### ONE click each and no amount of stepping gets there reliably.
+	###
+	### 4 currencies x 2 sides = 8 panels, 4 amounts each = the 32 preset scripted
+	### guis author:script shipped. They are NOT in the rows: the brief's own
+	### counterweight was "the row itself must stay readable", and 32 more controls
+	### in eight 56 px rows is not readable at any width. One opener per row, one
+	### modal, four named choices.
+	###
+	### THE OVERLAY IS DRIVEN BY GetVariableSystem, NOT BY tnt_picker. Every
+	### tnt_picker index is written by a scripted gui in tnt_21_pickers.txt and
+	### there is no scripted gui that opens a preset menu, so reusing an index
+	### would have required inventing an identifier (R2). The GUI variable is also
+	### the correct home for this state on the merits - whether a menu is open is
+	### not part of the offer, so it must not become a character variable that the
+	### save carries and that tnt_close_window_effect has to clean up. The full
+	### citation trail is on type tnt_preset_overlay in gui/tnt_types.gui.
+	###
+	### THE STORED VALUE IS THE ROW KEY - 'gold_p' ... 'influence_r' - so one flag
+	### both raises the overlay (Exists) and picks the single visible panel
+	### (HasValue). Same two-datafunction pairing as
+	### GAME\gui\frontend_mp_game_setup.gui:216-233.
+	###
+	### EVERY PANEL OVERRIDES `name`: type tnt_preset_menu sets its own
+	### name = "tnt_preset_menu", and eight same-named direct siblings of one
+	### block make the engine log "Duplicate children with the same name override
+	### previous widgets" eight times - and that line would carry a tnt_ path,
+	### which the acceptance bar forbids in error.log.
+	###
+	### WHAT EACH PANEL OVERRIDES, and why the list is short: the shared labels
+	### (_half, _none), the shared tooltips and the Clear-on-click that dismisses
+	### the modal all live in the type. A panel names only what is genuinely its
+	### own - its four scripted guis, its two identifying lines, and the two
+	### labels that MUST differ:
+	###   tnt_preset_lbl_std / tnt_preset_tt_std  the two GOLD rows only, because
+	###       `_std` is a year of income for gold and one customary gift for the
+	###       other three - CK3 has no prestige, piety or influence income, so a
+	###       shared "a year's" label would make three buttons out of four lie;
+	###   tnt_preset_lbl_max                      the four _r rows, because "all I
+	###       can" and "all he can" are different people's purses.
+	####################################################################
+	tnt_preset_overlay = {
+		blockoverride "tnt_preset_panels"
+		{
+			############################################################
+			### GOLD - the only currency whose `_std` is a year's income.
+			############################################################
+			tnt_preset_menu = {
+				name = "tnt_preset_gold_p"
+				visible = "[GetVariableSystem.HasValue( 'tnt_preset_menu', 'gold_p' )]"
+
+				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_gold" }
+				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
+
+				blockoverride "tnt_preset_lbl_std"  { text = "tnt_preset_std_gold" }
+				blockoverride "tnt_preset_tt_std"   { tooltip = "tnt_tt_preset_std_gold" }
+
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_gold_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_gold_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_gold_p_max')]" }
+				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_gold_p_none')]" }
+			}
+
+			tnt_preset_menu = {
+				name = "tnt_preset_gold_r"
+				visible = "[GetVariableSystem.HasValue( 'tnt_preset_menu', 'gold_r' )]"
+
+				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_gold" }
+				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
+
+				blockoverride "tnt_preset_lbl_std"  { text = "tnt_preset_std_gold" }
+				blockoverride "tnt_preset_tt_std"   { tooltip = "tnt_tt_preset_std_gold" }
+				blockoverride "tnt_preset_lbl_max"  { text = "tnt_preset_max_r" }
+
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_gold_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_gold_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_gold_r_max')]" }
+				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_gold_r_none')]" }
+			}
+
+			############################################################
+			### PRESTIGE / PIETY / INFLUENCE - `_std` is one customary gift,
+			### i.e. one full vanilla bribe, and the label says so. Do NOT
+			### override it back to the gold pair on these six panels.
+			############################################################
+			tnt_preset_menu = {
+				name = "tnt_preset_prestige_p"
+				visible = "[GetVariableSystem.HasValue( 'tnt_preset_menu', 'prestige_p' )]"
+
+				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_prestige" }
+				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
+
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_prestige_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_prestige_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_prestige_p_max')]" }
+				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_prestige_p_none')]" }
+			}
+
+			tnt_preset_menu = {
+				name = "tnt_preset_prestige_r"
+				visible = "[GetVariableSystem.HasValue( 'tnt_preset_menu', 'prestige_r' )]"
+
+				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_prestige" }
+				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
+				blockoverride "tnt_preset_lbl_max"       { text = "tnt_preset_max_r" }
+
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_prestige_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_prestige_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_prestige_r_max')]" }
+				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_prestige_r_none')]" }
+			}
+
+			tnt_preset_menu = {
+				name = "tnt_preset_piety_p"
+				visible = "[GetVariableSystem.HasValue( 'tnt_preset_menu', 'piety_p' )]"
+
+				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_piety" }
+				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
+
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_piety_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_piety_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_piety_p_max')]" }
+				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_piety_p_none')]" }
+			}
+
+			tnt_preset_menu = {
+				name = "tnt_preset_piety_r"
+				visible = "[GetVariableSystem.HasValue( 'tnt_preset_menu', 'piety_r' )]"
+
+				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_piety" }
+				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
+				blockoverride "tnt_preset_lbl_max"       { text = "tnt_preset_max_r" }
+
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_piety_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_piety_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_piety_r_max')]" }
+				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_piety_r_none')]" }
+			}
+
+			### The two influence panels are reachable only when the influence
+			### rows themselves are - both rows are gated on
+			### TntPos('tnt_influence_ok_value'), and a hidden row's opener
+			### cannot be clicked, so these two need no gate of their own.
+			tnt_preset_menu = {
+				name = "tnt_preset_influence_p"
+				visible = "[GetVariableSystem.HasValue( 'tnt_preset_menu', 'influence_p' )]"
+
+				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_influence" }
+				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
+
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_influence_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_influence_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_influence_p_max')]" }
+				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_influence_p_none')]" }
+			}
+
+			tnt_preset_menu = {
+				name = "tnt_preset_influence_r"
+				visible = "[GetVariableSystem.HasValue( 'tnt_preset_menu', 'influence_r' )]"
+
+				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_influence" }
+				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
+				blockoverride "tnt_preset_lbl_max"       { text = "tnt_preset_max_r" }
+
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_influence_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_influence_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_influence_r_max')]" }
+				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_influence_r_none')]" }
+			}
+		}
+	}
+
+
+	####################################################################
+	### RESULT BANNER - accepted / refused, dismissed by tnt_clear_result
+	####################################################################
+	tnt_result_banner = {}
+}

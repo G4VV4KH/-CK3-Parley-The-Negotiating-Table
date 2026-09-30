@@ -1,0 +1,1310 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — window lifecycle + state reset
+#
+# Contract 10-CONTRACT.md §6.1, effects E1, E2, E3, E13, plus E2b (v2) and
+# E33 / E34 (build 3, user request NEW-2 — the row-visibility gates).
+# Companion files:
+#   tnt_31_lists.txt  — list fills, refill fan-out, promise GC (E4..E12, E29)
+#   tnt_32_apply.txt  — the master apply effect and the 12 exec legs (E14..E28)
+#   tnt_33_currency_apply.txt — prestige / piety / influence legs (E30..E32)
+#   tnt_34_marriage.txt        — item 2.1: spouse lists, mirrors, the wedding
+#   tnt_35_multiselect.txt     — item 2.2: the six selection lists
+#   tnt_36_hooks_contracts.txt — items 2.3 / 2.5: hook tiers, obligations
+#   tnt_37_ai_offer.txt        — item 4 phase AI-1 (writes onto the PLAYER)
+#
+#=======================================================================
+# *** THIS FILE IS ONE OF THE TWO INTEGRATION POINTS (R19). ***
+#=======================================================================
+# The build-3 authors do not edit it; the integrator wires their effects in
+# here. Three rules for whoever appends next:
+#
+#   * OFFER state goes in tnt_reset_offer_effect (E3). SESSION state goes in
+#     tnt_close_window_effect (E2). Get that wrong and the footer's
+#     "Clear all" button destroys something that only window-open rebuilds —
+#     the class of bug E2's own comment at :123-132 documents.
+#   * FOR EVERY WRITE, NAME THE REMOVAL (R-CLEAN). A variable list of titles
+#     left behind is permanent save pollution: there is no GC for it and no
+#     on_action that would ever run in its scope.
+#   * tnt_refresh_show_gates_effect (E33) is ALWAYS the last statement of
+#     whatever opens or refreshes the window. It reads the partner, the game
+#     rules and nine variable lists, so anything that changes those must run
+#     before it.
+#
+# THREE CALLS IN HERE ARE MARKED "BRIDGE". They are lines NOTES3-marriage.md
+# §3.C asked for inside tnt_31_lists.txt — a file no build-3 author owns and
+# which is therefore still the build-1 seven-list fan-out. Each bridge is
+# idempotent, so when that file is finally updated the bridges become a
+# harmless second pass and can be deleted. They are NOT optional today:
+# without them tnt_list_spouse_p/_r is never built and never cleared.
+#
+# EVERY effect in this file runs with root = THE PLAYER (the interaction's
+# scope:actor, or GuiScope.SetRoot(GetPlayer.MakeScope) from a scripted_gui).
+# All tnt_* variables live on that character (33 in v1; v2 adds the six
+# currency figures of item 2.4 and the two tnt_infl_ok_* mirrors).
+#
+# THERE ARE NO EXCEPTIONS ANY MORE. There used to be two — tnt_tribute_out /
+# tnt_tribute_in, written on whichever character carried the matching tribute
+# modifier — but the yearly tribute is retired and nothing writes them now.
+# A pre-purge save can still hold them; they are TIMED (years = 10), expire on
+# their own, and must NOT be removed by hand while their modifier lives
+# (see common\modifiers\tnt_60_modifiers.txt, the shim). Nothing in this mod
+# writes a variable onto any object that is not a character (R-CLEAN-2).
+#
+# Object-valued variables are ALWAYS read under `exists = var:x` or
+# `var:x ?= { }` — the window can be closed and reopened and a target can
+# die between clicks (report 04 §13.8).
+########################################################################
+
+
+########################################################################
+# E1 — tnt_open_window_effect
+#
+# Called from tnt_open_negotiations' on_send, INSIDE scope:actor = { }.
+# Interaction effects execute on every client, so the interaction author
+# scopes to the actor and we write only actor-local variables here; the
+# window's `visible` is gated on GetPlayer's own tnt_open, so no other
+# client can see it. (PDX's own rule:
+#  GAME\common\character_interactions\00_religious_interactions.txt:1897)
+#
+# Requires scope:recipient to exist. Order matters: the partner must be
+# stored before tnt_refill_all_lists_effect runs, because every fill
+# effect reads var:tnt_partner.
+########################################################################
+# AUTOPAUSE IS REMOVED ENTIRELY (user ruling: "вообще убрать автопаузу").
+# Opening the deal window does NOT pause the game, by decision, after three
+# engine mechanisms failed across three sessions:
+#   1. message auto_pause — tnt_pause_on_open_effect + common\messages +
+#      common\message_filter_types (all long deleted): the pause was lost
+#      whenever the letter event's own pause channel released on close, and its
+#      toast rendered raw loc keys.
+#   2. OnPause from a GUI state on_start (widget tnt_pause_on_open in
+#      gui\tnt_diplomacy_window.gui): fired on open but proved unreliable in
+#      play.
+#   3. the tnt_pause_latch rework of the same widget: the final playtest opened
+#      the window with no pause set at all.
+# Nothing pause-related remains script-side. Do NOT reintroduce a pause from
+# this effect — a fourth attempt, if ever wanted, must start from a mechanism
+# that is none of the three above.
+tnt_open_window_effect = {
+	set_variable = {
+		name = tnt_partner
+		value = scope:recipient
+	}
+	set_variable = {
+		name = tnt_open
+		value = 1
+	}
+
+	# USER ITEM 9, THE HALF THAT WAS NEVER WRITTEN, and writing it is what lets the
+	# window go back to layer = middle where it belongs.
+	#
+	# The character window is layer = middle (GAME\gui\window_character.gui:11). So is
+	# ours. Out-layering it looked like the cheap answer and it was raised to `events`
+	# instead - which put it ABOVE the interaction confirmation window and the vanilla
+	# matchmaker (both layer = middle) and ON the event layer, so the deal-confirmation
+	# dilemma and the classic marriage screen both opened behind it. Three reported
+	# faults, one line.
+	#
+	# Closing the view is the answer vanilla itself uses. `view = character` is real,
+	# 13 call sites, bare form proven verbatim at
+	# GAME\common\tutorial_lessons\00_tutorial_lessons_basics.txt:1366. The BLOCK form
+	# with player = root is the shape decisions use
+	# (GAME\common\decisions\00_ep1_other_decisions.txt:58-61) and it is the one to
+	# prefer here: interaction effects execute on every client, and this must close a
+	# window for the sender only.
+	# FALLBACK TAKEN. The block form with view = character did NOT close the window -
+	# reported: "it stays open and covers the deal window". Every vanilla block-form
+	# call site passes view = decisions and nothing else, so the pairing of that form
+	# with this view name is evidently not supported. Switched to the BARE form, which
+	# IS proven verbatim for this exact view at
+	# GAME\common\tutorial_lessons\00_tutorial_lessons_basics.txt:1366.
+	#
+	# The multiplayer caveat is accepted knowingly: the bare form takes no player
+	# parameter, and interaction effects execute on every client. This effect is
+	# already called from inside scope:actor = { } in the interaction's on_send, so the
+	# scope is the sender - but whether the engine honours that for a view command is
+	# not something the files state. In single player it is moot. If a co-op partner
+	# ever reports their character window closing when someone else negotiates, this
+	# line is why.
+	close_view = character
+
+	# Game-rule gate for the Tier-4 rows (marriage, title, vassal). Stored
+	# as a variable so the GUI can test it with a cheap map lookup instead
+	# of calling a scripted_gui from `visible` every frame (Law 9).
+	if = {
+		limit = { tnt_advanced_terms_trigger = yes }
+		set_variable = {
+			name = tnt_advanced
+			value = 1
+		}
+	}
+	else = {
+		remove_variable = tnt_advanced
+	}
+
+	# =====================================================================
+	# *** V17, USER ITEM 4 (STEP 0) - THE TWO CURRENCY RULES DID NOT DO WHAT
+	# *** THE LOBBY TOLD THE PLAYER THEY DID. THESE TWO BRIDGES ARE THE FIX.
+	#
+	# THE DEFECT, MEASURED LINK BY LINK. `tnt_trade_prestige = off` and
+	# `tnt_trade_piety = off` left BOTH rows visible, BOTH stepper sets
+	# clickable, the send button willing and the apply leg paying. All they ever
+	# switched off was the auto-balancer and the AI's price-balance step. The
+	# shipped lobby description says "Both prestige rows disappear from the
+	# negotiating table", and clause 1 of it was simply false.
+	# WHY. The rows read `visible = "[TntRow('tnt_show_prestige_p')]"`, and
+	# TntRow (data_binding\tnt_macros.txt) opens with
+	# `Or( Not( ...Var('tnt_hide_unavailable')... ), ... )` - and NOTHING IN THE
+	# MOD WRITES tnt_hide_unavailable. Measured: three mentions mod-wide, all
+	# three inside tnt_macros.txt itself (its comment, its description and its
+	# body), zero writers anywhere. The first disjunct is therefore
+	# unconditionally true and TntRow can never hide anything. That is
+	# deliberate since V4 ("show ALL the options and simply leave the
+	# unavailable ones blocked") - the bug is not TntRow, it is that the two
+	# currency rules were wired as if TntRow still gated.
+	# The tnt_show_prestige_*/_piety_* triggers DO NOT test has_game_rule any more
+	# - since W2 they read THESE bridges (tnt_41_gates.txt:1129-1163).
+	#
+	# WHY THE BRIDGE AND NOT SOMETHING ELSE. A .gui file cannot ask
+	# has_game_rule at all, which is why this pattern is never optional. The
+	# ONLY thing in this mod that actually hides a row is a SECOND raw-variable
+	# conjunct in the row's own `visible`, and tnt_advanced above is the proof
+	# it works: `visible = "[And( TntRow('tnt_show_title_p'),
+	# TntOn('tnt_advanced') )]"` (gui\tnt_diplomacy_window.gui). TntOn on an
+	# unset variable is 0, so the row really vanishes. These two bridges exist
+	# so the four currency rows can carry the same conjunct.
+	# THE NAMES ARE SHORTENED (tnt_trade_prest_on, tnt_trade_pty_on) so they can
+	# never be confused with the game-rule setting ids they mirror.
+	#
+	# MIRRORED IN THREE PLACES, AND ALL THREE ARE MANDATORY:
+	#   * here, E1 tnt_open_window_effect - the manual path;
+	#   * tnt_ai_offer_counter_effect (tnt_37_ai_offer.txt), which is the OTHER
+	#     path that opens this window - it writes tnt_advanced in the same shape
+	#     and would otherwise leave both currency rows invisible on every
+	#     counter-offer;
+	#   * E2 tnt_close_window_effect below, beside `remove_variable =
+	#     tnt_advanced`, so a stale 1 cannot outlive a rule change.
+	# A THIRD OPEN PATH WOULD BREAK THIS SILENTLY. If one is ever added, it must
+	# write all three bridges or its rows go dark with the rule switched ON.
+	#
+	# EXPECTED EFFECT: with both rules ON (the shipped default) nothing changes
+	# at all - the variables are 1 and the conjunct is true. With one switched
+	# OFF its two rows disappear, which is what the lobby has always claimed.
+	# No .yml change is needed and no key count moves.
+	#
+	# =====================================================================
+	# W2 - THE LIMIT IS NOW A PAIR QUESTION, AND NOTHING ELSE ABOUT THIS BLOCK
+	# MOVED. The two currency rules stopped being on/off switches and became
+	# ladders (common\game_rules\tnt_80_game_rules.txt, whose header carries the
+	# whole argument): piety is off / same faith / same religion / always, and
+	# prestige is off / peers-and-below / always. A hand-written
+	# `has_game_rule = tnt_trade_<cur>_on` cannot see a middle rung - it reads
+	# FALSE for a rung that is in fact TRUE for this pair - so the read moved
+	# into the two named triggers T2b / T2c
+	# (common\scripted_triggers\tnt_40_triggers.txt:284 and :306).
+	#
+	# WHY var:tnt_partner IS SAFE HERE, EXACTLY: this effect writes it as its
+	# FIRST statement, ~100 lines above (the `name = tnt_partner` block), so the
+	# handle is guaranteed by construction on this path. The counter-offer copy
+	# in tnt_37_ai_offer.txt is safe for the mirror-image reason - it does NOT
+	# write tnt_partner because the letter event already did.
+	#
+	# WHAT THE BRIDGE NOW MEANS. It is a PER-SESSION SNAPSHOT OF A RELATIONAL
+	# ANSWER: "may I trade this currency WITH HIM", taken once against the
+	# partner the window is opening on. That is the right granularity - one
+	# window, one partner - and it keeps the four .gui conjuncts unchanged
+	# (tnt_diplomacy_window.gui:529, :565, :2211, :2243). The four tnt_show_
+	# currency gates (tnt_41_gates.txt) read THIS VARIABLE rather than the game
+	# rule for the same reason, so a gate and the row it gates can never
+	# disagree.
+	# NOTHING OUTSIDE A WINDOW MAY READ THE BRIDGE. The auto-balance rungs call
+	# the trigger directly, because the AI's composition path never runs this
+	# effect and a bridge read there would evaluate 0 on every letter.
+	# =====================================================================
+	if = {
+		limit = { tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner } }
+		set_variable = {
+			name = tnt_trade_prest_on
+			value = 1
+		}
+	}
+	else = {
+		remove_variable = tnt_trade_prest_on
+	}
+	if = {
+		limit = { tnt_trade_piety_trigger = { A = root  B = var:tnt_partner } }
+		set_variable = {
+			name = tnt_trade_pty_on
+			value = 1
+		}
+	}
+	else = {
+		remove_variable = tnt_trade_pty_on
+	}
+
+	# Start from a clean table even if a previous session left residue.
+	# This does NOT touch tnt_open / tnt_partner / tnt_advanced.
+	tnt_reset_offer_effect = yes
+
+	tnt_refill_all_lists_effect = yes
+
+	# --- item 2.1: the initial line of descent -------------------------
+	# REPLACES tnt_pick_marriage_pair_effect (E13). The auto-picked pair is
+	# exactly what item 2.1 removes; what is still wanted at open time is a
+	# sensible default for the line control, taken from the player's own
+	# realm law / faith doctrine — the default branch of vanilla's
+	# ai_wants_matrilineal_marriage (GAME\common\scripted_rules\00_rules.txt:678-684).
+	# It runs AFTER the reset, so it can never overwrite a line the player
+	# has already chosen this session.
+	tnt_marriage_default_line_effect = yes
+
+	# --- item 2.1 (iteration 4): the pair LIST ---------------------------
+	# The deal is now an unlimited list of pairs, tnt_wed_list, and each pair
+	# stores tnt_wed_partner + tnt_wed_matri ON THE PLAYER-SIDE SPOUSE — i.e. on
+	# a character who is NOT the player. tnt_reset_offer_effect above has
+	# already emptied all of it in the correct order (strip every member, THEN
+	# clear the list) because tnt_reset_marriage_effect now opens with
+	# tnt_wed_clear_all_effect, so this line has nothing left to clean.
+	#
+	# It is here anyway, and it is not decoration: tnt_wed_sync_effect is the
+	# effect that keeps tnt_marriage_p / _r honest against an empty list and
+	# keeps tnt_wed_principal pointing at a live member. Calling it once at open
+	# time means a save written by an earlier build, or by a session that ended
+	# with the panel up, arrives at a defined state instead of a plausible one.
+	# It is idempotent and costs one has_variable_list plus one exists.
+	tnt_wed_sync_effect = yes
+
+	# --- item 2.1: the two candidate lists -----------------------------
+	# BRIDGE REMOVED IN BUILD 3. tnt_fill_spouse_lists_effect is now the last
+	# line of tnt_refill_all_lists_effect (tnt_31_lists.txt), which the line
+	# above already calls, so it runs here exactly as it did — and it now also
+	# runs on the two paths that were missing it, the window's _show state and
+	# the AI counter-offer. Do not re-add it here: the fills are idempotent, but
+	# a second copy is a second place to forget.
+
+	# --- item 2.2: fill, THEN prune ------------------------------------
+	# Idempotent hardening (NOTES3-multiselect.md M4). tnt_reset_offer_effect
+	# above has just emptied every selection list, so today this costs nine
+	# has_variable_list tests and nothing else. It is here so that no future
+	# author has to re-derive that every fill effect opens with
+	# clear_variable_list and therefore hands every already-chosen object
+	# back to the "available" column: fill must always be followed by prune.
+	tnt_multi_prune_all_effect = yes
+
+	# Item 2.4: decide, once per opening, whether either side can trade
+	# influence. Must come AFTER tnt_partner is set above, because the
+	# partner half of the test reads it. See E2b for why this exists in two
+	# places and how to collapse it to one.
+	tnt_refresh_v2_mirrors_effect = yes
+
+	#===================================================================
+	# USER REQUEST NEW-2 — the row-visibility answers (35 of them since
+	# user item 19; E33 owns the count).
+	# *** LAST STATEMENT OF THIS EFFECT. DO NOT MOVE IT. ***
+	#===================================================================
+	# NOTES3-gates-interaction.md §2.1 and §3.2 call C1. Every gate reads
+	# var:tnt_partner, six read var:tnt_advanced, fourteen read a picker list
+	# that tnt_refill_all_lists_effect has just built (eight shipped plus item
+	# 19's six people lists), and two read the two
+	# spouse lists that tnt_fill_spouse_lists_effect has just built. Calling
+	# this any earlier answers every one of those questions about the PREVIOUS partner —
+	# which is precisely the bug that makes the second negotiation of a
+	# session show the wrong rows.
+	# E33 sets tnt_gate_live as its own last statement for the same reason.
+	tnt_refresh_show_gates_effect = yes
+	# No pause here: autopause is removed entirely (user ruling) — the full
+	# record of the three failed attempts is in this effect's header comment.
+}
+
+
+########################################################################
+# E2 — tnt_close_window_effect
+#
+# Bound to blockoverride "button_close" and to the hidden ESC button via
+# the tnt_close_window scripted_gui, and to on_death via
+# tnt_partner_death_cleanup.
+#
+# v2 ADDS A FOURTH CALLER — user item 3.5, the auto-close: the ACCEPT
+# option of tnt_diplomacy.0001 calls this effect, inside a hidden_effect, as
+# its very last statement (events/tnt_events.txt). Two consequences worth
+# knowing before editing this effect:
+#   * it now runs while an event window is on screen and the negotiation
+#     window is behind it, so it must stay side-effect-free apart from
+#     variable removal — no toasts, no trigger_event, no scope writes;
+#   * it removes tnt_result, which tnt_notify_accepted_effect has just set
+#     to 1 for the in-window banner. That is intended: the window is going
+#     away, and the out-of-window feedback is the toast. The REFUSAL option
+#     deliberately does NOT call this, so its banner survives — see the
+#     comments at both option sites and 30-V2-DESIGN §9 D-Extra.
+#
+# Cleanup is mandatory, not optional: leftover state leaks into the save
+# and re-opens the window spuriously
+# (MOD\3037969445\common\scripted_guis\zz_lmf_scripted_guis.txt:32-36).
+# Nothing tnt_* may survive a close except tnt_nonwar_promises, which is a
+# permanent record of concluded deals and is deliberately preserved.
+########################################################################
+tnt_close_window_effect = {
+	tnt_reset_offer_effect = yes
+	tnt_clear_lists_effect = yes
+
+	# --- item 2.1's two lists ------------------------------------------
+	# BRIDGE REMOVED IN BUILD 3. tnt_clear_spouse_lists_effect is now the last
+	# line of tnt_clear_lists_effect (tnt_31_lists.txt), which the line above
+	# already calls. tnt_list_spouse_p / _r are still cleared on exactly this
+	# path and nowhere else, so the R-CLEAN answer is unchanged.
+
+	remove_variable = tnt_open
+	remove_variable = tnt_partner
+	remove_variable = tnt_advanced
+	# V17, USER ITEM 4 (step 0): the two currency bridges leave with tnt_advanced,
+	# for the same reason - they are SESSION state, and a stale 1 must not outlive
+	# a change to the game rule. Written in E1 above and in
+	# tnt_ai_offer_counter_effect (tnt_37_ai_offer.txt); those two writes and these
+	# two removals are the whole lifecycle. R-CLEAN.
+	remove_variable = tnt_trade_prest_on
+	remove_variable = tnt_trade_pty_on
+
+	# --- the influence-row visibility mirrors (item 2.4) ---------------
+	# Written by tnt_refresh_v2_mirrors_effect below and by the identically
+	# named scripted_gui in tnt_22_v2.txt. Requested by the sgui author
+	# under R-CLEAN, and they belong HERE rather than in
+	# tnt_reset_offer_effect on purpose: they are SESSION state like
+	# tnt_advanced, not offer state. Put them in the reset and the footer's
+	# "Clear all" button would hide both influence rows for the rest of the
+	# session — the same class of bug as the marriage pair (E13).
+	remove_variable = tnt_infl_ok_p
+	remove_variable = tnt_infl_ok_r
+
+	# --- item 19's people candidate lists  *** BRIDGE *** --------------
+	# FOUR SINCE V16 (the two ward lists retired with the family, user item 5).
+	# tnt_list_hostage_p/_r and tnt_list_courtier_p/_r
+	# are variable LISTS OF CHARACTERS built by tnt_3a_people.txt's
+	# fills. They are session state, so their home is tnt_clear_lists_effect
+	# (tnt_31_lists.txt) beside the other nine picker lists — and that file
+	# belongs to the gates/lists owner, not to this one. These six lines are
+	# the same kind of bridge build 2's integrator left for
+	# tnt_list_spouse_p/_r (see the note two blocks up): the moment
+	# tnt_clear_lists_effect carries them, DELETE this block rather than
+	# leaving two owners for one obligation. clear_variable_list on an
+	# absent list is silent, so the duplicate is harmless meanwhile — but a
+	# list of characters that nothing ever clears is permanent save
+	# pollution, and that is the failure this block exists to prevent.
+	clear_variable_list = tnt_list_hostage_p
+	clear_variable_list = tnt_list_hostage_r
+	# RETIRED V16, USER ITEM 5 — the two ward candidate-list clears of this bridge
+	# block, under ruling E0. A clear_variable_list COUNTS AS A USE exactly as a
+	# remove_variable does (measured for this mod at tnt_31_lists.txt:149-152:
+	# 'Variable tnt_list_prisoner_p is used but is never set', twice per run), and the
+	# two fills that wrote these lists are commented out in tnt_3a_people.txt (P3/P4).
+	# The twin clears in tnt_31_lists.txt's tnt_clear_lists_effect are commented out in
+	# the same pass, so no live line names either list.
+	#	clear_variable_list = tnt_list_ward_p
+	#	clear_variable_list = tnt_list_ward_r
+	clear_variable_list = tnt_list_courtier_p
+	clear_variable_list = tnt_list_courtier_r
+	# V26 — the third people term's two CANDIDATE lists. Same bridge, same
+	# reason: their home is tnt_clear_lists_effect (tnt_31_lists.txt) and these
+	# two lines keep the window-close path in step with it.
+	clear_variable_list = tnt_list_subject_p
+	clear_variable_list = tnt_list_subject_r
+
+	# --- the 30 live row-visibility gates + 4 old-save sweeps
+	#     + 4 companions (NEW-2) ---------------------------------------
+	# (the threat show-gate, tnt_gate_live, and the two tnt_indep_ok_* caches)
+	# SESSION state, exactly like tnt_advanced and tnt_infl_ok_* above, and
+	# for the same reason: they are written once per opening by E33 and are
+	# NOT rebuilt by the footer's "Clear all" button. Put them in
+	# tnt_reset_offer_effect instead and Clear all hides every row for the
+	# rest of the session (NOTES3-gates-interaction.md §3.3).
+	#
+	# tnt_gate_live IS LISTED FIRST ON PURPOSE. TntRow is
+	#     Or( tnt_show_X > 0, Not( tnt_gate_live > 0 ) )
+	# (data_binding\tnt_macros.txt:175-179), so while tnt_gate_live is gone
+	# every row is visible again. Removing it before the gate variables means
+	# even a
+	# torn-off cleanup can never leave the next window dark; removing it
+	# after them — or forgetting it — disarms the safety net at exactly the
+	# moment those answers are gone.
+	#
+	# 25 written by E33 (22 item gates + the threat show-gate + the two
+	# tnt_indep_ok_* caches of the 85k-error fix), 25 removed here - the four
+	# old-save sweeps of the two retired term families were commented out in V12
+	# under ruling E0 (see the tombstones at :340 and :345), V13 user item 1
+	# took six more with the alliance, the truce and the granted claim, and V16 user
+	# item 5 took the last two with the ward / fosterage family. It was
+	# 37/37 before V12, 33/33 after V12, 27/27 after V13, 25/25 now. The
+	# tnt_show_* count is anchored by the TntRow bindings in
+	# gui\tnt_diplomacy_window.gui and gui\tnt_panel_people.gui; there is
+	# deliberately NO tnt_show_influence_p/_r (see E33's header). The old surplus
+	# removal of tnt_ally_inrealm (an old-save sweep; nothing sets the variable)
+	# is deleted under ruling E0 — the validator logged remove-as-use for it,
+	# error.log "Variable 'tnt_ally_inrealm' is used but is never set".
+	#
+	remove_variable = tnt_gate_live
+	remove_variable = tnt_show_gold_p
+	remove_variable = tnt_show_gold_r
+	remove_variable = tnt_show_prestige_p
+	remove_variable = tnt_show_prestige_r
+	remove_variable = tnt_show_piety_p
+	remove_variable = tnt_show_piety_r
+	# RETIRED V13, USER ITEM 1 - the six gate removals of the three withdrawn term
+	# families (alliance, truce, granted claim). Same ruling E0 as the two blocks
+	# below: in CK3 a remove_variable COUNTS AS A USE, and leaving these live beside
+	# commented-out writers logs 'Variable tnt_show_alliance_p is used but is never
+	# set' once per removal per run. Their writers in E33 are commented out in the
+	# same edit - a gate write and its removal are the same atomic pair as a gate
+	# write and its trigger. Tombstones A, B and C in tnt_32_apply.txt.
+	# remove_variable = tnt_show_alliance_p
+	# remove_variable = tnt_show_alliance_r
+	# remove_variable = tnt_show_truce_p
+	# remove_variable = tnt_show_truce_r
+	remove_variable = tnt_show_marriage_p
+	remove_variable = tnt_show_marriage_r
+	remove_variable = tnt_show_title_p
+	remove_variable = tnt_show_title_r
+	# RETIRED V13, USER ITEM 1 - see the paragraph above. TOMBSTONE C.
+	# remove_variable = tnt_show_claim_p
+	# remove_variable = tnt_show_claim_r
+	remove_variable = tnt_show_artifact_p
+	remove_variable = tnt_show_artifact_r
+	# RETIRED V12 (ruling E0: savegame compatibility is not a constraint before
+	# first publication). The two removals below are commented out because in CK3
+	# a remove_variable COUNTS AS A USE, and the engine logged 'Variable
+	# tnt_show_nonwar_p is used but is never set' twice per run. Same treatment as
+	# tnt_ally_inrealm at :316-319. Tombstone: E25 in tnt_32_apply.txt.
+	# remove_variable = tnt_show_nonwar_p
+	# remove_variable = tnt_show_nonwar_r
+	# RETIRED V12 (ruling E0), same argument for the retired prisoner terms: a
+	# remove_variable COUNTS AS A USE, and the engine logged 'Variable
+	# tnt_show_prisoners_p is used but is never set' twice per run. Tombstone: E22
+	# in tnt_32_apply.txt.
+	# remove_variable = tnt_show_prisoners_p
+	# remove_variable = tnt_show_prisoners_r
+	remove_variable = tnt_show_hook_p
+	remove_variable = tnt_show_hook_r
+	remove_variable = tnt_show_vassal_p
+	remove_variable = tnt_show_vassal_r
+	remove_variable = tnt_show_threat_p
+	# user item 19 — the four people terms, both sides
+	remove_variable = tnt_show_hostage_p
+	remove_variable = tnt_show_hostage_r
+	# RETIRED V16, USER ITEM 5, and commented out for the same reason as the two
+	# prisoner lines at :360-361 above: in CK3 a remove_variable COUNTS AS A USE, and
+	# with the two gate WRITES retired (E33 further down this file) the engine would
+	# log 'Variable tnt_show_ward_p is used but is never set' twice per run.
+	# WARD TOMBSTONE: tnt_32_apply.txt.
+	#	remove_variable = tnt_show_ward_p
+	#	remove_variable = tnt_show_ward_r
+	remove_variable = tnt_show_courtier_p
+	remove_variable = tnt_show_courtier_r
+	# V26 — the third people term's two show gates. R-CLEAN: E33 writes them,
+	# this is the one legal place to remove them.
+	remove_variable = tnt_show_subject_p
+	remove_variable = tnt_show_subject_r
+	remove_variable = tnt_show_indep_p
+	remove_variable = tnt_show_indep_r
+	# the two independence answer caches (85k-error fix) — SESSION state
+	# exactly like the show gates above, written only by E33, so this is the
+	# one legal place to remove them; putting them in the reset would let
+	# "Clear all" blind both toggles for the rest of the session.
+	remove_variable = tnt_indep_ok_p
+	remove_variable = tnt_indep_ok_r
+
+	# --- the AI-offer session flags (item 4, phase AI-1) ---------------
+	# Written on the PLAYER by events\tnt_ai_events.txt:275 and by
+	# tnt_37_ai_offer.txt's archetype block. Both are timed (days = 200) and
+	# tnt_ai_offer_clear_effect removes both on every exit path the letter
+	# has, so this is the belt for the one case that effect cannot reach: the
+	# player opened a manual negotiation while an AI letter was still lying
+	# unanswered on screen.
+	#
+	# THEY MUST NOT GO INTO tnt_reset_offer_effect. tnt_ai_offer.0001's
+	# immediate calls that effect and THEN writes tnt_ai_offer_arch, so the
+	# reset would delete the archetype index the letter's own desc branches
+	# on; and the "Clear all" footer button calls the reset too.
+	remove_variable = tnt_ai_offer_live
+	remove_variable = tnt_ai_offer_arch
+	# The goal index travels with the arch index everywhere (V10): written by
+	# the same composer entries, branched on by the same letter desc.
+	remove_variable = tnt_ai_goal
+}
+
+
+########################################################################
+# E2b — tnt_refresh_v2_mirrors_effect                        NEW IN v2
+#
+# Item 2.4's influence row must be hidden unless BOTH sides have a
+# government with an influence pool, and a GUI `visible` may not call a
+# scripted_gui (Law R11 — no GetScriptedGui in a per-row visible or down).
+# So the answer is a pair of cheap 0/1 mirror variables the GUI can test
+# with one map lookup: `visible = "[TntOn('tnt_infl_ok_p')]"`.
+#
+# *** BUILD 2: THIS IS NOW THE ONLY COPY OF THE GOVERNMENT TEST. ***
+# The first build carried the same two writes twice — here and in the body of
+# the scripted_gui `tnt_refresh_v2_mirrors` (tnt_22_v2.txt, last entry) — and
+# only this copy had a caller. The follow-up that file and this one asked each
+# other for has been taken: that scripted_gui's body is now the single line
+# `tnt_refresh_v2_mirrors_effect = yes`, and the scripted_gui
+# `tnt_refresh_lists` calls this effect too, so both open paths refresh the
+# mirrors:
+#     on_send -> tnt_open_window_effect   -> here
+#     _show   -> tnt_refresh_lists (sgui) -> here
+# The writes are idempotent, so running both costs one government trigger.
+# EDIT ONLY HERE. Nothing else in the mod tests government_has_influence
+# except tnt_exec_influence_effect's own apply-time guard
+# (tnt_33_currency_apply.txt:281-282), which is a different question (may this
+# transfer happen at all) asked at a different time.
+#
+# government_has_flag = government_has_influence is the test vanilla itself
+# uses for its own influence send-option —
+# GAME\common\character_interactions\00_character_interactions.txt:1311-1319.
+# The flag is declared at GAME\common\governments\00_government_types.txt:490
+# (administrative_government), :816 (celestial), :1116 (steppe admin), :1235,
+# and GAME\common\governments\01_japan_government_types.txt:73.
+# NOTE the path: there is no `common\government_types\` directory in 1.19,
+# which is what 30-V2-DESIGN §1 row 2.4 mistakenly cites.
+#
+# Absent variable == 0, so the `else` branches REMOVE rather than set 0 —
+# that keeps TntOn() honest and the save smaller.
+# Partner side is double-guarded (Law R13): `exists` in the limit and an
+# optional link `?=` at the read.
+########################################################################
+tnt_refresh_v2_mirrors_effect = {
+	# Player side. root is the player.
+	if = {
+		limit = { government_has_flag = government_has_influence }
+		set_variable = {
+			name = tnt_infl_ok_p
+			value = 1
+		}
+	}
+	else = {
+		remove_variable = tnt_infl_ok_p
+	}
+
+	# Partner side. No partner => no influence row on their column.
+	if = {
+		limit = {
+			exists = var:tnt_partner
+			var:tnt_partner ?= { government_has_flag = government_has_influence }
+		}
+		set_variable = {
+			name = tnt_infl_ok_r
+			value = 1
+		}
+	}
+	else = {
+		remove_variable = tnt_infl_ok_r
+	}
+}
+
+
+########################################################################
+# E33 — tnt_refresh_show_gates_effect                    NEW IN BUILD 3
+#
+# USER REQUEST NEW-2, verbatim: "non-selectable options can simply not be
+# displayed, for example vassal fealty if the partner is already a vassal."
+# STRUCTURAL impossibility hides the row; a TRANSIENT shortfall (gold,
+# prestige, piety) keeps it visible with the reason, because that is
+# exactly what the player fixes with the stepper in front of him.
+#
+# Evaluates the tnt_show_*_trigger gates of
+# common\scripted_triggers\tnt_41_gates.txt (and, since user item 19, of
+# tnt_42_people_gates.txt) ONCE and caches each answer in a 0/1 character
+# variable, because Law R11 forbids GetScriptedGui in a per-row
+# `visible`. The GUI reads   visible = "[TntRow('tnt_show_<item>_<side>')]"
+# at one site per gate (data_binding\tnt_macros.txt:175-179).
+#
+# THE COUNT: 26 item gates + the threat = 27 lines shipped in build 3; item
+# 19 added eight (hostage / ward / courtier / independence, both sides), and
+# V16 user item 5 took the ward's two back out, so this effect now writes
+# 22 LIVE item gates + the threat = 23 tnt_show_* lines (the difference from
+# 34 + 1 is the ten commented-out writes of the retired families).
+# The count is anchored by the TntRow bindings in gui\tnt_diplomacy_window.gui
+# and gui\tnt_panel_people.gui — count the GUI, never a number quoted in a
+# design document. SINCE THE 85K-ERROR FIX it also writes TWO NON-TntRow
+# companions, tnt_indep_ok_p / tnt_indep_ok_r (the independence toggles'
+# cached is_valid answer — see their own block below), for 37 writes in all;
+# E2 removes all 37 plus tnt_gate_live.
+#
+# *** ORDER IS LOAD-BEARING — THIS IS CALLED LAST, EVERYWHERE. *** All of
+# them read var:tnt_partner, six read var:tnt_advanced, fourteen read a
+# picker list (eight shipped, plus item 19's six people lists)
+# and two read tnt_list_spouse_p/_r. Its three call sites:
+#   E1  tnt_open_window_effect            — last statement (on_send path)
+#   tnt_refresh_lists (scripted_gui)      — window state = { name = _show }
+#   E14 tnt_apply_deal_effect             — after the post-deal refill
+# The middle one is in tnt_20_scripted_guis.txt and is NOT the integrator's
+# file; see NOTES3-integrator.md for that outstanding line. Without it the
+# _show path and the AI counter-offer path keep the previous session's
+# answers — which degrades safely (see tnt_gate_live below) but shows the
+# wrong rows.
+#
+# *** tnt_gate_live IS THE SAFETY NET AND IT MUST BE THE LAST STATEMENT. ***
+# TntRow is  Or( tnt_show_X > 0, Not( tnt_gate_live > 0 ) ), so while
+# tnt_gate_live is absent every row is shown and the window degrades to
+# build 2 rather than to an empty box. Setting it only after all 35 writes
+# means a half-finished pass can never blank the window.
+#
+# Absent variable == 0 == HIDDEN, so the else branches REMOVE rather than
+# write 0 — the same convention as tnt_refresh_v2_mirrors_effect above.
+#
+# NO tnt_show_influence_p/_r, ON PURPOSE. The influence rows are gated on
+# TntPos('tnt_influence_ok_value') (tnt_diplomacy_window.gui:383, :994),
+# which reads the two tnt_infl_ok_* mirrors of E2b and therefore asks a
+# harder question than any tnt_show_ gate could: it needs the government
+# flag on BOTH sides, because change_influence on a receiver with no
+# influence pool is a silent no-op. Do not duplicate it here.
+#
+# ======================================================================
+# *** V17, MEASURED AND STATED PLAINLY: EVERY ANSWER THIS EFFECT COMPUTES IS
+# *** CURRENTLY DISCARDED. THIS IS NOT A BUG TO FIX BLIND - READ THE WHOLE NOTE.
+# The ONLY consumer of a tnt_show_* variable anywhere in the mod is the TntRow
+# macro (a grep for `var:tnt_show_` over common\, gui\, events\ and
+# data_binding\ returns ZERO live hits - no is_valid, no script value, no
+# effect), and TntRow's first disjunct is
+#     Or( Not( ...Var('tnt_hide_unavailable')... ), ... )
+# with NOTHING in the mod writing tnt_hide_unavailable - three mentions
+# mod-wide, all three inside tnt_macros.txt itself. So TntRow is
+# unconditionally TRUE and none of the 23 gate answers changes a single pixel.
+# The companion macro written for the `enabled` half, TntGate(V), has ZERO uses
+# in any .gui file.
+# THE PRICE OF THE DISCARDED WORK, so it is on the record: 25 gate triggers, 37
+# variable writes and 3 call sites per window session - and two of those gates
+# each call T5 tnt_can_vassalize_trigger, which tnt_41_gates.txt itself calls
+# "the most expensive trigger in the mod", twice per window open, for an answer
+# nobody reads.
+# WHY IT IS DELIBERATELY LEFT STANDING RATHER THAN DELETED. V4 retired
+# hide-unavailable AT THE USER'S OWN REQUEST ("bring back showing ALL the
+# options and simply leave the unavailable ones blocked"), and tnt_macros.txt
+# pre-registered the revival: writing tnt_hide_unavailable = 1 anywhere turns
+# the whole subsystem back on IN ONE LINE AND WITH NO OTHER EDIT. Delete the
+# gates and that one-line switch becomes a rewrite. The cost is one window-open
+# path, not a per-frame path (Law 6 is not violated), so it is dead weight and
+# not a performance defect.
+# THE PLANNED REVIVAL, if it ever happens, is a game rule `tnt_tidy_table`
+# (default OFF) whose sole reader is one bridge block in E1 beside the
+# tnt_advanced one: `if = { limit = { has_game_rule = tnt_tidy_table_on }
+# set_variable = { name = tnt_hide_unavailable value = 1 } } else = {
+# remove_variable = tnt_hide_unavailable }`, plus the matching removal in E2.
+# IT IS NOT DONE HERE because it needs 5 new loc keys x 2 languages and the key
+# count is pinned; it is costed in _docs\99-BACKLOG.md section B5.
+# THE ROWS FOR RETIRED FAMILIES ARE NOT AFFECTED and were checked: all nine
+# TntRow bindings for claim / prisoners / nonwar / alliance / truce / ward in
+# gui\tnt_diplomacy_window.gui are COMMENTED OUT, so no retired term is on
+# screen. An earlier note claiming those rows are "visible today for the same
+# reason" was wrong; the count above is the live one.
+# ======================================================================
+########################################################################
+tnt_refresh_show_gates_effect = {
+	# One conversion, thirty-five uses. The gates take a saved scope rather
+	# than a dotted var: path because every other partner-side effect in this
+	# mod does (tnt_31_lists.txt:116), and because a dotted path as a
+	# can_add_hook `target` argument is unproven.
+	if = {
+		limit = { exists = var:tnt_partner }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_gate_partner }
+	}
+
+	# --- the three currency items x 2 sides ------------------------------
+	# Gold is TRANSIENT and always offerable. Prestige and piety are too,
+	# UNLESS user item 16's lobby rule for that currency is off: their T22
+	# triggers (tnt_41_gates.txt) test has_game_rule, so a rule switched off
+	# lands in E34's else branch, the variable is removed and the row
+	# vanishes. All six MUST be written even when the answer is a foregone
+	# conclusion: the GUI binds all six, so once tnt_gate_live is set a
+	# MISSING variable hides the row rather than defaulting it to visible.
+	# The count is what the GUI says it is — 23 live lines: 35 after item 19,
+	# 31 after V12 commented out the four of the two retired term families
+	# below, 25 after V13 user item 1 commented out the six of the alliance,
+	# the truce and the granted claim, and 23 after V16 user item 5 commented out
+	# the ward's two; see the header's COUNT paragraph. (has_game_rule is
+	# order-insensitive — a game rule never changes mid-campaign — so the
+	# "CALLED LAST" contract above is unaffected by the four rule reads.)
+	tnt_set_show_gate_effect = { ITEM = gold_p }
+	tnt_set_show_gate_effect = { ITEM = gold_r }
+	tnt_set_show_gate_effect = { ITEM = prestige_p }
+	tnt_set_show_gate_effect = { ITEM = prestige_r }
+	tnt_set_show_gate_effect = { ITEM = piety_p }
+	tnt_set_show_gate_effect = { ITEM = piety_r }
+
+	# --- the items with a real structural gate -------------------------
+	# RETIRED V13, USER ITEM 1 - the six gate writes of the three withdrawn term
+	# families. Same atomic-pair rule as the block below: each of these calls
+	# tnt_show_$ITEM$_trigger BY MACRO, and those triggers (T22/T23 alliance,
+	# T24/T25 truce, T30/T31 claim) are commented out in tnt_41_gates.txt in the
+	# same edit. Tombstones A, B and C in tnt_32_apply.txt.
+	#	tnt_set_show_gate_effect = { ITEM = alliance_p }
+	#	tnt_set_show_gate_effect = { ITEM = alliance_r }
+	#	tnt_set_show_gate_effect = { ITEM = truce_p }
+	#	tnt_set_show_gate_effect = { ITEM = truce_r }
+	tnt_set_show_gate_effect = { ITEM = marriage_p }
+	tnt_set_show_gate_effect = { ITEM = marriage_r }
+	tnt_set_show_gate_effect = { ITEM = title_p }
+	tnt_set_show_gate_effect = { ITEM = title_r }
+	#	tnt_set_show_gate_effect = { ITEM = claim_p }
+	#	tnt_set_show_gate_effect = { ITEM = claim_r }
+	tnt_set_show_gate_effect = { ITEM = artifact_p }
+	tnt_set_show_gate_effect = { ITEM = artifact_r }
+	# RETIRED - the four gate writes of the two withdrawn term families. Each of
+	# these calls tnt_show_$ITEM$_trigger BY MACRO (E34 below), so a live call
+	# beside a commented-out trigger is a hard script error on every window open:
+	# the write line and its gate trigger are a single atomic pair.
+	# The retired gates going unwritten is SAFE for every surviving row, because
+	# TntRow is Or( tnt_show_X > 0, Not( tnt_gate_live > 0 ) ) — a missing
+	# variable hides only its OWN row, and those rows are retired too.
+	# Retiring prisoners_p/_r also removes two any_prisoner walks from every
+	# window open; they were the most expensive gates in the file.
+	# Tombstones: E25 (nonwar) and E22 (prisoners) in tnt_32_apply.txt.
+	#	tnt_set_show_gate_effect = { ITEM = nonwar_p }
+	#	tnt_set_show_gate_effect = { ITEM = nonwar_r }
+	#	tnt_set_show_gate_effect = { ITEM = prisoners_p }
+	#	tnt_set_show_gate_effect = { ITEM = prisoners_r }
+	tnt_set_show_gate_effect = { ITEM = hook_p }
+	tnt_set_show_gate_effect = { ITEM = hook_r }
+	tnt_set_show_gate_effect = { ITEM = vassal_p }
+	tnt_set_show_gate_effect = { ITEM = vassal_r }
+	# V4 expansion 1 — the threat, one-sided by nature, so there is no _r gate.
+	tnt_set_show_gate_effect = { ITEM = threat_p }
+
+	# --- USER ITEM 19 — the people terms, both sides ---------------------
+	# SIX LIVE GATES SINCE V16 (was eight; the ward's two are retired with
+	# the family, user item 5 — see the tombstone below), and every live one
+	# is mandatory: a TntRow-bound row whose variable was never written goes
+	# DARK, not visible, once tnt_gate_live is set (see the header). The
+	# gates themselves are in tnt_42_people_gates.txt.
+	#
+	# TWO OF THE THREE SURVIVORS ASK A LIST QUESTION, which is why they belong to
+	# this effect and not to a GUI `visible`: hostage and courtier are
+	# shown only when their candidate list has at least one entry, exactly
+	# as the two marriage rows are (tnt_41_gates.txt, variable_list_size on
+	# tnt_list_spouse_p/_r). (The retired ward gates were the third such pair.)
+	# Those lists are built by tnt_3a_people.txt's
+	# four surviving fills, and tnt_refill_all_lists_effect runs BEFORE this effect on
+	# every path that calls both — which is the "CALLED LAST" contract in
+	# the header, now load-bearing for four more lists.
+	#
+	# INDEPENDENCE IS THE ONE STRUCTURAL PAIR: it has no picker, no
+	# candidate list and no overlay index — the vassal is always the other
+	# party to the treaty — so its two gates are pure realm-graph questions
+	# ("is he actually my vassal?"), the same shape as vassal_p/_r.
+	tnt_set_show_gate_effect = { ITEM = hostage_p }
+	tnt_set_show_gate_effect = { ITEM = hostage_r }
+	# RETIRED V16, USER ITEM 5 — the two gate writes of the ward/fosterage family.
+	# ATOMIC PAIR with tnt_show_ward_p_trigger / tnt_show_ward_r_trigger in
+	# tnt_42_people_gates.txt:576-621: each write calls tnt_show_$ITEM$_trigger BY
+	# MACRO (E34 below), so a live write beside a commented-out trigger is a hard
+	# script error on every window open. Both halves went in the same edit.
+	# The unwritten gate is SAFE for every surviving row — TntRow is
+	# Or( tnt_show_X > 0, Not( tnt_gate_live > 0 ) ), so a missing variable hides
+	# only its OWN row, and that row is retired too (the two ward rows in
+	# gui/tnt_diplomacy_window.gui are commented out in the same pass).
+	# Reason (user): the term was too abusable on points and the hostage term
+	# already covers the same immersive ground. Full WARD TOMBSTONE, including the
+	# worked pricing audit, is in tnt_32_apply.txt beside the retired exec calls.
+	#	tnt_set_show_gate_effect = { ITEM = ward_p }
+	#	tnt_set_show_gate_effect = { ITEM = ward_r }
+	tnt_set_show_gate_effect = { ITEM = courtier_p }
+	tnt_set_show_gate_effect = { ITEM = courtier_r }
+	# V26 — the third people term. It is the SECOND of the people gates to ask a
+	# list question (tnt_list_subject_p/_r must be non-empty) AND the third to
+	# read the tier-4 game rule, so it depends on this effect running LAST, after
+	# tnt_refill_all_lists_effect has built the lists and after E1 has cached
+	# var:tnt_advanced. Both facts are already contracts of this effect; the term
+	# adds no new ordering requirement, only a third reader of the old ones.
+	tnt_set_show_gate_effect = { ITEM = subject_p }
+	tnt_set_show_gate_effect = { ITEM = subject_r }
+	tnt_set_show_gate_effect = { ITEM = indep_p }
+	tnt_set_show_gate_effect = { ITEM = indep_r }
+
+	# --- THE INDEPENDENCE ANSWER CACHE — the 85,778-error fix -----------
+	# tnt_indep_p/r_toggle's is_valid used to run tnt_can_release_trigger —
+	# an any_vassal_or_below walk — on EVERY layout pass through the rows'
+	# `enabled = "[TntValid(...)]"` bindings, and passed the partner as
+	# var:tnt_partner, which the walk then re-resolved against each vassal.
+	# The fresh playtest log carries 85,778 script errors, all of them from
+	# that one is_valid (tnt_24_people.txt:877 -> tnt_42_people_gates.txt's
+	# old walk line). P13 itself is fixed to re-anchor its arguments, but the
+	# WALK PER FRAME stays a walk per frame — so the answer is computed HERE,
+	# once per open/refresh, where the partner exists by construction, and
+	# the toggles' is_valid reads a plain 0/1 variable instead (the exact fix
+	# tnt_24_people.txt's COST paragraph had pre-registered: "write the
+	# answer to a variable once per window open ... and let `enabled` read
+	# the variable", the tnt_refresh_v2_mirrors_effect pattern).
+	#
+	# TWO CACHES, NOT ONE: the release question is asymmetric (P13's LIEGE /
+	# VASSAL roles). They deliberately cache P13 ALONE, not the whole show
+	# gate: the Tier-4 rule half of the toggles' is_valid stays its own
+	# cheap `exists = var:tnt_advanced` row with its own error text.
+	# scope:tnt_gate_partner may be unset (no partner): P13's own trigger_if
+	# guard answers a silent "no", the else removes, the row is hidden anyway.
+	# SESSION state, like the 35 show gates above: removed in E2 beside them,
+	# NOT in the reset ("Clear all" must not blind the toggles mid-session).
+	if = {
+		limit = {
+			tnt_can_release_trigger = {
+				LIEGE = root
+				VASSAL = scope:tnt_gate_partner
+			}
+		}
+		set_variable = {
+			name = tnt_indep_ok_p
+			value = 1
+		}
+	}
+	else = {
+		remove_variable = tnt_indep_ok_p
+	}
+	if = {
+		limit = {
+			tnt_can_release_trigger = {
+				LIEGE = scope:tnt_gate_partner
+				VASSAL = root
+			}
+		}
+		set_variable = {
+			name = tnt_indep_ok_r
+			value = 1
+		}
+	}
+	else = {
+		remove_variable = tnt_indep_ok_r
+	}
+
+	# tnt_ally_inrealm IS GONE. It used to flag "this alliance is in-realm, so
+	# relabel the row as a mutual defence pact that cannot be called upon".
+	# The item itself is now refused for in-realm pairs by T18's one NOT block
+	# in tnt_41_gates.txt, so under the hide-unavailable rule the row never
+	# appears and there is nothing left to relabel. Nothing sets or removes the
+	# variable anywhere any more: ruling E0 (savegame compat is not a constraint)
+	# deleted the old-save sweep that tnt_close_window_effect used to carry.
+
+	# *** LAST STATEMENT. DO NOT MOVE IT. *** See the header.
+	set_variable = {
+		name = tnt_gate_live
+		value = 1
+	}
+}
+
+
+########################################################################
+# E34 — tnt_set_show_gate_effect = { ITEM = <item>_<side> }  NEW IN BUILD 3
+#
+# One row of E33. The parameter builds BOTH the callee's name and the
+# variable's name. $PARAM$ substitution is textual, and building a callee
+# identifier out of a parameter is vanilla's own idiom. RE-VERIFIED IN THIS
+# SESSION, and the second citation is not an analogy — it is this exact
+# construction, a parameterised SCRIPTED TRIGGER invoked from inside a
+# SCRIPTED EFFECT's `if = { limit = { … } }`:
+#
+#   GAME\common\scripted_effects\00_childhood_effects.txt:234-240
+#       every_vassal = {
+#           if = {
+#               limit = {
+#                   save_good_$RELATION$_character_trigger_check = yes
+#               }
+#               add_to_list = good_child_relation_character
+#           }
+#   resolving to four real triggers at
+#   GAME\common\scripted_triggers\00_childhood_triggers.txt:51, 68, 93, 121
+#   (save_good_friend_ / _crush_ / _bully_ / _victim_character_trigger_check),
+#   with the four legal $RELATION$ values written out in that effect's own
+#   header at :11-14.
+#
+#   The same idiom in a script value's modifier block:
+#   has_$SKILL$_education_affinity_childhood_trait_trigger = yes
+#     GAME\common\scripted_effects\00_education_effects.txt:361, resolving to
+#     the five real triggers at
+#     GAME\common\scripted_triggers\00_education_triggers.txt:195, 202, 209, 216, 223.
+#
+# The legal $ITEM$ values are the 25 LIVE tnt_set_show_gate_effect lines of
+# E33 above (24 items plus the threat show-gate), and every one of them has a
+# matching tnt_show_<item>_<side>_trigger — 17 of them in
+# common\scripted_triggers\tnt_41_gates.txt and item 19's eight in
+# common\scripted_triggers\tnt_42_people_gates.txt (25 ITEM lines, 25
+# trigger definitions — no orphan on either side). It was 35 / 27 / 35 until
+# the two retired term families took four ITEM lines and four triggers out
+# together, and V13 user item 1 took SIX more the same way (alliance_p/_r with
+# T22/T23, truce_p/_r with T24/T25, claim_p/_r with T30/T31); that pairing is
+# what "no orphan on either side" means here.
+#
+# scope:tnt_gate_partner may not exist (no partner yet). Every one of the
+# tnt_show_* triggers carries its own `trigger_if = { limit = { exists =
+# $OTHER$ } … }` plus `trigger_else = { always = no }`, so with no partner
+# every gate is false and every variable is removed — which is correct,
+# because with no partner there is no window either. Item 19's eight must
+# keep that shape too, or a window opened with no partner errors instead of
+# hiding.
+#
+# remove_variable on an absent variable is silent and is what vanilla does —
+# GAME\common\scripted_effects\00_scripted_effects.txt:61-62.
+########################################################################
+tnt_set_show_gate_effect = {
+	if = {
+		limit = {
+			tnt_show_$ITEM$_trigger = { OTHER = scope:tnt_gate_partner }
+		}
+		set_variable = {
+			name = tnt_show_$ITEM$
+			value = 1
+		}
+	}
+	else = {
+		remove_variable = tnt_show_$ITEM$
+	}
+}
+
+
+########################################################################
+# E3 — tnt_reset_offer_effect
+#
+# Wipes the whole negotiating table: all 24 v1 offer variables, the six new
+# currency variables of item 2.4, and the five derived / UI-state variables.
+# Leaves tnt_open, tnt_partner and tnt_advanced alone so the window stays
+# open and usable.
+#
+# Called from: tnt_open_window_effect (E1), tnt_close_window_effect (E2),
+# the tnt_clear_all scripted_gui ("Clear all" footer button), and
+# tnt_apply_deal_effect (E14) inside hidden_effect.
+#
+# USER ITEM 19 ADDED EIGHT MORE, SIX LIVE SINCE V16: tnt_hostage_p/_r,
+# tnt_indep_p/_r and the two courtier selection lists (tnt_ward_p/_r are retired
+# with the family, user item 5). They sit in their own
+# block below, with the argument for why they are offer state.
+#
+# WAVE 3 ADDS ITS REMOVALS HERE. 30-V2-DESIGN §3.5(a) names them:
+# tnt_spouse_p/_r and tnt_marriage_matri (item 2.1), the nine tnt_ob_*
+# (item 2.5), and clear_variable_list x 6 for the selection lists
+# tnt_sel_title_p/_r, tnt_sel_claim_p/_r, tnt_sel_artifact_p/_r (item 2.2 —
+# those lists ARE the offer, so they are reset here and not only in
+# tnt_clear_lists_effect). Items 2.1/2.2 deleted tnt_marriage_child_p/_r
+# together with E13; even their legacy old-save sweeps are gone now (E0).
+#
+# Unguarded remove_variable on an absent variable is silent and is what
+# vanilla does — GAME\common\scripted_effects\00_scripted_effects.txt:61-62
+# (clear_loanee_variables_effect).
+########################################################################
+tnt_reset_offer_effect = {
+	# --- the 12 items the player offers (left column) -----------------
+	remove_variable = tnt_gold_p
+	# RETIRED V13, USER ITEM 1 (ruling E0). The alliance, the truce and the granted
+	# claim are withdrawn as a DESIGN REFUSAL - tombstones A, B and C in
+	# tnt_32_apply.txt. Nothing writes these three variables any more, and a
+	# remove_variable COUNTS AS A USE: left live they would log 'Variable
+	# tnt_alliance_p is used but is never set' once each per run.
+	# remove_variable = tnt_alliance_p
+	# remove_variable = tnt_truce_p
+	remove_variable = tnt_marriage_p
+	remove_variable = tnt_title_p
+	# remove_variable = tnt_claim_p
+	# RETIRED V12 (ruling E0). Nothing writes this variable any more, and a
+	# remove_variable COUNTS AS A USE - the engine logged 'Variable
+	# tnt_prisoners_p is used but is never set' twice per run. Tombstone: E22 in
+	# tnt_32_apply.txt.
+	# remove_variable = tnt_prisoners_p
+	remove_variable = tnt_hook_p
+	remove_variable = tnt_artifact_p
+	# RETIRED V12 (ruling E0). Nothing writes this variable any more, and a
+	# remove_variable COUNTS AS A USE - the engine logged 'Variable tnt_nonwar_p
+	# is used but is never set' twice per run. The count row in
+	# tnt_items_count_value that this removal used to protect is itself commented
+	# out, so nothing reads the variable either. Tombstone: E25 in
+	# tnt_32_apply.txt.
+	# remove_variable = tnt_nonwar_p
+	remove_variable = tnt_vassal_p
+	# V4 expansion 1 — the threat. One-sided, so it is cleared here only.
+	remove_variable = tnt_threat_p
+	# V4 item 2 — spending a hook we hold. One-sided for the same reason.
+	remove_variable = tnt_usehook_p
+	# V4 item A2 - the partner's own leverage claim, written by his composer.
+	remove_variable = tnt_usehook_r
+	# RETIRED V12 (ruling E0). tnt_sel_prisoner_p is a variable LIST OF CHARACTERS
+	# and a clear_variable_list COUNTS AS A USE - the engine logged 'Variable
+	# tnt_sel_prisoner_p is used but is never set' twice per run. Nothing writes
+	# the list since the retirement (its only writers are commented out at
+	# tnt_22b_multiselect.txt:630/639/647/676), so there is nothing left to
+	# reclaim. It used to be plain offer state ("V4 item A1 - the selected
+	# captives go with the offer"). The script value that also read it is gutted
+	# to a constant 0 at tnt_54_multiselect_values.txt:1069. Tombstone: E22 in
+	# tnt_32_apply.txt.
+	# clear_variable_list = tnt_sel_prisoner_p
+
+	# --- the 12 items the partner offers (right column) ---------------
+	remove_variable = tnt_gold_r
+	# RETIRED V13, USER ITEM 1 - the _r twins of the three lines above, same
+	# remove-as-use reason. Tombstones A, B and C in tnt_32_apply.txt.
+	# tnt_alliance_r and tnt_truce_r were ALREADY unwritten before the retirement:
+	# their only setters were tnt_alliance_r_toggle / tnt_truce_r_toggle, which the
+	# GUI never bound because a mutual term is written on one side only.
+	# remove_variable = tnt_alliance_r
+	# remove_variable = tnt_truce_r
+	remove_variable = tnt_marriage_r
+	remove_variable = tnt_title_r
+	# remove_variable = tnt_claim_r
+	# RETIRED V12 (ruling E0) - the _r twin of the line above, same remove-as-use
+	# reason. Tombstone: E22 in tnt_32_apply.txt.
+	# remove_variable = tnt_prisoners_r
+	remove_variable = tnt_hook_r
+	remove_variable = tnt_artifact_r
+	# RETIRED V12 (ruling E0) - the _r twin of the line above, same remove-as-use
+	# reason. Tombstone: E25 in tnt_32_apply.txt.
+	# remove_variable = tnt_nonwar_r
+	remove_variable = tnt_vassal_r
+
+	# --- picker overlay state -----------------------------------------
+	remove_variable = tnt_picker
+	remove_variable = tnt_picker_side
+
+	# --- item ADD-3: the auto-balance verdict --------------------------
+	# tnt_ab_state carries which of the three outcomes the auto-balance
+	# button reached, purely so its tooltip can say so. It is written by
+	# tnt_39_autobalance.txt and cleared by every amount entry point
+	# there, but NOT by this reset until now: clearing the table left the
+	# stale verdict behind, and closing the window then wrote it into the
+	# save. tnt_ab_margin and tnt_ab_ceiling need no line here - both live
+	# and die inside a single call of tnt_autobalance_effect.
+	remove_variable = tnt_ab_state
+
+	# --- result banner ------------------------------------------------
+	# NOTE for E14: this is why tnt_apply_deal_effect resets BEFORE it
+	# calls tnt_notify_accepted_effect. Resetting afterwards would delete
+	# the tnt_result the notify effect had just written and the in-window
+	# banner would never appear.
+	remove_variable = tnt_result
+
+	# Manual confirmation latch. Set immediately before tnt_diplomacy.0001 and
+	# also removed by every option there; this reset is the lifecycle backstop for
+	# a load, a fresh session, an accepted apply, or any other teardown path.
+	remove_variable = tnt_confirm_pending
+
+	# --- item 2.1: the pair list, the staging cursor and the mirrors ----
+	# *** THIS ONE LINE IS NOW THE MOD'S ONLY DEFENCE AGAINST A SAVEGAME LEAK
+	# *** ON CHARACTERS WHO ARE NOT THE PLAYER. DO NOT DELETE OR REORDER IT. ***
+	#
+	# ITERATION 4 made marriage an unlimited LIST of pairs, and a pair stores its
+	# other half and its line AS VARIABLES ON THE PLAYER-SIDE SPOUSE — a courtier,
+	# a child, the partner's daughter. tnt_reset_marriage_effect therefore OPENS
+	# with tnt_wed_clear_all_effect, which iterates tnt_wed_list, strips
+	# tnt_wed_partner and tnt_wed_matri off every member, and only THEN clears the
+	# list. That order is not a preference: clearing the list first orphans those
+	# variables forever, because the list is the only thing that can still name
+	# the characters they sit on.
+	#
+	# BECAUSE THIS EFFECT IS CALLED BY FOUR PATHS — window open (E1),
+	# the footer's Clear all, tnt_close_window_effect (E2) and
+	# tnt_apply_deal_effect — this single line discharges the cleanup obligation
+	# on all four. The fifth path is the yearly tnt_wed_gc_effect
+	# (tnt_70_on_actions.txt), which exists for the session that ends in a crash.
+	#
+	# It also removes: tnt_spouse_p, tnt_spouse_r, tnt_marriage_matri and the
+	# four mirrors tnt_marriage_legal / _betroth / _line_shown / tnt_wed_dup, plus
+	# tnt_wed_principal, tnt_wed_grand and both mutual flags. Full audit at the
+	# foot of tnt_34_marriage.txt.
+	# The mirrors belong in the RESET and not in tnt_close_window_effect: they are
+	# cheap and are recomputed by every path that can change them, unlike
+	# tnt_infl_ok_p/_r which are only ever written on window open.
+	tnt_reset_marriage_effect = yes
+
+	# v1's auto-picked betrothal pair (tnt_marriage_child_p/_r): the two legacy
+	# remove_variable sweeps that stood here are deleted under ruling E0 —
+	# nothing writes the variables since build 3 (E13 deleted), and the
+	# validator logged remove-as-use for both ("is used but is never set").
+
+	# --- the other one-time currencies (user item 2.4) ----------------
+	# R-CLEAN: for every write, name the removal. These six are written by
+	# the wave-3a steppers and read by tnt_33_currency_apply.txt; the
+	# removals are here from the start so the two can never get out of step.
+	# An unguarded remove_variable on an absent variable is silent (see the
+	# header), so these lines are already correct before the rows exist.
+	remove_variable = tnt_prestige_p
+	remove_variable = tnt_prestige_r
+	remove_variable = tnt_piety_p
+	remove_variable = tnt_piety_r
+	remove_variable = tnt_influence_p
+	remove_variable = tnt_influence_r
+
+	#===================================================================
+	# USER ITEM 19 — THE FOUR PEOPLE TERMS. R-CLEAN: for every write, name
+	# the removal, and here are all eight of them.
+	#===================================================================
+	# WRITTEN BY common\scripted_guis\tnt_24_people.txt (the pickers, the
+	# two independence toggles and the courtier add/remove), READ BY
+	# tnt_58_person_values.txt for the price and by tnt_3a_people.txt for
+	# the apply legs — so the removals live here from the start and the two
+	# halves can never get out of step.
+	#
+	# THEY ARE OFFER STATE, NOT SESSION STATE, and that is the whole reason
+	# they are in THIS effect and not in tnt_close_window_effect: the
+	# footer's "Clear all" must take the player's child back off the table,
+	# and tnt_apply_deal_effect must clear them after the deal so the next
+	# negotiation does not re-apply a hostage who has already left.
+	#
+	# tnt_hostage_* / tnt_ward_* hold a CHARACTER; tnt_indep_* is a 0/1
+	# flag. remove_variable does not care, and on an absent variable it is
+	# silent (see this effect's header).
+	#
+	# THE TWO COURTIER LISTS ARE THE OFFER, exactly as tnt_sel_prisoner_p
+	# above was before its term retired, so they are cleared with the offer
+	# and NOT only in
+	# tnt_clear_lists_effect. Their two CANDIDATE lists
+	# (tnt_list_courtier_p/_r) are session state and are cleared on window
+	# close instead — see the bridge block in tnt_close_window_effect.
+	# A leaked variable list of characters is permanent save pollution:
+	# nothing garbage-collects it and no on_action ever runs in its scope.
+	remove_variable = tnt_hostage_p
+	remove_variable = tnt_hostage_r
+	# RETIRED V16, USER ITEM 5 — the two ward offer-state removals, under ruling E0
+	# and for the reason this file MEASURED at :318-320: a remove_variable COUNTS AS A
+	# USE, and the validator logged 'Variable tnt_ally_inrealm is used but is never
+	# set' for exactly this shape. With the two setters in tnt_24_people.txt retired,
+	# nothing writes tnt_ward_p/_r on any live line, so keeping these two would trade
+	# an old-save sweep for two guaranteed error lines per run — and the acceptance
+	# condition for a playtest is ZERO tnt_ error lines.
+	# THE OLD-SAVE ARGUMENT IS VOID HERE ANYWAY: the mod is not published and
+	# savegame compatibility is never a constraint (CLAUDE.md §1) — the user starts a
+	# fresh run to test. Same treatment as the prisoner and nonwar removals above.
+	# WARD TOMBSTONE: tnt_32_apply.txt.
+	#	remove_variable = tnt_ward_p
+	#	remove_variable = tnt_ward_r
+	remove_variable = tnt_indep_p
+	remove_variable = tnt_indep_r
+	clear_variable_list = tnt_sel_courtier_p
+	clear_variable_list = tnt_sel_courtier_r
+	# V26 — the third people term's two SELECTION lists. They ARE the offer, so
+	# they are cleared with the offer and not only in tnt_clear_lists_effect,
+	# exactly as the courtier pair above. Their CANDIDATE twins
+	# (tnt_list_subject_p/_r) are session state and are cleared on window close.
+	clear_variable_list = tnt_sel_subject_p
+	clear_variable_list = tnt_sel_subject_r
+
+	# --- item 2.5: the nine contract-sheet obligations -----------------
+	# tnt_reset_hc_effect removes tnt_ob_tax, tnt_ob_levy, tnt_ob_relig,
+	# tnt_ob_council, tnt_ob_revoke, tnt_ob_war, tnt_ob_fort, tnt_ob_coin,
+	# tnt_ob_succ (tnt_36_hooks_contracts.txt:830).
+	# OFFER state, not session state: the footer's "Clear all" must wipe the
+	# contract sheet along with everything else on the table.
+	# NOTHING is needed for item 2.3's hook: tnt_hook_p/_r keep their names
+	# and are already removed above at the two item blocks — only their TYPE
+	# changed, from 0/1 to a 0..3 tier index, and remove_variable does not care.
+	tnt_reset_hc_effect = yes
+
+	#===================================================================
+	# ITEM 2.2 — THE SIX SELECTION LISTS. *** THE HIGHEST-PRIORITY
+	# CLEANUP LINE IN THE WHOLE MOD. ***
+	#===================================================================
+	# tnt_clear_selections_effect empties tnt_sel_title_p/_r,
+	# tnt_sel_claim_p/_r and tnt_sel_artifact_p/_r
+	# (tnt_35_multiselect.txt:329). Those six lists ARE the offer — the same
+	# role `exists = var:tnt_title_p` played in v1 — so they are cleared
+	# where the rest of the offer is cleared, and one call site covers all
+	# four wipe paths because every one of them funnels through this effect:
+	#     tnt_open_window_effect  (E1)
+	#     tnt_close_window_effect (E2)
+	#     tnt_clear_all           (the "Clear all" footer button)
+	#     tnt_apply_deal_effect   (E14, inside hidden_effect)
+	# Miss it and a variable list of landed titles is permanent save
+	# pollution: there is no garbage collector for it and no on_action that
+	# would ever run in its scope. 30-V2-DESIGN §3.4.
+	#
+	# It is LAST in this effect only for readability; it has no ordering
+	# dependency. clear_variable_list on an absent list is silent.
+	tnt_clear_selections_effect = yes
+
+	#===================================================================
+	# THREE VARIABLES THAT MUST NEVER BE ADDED TO THIS EFFECT
+	#===================================================================
+	# Each one is TIMED and expires by itself, which is the only correct form
+	# for a variable that can live on a character nothing ever "closes a
+	# window" for. Removing any of them by hand is actively harmful.
+	#
+	# (The list used to open with tnt_tribute_out / tnt_tribute_in, kept alive
+	# because the retired tribute's two modifier definitions still read them.
+	# Both the definitions and the whole savegame-compatibility argument are
+	# gone: _docs/99-BACKLOG.md section E0 records the standing ruling that
+	# old saves are not a constraint before publication.)
+	#
+	#   tnt_ai_world_cd  (years = 3) — the AI-vs-AI treaty rate limiter,
+	#       tnt_38_ai_world.txt:617. Never written on a player at all.
+	#   tnt_ai_offer_cooldown  (years = 1 / 3 / 10) — the AI-offer throttle,
+	#       tnt_37_ai_offer.txt:244, :257, :800. Removing it here would let
+	#       the player clear his own anti-spam lock by pressing "Clear all".
+	#   tnt_ai_offer_live / tnt_ai_offer_arch  (days = 200) — these two are
+	#       removed by tnt_close_window_effect (E2) and NOT here, because
+	#       tnt_ai_offer.0001's immediate calls THIS effect and then writes
+	#       tnt_ai_offer_arch. Reset them here and the letter loses the
+	#       archetype index its own desc branches on.
+	# Amendment A-4 of 30-V2-DESIGN, and NOTES3-ai-sandbox.md §5.
+
+	#===================================================================
+	# THE BALANCE BUTTON'S MEMORY (V6 item 5) — SIX NAMES, AND FIVE OF THEM
+	# LEAKED UNTIL THIS BLOCK EXISTED.
+	#===================================================================
+	# The ladder records what it added (tnt_ab_added_*) so that deleting one of
+	# its own suggestions can be told from deleting something the player chose,
+	# and it records what the player rejected (tnt_ab_veto_*) so the next press
+	# offers something else. tnt_39_autobalance.txt's D.5 header claimed all six
+	# "die with the offer" because this effect clears them. It did not — the
+	# lines were never written, and the consequences were not cosmetic:
+	#
+	#   * THE CROWN RUNG DIED PERMANENTLY ON THE FIRST UNTICK. The fealty rung is
+	#     gated on NOT = { exists = var:tnt_ab_veto_vassal } (tnt_39:1963). One
+	#     untick of a button-added fealty, ever, with anybody, and the rung was
+	#     dead for the rest of the campaign against every partner in the world.
+	#   * CROSS-PARTNER LEAKAGE. The veto lists hold TITLES, not (partner, title)
+	#     pairs. A duchy refused in a talk with one ruler stayed invisible to the
+	#     ladder in every later talk with everyone else.
+	#   * PERMANENT SAVE POLLUTION. Two variable lists of titles on the player
+	#     that nothing garbage-collected — the exact class this file's own
+	#     R-CLEAN law exists to forbid.
+	#
+	# THEY BELONG IN *THIS* EFFECT AND NOT IN tnt_close_window_effect, because
+	# the memory is a property of ONE NEGOTIATION, not of one window session:
+	# "Clear all" must also forget what the balancer suggested, or the button
+	# would refuse to re-offer a duchy on a table the player has just emptied.
+	# tnt_ab_vassal_mark already had its own removals in tnt_20_scripted_guis.txt
+	# (:1007, :1024) and is repeated here for the same reason the currencies are:
+	# one wipe point that cannot be forgotten.
+	clear_variable_list = tnt_ab_added_title
+	# RETIRED V13, USER ITEM 1 - the two claim memory lists. Their only writers were
+	# the auto-balance parchment rung (tnt_39_autobalance.txt D5) and the two claim
+	# multi-select entries in tnt_22b_multiselect.txt, all of which retire with the
+	# granted claim (TOMBSTONE C in tnt_32_apply.txt). A clear_variable_list COUNTS
+	# AS A USE, so these two lines had to go with them or the engine would log
+	# 'Variable tnt_ab_added_claim is used but is never set'.
+	# clear_variable_list = tnt_ab_added_claim
+	clear_variable_list = tnt_ab_veto_title
+	# clear_variable_list = tnt_ab_veto_claim
+	remove_variable = tnt_ab_vassal_mark
+	remove_variable = tnt_ab_veto_vassal
+}
+
+
+########################################################################
+# E13 — tnt_pick_marriage_pair_effect     *** DELETED IN BUILD 3 ***
+#
+# The v1 auto-picker (one random betrothable child per side, written into
+# tnt_marriage_child_p / _r) is what user item 2.1 exists to remove. Build 3
+# reduced it to a one-line shim because four call sites lived in a file no
+# build-3 author owned; all four are now gone and so is the entry:
+#   * tnt_20_scripted_guis.txt tnt_marriage_p_toggle / _r_toggle — the pair is
+#     not picked at click time any anymore; the toggles are plain flips whose
+#     is_valid reads tnt_spouse_p / _r and tnt_marriage_legal.
+#   * tnt_20_scripted_guis.txt tnt_clear_all — tnt_reset_offer_effect clears
+#     the pair, the line and the three mirrors through
+#     tnt_reset_marriage_effect. There is nothing to re-pick.
+#   * tnt_20_scripted_guis.txt tnt_refresh_lists — tnt_refill_all_lists_effect
+#     now ends in tnt_fill_spouse_lists_effect, which ends in
+#     tnt_marriage_sync_effect. Same anti-phantom rule, better place.
+#
+# THE ANTI-PHANTOM RULE DID NOT DIE WITH IT. tnt_marriage_sync_effect
+# (tnt_34_marriage.txt:357) is that rule rewritten against the new variables —
+# it drops tnt_marriage_p / _r whenever the chosen pair is missing or illegal,
+# so tnt_items_count_value can never report a term that contributes 0 points
+# and executes nothing. It is called from every path that can change the pair:
+# the three openers/setters in tnt_22a_marriage.txt and the fan-out in
+# tnt_31_lists.txt.
+#
+# T7 tnt_marriage_candidate_trigger (tnt_40_triggers.txt:1002) lost its last
+# caller here and is LEFT DEFINED — an unreferenced scripted trigger costs
+# nothing and deleting it would be a second, unrelated edit.
+########################################################################

@@ -1,0 +1,44 @@
+﻿######################################################################################
+# PARLEY: THE NEGOTIATING TABLE - SPENDING A HOOK YOU ALREADY HOLD   (V4 item 2)
+#
+# The mirror image of tnt_hook_p, which GRANTS the partner a hook on the player. This
+# one spends the hook the player holds ON the partner, and it is priced as pressure
+# rather than as a gift (tnt_59_usehook_values.txt).
+#
+# THE GATE IS THE STRENGTH ITSELF: tnt_usehook_strength_value is 2 for a strong hook, 1
+# for a weak one and 0 for none, so >= 1 is exactly 'there is a hook to spend' - a named
+# value against a literal, which is what Law R7 permits. One custom_description, so a
+# player without leverage is told so rather than facing a dead switch.
+#
+# THE HOOK IS SPENT AT APPLY TIME AND NOT HERE. Ticking a box must not consume a favour
+# - the treaty may never be signed - so tnt_32_apply.txt calls vanilla's own use_hook,
+# which knows by itself that a weak hook is consumed and a strong one is not.
+#
+# THIS FILE ONCE ALSO HELD tnt_impose_war, the control that declared a war to force a
+# treaty through. THAT MECHANIC WAS DELETED BY DECISION; the reasoning is recorded in
+# _docs/92-IMPOSE-WAR-REJECTED.md. Do not reintroduce it here.
+######################################################################################
+
+tnt_usehook_p_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_usehook_none
+			tnt_usehook_strength_value >= 1
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_usehook_p }
+			remove_variable = tnt_usehook_p
+		}
+		else = {
+			set_variable = {
+				name = tnt_usehook_p
+				value = 1
+			}
+		}
+	}
+}

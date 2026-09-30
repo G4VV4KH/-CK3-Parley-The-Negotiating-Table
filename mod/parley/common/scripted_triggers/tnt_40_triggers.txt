@@ -1,0 +1,2019 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — scripted triggers.
+#
+# The eleven triggers T1..T11 of 10-CONTRACT.md §6.2, in that order, plus the
+# five v2 gates T12..T16 that item 1.1 makes necessary (30-V2-DESIGN §1 row 1.1).
+#
+# ===========================================================================
+# V15 LINE-NUMBER NOTICE — READ BEFORE FOLLOWING A CITATION INTO THIS FILE
+# ===========================================================================
+# V15 (user item 3) added T48 tnt_not_the_watch_trigger and rewrote three header
+# blocks, taking this file from 1,227 to 1,492 lines. EVERY intra-mod citation of
+# the form `tnt_40_triggers.txt:<line>` written BEFORE V15 is therefore shifted
+# downward — by +25 at the top of the file, by ~+70 from T1's body onward, and by
+# more again past T46's header. Those references are NAVIGATION AIDS, not
+# evidence: the VANILLA EVIDENCE LAW governs citations into <vanilla>\game, and
+# every one of THOSE in this file was re-verified in V15 (two were WRONG and are
+# corrected in place — the japan government flag and the `exists = root` folder).
+# V16 added 34 comment lines to T3's header (F2) and a whole new trigger at the
+# end, T49 (Q2-F3), so everything below T3 shifted down; the table here is
+# re-measured, the prose above it is not.
+# W2 added T2b and T2c (the two currency-rule ladders) directly under T2, so
+# everything from T3 down shifted by +102. The table below is RE-MEASURED against
+# the shipped file and its numbers are now EXACT - the old table was uniformly
+# one line high, which is why a citation into it always landed on the closing
+# brace of the block above.
+# NAVIGATE BY NAME, NOT BY NUMBER. The live definitions, in file order:
+#    173  tnt_partner_valid_trigger              (T1)
+#    225  tnt_advanced_terms_trigger             (T2)
+#    284  tnt_trade_prestige_trigger             (T2b)  <- NEW in W2
+#    306  tnt_trade_piety_trigger                (T2c)  <- NEW in W2
+#    401  tnt_can_cede_title_trigger             (T3)   tier row :404
+#    545  tnt_can_vassalize_trigger              (T5)
+#    757  tnt_vassalage_pair_allowed_trigger     (T46)
+#    940  tnt_not_the_watch_trigger              (T48)
+#   1002  tnt_marriage_candidate_trigger         (T7)
+#   1091  tnt_artifact_giftable_trigger          (T9)
+#   1110  tnt_offer_nonempty_trigger
+#   1127  tnt_no_double_vassal_trigger
+#   1694  tnt_ai_world_partner_valid_trigger     (T49)  <- NEW in V16
+#   1863  tnt_ai_world_title_saleable_trigger    (T50)  <- NEW in V16
+# Everything between them is header prose or a retired tombstone.
+#
+# ===========================================================================
+# R3 / R-6 — HOW EVERY IDENTIFIER IN THIS FILE IS PROVEN
+#
+# common/trigger_localization/ IS NOT A REGISTRY OF EXISTING TRIGGERS. It keeps
+# entries for triggers the engine has REMOVED, and that is exactly how defect D1
+# shipped (has_same_culture_group_as is in that folder and the 1.19 engine
+# rejects it — 50-RUNTIME-LOG-FINDINGS.md §D1, 30-V2-DESIGN §8 R-6).
+#
+# v1 of THIS FILE cited trigger_localization line numbers beside almost every
+# trigger. Those citations were forbidden evidence and have all been replaced
+# with REAL CALL SITES under GAME\common\**. The audit is complete: every
+# non-tnt_ identifier below now names a file:line where vanilla script actually
+# calls it. Nothing in this file rests on documentation any more.
+# ===========================================================================
+#
+# DESIGN RULES OBEYED BY EVERY TRIGGER IN THIS FILE
+#
+#  1. T1..T13 are usable from BOTH a scripted_gui `is_valid` AND an effect's
+#     `limit`. That means: no effect-only syntax, no `save_scope_as`, and NO
+#     custom_description. The player-facing failure text lives one level up, on
+#     the scripted_gui side (10-CONTRACT.md §5 wraps each of these in its own
+#     `custom_description = { text = tnt_err_* ... }`), so the same trigger can
+#     be reused silently inside an iterator's `limit`.
+#
+#     T14..T16 are the EXCEPTION and are the answer to "no dead controls": they
+#     are the failure-reporting wrappers of T12/T13/T5, one custom_description
+#     per reason, and they are called ONLY from a scripted_gui `is_valid`. They
+#     must NEVER appear inside an effect's `limit` — a custom_description that
+#     is evaluated during tooltip generation injects its text into the effect's
+#     tooltip, which is the D5 class of bug.
+#
+#  2. Every character-valued parameter is existence-guarded before it is
+#     entered, because callers pass dotted variable paths such as
+#     `root.var:tnt_partner` (10-CONTRACT.md §5, E6..E12). The idiom is
+#         trigger_if = { limit = { exists = $X$ } ... }  trigger_else = { always = no }
+#     `exists = root` is legal and appears 11x in vanilla
+#     (GAME\common\combat_phase_events\00_commander_phase_events.txt:47 - the
+#      folder was mis-stated as common\events here until V15; there is no such
+#      file under GAME\common\events).
+#     The neighbouring form `exists = this`, which T48 uses, is REAL at
+#     GAME\common\scripted_triggers\00_artifact_triggers.txt:118 (647 sites
+#     across GAME\common + GAME\events).
+#     `trigger_else = { always = no }` — GAME\common\scripted_triggers\00_activity_triggers.txt:441.
+#
+#  3. NO cross-character field comparison anywhere (contract R0.3 / Law 4).
+#     T5 needs one — "the vassal must rank below the liege" — and folds it
+#     through the named script value tnt_tier_edge_value, compared against the
+#     literal 0. See T5's comment for the sign convention.
+#
+#  4. Parameter substitution is textual, so `$GIVER$.primary_title` and
+#     `holder ?= $GIVER$` both resolve for a plain scope, a `scope:x`, and a
+#     dotted path alike. Vanilla precedent for the whole shape of T3/T4:
+#     GAME\common\scripted_triggers\07_ep3_petition_triggers.txt:83-96.
+###############################################################################
+
+
+# =============================================================================
+# T1  tnt_partner_valid_trigger = { CHARACTER = <character> }
+#
+# Scope: character (the would-be actor). Is $CHARACTER$ a legal negotiating
+# partner for him?
+#
+# Called from tnt_10_interaction.txt's is_shown inside `scope:actor = { }`, so
+# `this` is the actor and the NOT below is the "not yourself" test — that is the
+# whole of the interaction's targeting logic.
+#
+# ---------------------------------------------------------------------------
+# v2 ITEM 1.1 — THIS TRIGGER WAS THE ONE THING BLOCKING THE FEATURE.
+#
+# The user: "it must be possible to send a request from ANY ruler to ANY ruler,
+# including one's own vassals and so on". v1 required
+#     is_independent_ruler = yes
+# which excludes precisely the people asked for: your own vassals, your liege,
+# and anybody else's vassal. 30-V2-DESIGN §1 row 1.1 rules: drop that one line,
+# keep is_alive / is_landed, and replace it with a government NOR.
+#
+# Negotiating with your own liege is vanilla behaviour, not an invention: you
+# may hold a hook on your liege —
+#   GAME\common\hook_types\00_hook_types.txt:201-204   (liege_favour_strong_hook)
+# and vanilla itself hands one out with
+#   add_hook = { type = favor_hook  target = scope:my_liege }
+#   GAME\events\... stewardship_duty_events.txt:3074-3078
+#
+# The two government flags, verified on disk in this session (note the real
+# directory is common/governments/, NOT common/government_types/):
+#   cannot_be_vassal_or_liege
+#     defined  GAME\common\governments\00_government_types.txt:351 (mercenary_government),
+#              :391 (holy_order_government), :563 (the landless-adventurer government)
+#     used     GAME\common\character_interactions\00_character_interactions.txt:47
+#              (offer_vassalization_interaction is_shown, NOR block) and :1408
+#              (offer_fealty_interaction is_shown, NOT block);
+#              GAME\common\character_interactions\00_tributary_interactions.txt:204
+#   government_is_landless_adventurer
+#     defined  GAME\common\governments\00_government_types.txt:564
+#     used     GAME\common\character_interactions\00_character_interactions.txt:1431
+#              (offer_fealty_interaction is_valid_showing_failures_only, NOR block)
+# The trigger that reads them, `government_has_flag`, has real call sites at
+#   GAME\common\character_interactions\00_alliance.txt:374, :2141
+#
+# Why exclude those two and nothing else: a mercenary company, a holy order and
+# a landless adventurer cannot enter a liege/vassal relation at all, and the
+# landless ones own no land to trade — half of our fourteen items would be dead
+# controls for them. Every other ruler in the game is now a legal partner.
+#
+# `use_diplomatic_range = no` in tnt_10_interaction.txt stays as it is; nothing
+# else in the interaction changes, because is_shown only ever tested the actor
+# and the recipient (30-V2-DESIGN §1 row 1.1).
+#
+# CONSEQUENCE, AND IT IS THE WHOLE REASON 1.1 IS SAFE: widening the partner set
+# moves the burden onto the PER-ITEM gates. See T3, T4, T5, T11, T12, T13 and
+# the wrappers T14..T16 — each one now refuses the combinations that only became
+# reachable because of this relaxation.
+#
+# THE PARTNER SET AS OF V15 (USER ITEM 3): every landed ruler EXCEPT a mercenary
+# company, a holy order, a landless adventurer — and the NIGHT'S WATCH, in BOTH
+# ROLES. The Watch rows are the two T48 calls at the top of the body below; the
+# user's ruling, the setting evidence, the vanilla-only safety proof and the cost
+# table all live in T48 so that no other file has to restate them. This paragraph
+# exists because the is_shown re-audit in
+# common\character_interactions\tnt_10_interaction.txt ("T1 Carries the whole
+# recipient test") reads the partner set off this header, and it was updated in
+# the same commit.
+#
+# NO LOC KEY IS NEEDED AND NONE MAY BE ADDED. This is an is_shown row, which
+# HIDES, and being the Night's Watch is a permanent structural fact — exactly the
+# class the mod's own PART-2 doctrine sends to is_shown rather than to a greyed
+# row with a reason (tnt_10_interaction.txt). The per-.yml key count is therefore
+# untouched by user item 3.
+# ---------------------------------------------------------------------------
+# =============================================================================
+tnt_partner_valid_trigger = {
+	trigger_if = {
+		limit = { exists = $CHARACTER$ }
+		NOT = { this = $CHARACTER$ }
+		# V15, USER ITEM 3: THE WALL IS NOT A PARTY TO ANY NEGOTIATION, IN EITHER
+		# ROLE. `this` is the ACTOR at all three of this trigger's call sites -
+		# tnt_10_interaction.txt:414 inside `scope:actor = { }`,
+		# tnt_37_ai_offer.txt with root = the AI proposer, and tnt_3b_log.txt's
+		# telemetry ladder likewise - so these TWO rows close all FOUR directions
+		# at once. PER SIDE, never in AGOT's single-NOT shape, which is a NAND that
+		# never fires; the whole argument, the vanilla-only safety proof and the
+		# cost table are in T48 below. Deliberately NOT folded into the NOR two
+		# rows down: one statement per fact, and T48 is where the fact lives.
+		# `PARAM = this` passed into a scripted trigger in a TRIGGER position is
+		# vanilla's own shape - GAME\common\character_interactions\
+		# 06_ep3_interactions.txt:33-36 and :48-51, both inside an iterator limit
+		# (`any_valid_title_to_grant_trigger = { CANDIDATE = this ... }`).
+		# What the substitution PRODUCES, `this = { <trigger block> }`, is REAL at
+		# GAME\common\scripted_triggers\tgp_mandala_task_contract_triggers.txt
+		# :108-110 and :123-125, and at GAME\common\character_interactions\
+		# 00_diarch_interactions.txt:3016-3019.
+		# TWO ADJACENT CALLS OF A trigger_if/trigger_else-SHAPED TRIGGER ARE TWO
+		# INDEPENDENT CHAINS, not one - a `trigger_else` closes its own chain and a
+		# following `trigger_if` opens a new one. REAL, five such pairs in a row
+		# inside a single OR: GAME\common\scripted_triggers\00_activity_triggers.txt
+		# :437-465 (petition_liege_has_main_skiller_trigger). Ours sit inside an
+		# implicit AND, which is the easier case.
+		tnt_not_the_watch_trigger = { WHO = this }
+		tnt_not_the_watch_trigger = { WHO = $CHARACTER$ }
+		$CHARACTER$ = {
+			is_alive = yes				# REAL: GAME\common\character_interactions\00_choose_favorite_interaction.txt:103; also 00_courtier_and_guest_interactions.txt:172
+			is_landed = yes				# REAL: GAME\common\character_interactions\00_character_interactions.txt:26 (offer_vassalization is_shown), :1401, :1406
+			NOR = {
+				government_has_flag = cannot_be_vassal_or_liege			# REAL: GAME\common\character_interactions\00_character_interactions.txt:47, :1408
+				government_has_flag = government_is_landless_adventurer	# REAL: GAME\common\character_interactions\00_character_interactions.txt:1431
+			}
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# T2  tnt_advanced_terms_trigger = yes
+#
+# Scope: any. Are the Tier-4 dangerous terms (betrothal, ceding a title,
+# swearing fealty) switched on in the game rules?
+#
+# Read once on window open by tnt_open_window_effect (E1), which caches the
+# answer in the character variable tnt_advanced so that the GUI can gate rows
+# with a cheap map lookup instead of a per-frame scripted_gui call (Law 9).
+# =============================================================================
+tnt_advanced_terms_trigger = {
+	# REAL: `has_game_rule = no_adoption`, GAME\common\character_interactions\00_adoption.txt:16
+	#       (also :27, :553; GAME\common\character_interactions\00_culture_interactions.txt:213)
+	# Rule + settings declared in tnt_80_game_rules.txt (contract §6.6).
+	has_game_rule = tnt_advanced_terms_on
+}
+
+
+# =============================================================================
+# T2b  tnt_trade_prestige_trigger = { A = <character>  B = <character> }
+# T2c  tnt_trade_piety_trigger    = { A = <character>  B = <character> }
+#
+# Scope: any. May $A$ and $B$ put PRESTIGE / PIETY on a negotiating table with
+# each other, under the lobby rule for that currency?
+#
+# W2 TURNED TWO ON/OFF SWITCHES INTO TWO LADDERS AND THESE ARE THE ONLY PLACE
+# THE LADDER IS SPELLED OUT. Nothing else in the mod may ask has_game_rule =
+# tnt_trade_<cur>_* by hand any more: a hand-written `_on` test cannot see a
+# middle rung, so it reads "off" for a rung that is in fact "on for this pair",
+# and the mod would hide a row the lobby had allowed. The settings are declared
+# in common\game_rules\tnt_80_game_rules.txt, whose header carries the whole
+# design argument (why this is NOT a fourth rule, why the ids _on / _off were
+# kept, and why no tnt_err_* key is born).
+#
+# THE NAMES ARE LOAD-BEARING, MECHANICALLY. _docs\tools\tnt_rule_conformance.ps1
+# recognises a rule read as `<rule id>_trigger` (its Reads-Rule function), so
+# calling these exactly tnt_trade_prestige_trigger / tnt_trade_piety_trigger is
+# what keeps the section 6.13 check at exit 0 with no edit to its $RULES table.
+# Rename either one and the tool goes red on twelve balancer rungs at once.
+#
+# WHO IS $A$ AND WHO IS $B$. $A$ is the side the question is asked FROM and $B$
+# is the other party; on every live path that is { A = root  B = var:tnt_partner }
+# because root is the player and var:tnt_partner is the counterparty in the
+# window (E1 writes it first, tnt_30_effects.txt:90), on the letter path
+# (tnt_ai_offer.0001 writes it in its immediate, before it composes) and hence
+# inside the balancer, which both paths reach.
+# BOTH HANDLES MUST BE ABSOLUTE - root, scope:x or var:... - NEVER `this` and
+# NEVER `prev`. These are TEXT MACROS (the T51 rule, CLAUDE.md section 4): a
+# relative handle re-binds inside the substituted body, and the body below
+# changes scope with `$A$ = { ... }`.
+#
+# R13 AND THE UNSET PARTNER. Every relational rung opens with `exists = $A$` and
+# `exists = $B$` before it touches a field, so a call made with no partner
+# stored degrades to NO instead of throwing - the same answer the rule's `off`
+# setting gives, which is the safe direction for every reader we have (a hidden
+# row, a skipped balancer rung). The `_on` rung never touches $B$ at all.
+# `exists = root` is real vanilla: GAME\common\scripted_triggers\00_coa_triggers.txt:129.
+#
+# R7 IS NOT ENGAGED. R7 forbids `var:a > var:b`, variable against variable.
+# These rows compare a FIELD against the same FIELD reached through a scope, a
+# shape vanilla writes five times over (citations at each row), and the mod
+# already ships it: `root = { max_military_strength > var:tnt_partner.max_military_strength }`
+# (common\scripted_guis\tnt_20_scripted_guis.txt:553) is the same dotted-var
+# field read, in a shipped and exercised line.
+#
+# `$A$ = { <trigger> }` where $A$ expands to `root` is a legal scope change
+# inside a trigger: GAME\common\scripted_effects\00_death_management_effects.txt:35
+# (`limit = { is_alive = yes  root = { is_ai = yes } }`).
+# =============================================================================
+tnt_trade_prestige_trigger = {
+	trigger_if = {
+		# ALWAYS. The shipped default, so a player who never opens the lobby
+		# sees exactly the mod he saw before W2.
+		limit = { has_game_rule = tnt_trade_prestige_on }
+		always = yes
+	}
+	trigger_else_if = {
+		# PEERS AND BELOW ONLY. "I am at least as famed as he is."
+		# REAL: `prestige_level >= scope:recipient.prestige_level`,
+		#       GAME\common\character_interactions\00_fp3_interactions.txt:1478.
+		# REAL in MACRO form: `prestige_level > $COMPARISON$.prestige_level`,
+		#       GAME\common\scripted_triggers\00_laamp_triggers.txt:248
+		#       (also 00_vassal_interactions.txt and 05_bp2_hostage_triggers.txt).
+		limit = { has_game_rule = tnt_trade_prestige_peer }
+		exists = $A$
+		exists = $B$
+		$A$ = { prestige_level >= $B$.prestige_level }
+	}
+	trigger_else = { always = no }		# tnt_trade_prestige_off, and any setting a later round adds without touching this trigger
+}
+
+tnt_trade_piety_trigger = {
+	trigger_if = {
+		limit = { has_game_rule = tnt_trade_piety_on }
+		always = yes
+	}
+	trigger_else_if = {
+		# SAME FAITH ONLY.
+		# REAL: `faith = scope:actor.faith`,
+		#       GAME\common\scripted_triggers\00_interaction_triggers.txt:296
+		#       (grant_title_rivalry_trigger); also 00_councillor_triggers.txt.
+		limit = { has_game_rule = tnt_trade_piety_faith }
+		exists = $A$
+		exists = $B$
+		$A$ = { faith = $B$.faith }
+	}
+	trigger_else_if = {
+		# SAME RELIGION - the same thought one step looser, so a Catholic and
+		# an Orthodox still trade devotion and a Catholic and a Sunni do not.
+		# REAL: `$WHO$.faith.religion = $TARGET$.faith.religion`,
+		#       GAME\common\scripted_triggers\00_religious_triggers.txt:1181
+		#       (is_heretic_trigger); negated at :1191 and :1204.
+		limit = { has_game_rule = tnt_trade_piety_religion }
+		exists = $A$
+		exists = $B$
+		$A$.faith.religion = $B$.faith.religion
+	}
+	trigger_else = { always = no }		# tnt_trade_piety_off
+}
+
+
+# =============================================================================
+# T3  tnt_can_cede_title_trigger = { GIVER = <character> }
+#
+# Scope: LANDED TITLE. May this title be handed over by $GIVER$?
+#
+# COUNTY RANK EXACTLY, actually held by $GIVER$, and neither his primary title
+# nor his capital — the two titles whose loss would gut or decapitate his realm.
+#
+# V16, F2 — THE TIER ROW WAS `tier >= tier_county` AND IS NOW `tier = tier_county`.
+# WHY, because this narrows what the window may offer and that is deliberate:
+# every apply leg in the mod uses plain `change_title_holder`, which moves THE
+# CORONET ONLY. Vanilla says so itself, in the two auto-generated effect strings:
+#   GAME\localization\english\effects_l_english.yml:1183
+#     CHANGE_TITLE_HOLDER_EFFECT: "Gains the [TARGET_TITLE.GetBaseName|V] [title|E]"
+#   GAME\localization\english\effects_l_english.yml:1189
+#     CHANGE_TITLE_HOLDER_INCLUDE_VASSALS_EFFECT: "Gets the … and its [vassals|E]"
+# So a SOLD DUCHY arrived as an empty title: the seller kept every count under
+# it, and the buyer paid the 45-point duchy rung of the price ladder
+# (tnt_54_multiselect_values.txt:459-470) for a coronet with no land in it. That
+# is a wrong deal reaching the save, and it was reachable from the candidate
+# lists (tnt_31_lists.txt:336, :363), the GUI validity rows
+# (tnt_20_scripted_guis.txt) and the apply leg alike.
+#
+# THE TWO HONEST REPAIRS, AND WHY THIS ONE:
+#   (a) SHIPPED — refuse anything above a county. One token, no new effect, no
+#       new change-object row, and it makes the window agree with the AI-to-AI
+#       sandbox, which has always been county-only and says why:
+#       tnt_38_ai_world.txt:2082 "One county is a border adjustment; a duchy is
+#       a war." The AI letter path already pairs this trigger with its own
+#       `tier = tier_county` everywhere (tnt_37_ai_offer.txt:1906, :1955, :2016,
+#       :2082; tnt_38_ai_world.txt:1326), so nothing on those paths changes.
+#   (b) NOT SHIPPED — branch the apply leg on tier and use
+#       `change_title_holder_include_vassals` above county, verbatim
+#       GAME\common\scripted_effects\00_petition_liege_effects.txt:1250-1256.
+#       It is CORRECT and it is exactly the mutation the M6 save-corruption
+#       header exists to warn about: one change object grows by the seller's
+#       whole sub-realm. Not in the same pass as the V16 barony fix.
+# The duchy/kingdom/empire rungs of the two price ladders are now unreachable
+# and are KEPT, not deleted — this project tombstones, and (b) would need them.
+# The tier_barony rung was already unreachable before this change for the same
+# structural reason and was likewise never deleted.
+#
+# Shape copied from GAME\common\scripted_triggers\07_ep3_petition_triggers.txt:83-86
+# (`petition_liege_governorship_county_request`), which is the same thing for
+# the same reason: `tier = tier_county` + `NOT = { this = $LIEGE$.capital_county }`.
+#
+# Used by: tnt_fill_title_p/r_effect (E6/E7) as an `every_held_title` limit, and
+# by tnt_send_offer's re-validation row (a title can change hands between being
+# picked and the offer being sent).
+#
+# v2 ITEM 1.1 NOTE — "ceding your capital or primary title" is one of the
+# nonsensical offers the widened partner set makes tempting, and it is ALREADY
+# gated here, by the last two rows. They are the gate; nothing was added.
+# Read them as: `primary_title` = the title he rules under, losing it decapitates
+# the realm; `capital_county` = the county his court sits in, losing it moves his
+# capital and can strand his domicile. Both stay unofferable in either direction,
+# for the partner exactly as for the player, because the same trigger fills both
+# columns.
+#
+# THE PARAMETER LIST IS FROZEN. Four other files call this with GIVER only —
+# tnt_31_lists.txt:93, :120; tnt_32_apply.txt:407; tnt_20_scripted_guis.txt:904,
+# :913 — and those files belong to other authors (R18). A RECEIVER-side test
+# therefore must NOT be bolted on here; there is none needed anyway, since
+# `holder ?= $GIVER$` already makes it impossible for the receiver to hold it.
+# =============================================================================
+tnt_can_cede_title_trigger = {
+	trigger_if = {
+		limit = { exists = $GIVER$ }
+		tier = tier_county				# V16/F2: was `tier >= tier_county`. REAL: `tier = tier_county`, GAME\common\council_tasks\00_steward_tasks.txt:2118 (and `tier >= tier_duchy`, GAME\common\courtier_guest_management\guest_management.txt:82, for the form that was here). Constants: GAME\common\script_values\00_title_tiers_values.txt:1-7
+		holder ?= $GIVER$				# `?=` because a title on the table may have been destroyed since it was picked. Optional-link-with-a-value shape proven by `top_liege ?= scope:defender`, GAME\common\events\00_event_war.txt:152
+		NOT = { this = $GIVER$.primary_title }		# REAL shape: `this = scope:attacker.primary_title`, GAME\common\casus_belli_types\09_mpo_wars.txt:3622
+		NOT = { this = $GIVER$.capital_county }		# REAL shape: `this = scope:recipient.capital_county`, GAME\common\character_interactions\06_ep3_laamp_interactions.txt:90; negated form `NOT = { this = this.holder.top_liege.capital_county }`, GAME\common\decisions\dlc_decisions\fp_3\fp3_dynasty_decisions.txt:72
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# T4  tnt_can_grant_claim_trigger = { GIVER = <character>  RECEIVER = <character> }
+#
+# Scope: LANDED TITLE. May $GIVER$ grant $RECEIVER$ a claim on this title?
+#
+# Deliberately symmetric with T3: the candidate pool is the GIVER'S OWN held
+# titles, so granting a claim is a real concession (an invitation to press a
+# claim against himself) rather than a free gift of someone else's land.
+# Skipped if the receiver already holds a claim on it — that would be a no-op
+# term with a non-zero price.
+#
+# `has_claim_on = prev` reaches back out to the title scope; NOT/AND/OR do not
+# change scope. Proven verbatim:
+# GAME\common\character_interactions\00_character_interactions.txt:860 and :1620
+#   `has_claim_on = prev` inside a character block nested in a title scope
+# (same shape at GAME\common\character_interactions\00_invite_agent_to_scheme.txt:221,
+#  `scope:recipient = { has_claim_on = prev }`).
+#
+# v2 ITEM 1.1 GATE — "granting a claim on a title the partner already holds".
+# With v1's independent-rulers-only partner set the two rows `holder ?= $GIVER$`
+# and `NOT = { has_claim_on = prev }` were between them enough. They still are,
+# strictly speaking — but the explicit `NOT = { holder ?= $RECEIVER$ }` row added
+# below is what a reader of the send path can actually verify at a glance, and it
+# is the row that stays correct if a future author ever widens the candidate pool
+# beyond the giver's own titles (which is the obvious next request: "let me grant
+# a claim on somebody ELSE's land"). Cost: one optional-link test per candidate.
+#
+# `?=` and not `=`: the receiver may hold nothing at all, and a title whose holder
+# link is missing must not fail the whole trigger with a hard error.
+# =============================================================================
+# RETIRED V13, USER ITEM 1 - T4 GOES WITH THE GRANTED CLAIM. See TOMBSTONE C in
+# common\scripted_effects\tnt_32_apply.txt.
+# ITS FOUR CALLERS, NAMED SO A REVIVAL KNOWS EXACTLY WHAT TO RE-ENABLE, and all
+# four are commented out in the same commit:
+#   common\scripted_effects\tnt_31_lists.txt   E8 tnt_fill_claim_p_effect (the limit)
+#   common\scripted_effects\tnt_31_lists.txt   E9 tnt_fill_claim_r_effect (the limit)
+#   common\scripted_effects\tnt_37_ai_offer.txt  A11's entry trigger
+#   common\scripted_effects\tnt_37_ai_offer.txt  A11's random_held_title pick limit
+# T30/T31 in tnt_41_gates.txt were "T4's body verbatim" as show gates; they are
+# commented out too.
+# tnt_can_grant_claim_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $GIVER$
+# 			exists = $RECEIVER$
+# 		}
+# 		tier >= tier_county
+# 		holder ?= $GIVER$
+# 		NOT = { holder ?= $RECEIVER$ }			# v2 1.1: never offer a claim on land the partner ALREADY rules — a no-op term with a non-zero price
+# 		$RECEIVER$ = {
+# 			NOT = { has_claim_on = prev }		# REAL: GAME\common\character_interactions\00_character_interactions.txt:860, :1620
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+
+
+# =============================================================================
+# T5  tnt_can_vassalize_trigger = { LIEGE = <character>  VASSAL = <character> }
+#
+# Scope: character (root = the player). Can $VASSAL$ legally swear fealty to
+# $LIEGE$?
+#
+# The tier requirement — a vassal must rank BELOW his liege — is the one place
+# in this mod that wants a cross-character comparison. R0.3 forbids writing
+# `$VASSAL$.highest_held_title_tier < $LIEGE$.highest_held_title_tier`, so it is
+# folded through the named script value tnt_tier_edge_value (tnt_50_values.txt,
+# contract §4.A) and compared against the literal 0:
+#
+#	tnt_tier_edge_value  =  root(player) tier  -  var:tnt_partner tier
+#	> 0  ==>  the player outranks the partner
+#	< 0  ==>  the partner outranks the player
+#
+# Because that value is hardwired to root-vs-partner, the trigger has to know
+# WHICH WAY ROUND this call is. It reads that off $LIEGE$ rather than taking a
+# third parameter, so the two callers keep the contract's parameter list:
+#   tnt_vassal_p_toggle: LIEGE = var:tnt_partner, VASSAL = root  -> need < 0
+#   tnt_vassal_r_toggle: LIEGE = root, VASSAL = var:tnt_partner  -> need > 0
+#
+# CROSS-FILE DEPENDENCY: root must be the player, and tnt_tier_edge_value must
+# exist in tnt_50_values.txt. Both hold for every caller in this mod
+# (scripted_gui is_valid runs with GuiScope.SetRoot( GetPlayer.MakeScope )).
+#
+# ---------------------------------------------------------------------------
+# v2 ITEM 1.1 — THIS IS THE ITEM THAT NEEDED THE MOST TIGHTENING.
+#
+# Two of the nonsensical offers the widened partner set makes reachable are
+# "vassalise your own vassal" and "swear fealty to your own vassal". Trace them:
+#
+#   tnt_vassal_r_toggle  (LIEGE = root, VASSAL = var:tnt_partner)
+#     partner is already my vassal  ->  is_independent_ruler = no  ->  refused.
+#   tnt_vassal_p_toggle  (LIEGE = var:tnt_partner, VASSAL = root)
+#     I am already the partner's vassal -> I am not independent -> refused.
+#     BUT: partner is MY vassal -> I am independent, so the only thing standing
+#     in the way was the tier test, which a same-tier vassal passes (edge = 0
+#     fails both `> 0` and `< 0`, so it happened to hold — by accident, not by
+#     design). The explicit row
+#         NOT = { $LIEGE$ = { is_vassal_or_below_of = $VASSAL$ } }
+#     makes it a rule instead of a coincidence, in both directions.
+#
+# Everything else added below is lifted from the two vanilla interactions that do
+# exactly these two things, so our gate cannot be looser than the engine's own:
+#
+#   offer_vassalization_interaction  GAME\common\character_interactions\00_character_interactions.txt:3-58
+#     is_shown: recipient is_playable_character (:30), top_liege = this + is_tributary = no (:33-34),
+#     highest_held_title_tier < actor's (:44), NOR cannot_be_vassal_or_liege / government_is_herder (:46-49)
+#   offer_fealty_interaction         GAME\common\character_interactions\00_character_interactions.txt:1392-1436
+#     is_shown: both sides is_landed + `top_liege = this` (:1401-1402, :1406-1407),
+#     actor NOT cannot_be_vassal_or_liege (:1408), actor is_confederation_member = no (:1409)
+#     is_valid: actor is_imprisoned = no, is_at_war = no (:1415-1416),
+#     recipient NOR government_is_landless_adventurer / government_is_holy_order /
+#     government_is_mercenary (:1430-1434)
+#
+# `is_independent_ruler = yes` is kept as our spelling of vanilla's
+# `top_liege = this`; it is proven at
+#   GAME\common\character_interactions\00_fp3_interactions.txt:1534,
+#   GAME\common\character_interactions\00_grant_titles_interaction.txt:280, :1087,
+#   GAME\common\character_interactions\00_tributary_interactions.txt:16.
+#
+# ONE DELIBERATE DEVIATION FROM VANILLA, flagged for the risk register.
+# offer_fealty requires the would-be vassal to be at NO war at all
+# (`is_at_war = no`, :1416). We narrow that to "not at war WITH THE FUTURE LIEGE"
+# (`NOT = { is_at_war_with = ... }`), because ending a war by swearing fealty is
+# the single most Total-War thing this mod can offer and vanilla's blanket ban
+# would kill it. The narrower rule still forbids the one case that is genuinely
+# ill-defined for `resolve_title_and_vassal_change`: a live war between the two
+# parties whose vassal relation is being created. IF a live save ever shows a
+# stuck war or an orphaned title change after a mid-war fealty deal, the revert
+# is one line — replace the is_at_war_with row with vanilla's `is_at_war = no`
+# inside the $VASSAL$ block.
+# ---------------------------------------------------------------------------
+# =============================================================================
+tnt_can_vassalize_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $LIEGE$
+			exists = $VASSAL$
+		}
+		NOT = { $LIEGE$ = { this = $VASSAL$ } }
+
+		# v2 1.1: you cannot become the vassal of your own vassal, in either
+		# direction. REAL: `is_vassal_or_below_of` — GAME\common\character_interactions\00_alliance.txt:2104, :2142
+		NOT = { $LIEGE$ = { is_vassal_or_below_of = $VASSAL$ } }
+
+		# v2 1.1: nor while the two of you are shooting at each other. See the
+		# DELIBERATE DEVIATION note above. REAL: `is_at_war_with` —
+		# GAME\common\character_interactions\00_alliance.txt:976, :1164
+		NOT = { $VASSAL$ = { is_at_war_with = $LIEGE$ } }
+
+		# V14, USER ITEM 1: THE WALL IS NOT A PARTY TO ANYONE'S FEALTY, IN
+		# EITHER DIRECTION. Full argument and the vanilla-safety proof are in
+		# T46's header below; AGOT gates the two vanilla interactions this
+		# trigger was lifted from with the same test in the same both-sides
+		# shape - AGOT\common\character_interactions\00_character_interactions.txt
+		# :63-66 (offer_vassalization) and :1547-1550 (offer_fealty).
+		# ONE ROW, SIX DOORS: the two show gates (tnt_41_gates.txt:1689, :1703),
+		# the apply leg (tnt_32_apply.txt:1535), A14 (tnt_37_ai_offer.txt:2003),
+		# A20 (:3004) and the auto-balance filler (tnt_39_autobalance.txt:2351)
+		# all delegate here. In a vanilla game the row is always true.
+		# T15 below carries the matching row - its own header makes row-for-row
+		# parity with this trigger a stated invariant.
+		tnt_vassalage_pair_allowed_trigger = { A = $LIEGE$  B = $VASSAL$ }
+
+		$VASSAL$ = {
+			is_alive = yes
+			is_landed = yes
+			is_independent_ruler = yes		# only an independent ruler has fealty of his own to give. REAL: GAME\common\character_interactions\00_fp3_interactions.txt:1534, 00_grant_titles_interaction.txt:280
+			is_imprisoned = no			# v2 1.1. REAL: GAME\common\character_interactions\00_character_interactions.txt:1415 (offer_fealty), 00_alliance.txt:1158
+			is_confederation_member = no		# v2 1.1. REAL: GAME\common\character_interactions\00_character_interactions.txt:1409 (offer_fealty is_shown); the `= yes` form at :63
+			NOT = { government_has_flag = cannot_be_vassal_or_liege }	# v2 1.1. REAL: GAME\common\character_interactions\00_character_interactions.txt:1408
+		}
+		$LIEGE$ = {
+			is_alive = yes
+			is_landed = yes
+			# V11, USER ITEM 6: THE VASSAL-LIMIT ROW IS GONE. It was ours, not
+			# vanilla's — neither offer_fealty_interaction
+			# (00_character_interactions.txt:1392-1436, read in full: is_shown has
+			# the two top_liege rows, the tier row and the actor's government rows;
+			# is_valid_showing_failures_only has is_imprisoned, is_at_war, the
+			# proximity description and the recipient's government NOR) nor
+			# offer_vassalization_interaction (:3-58) carries one, and the header
+			# above enumerates every vanilla row this trigger lifted — the limit was
+			# never among them. Being over the vassal limit is a designed, survivable
+			# CK3 state that costs opinion, not a legality bar, and as a hard row it
+			# silently deleted the whole fealty archetype for any player at his cap,
+			# with no message anywhere, because A14 never even reached the letter
+			# (0 arch=14 compositions in 47 draws, 2026-08-16). tnt_exec_vassal_effect
+			# (tnt_32_apply.txt:1341-1350) re-validates this same trigger and needs
+			# nothing from it: resolve_title_and_vassal_change does not refuse an
+			# over-limit liege. T15's reporting twin lost the matching
+			# tnt_err_vassal_limit row in the same commit, so the window's toggle and
+			# this gate still ask exactly the same question.
+			# v2 1.1: a mercenary captain, a holy order and a landless adventurer
+			# cannot hold anyone's fealty. REAL, as a NOR on the prospective liege:
+			# GAME\common\character_interactions\00_character_interactions.txt:1430-1434
+			NOR = {
+				government_has_flag = cannot_be_vassal_or_liege
+				government_has_flag = government_is_landless_adventurer
+				government_has_flag = government_is_holy_order
+				government_has_flag = government_is_mercenary
+			}
+		}
+		# --- the tier test, direction-aware, see the header comment above ---
+		trigger_if = {
+			limit = { $LIEGE$ = { this = root } }
+			tnt_tier_edge_value > 0			# player is liege: the partner must rank below him
+		}
+		trigger_else = {
+			tnt_tier_edge_value < 0			# partner is liege: the player must rank below him
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# T46  tnt_vassalage_pair_allowed_trigger = { A = <character>  B = <character> }
+#
+# V14, USER ITEM 1. THE WALL MUST NEVER BE A PARTY TO A VASSALAGE TERM, IN
+# EITHER DIRECTION - the player may not vassalise it, it may not swear to the
+# player, no archetype may compose such a letter, and the AI-to-AI sandbox may
+# not do it silently. ONE trigger, called by T5 above, by T15 below, by P13
+# (tnt_42_people_gates.txt), by the two independence toggles and by the
+# sandbox's S-FEALTY entry, so the question is asked in exactly one place.
+#
+# IT IS NOT HYPOTHETICAL. In the user's 2026-08-16 run the Lord Commander of
+# the Night's Watch composed an arch=14 fealty letter to the Iron Throne and
+# the player ACCEPTED it:
+#   COMPOSE|arch=14|goal=4|tgt=...h_the_iron_throne|pro=Cley Servin of k_the_wall
+#   APPLY|src=ai_offer|arch=14|other=Cley Servin of k_the_wall|accept=1
+#
+# THE DISCRIMINATOR IS A GOVERNMENT FLAG, AND THAT IS WHY IT IS SAFE WITHOUT
+# AGOT. Government flags are free-form strings, not a database key. Vanilla's
+# own documentation says so verbatim:
+#   "List of flags this government uses. Can be defined as any string that can
+#    be referenced by government_has_flag = some_flag."
+#   GAME\common\governments\_governments.info:674-676
+# and vanilla PROVES it by shipping a live trigger row that names a flag no
+# government declares anywhere:
+#   government_has_flag = government_is_japanese_administrative
+#   GAME\common\character_interactions\00_modifiy_vassal_contract.txt:1076, :1317
+#   (the declared spelling is government_is_japan_administrative,
+#    GAME\common\governments\01_japan_government_types.txt:71, inside
+#    japan_administrative_government which opens at :1 - the file was mis-stated
+#    as 00_government_types.txt here until V15, and that file contains no
+#    government_is_japan string at all) - a shipped typo that
+# loads clean. So in a vanilla-only game NO government carries government_is_nw,
+# this trigger is ALWAYS TRUE there, and it costs one flat lookup per party.
+#
+# THE FLAG IS AGOT'S OWN NAME FOR THE NIGHT'S WATCH (522 uses across its common
+# folder), and AGOT gates the three VANILLA interactions this mod's fealty and
+# independence terms were lifted from on the same flag:
+#   offer_vassalization_interaction  AGOT\common\character_interactions\00_character_interactions.txt:63-66
+#   offer_fealty_interaction         AGOT\common\character_interactions\00_character_interactions.txt:1547-1550
+#   grant_independence_interaction   AGOT\common\character_interactions\00_character_interactions.txt:2344-2347
+# and its vassalization CB the same way, AGOT\common\casus_belli_types\00_vassalization.txt:33, :99.
+#
+# *** BUT NOT IN THE SAME SHAPE, AND THE DIFFERENCE MATTERS (V15, W9). *** This
+# header used to claim those three test it "with exactly this test, both sides".
+# They do not. All three are written as ONE `NOT` over TWO children:
+#   NOT = { scope:actor    = { government_has_flag = government_is_nw }
+#           scope:recipient = { government_has_flag = government_is_nw } }
+# A NOT with two children is NOT(A AND B) - a NAND - so it fires only when BOTH
+# parties are the Watch, which for a real pair (actor != recipient always) is
+# NEVER. Those rows are no-ops. AGOT knows the difference and writes it correctly
+# elsewhere: two explicit `NOT = { AND = { ... } }` blocks at
+# AGOT\common\character_interactions\00_war.txt:28-47, and TWO SEPARATE PER-SIDE
+# NOR blocks at AGOT\common\character_interactions\00_tributary_interactions.txt
+# :3158-3176 (offer_courtier_interaction: recipient :3160-3168, actor :3170-3175).
+# THE TWO ROWS BELOW ARE THEREFORE STRICTLY STRONGER THAN AGOT'S OWN, and ANY new
+# Watch row in this mod MUST be written PER SIDE, never in AGOT's shape. The forms
+# to copy are the two just cited, plus
+# AGOT\common\character_interactions\06_ep3_laamp_interactions.txt:62-76
+# (purchase_land_interaction, government_is_nw inside the recipient's NOR at :73).
+# Vanilla's own convention for "none of these" is likewise NOR, e.g.
+# GAME\common\character_interactions\00_character_interactions.txt:46-49.
+# It is DURABLE, not a bookmark artefact: AGOT re-applies nights_watch_government
+# to any landed brother whose government drifts,
+# AGOT\common\scripted_effects\00_agot_nightswatch_effects.txt:614-619.
+# It also catches first_ranger_government, the landless First Ranger band, which
+# carries government_is_nw too
+# (AGOT\common\governments\00_agot_government_types.txt:502, flag at :544).
+#
+# WHY NOTHING ELSE WORKS. Every AGOT-only TITLE (title:k_the_wall,
+# title:d_the_wall), TRAIT (nightswatch / _temp / _historical) and SCRIPTED
+# TRIGGER (agot_is_member_of_nights_watch) is a database key and a load error in
+# a vanilla game, with no guard form that defers the lookup. AGOT sets no
+# character flag, no character variable and no global variable list on the Watch,
+# so the living_dragons precedent has nothing to borrow here. And NO vanilla
+# structural property separates it from an ordinary ruler: the Lord Commander is
+# LANDED (k_the_wall holds c_castle_black and b_castle_black), INDEPENDENT
+# (k_the_wall carries no liege in AGOT\history\titles\agot_e_the_wall.txt),
+# kingdom tier, keeps his birth dynasty, and nights_watch_government declares
+# NEITHER cannot_be_vassal_or_liege NOR government_is_holy_order - which is
+# exactly why AGOT had to write the manual rows cited above instead of relying
+# on vanilla, and exactly why T5's own government NOR lets it straight through.
+#
+# SCOPE OF THE BAN: THE WHOLE TABLE (V15, USER ITEM 3 - THE USER'S OWN RULING,
+# WHICH OVERRULES V14'S NARROW READING). What stood here until V15 was:
+#   "VASSALAGE ONLY, WHICH IS AGOT'S OWN LINE. AGOT bans the Watch from
+#    vassalization, fealty, independence, claimant factions and the vassalization
+#    CB - and from nothing else. It may still be paid, owed, given a courtier or
+#    sold an artifact ... Do not widen this to the whole table."
+# THE SECOND SENTENCE WAS FALSE and it is why the user had to overrule it: "брак
+# между правителем и ночным дозором - это сюр, как и раздача замков за деньги".
+# AGOT bars the Watch from essentially every bilateral diplomacy interaction it
+# ships, INCLUDING the three that match this mod's own live term families:
+#   courtier transfer (A19)  offer_courtier  / demand_courtier
+#                            AGOT\common\character_interactions\
+#                            00_tributary_interactions.txt:3165, :3172, :3755, :3762
+#   artifact (A13, S-ARTIFACT) demand_artifact
+#                            AGOT\common\character_interactions\
+#                            00_artifact_interactions.txt:1419; challenge_for_artifact :2198
+#   buy / sell land (A8, A10, S-TITLE) purchase_land
+#                            AGOT\common\character_interactions\
+#                            06_ep3_laamp_interactions.txt:73
+# and beyond those: become_tributary / demand_tributary
+# (00_tributary_interactions.txt:27, :39, :885, :898), negotiate_alliance and
+# perk_alliance (00_alliance.txt:1179-1180, :2478-2479), purchase_truce and
+# bargain_fealty (03_fp2_interactions.txt:2116, :2121, :4905-4906), buy_claim
+# (00_perk_interactions.txt:952, :954), hof_ask_for_claim
+# (00_religious_interactions.txt:5996-6008), dynast_claim_title
+# (00_dynast_interactions.txt:1656-1657), declare_war (00_war.txt:34, :41),
+# create_claimant_faction_against (00_vassal_interactions.txt:1306-1307),
+# offer_confederation (09_mpo_interactions.txt:67, :79), grant_titles
+# (00_grant_titles_interaction.txt:68), plus legitimize_bastard in four variants,
+# demand_trial_by_combat, cultural hybridisation and dragon taming. AGOT will not
+# even generate brides for it: `court_generate_spouses = no`,
+# AGOT\common\governments\00_agot_government_types.txt:179.
+# SO THE TOTAL BLOCK IS THE SETTING'S OWN LINE, not an invention of this mod.
+#
+# THE WHOLE-TABLE GATE IS T48 tnt_not_the_watch_trigger BELOW, not this trigger.
+# T46 SURVIVES FOR ONE REASON ONLY: it also carries the WILDLING half, which is
+# fealty-specific (AGOT permits every other interaction across the wildling line)
+# and which must NOT be widened. Its Night's Watch rows are now redundant with
+# T48 and are kept because T5/T15/P13 and the two independence toggles ask this
+# trigger, not T48, and one statement per fact means those callers are not
+# rewired for a fact they already have.
+#
+# COST: two government_has_flag lookups (four with the wildling block below) -
+# flat reads on the character's government / culture object, no iteration, no
+# script value, no list. Legal in a per-frame is_valid; see NW-6's callers in
+# common\scripted_guis\tnt_24_people.txt.
+# =============================================================================
+tnt_vassalage_pair_allowed_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $A$
+			exists = $B$
+		}
+		$A$ = { NOT = { government_has_flag = government_is_nw } }
+		$B$ = { NOT = { government_has_flag = government_is_nw } }
+
+		# ---------------------------------------------------------------------
+		# THE WILDLING HALF. FOUND UNDER USER ITEM 1 AND SHIPPED WITH IT; IT IS
+		# INDEPENDENTLY DELETABLE - remove this block alone and the Night's
+		# Watch rule above is untouched.
+		#
+		# AGOT ALSO FORBIDS FEALTY ACROSS THE WILDLING LINE, IN BOTH DIRECTIONS,
+		# two lines below its Night's Watch rows in the same interaction:
+		#   AGOT\common\character_interactions\00_character_interactions.txt:1552-1568
+		#   "#AGOT Added, wildlings can only swear fealty and be sworn to by wildlings"
+		# and the NAND pair below is that block with only the scope names changed.
+		#
+		# WHY IT SHIPPED WITH THE WALL RATHER THAN AFTER IT: of the FIVE fealty
+		# deals the player accepted in the 2026-08-16 run, ONE was the Night's
+		# Watch and the OTHER FOUR were wildling chiefs of e_beyond_the_wall
+		# kneeling to the Iron Throne (d_west_shelf, c_hail_coast,
+		# d_gleaming_plains, c_shurl_arer). All five were AGOT-illegal. Fixing
+		# the Wall alone fixes one case in five.
+		#
+		# SAME SAFETY CLASS AS THE FLAG ABOVE: the test is a culture VARIABLE.
+		# AGOT's own trigger is
+		#   agot_is_wildling_culture = { has_variable = wildling_culture }
+		#   AGOT\common\scripted_triggers\00_agot_cultural_triggers.txt:62-64
+		# set at AGOT\common\scripted_effects\00_agot_culture_effects.txt:226+.
+		# The trigger's NAME is AGOT-only and may not be called; the VARIABLE
+		# NAME is a plain string - the same rule that makes character flags and
+		# global variable lists safe, and the same argument the mod already
+		# accepted for AGOT's living_dragons global list. In a vanilla game no
+		# culture carries it, both sides read `no`, and the NAND pair is
+		# vacuously true.
+		#
+		# EXPECT arch=14 COMPOSITIONS TO FALL BACK TOWARD ZERO for a Westerosi
+		# player in AGOT, and do NOT read that as a regression. V12 widened the
+		# proposer pool to random_neighboring_and_across_water_top_liege_realm_
+		# owner (tnt_37_ai_offer.txt:455) to find INDEPENDENT rulers, and at year
+		# 8082 the independent rulers near a Westerosi player ARE the wildlings
+		# and the Watch - so "fealty went from zero letters to five, all five
+		# accepted" was the pool fix landing entirely on the two groups AGOT
+		# forbids. The honest fix for the resulting drought is a reachable pool
+		# (the Free Cities, item 6's neighbourhood work), not a wider net.
+		# ---------------------------------------------------------------------
+		NAND = {
+			$A$ = { culture = { has_variable = wildling_culture } }
+			$B$ = { NOT = { culture = { has_variable = wildling_culture } } }
+		}
+		NAND = {
+			$A$ = { NOT = { culture = { has_variable = wildling_culture } } }
+			$B$ = { culture = { has_variable = wildling_culture } }
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# T48  tnt_not_the_watch_trigger = { WHO = <character> }
+#
+# Scope: any. Is $WHO$ somebody other than the Night's Watch?
+#
+# V15, USER ITEM 3. THE WALL IS NOT A PARTY TO ANY NEGOTIATION, IN EITHER ROLE,
+# ON ANY DOOR. The user's words, and they overrule V14's narrow reading: "для
+# 'Стены' нужно подумать как ограничить дипломатию: по сути её надо вообще
+# заблокировать - брак между правителем и ночным дозором - это сюр, как и раздача
+# замков за деньги". A marriage between a ruler and the Night's Watch is absurd,
+# and so is handing out castles for coin. THIS IS FINAL; do not re-narrow it to
+# vassalage. The setting agrees - see the inventory in T46's header above, where
+# AGOT bars the Watch from courtier transfer, artifact demands, land purchase,
+# claims, tributary status, alliance, truce, war and confederation as well as from
+# vassalage.
+#
+# ONE-SIDED ON PURPOSE, AND THAT IS WHY IT IS A NEW TRIGGER RATHER THAN A REUSE
+# OF T46. T46 is PAIR-shaped and carries the wildling NAND pair as well, so
+# calling it as the whole-table gate would also bar every wildling from every
+# trade - which the user did not ask for and which would gut the table for a
+# wildling player. The wildling half stays in T46 alone.
+#
+# WRITE EVERY WATCH ROW PER SIDE, NEVER IN AGOT'S OWN SHAPE. AGOT's
+# `NOT = { A = {flag}  B = {flag} }` is a NAND and never fires for a real pair;
+# the full argument and the correctly-shaped AGOT precedents are in T46's header.
+# This trigger takes ONE party, so a caller that must close both directions calls
+# it twice - which is exactly what T1 does.
+#
+# THE FIVE CALL SITES, all of them a flat lookup, none of them in a scripted_gui
+# is_valid except the last:
+#   1. T1 tnt_partner_valid_trigger at the top of this file (twice: `WHO = this` and
+#      `WHO = $CHARACTER$`) - closes the manual window's is_shown, the AI letter's
+#      final gate and the telemetry ladder, i.e. all four directions at once,
+#      because `this` is the ACTOR/PROPOSER at all three of T1's call sites.
+#   2. common\on_action\tnt_71_ai.txt - the AI letter pulse, proposer side, so a
+#      Watch ruler never pays for a candidate search it cannot use.
+#   3. common\scripted_effects\tnt_38_ai_world.txt - the sandbox's partner-search
+#      LIMIT, recipient side. IN THE LIMIT so the iterator picks somebody else
+#      instead of losing the pulse.
+#   4. common\on_action\tnt_72_ai_world.txt - the sandbox pulse, proposer side.
+#   5. common\scripted_guis\tnt_20_scripted_guis.txt - tnt_send_offer's first
+#      is_valid row, the migration seam for a save whose window is ALREADY open
+#      against the Watch. One flat lookup on a path that already evaluates six
+#      named script values.
+# The spouse-list leak is a PERSON-level question, not a ruler-level one, and is
+# answered by P20 tnt_person_is_sworn_brother_trigger in
+# common\scripted_triggers\tnt_42_people_gates.txt instead.
+#
+# ---------------------------------------------------------------------------
+# PART A - WHAT THE FLAG IS. government_is_nw is declared ONLY by AGOT, by two
+# governments:
+#   nights_watch_government  AGOT\common\governments\00_agot_government_types.txt:174
+#                            flags = { government_is_nw government_is_settled
+#                                      government_is_default }  at :216-220
+#   first_ranger_government  :502, flag at :544  (the landless First Ranger band)
+#
+# PART B - IT IS DURABLE, not a bookmark artefact. AGOT re-applies
+# nights_watch_government to any landed brother whose government drifts:
+#   if = { limit = { NOT = { government_has_flag = government_is_nw } }
+#          change_government = nights_watch_government }
+#   AGOT\common\scripted_effects\00_agot_nightswatch_effects.txt:614-618
+# And an UNLANDED brother is caught through his liege chain, because
+# nights_watch_government's own can_get_government requires
+# `has_title = title:k_the_wall` OR `any_liege_or_above = { has_title =
+# title:k_the_wall }` (AGOT\common\governments\00_agot_government_types.txt
+# :189-201) - which is what P20's second row walks.
+#
+# PART C - THE LOAD-SAFETY KEYSTONE: IN A VANILLA-ONLY GAME THIS TRIGGER IS
+# CONSTANT TRUE AND BEHAVIOUR IS BYTE-IDENTICAL TO BEFORE V15. Three proofs, all
+# measured this session:
+#   1. `government_is_nw` occurs ZERO times across GAME\common\**\*.txt +
+#      GAME\events\**\*.txt. Same for government_is_uninteractable below: ZERO.
+#   2. The engine treats a government flag as FREE TEXT, verbatim: "List of flags
+#      this government uses. Can be defined as any string that can be referenced
+#      by government_has_flag = some_flag."
+#      GAME\common\governments\_governments.info:674-676
+#   3. VANILLA ITSELF ships live rows naming an UNDECLARED flag and loads clean:
+#      `government_has_flag = government_is_japanese_administrative` at
+#      GAME\common\character_interactions\00_modifiy_vassal_contract.txt:1076 and
+#      :1317, while the only declared spelling anywhere in GAME\common\governments
+#      is government_is_japan_administrative at
+#      GAME\common\governments\01_japan_government_types.txt:71 - a shipped typo
+#      that evaluates to `no`.
+# NOTHING NEW IS NAMED THAT IS A DATABASE KEY - no trait, title, culture, faith,
+# government type or foreign scripted trigger - so the MOD-LOAD SAFETY law holds.
+# Every added row sits in a `trigger = {}`, a `limit = {}`, an is_shown or a fill
+# limit, and NEVER as the condition of an `else`, so a constant-true row cannot
+# flip any branch.
+#
+# THE VANILLA-ONLY COST, in full: two flat government lookups on the interaction's
+# is_shown, the same two on the AI letter gate, one per AI county-or-above ruler
+# per year on each of the two pulse triggers, one per sandbox candidate (~8 per
+# firing pulse), one on tnt_send_offer's is_valid, and one liege-chain walk per
+# spouse candidate on a CLICK path (P20). ZERO new rows in any scripted_gui
+# is_valid other than that single send-button lookup, so the PERFORMANCE law is
+# satisfied by construction.
+#
+# THE ONE DELIBERATE CONSEQUENCE FOR AN AGOT GAME, so nobody reads it as a bug: A
+# PLAYER WHO IS THE LORD COMMANDER LOSES THE NEGOTIATING TABLE ENTIRELY, in both
+# directions. That is what "по сути её надо вообще заблокировать" means. Relaxing
+# it later is ONE line: drop the `WHO = this` row from T1.
+#
+# THE SECOND FLAG (V15, W12, INDEPENDENTLY DELETABLE - remove that one row and the
+# Night's Watch rule is untouched, exactly as T46's wildling half is). AGOT pairs
+# government_is_nw with government_is_uninteractable in nearly every NOR it wrote
+# - its own name for "this is not a diplomacy partner". It is declared by exactly
+# three AGOT governments, all placeholders for unowned map space:
+#   ruins_government       AGOT\common\governments\00_agot_government_types.txt:267, flag at :299
+#   unknown_government                                                        :307, flag at :339
+#   wilderness_government                                                     :347, flag at :379
+# AGOT tests it BESIDE government_is_nw in the same NOR at
+# AGOT\common\character_interactions\00_tributary_interactions.txt:3164-3167 and
+# :3171-3174 (offer_courtier, both sides) and 06_ep3_laamp_interactions.txt:73-74
+# (purchase_land). IT IS ALSO A MEASURED JUNK SOURCE of user item 2's class: in the
+# 2026-08-17 run the holder of c_wilderness was the AI-to-AI sandbox's THIRD most
+# frequent partner, 47 of 584 pairs (8.0%), and the only title seller in the whole
+# run whose counties ever satisfied S-TITLE's reach gate. Catching it by its
+# GOVERNMENT is strictly better than catching it by `is_lowborn`, which would also
+# exclude genuinely lowborn landed rulers.
+# ---------------------------------------------------------------------------
+# =============================================================================
+tnt_not_the_watch_trigger = {
+	trigger_if = {
+		limit = { exists = $WHO$ }
+		$WHO$ = {
+			NOR = {
+				government_has_flag = government_is_nw
+				government_has_flag = government_is_uninteractable
+			}
+		}
+	}
+	trigger_else = { always = no }
+}
+
+
+# RETIRED - T6 LOST EVERY CALLER WITH THE PRISONER TERMS. It was called from the
+# fill, both exec legs, the AI's A5 archetype, the two show-gates and the two
+# prices; all eight are commented out in their own files. Full tombstone: the
+# FAMILY B block heading E22 in common\scripted_effects\tnt_32_apply.txt.
+# A revival should NOT restore this trigger as it stands: the tombstone's ruling
+# is that a private relevance filter was half the problem, and that prisoners
+# belong to vanilla's own ransom path.
+# =============================================================================
+# # T6  tnt_prisoner_relevant_trigger = { PARTY = <character> }
+# #
+# # Scope: character (a prisoner). Does this prisoner matter to $PARTY$ — i.e.
+# # would freeing him actually be worth something at the negotiating table?
+# #
+# # Family, own vassals, anyone under his crown, or the man himself.
+# # `top_liege ?= $PARTY$` uses the optional form because a landless prisoner has
+# # no top_liege at all; the shape is proven at
+# # GAME\common\events\00_event_war.txt:152 (`top_liege ?= scope:defender`).
+# #
+# # Used both as the valuation filter (tnt_val_prisoners_*_value) and as the
+# # release filter (tnt_exec_prisoners_effect, E22) — the same trigger on both
+# # sides guarantees the price matches what is actually handed over.
+# # =============================================================================
+# tnt_prisoner_relevant_trigger = {
+# 	trigger_if = {
+# 		limit = { exists = $PARTY$ }
+# 		OR = {
+# 			this = $PARTY$
+# 			is_close_or_extended_family_of = $PARTY$	# REAL: GAME\common\character_interactions\00_alliance.txt:508, :521 (call_ally auto_accept); also 00_alliance.txt:1617
+# 			is_vassal_or_below_of = $PARTY$		# REAL: GAME\common\character_interactions\00_alliance.txt:2104, :2142 (negotiate_alliance ai_accept)
+# 			top_liege ?= $PARTY$
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+
+
+# =============================================================================
+# T7  tnt_marriage_candidate_trigger = { OTHER = <character> }
+#
+# Scope: character (a child). May this child be betrothed to $OTHER$?
+#
+# Marriage legality is a deep tree and is NOT re-implemented here: the work is
+# delegated to vanilla's own could_marry_character_trigger
+# (GAME\common\scripted_triggers\00_marriage_triggers.txt:88).
+# The `could_` form is correct because we create a BETROTHAL, not a wedding;
+# can_marry_character_trigger (:184) is the stricter form if a full check is
+# ever wanted.
+# =============================================================================
+tnt_marriage_candidate_trigger = {
+	trigger_if = {
+		limit = { exists = $OTHER$ }
+		is_adult = no					# REAL: GAME\common\character_interactions\00_adoption.txt:97; the `= yes` form at :22
+		is_betrothed = no				# REAL: GAME\common\activities\intents\wedding_intents.txt:72; also GAME\common\character_interactions\00_test_interactions.txt:987
+		is_married = no					# REAL: GAME\common\character_interactions\00_adoption.txt:56, :68; the `= yes` form at :37
+		could_marry_character_trigger = { CHARACTER = $OTHER$ }
+	}
+	trigger_else = { always = no }
+}
+
+
+# RETIRED - T8 LOST EVERY CALLER WITH THE NON-AGGRESSION TERM. Its only callers
+# were the two E12 fills in common\scripted_effects\tnt_31_lists.txt (four call
+# sites), which are commented out there. Full tombstone: the FAMILY A block
+# heading E25 in common\scripted_effects\tnt_32_apply.txt.
+# =============================================================================
+# # T8  tnt_nonwar_candidate_trigger = { PROMISER = <character>  OTHER = <character> }
+# #
+# # Scope: character. May $PROMISER$ name this ruler in a "promise not to attack X"
+# # term negotiated with $OTHER$?
+# #
+# # THE RULE (user item 7 — the old "allies of either side" pool half-filled the
+# # picker with people the promiser could never march on, and no UI line said what
+# # the list meant): X must be somebody the promiser could REALISTICALLY attack —
+# # a ruler of a realm bordering the promiser's by land, or the holder of a title
+# # the promiser holds a claim on (the two fill sources of E12,
+# # tnt_fill_nonwar_p/_r_effect in tnt_31_lists.txt) — minus the people for whom
+# # the promise would be empty air:
+# #   * the two negotiating parties themselves;
+# #   * the promiser's own allies — the alliance already blocks the attack;
+# #   * anyone the promiser already holds a truce towards — that restraint is
+# #     already in force and a second purchase would buy nothing. Asked from the
+# #     promiser's side, the same direction as the GC in E29.
+# #
+# # This trigger and the E12 fills are two statements of ONE rule: every fill
+# # source runs each candidate through this trigger, so they cannot drift, and
+# # tnt_picker_rule_nonwar / tnt_item_nonwar_desc state the same rule to the
+# # player in words.
+# # =============================================================================
+# tnt_nonwar_candidate_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $PROMISER$
+# 			exists = $OTHER$
+# 		}
+# 		NOT = { this = $PROMISER$ }
+# 		NOT = { this = $OTHER$ }
+# 		is_alive = yes					# REAL: GAME\common\character_interactions\00_choose_favorite_interaction.txt:103
+# 		is_landed = yes					# a promise not to attack a landless courtier is meaningless. REAL: GAME\common\character_interactions\00_character_interactions.txt:26
+# 		NOT = { is_allied_to = $PROMISER$ }		# REAL: GAME\common\script_values\09_mpo_values.txt:1318 (is_allied_to = scope:host)
+# 		NOT = {
+# 			# has_truce, promiser's side: REAL, GAME\common\character_interactions\00_war.txt:79
+# 			# and GAME\common\casus_belli_types\07_ep3_wars.txt:4211 — same call sites the
+# 			# E29 GC cites; `prev` here is the candidate, exactly E29's shape.
+# 			$PROMISER$ = { has_truce = prev }
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+
+
+# =============================================================================
+# T9  tnt_artifact_giftable_trigger = { RECEIVER = <character> }
+#
+# Scope: ARTIFACT. May this artifact change hands to $RECEIVER$?
+#
+# Delegated to vanilla's own guard AND NOTHING ELSE,
+# GAME\common\scripted_triggers\00_artifact_triggers.txt:58
+# (`artifact_can_be_gift_to_trigger = { RECIPIENT = X }`), which already handles
+# dynasty/house banners, relics of a faith, claimed pieces and — the case this
+# trigger used to duplicate badly — artifacts tied to a title's succession
+# (`var:artifact_succession_title`, :100-108).
+#
+# THE ILLUSTRIOUS BAN IS GONE, and it was wrong from the day it was written. It
+# cited 00_artifact_interactions.txt:502, :507 and :566 as vanilla forbidding the
+# gift of a top-rarity piece. Those lines do the OPPOSITE: they sit in the AI's
+# accept logic and say an illustrious weapon or armour is worth MORE than what the
+# recipient already carries, i.e. vanilla treats such a piece as an especially
+# desirable gift. Across all 43 uses of `rarity = illustrious` in that file there
+# is not one is_shown or is_valid — the rarity never gates the gift, only its value.
+# The two real reasons a piece must stay home (succession bookkeeping, dynastic
+# banners) are already vanilla's job above, so the extra line only hid the most
+# interesting objects in the game from the negotiating table.
+#
+# It costs what it is worth: an illustrious piece prices high on the scales, which
+# is the correct answer for a legendary sword, not a reason to hide it.
+# Rarity keys verified at GAME\common\script_values\00_artifact_values.txt:13,22,31.
+# =============================================================================
+tnt_artifact_giftable_trigger = {
+	trigger_if = {
+		limit = { exists = $RECEIVER$ }
+		artifact_can_be_gift_to_trigger = { RECIPIENT = $RECEIVER$ }
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# T10  tnt_offer_nonempty_trigger = yes
+#
+# Scope: character (the player). Is anything at all on the table?
+#
+# Guards the Propose button so an empty offer cannot be sent. The count lives in
+# a named script value (tnt_items_count_value, tnt_50_values.txt) precisely so
+# that this is a script-value-against-literal test and never a comparison of two
+# variables (Law 4).
+# =============================================================================
+tnt_offer_nonempty_trigger = {
+	tnt_items_count_value > 0
+}
+
+
+# =============================================================================
+# T11  tnt_no_double_vassal_trigger = yes
+#
+# Scope: character (the player). Reject the one nonsensical combination: both
+# sides swearing fealty to each other in the same treaty.
+#
+# Note the two toggles already clear each other on switch-on
+# (contract §5 rows 27/28), so this is the belt-and-braces check on the send
+# path in case state was restored from a save mid-negotiation.
+#
+# Pure `exists` tests on two numeric variables — no comparison between them.
+# =============================================================================
+tnt_no_double_vassal_trigger = {
+	NOT = {
+		AND = {
+			exists = var:tnt_vassal_p
+			exists = var:tnt_vassal_r
+		}
+	}
+}
+
+
+###############################################################################
+###############################################################################
+##
+##  v2 ADDITIONS — THE PER-ITEM GATES THAT MAKE ITEM 1.1 SAFE
+##
+##  T1 above now admits every living, landed ruler in the world: your vassals,
+##  your liege, your liege's other vassals, foreign vassals. That is what the
+##  user asked for. It is only defensible because each individual deal item now
+##  refuses the combinations that relaxation makes reachable.
+##
+##  The score card, item by item (14 items of 10-CONTRACT.md §2.3):
+##
+##    1  gold          — no gate needed. Paying your own liege or your own vassal
+##                       gold is ordinary, and affordability is already gated in
+##                       tnt_send_offer.is_valid via tnt_gold_shortfall_value.
+##    2  tribute       — RETIRED. The yearly tribute is gone from the mod and
+##                       the index is not reused. No gate, nothing to gate.
+##    3  alliance      — GATED: T12 / T14. See T12's header.
+##    4  non-aggression- GATED: T13 / T16. Neither a liege nor his vassal can
+##       (truce)         legally declare war on the other, so the promise is
+##                       unenforceable inside one realm. See T13.
+##    5  marriage      — T7 already delegates all legality to vanilla's own
+##                       could_marry_character_trigger, which is relation-aware
+##                       (close kin, faith, betrothal state) and needs nothing
+##                       from us. Wave 3d (item 2.1) REPLACES T7 with
+##                       tnt_spouse_candidate_trigger + tnt_marriage_pair_legal_trigger
+##                       (30-V2-DESIGN §10 A-6); until it lands T7 must stay, its
+##                       six call sites are live.
+##    6  cede title    — GATED: T3, whose primary_title / capital_county rows are
+##                       exactly the "do not cede your capital" rule.
+##    7  grant claim   — GATED: T4, now with an explicit "the partner does not
+##                       already hold it" row.
+##    8  prisoners     — RETIRED. The term is withdrawn for an indefinite period
+##                       and T6 is commented out above with it; the index is not
+##                       reused. Nothing to gate. (The row used to read: "T6 needs
+##                       no change — it asks whether the prisoner is worth
+##                       anything to that party, and family / vassal / realm are
+##                       the right answer whatever the two parties are to each
+##                       other.")
+##    9  hook          — no gate needed, and this is not an oversight: holding a
+##                       hook on your own liege is VANILLA
+##                       (GAME\common\hook_types\00_hook_types.txt:201-204,
+##                        liege_favour_strong_hook). Item 1.1 makes that offerable
+##                       for the first time, which is a feature.
+##   10  artifact      — T9 delegates to vanilla's artifact_can_be_gift_to_trigger,
+##                       which already handles house banners, claims and court
+##                       requirements irrespective of relation.
+##   11  promise not
+##       to attack X   — RETIRED. The term is withdrawn for an indefinite period
+##                       and T8 is commented out above with it; the index is not
+##                       reused. (The row used to read: "T8 excludes only the two
+##                       negotiators — a promise about a third party is meaningful
+##                       in every relation." True, and still not worth a row: the
+##                       other side owes nothing for it.)
+##   12  fealty        — GATED: T5 / T15, and T11 for the both-sides case.
+##   13  prestige )      new in v2 (items 2.4, 2.3-tiers). Currency and hook-tier
+##   14  piety    )      terms need affordability gates, not relationship gates;
+##                       they belong in tnt_send_offer.is_valid, not here
+##                       (30-V2-DESIGN §1 row 2.4).
+##
+##  WIRING — *** ALL FOUR POINTS ARE DONE AS OF BUILD 2. *** The list is kept
+##  because it is the map of where these five triggers are called from. If a call
+##  site ever moves, correct the line numbers here in the same commit.
+##
+##    a) DONE. tnt_alliance_p_toggle and tnt_alliance_r_toggle
+##       (tnt_20_scripted_guis.txt:505 / :522 before the build-2 insert) each now
+##       carry:
+##           is_valid = {
+##               tnt_ally_available_trigger = { A = root  B = var:tnt_partner }
+##           }
+##       with NO outer trigger_if. T14's own `limit = { exists = $A$  exists = $B$ }`
+##       plus its trigger_else -> tnt_err_no_partner already satisfies Law 13, and
+##       an outer guard would only hide that reason from the player.
+##
+##    b) DONE. tnt_truce_p_toggle and tnt_truce_r_toggle (:539 / :556) likewise:
+##           is_valid = { tnt_truce_available_trigger = { A = root  B = var:tnt_partner } }
+##
+##    c) DONE. tnt_vassal_p_toggle (:759) and tnt_vassal_r_toggle (:798) no longer
+##       wrap the pure T5 in ONE generic `tnt_err_vassal_invalid`
+##       custom_description; they call the T15 wrapper directly, which supplies
+##       eight specific reasons instead of one vague one (nine until V11 retired
+##       the vassal-limit row from T5 and from its twin here):
+##           tnt_vassal_available_trigger = { LIEGE = var:tnt_partner  VASSAL = root }   # _p
+##           tnt_vassal_available_trigger = { LIEGE = root  VASSAL = var:tnt_partner }   # _r
+##       *** V17 UNDID THE CALL AND KEPT THE REASONS. Those two rows were BARE, i.e.
+##       *** not inside a custom_description, and a bare row in an is_valid that
+##       *** [TntTip()] reaches renders «<name> has no localization» into the tooltip
+##       *** instead of the reasons - the defect reported four times (house law 10b).
+##       T15's nine rows are now written out inline in both toggles and T15 itself is
+##       tombstoned below. The WIRING DECISION HERE STILL STANDS - nine named reasons
+##       beat one generic one - only the mechanism changed, from a call to a copy.
+##       The `tnt_err_advanced_off` row stays; the surrounding trigger_if /
+##       trigger_else pair went with the generic row, because the inline body carries
+##       its own (as T15 did).
+##       tnt_err_vassal_invalid is now an unreferenced loc key. It is KEPT in both
+##       .yml files on purpose — an unreferenced key costs nothing, an undefined one
+##       prints raw on screen — and is recorded as a knowingly accepted orphan in
+##       60-BUILD2-REPORT.md.
+##
+##    d) DONE. tnt_send_offer.is_valid (:929-…) re-validated ceded TITLES only. It
+##       now also carries, in exactly the same shape:
+##           tnt_can_grant_claim_trigger  on each picked claim      -> tnt_err_claim_invalid
+##           tnt_can_ally_trigger   when either alliance var is set -> tnt_err_ally_invalid
+##           tnt_can_truce_trigger  when either truce var is set    -> tnt_err_truce_invalid
+##       The PURE triggers (T12, T13, T4) are used there, never the wrappers: the
+##       send button's tooltip is built by rendering the effect, and a
+##       custom_description evaluated in tooltip mode is the D5 class of bug.
+##
+##  tnt_32_apply.txt also took the two apply-time rows this block called "worth
+##  making": a T12 row in tnt_exec_alliance_effect (E17) and its T13 twin in
+##  tnt_exec_truce_effect (E18). A term that became illegal between "send" and
+##  "accept" is now dropped instead of applied as a priced no-op, exactly as the
+##  title and fealty legs already did through T3 and T5. Both are the PURE
+##  triggers, because that whole effect is also rendered in tooltip mode by the
+##  refusal option's show_as_tooltip.
+###############################################################################
+
+
+# =============================================================================
+# T12  tnt_can_ally_trigger = { A = <character>  B = <character> }
+#
+# Scope: any. May $A$ and $B$ form an alliance at all? Pure — no
+# custom_description — so it is safe inside a `limit` and on the send path.
+#
+# THE ENGINE'S REAL CONSTRAINTS, read off vanilla's own alliance interaction
+# rather than guessed. `create_alliance` itself is a silent effect (its only
+# schema entry is GAME\common\effect_localization\00_additional_effects.txt:59,
+# which is documentation and therefore NOT evidence, R3) — so the authority is
+# what vanilla refuses to let the player ask for:
+#
+#   negotiate_alliance_interaction, GAME\common\character_interactions\00_alliance.txt:1106
+#     is_shown  :1120-1125   recipient this != actor, NOT is_allied_to = actor, is_ruler = yes
+#                :1127       actor is_ruler = yes
+#     is_valid  :1155-1166   BOTH sides is_playable_character = yes, is_imprisoned = no,
+#                            and NOT = { actor is_at_war_with recipient }
+#               :1180-1181   BOTH sides highest_held_title_tier < tier_hegemony
+#                            — a hegemon has no allies, only tributaries
+#
+# So: already allied, at war with each other, imprisoned, non-playable, or either
+# side a hegemon. Those five are vanilla's, and ours are the same five.
+#
+# THE SIXTH ROW IS OURS, AND IT IS A DESIGN RULING, NOT AN ENGINE LIMIT.
+# An alliance inside one realm is legal in the engine — vanilla even prices it
+# (GAME\common\character_interactions\00_alliance.txt:2100-2114, "The AI doesn't
+# want to form alliances with AI vassals within its capital duchy") — but it is
+# WORTHLESS, and vanilla says why in its own comment at :2083-2087:
+#     "Since vassals and lieges can't call us into wars, this doesn't matter for
+#      us if we have that relationship."
+# call_ally_interaction confirms it from the other end: calling your own liege
+# needs the special contract flag vassal_contract_liege_forced_war_override
+# (:23-28). An alliance you can never invoke is a no-op term with a non-zero
+# price — the same objection T4 raises against a redundant claim. So we refuse
+# it, and we tell the player why (tnt_err_ally_same_realm).
+# TO UNDO: delete the NOR block below and the matching custom_description in T14.
+# Nothing else depends on it.
+#
+# `is_allied_to` and `is_at_war_with` are symmetric relations, so one side is
+# enough; testing both would double the cost for no information.
+# =============================================================================
+# RETIRED V13, USER ITEM 1 - T12 GOES WITH THE ALLIANCE. See TOMBSTONE A in
+# common\scripted_effects\tnt_32_apply.txt.
+# ZERO CALLERS SURVIVE. Its last two live call sites were both in the AI-to-AI
+# sandbox - tnt_38_ai_world.txt's E4 tnt_ai_apply_alliance_effect and the A2 strike
+# entry - and BOTH are retired under this same user item, so the "two triggers, two
+# audiences" split this file's header used to describe no longer has an audience.
+# tnt_can_ally_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $A$
+# 			exists = $B$
+# 		}
+# 		NOT = { $A$ = { this = $B$ } }
+# 		$A$ = {
+# 			is_ruler = yes				# REAL: GAME\common\character_interactions\00_alliance.txt:1124, :1127
+# 			is_playable_character = yes		# REAL: GAME\common\character_interactions\00_alliance.txt:1157, :1161
+# 			is_imprisoned = no			# REAL: GAME\common\character_interactions\00_alliance.txt:1158, :1162
+# 			highest_held_title_tier < tier_hegemony	# REAL: GAME\common\character_interactions\00_alliance.txt:1180
+# 			NOT = { is_allied_to = $B$ }		# REAL: GAME\common\character_interactions\00_alliance.txt:1123 (also :33, :967)
+# 			NOT = { is_at_war_with = $B$ }		# REAL: GAME\common\character_interactions\00_alliance.txt:1164
+# 			# OUR RULING, see header: an alliance inside one realm can never be
+# 			# invoked. REAL triggers: GAME\common\character_interactions\00_alliance.txt:2085-2086
+# 			NOR = {
+# 				target_is_liege_or_above = $B$
+# 				target_is_vassal_or_below = $B$
+# 			}
+# 		}
+# 		$B$ = {
+# 			is_ruler = yes
+# 			is_playable_character = yes
+# 			is_imprisoned = no
+# 			highest_held_title_tier < tier_hegemony	# REAL: GAME\common\character_interactions\00_alliance.txt:1181
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+
+
+# =============================================================================
+# T13  tnt_can_truce_trigger = { A = <character>  B = <character> }
+#
+# Scope: any. May $A$ and $B$ promise not to attack EACH OTHER? Pure.
+#
+# Item 4 of the offer ("non-aggression", tnt_truce_p/_r) is a mutual promise
+# between the two negotiators, which is a different thing from item 11 (a promise
+# about a named third party — that is T8's job and needs no relation gate).
+#
+# The single gate is the same argument as T12's sixth row, and it comes from the
+# same vanilla comment (GAME\common\character_interactions\00_alliance.txt:2083-2087):
+# inside one realm neither party can declare war on the other in the first place,
+# so there is nothing to promise. A liege revokes and imprisons; he does not
+# declare war on his own vassal. A vassal needs a faction or an independence war,
+# neither of which a bilateral pact touches.
+#
+# V12 USER ITEM 4: THE GATE IS NOW FULL WAR-REACHABILITY, delegated to T45
+# tnt_can_war_each_other_trigger in tnt_41_gates.txt. The liege/vassal argument
+# above SURVIVES INSIDE IT, unchanged and for the same reason - T45 still carries
+# that exact NOR. What it adds is the case the narrow row missed: a SUB-VASSAL OF
+# A FOREIGN REALM is neither liege nor vassal of the other party, so the old row
+# waved him through although no war between the two is possible in either
+# direction. The rule T45 enforces is the user's own - two vassals of one realm,
+# or two independent rulers of different realms - and it is vanilla's, from
+# can_attack_in_hierarchy at GAME\common\character_interactions\00_war.txt:31.
+#
+# Deliberately NOT gated here: being currently at war with each other. The old
+# argument — "a truce between belligerents is the most useful non-aggression
+# pact there is" — is REVERSED by USER ITEM 26: an at-war pair can no longer
+# open the negotiation at all (tnt_10_interaction.txt is_valid), and this
+# trigger's own live callers, the AI sandbox legs (tnt_38_ai_world.txt), never
+# pair belligerents in the first place (is_at_war = no on both sides). The row
+# stays absent because the law is already enforced at every entrance, and
+# because the apply leg (tnt_exec_truce_effect) writes only a truce modifier —
+# it does not try to end a war, so there is nothing for a live war to corrupt
+# even if a future caller bypasses the door.
+# =============================================================================
+# RETIRED V13, USER ITEM 1 - T13 GOES WITH THE TRUCE. See TOMBSTONE B in
+# common\scripted_effects\tnt_32_apply.txt.
+# ZERO CALLERS SURVIVE, and this trigger's own header said where they were: "This
+# trigger's live callers are the AI-to-AI sandbox, tnt_38_ai_world.txt (apply) and
+# (the A1 strike entry)". Both are retired under this same user item. It also
+# called T45, which was commented out in tnt_41_gates.txt with the family and is
+# REVIVED as of V17 for the hostage gate. That does not revive anything here.
+# tnt_can_truce_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $A$
+# 			exists = $B$
+# 		}
+# 		NOT = { $A$ = { this = $B$ } }
+# 		$A$ = { is_alive = yes }
+# 		$B$ = { is_alive = yes }
+# 		# V12 USER ITEM 4. The NOR that stood inside $A$ caught only the
+# 		# liege/vassal pair. T45 (tnt_41_gates.txt) asks the whole question -
+# 		# both independent, or both vassals of one realm and not each other's
+# 		# liege - and it CONTAINS that NOR, so nothing the old row refused is
+# 		# allowed now. This trigger's live callers are the AI-to-AI sandbox,
+# 		# tnt_38_ai_world.txt:262 (apply) and :822 (the A1 strike entry), which
+# 		# is why the row has to be here as well as in T19.
+# 		# A scripted trigger may call one defined in a later-sorting file:
+# 		# GAME\common\scripted_triggers\00_war_and_peace_triggers.txt:279 calls
+# 		# tgp_is_ceremonial_liege_trigger, defined at 10_tgp_triggers.txt:391.
+# 		tnt_can_war_each_other_trigger = {
+# 			A = $A$
+# 			B = $B$
+# 		}
+# 	}
+# 	trigger_else = { always = no }
+# }
+
+
+###############################################################################
+# T14 / T15 / T16 — THE FAILURE-REPORTING WRAPPERS
+#
+# READ DESIGN RULE 1 IN THE FILE HEADER BEFORE USING THESE.
+#
+# Rule R14 says everything user-visible needs a loc key, and the point of the
+# per-item gates is that the player is TOLD WHY a control is unavailable instead
+# of being handed a dead button. That is what these three do: each is a flat
+# sequence of `custom_description` rows over the same conditions as its pure
+# twin, one row per reason, so the tooltip lists exactly the reasons that failed.
+#
+# `custom_description` as a plain trigger row inside a `trigger_if` body is
+# vanilla's own shape — GAME\common\character_interactions\00_alliance.txt:107-127
+# (a trigger_if whose body is two custom_descriptions) and :1167-1178.
+#
+# `subject` / `object` are deliberately omitted. Vanilla always passes a saved
+# scope there (`subject = scope:actor`, 00_alliance.txt:114); our callers pass
+# dotted variable paths such as `var:tnt_partner`, and a dotted path in `subject`
+# is unproven. The loc strings must therefore be self-contained sentences with no
+# character reference, or reach the partner themselves from the GUI side.
+#
+# CALL THEM ONLY FROM A scripted_gui `is_valid`. Never from an effect's `limit`,
+# never from a script value: a custom_description that is evaluated during
+# tooltip generation prints itself into that tooltip. Use T12 / T13 / T5 there.
+###############################################################################
+
+
+# =============================================================================
+# T14  tnt_ally_available_trigger = { A = <character>  B = <character> }
+#
+# Reporting wrapper for T12. BOUND (build 2) to tnt_alliance_p_toggle /
+# _r_toggle.is_valid, with the GUI's enabled+tooltip pair on both rows.
+# Row order is cheapest-and-most-likely-first, so the common failure ("you are
+# already allied") is the first line of the tooltip.
+# =============================================================================
+# RETIRED V13, USER ITEM 1 - T14 GOES WITH THE ALLIANCE. See TOMBSTONE A in
+# common\scripted_effects\tnt_32_apply.txt.
+# ALREADY ORPHANED BEFORE THE RETIREMENT (finding E4): v2 BUILD 3's NEW-1 swap
+# re-pointed both alliance toggles at T20, and this wrapper has had zero callers
+# ever since. It is tombstoned now rather than left standing so the next reader
+# does not mistake it for live code. Its five loc keys stay DEFINED in both .yml
+# files - the key count is pinned at 553, and an undefined key prints raw.
+# tnt_ally_available_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $A$
+# 			exists = $B$
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_ally_already
+# 			NOT = { $A$ = { is_allied_to = $B$ } }
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_ally_at_war
+# 			NOT = { $A$ = { is_at_war_with = $B$ } }
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_ally_same_realm
+# 			$A$ = {
+# 				NOR = {
+# 					target_is_liege_or_above = $B$
+# 					target_is_vassal_or_below = $B$
+# 				}
+# 			}
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_ally_hegemon
+# 			$A$ = { highest_held_title_tier < tier_hegemony }
+# 			$B$ = { highest_held_title_tier < tier_hegemony }
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_ally_not_ruler
+# 			$A$ = {
+# 				is_ruler = yes
+# 				is_playable_character = yes
+# 				is_imprisoned = no
+# 			}
+# 			$B$ = {
+# 				is_ruler = yes
+# 				is_playable_character = yes
+# 				is_imprisoned = no
+# 			}
+# 		}
+# 	}
+# 	trigger_else = {
+# 		custom_description = {
+# 			text = tnt_err_no_partner
+# 			always = no
+# 		}
+# 	}
+# }
+
+
+# =============================================================================
+# T15  tnt_vassal_available_trigger = { LIEGE = <character>  VASSAL = <character> }
+#
+# Reporting wrapper for T5. BOUND (build 2) to tnt_vassal_p_toggle /
+# _r_toggle.is_valid in place of the single generic tnt_err_vassal_invalid row
+# (see WIRING (c) above).
+#
+# The direction is carried by the parameters exactly as in T5, and the tier row
+# reads the direction off $LIEGE$ the same way, for the same reason: the value
+# tnt_tier_edge_value is hardwired to root-versus-partner and root must be the
+# player. Both wrappers are only ever called from a scripted_gui is_valid, where
+# that holds by construction.
+#
+# ROW FOR ROW WITH T5, AND THAT IS THE POINT OF IT. Eight reasons inside the
+# trigger_if plus tnt_err_no_partner in the trigger_else. It was nine until V11
+# (user item 6) deleted the vassal-limit row from T5; the twin here went in the
+# same commit, because a wrapper that refuses what the gate allows greys out the
+# player's own toggle for a rule nothing else enforces any more.
+# =============================================================================
+# *** RETIRED V17, USER ITEM 1. A REPORTING WRAPPER CANNOT BE CALLED BARE FROM A
+# *** scripted_gui is_valid, AND THAT IS THE WHOLE OF A DEFECT REPORTED FOUR TIMES.
+#
+# Both of this trigger's callers were BARE rows — `tnt_vassal_available_trigger = {
+# LIEGE = ...  VASSAL = ... }` with no enclosing custom_description — inside is_valid
+# blocks that a [TntTip(...)] binding reaches. On that path the engine's
+# trigger-DESCRIPTION walker (jomini_trigger_localization.cpp) must describe the CALL,
+# has no `common\trigger_localization\` entry for the name (the mod ships no such
+# folder, so no tnt_* trigger has one), and RENDERS the words
+#     tnt_vassal_available_trigger has no localization
+# into the tooltip line INSTEAD OF the nine reasons inside. Rendered, never logged:
+# the format string is in ck3.exe at file offset 72140768 and its one code xref
+# carries a lea to the loc key JOMINI_DEBUG_FORMAT and no __FILE__ pointer, unlike
+# the neighbouring "Trigger loc for '%s' is missing". Four rounds of reading
+# error.log therefore found nothing, and three fixes aimed at the loc pipeline could
+# not have worked: on this path the engine never looks up one of our keys at all.
+#
+# ITS ROWS NOW LIVE INLINE, twice, one per direction, as a literal parameter
+# substitution of the body below:
+#   common\scripted_guis\tnt_20_scripted_guis.txt   tnt_vassal_p_toggle.is_valid
+#   common\scripted_guis\tnt_20_scripted_guis.txt   tnt_vassal_r_toggle.is_valid
+# ROW-FOR-ROW PARITY WITH T5 IS NOW AN INVARIANT OF THOSE TWO BLOCKS, not of this
+# one. Three copies of the reason list would be a three-way invariant with a
+# caller-less middle man, which is why this is tombstoned rather than left standing.
+#
+# WHY NOT SHIP `common\trigger_localization\tnt_*.txt` INSTEAD and keep the wrapper?
+# It would be additive and collision-free (no tnt_* name exists among vanilla's 1636
+# entries) and would need no new loc key — but a trigger_localization entry is
+# ENTRY-FIRST: the engine prints that one key INSTEAD OF walking into the nine
+# reasons, collapsing an eight-reason tooltip back to the single generic line BUILD 2
+# deliberately removed. That trades the defect for a feature regression. Kept in the
+# notes as the cheap fallback if the duplication is ever judged too much.
+#
+# THE LOC KEYS ARE UNAFFECTED: every one of the ten is referenced from the inline
+# copies, so §6.4's 570/570 pin and the key sets do not move.
+# NEVER REVIVE THIS TRIGGER FOR A scripted_gui is_valid. If some future effect-side
+# caller needs the reason list in a place the engine never describes, call T5
+# (tnt_can_vassalize_trigger) — the pure gate — and not this.
+# tnt_vassal_available_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $LIEGE$
+# 			exists = $VASSAL$
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_vassal_self
+# 			NOT = { $LIEGE$ = { this = $VASSAL$ } }
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_vassal_own_vassal
+# 			NOT = { $LIEGE$ = { is_vassal_or_below_of = $VASSAL$ } }
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_vassal_not_independent
+# 			$VASSAL$ = { is_independent_ruler = yes }
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_vassal_mutual_war
+# 			NOT = { $VASSAL$ = { is_at_war_with = $LIEGE$ } }
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_vassal_government
+# 			$VASSAL$ = {
+# 				NOT = { government_has_flag = cannot_be_vassal_or_liege }
+# 			}
+# 			$LIEGE$ = {
+# 				NOR = {
+# 					government_has_flag = cannot_be_vassal_or_liege
+# 					government_has_flag = government_is_landless_adventurer
+# 					government_has_flag = government_is_holy_order
+# 					government_has_flag = government_is_mercenary
+# 				}
+# 			}
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_vassal_confederation
+# 			$VASSAL$ = { is_confederation_member = no }
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_vassal_state
+# 			$VASSAL$ = {
+# 				is_alive = yes
+# 				is_landed = yes
+# 				is_imprisoned = no
+# 			}
+# 			$LIEGE$ = {
+# 				is_alive = yes
+# 				is_landed = yes
+# 			}
+# 		}
+# 		# V14, USER ITEM 1: THE TWIN OF T5'S NIGHT'S WATCH ROW. This trigger's own
+# 		# header makes row-for-row parity with T5 a stated invariant, and the
+# 		# reverse of the V11 case below - the gate refusing what the wrapper allows
+# 		# - is the same defect with the sign flipped: the toggle would swallow the
+# 		# click with no reason the player could ever read. Full argument in T46.
+# 		# In a vanilla game the row is always true and the string never renders.
+# 		custom_description = {
+# 			text = tnt_err_vassal_wall
+# 			tnt_vassalage_pair_allowed_trigger = { A = $LIEGE$  B = $VASSAL$ }
+# 		}
+# 		# V11, USER ITEM 6: THE tnt_err_vassal_limit ROW IS GONE, because T5's is.
+# 		# A reporting wrapper that refuses something the real gate allows is worse
+# 		# than no wrapper at all: this one is a live is_valid on both fealty toggles
+# 		# (tnt_20_scripted_guis.txt:887, :920), so leaving it here would have kept
+# 		# the player's own window greyed out for a rule the composer had stopped
+# 		# enforcing — the AI could send a fealty letter that the player could not
+# 		# counter-offer. The argument for deleting it is at T5's own row above.
+# 		# The loc key tnt_err_vassal_limit is now unused; it is left DEFINED in both
+# 		# .yml files, exactly as tnt_bd_alliance_r and tnt_bd_truce_r were when
+# 		# v3 ADD-4 retired their rows, because an undefined key referenced anywhere
+# 		# renders raw and the key sets must stay identical.
+# 		custom_description = {
+# 			text = tnt_err_vassal_tier
+# 			trigger_if = {
+# 				limit = { $LIEGE$ = { this = root } }
+# 				tnt_tier_edge_value > 0
+# 			}
+# 			trigger_else = {
+# 				tnt_tier_edge_value < 0
+# 			}
+# 		}
+# 	}
+# 	trigger_else = {
+# 		custom_description = {
+# 			text = tnt_err_no_partner
+# 			always = no
+# 		}
+# 	}
+# }
+
+
+# =============================================================================
+# T49  tnt_ai_world_partner_structural_trigger / _valid_trigger
+#                                                        NO PARAMETERS
+#
+# Scope: A CANDIDATE CHARACTER. root MUST BE THE PROPOSER.
+#
+# May this character structurally be the other party in a SILENT AI-to-AI treaty?
+# The structural trigger is the candidate limit that used to sit inline in
+# common\scripted_effects\tnt_38_ai_world.txt's partner pick, moved here VERBATIM
+# — every row, every comment, every vanilla citation — and nothing was added,
+# removed or reordered in the move.
+#
+# WHY IT MOVED (V16, user item 2, finding Q2-F3). The sandbox now picks its
+# partner with TWO different vanilla iterators, one of two chosen by a 50/50
+# random_list, because the single same-rank iterator it used since V15 made
+# `recipient tier < actor tier` unsatisfiable and starved two archetypes to zero
+# draws (S-FEALTY 0 of ~101, S-HOOKCALL 0 of ~101, measured 757/757 pairs at tier
+# edge exactly 0). Two call sites need ONE limit, and a 94-line safety limit
+# copied twice is a drift waiting to happen — this round already had to repair
+# four comments that drifted from their code (finding F3). One definition, two
+# callers, no lockstep invariant to remember.
+#
+# THIS TRIGGER READS `root` AND TAKES NO PARAMETER, WHICH IS DELIBERATE AND IS
+# ALSO ITS ONLY RESTRICTION. Four of its rows are about the PROPOSER
+# (`NOT = { this = root }`, the two hierarchy rows, and the opinion read), and
+# root is the proposer on the only path that calls it — tnt_ai_world_pulse_effect
+# runs on the AI actor. A scripted trigger is inlined textually, so `root` here
+# means exactly what it meant when these rows were written inline, and that is
+# vanilla's own idiom for a scripted trigger about "the other party":
+#   GAME\common\scripted_triggers\00_war_and_peace_triggers.txt:10-11
+#     (`is_at_war_with = root`, `faith = root.faith` inside a scripted trigger)
+#   GAME\common\scripted_triggers\00_title_triggers.txt:28-29 (`root.faith…`)
+# DO NOT CALL IT FROM ANYWHERE WHOSE ROOT IS NOT THE PROPOSER. If a second
+# caller ever needs a different proposer, add a WHO parameter and pass `root` at
+# the existing call sites — do not re-point `root`.
+#
+# NO custom_description ANYWHERE IN IT, so design rule 1 of this file holds and
+# it is legal inside an effect's `limit` (which is the only place it is used).
+#
+# COST IS UNCHANGED FROM THE INLINE VERSION, row for row and in the same order:
+# flat lookups first and the two liege-chain walks last. The ordinary `_valid`
+# wrapper then adds USER ITEM 26's opinion-at--100 refusal. Strategic coercion
+# deliberately calls only the structural half: hatred is willingness, not safety,
+# and must not make a 4:1 threat silently idle. Every non-coercive caller keeps the
+# wrapper and therefore keeps the earlier ruling unchanged. The
+# nested `tnt_not_the_watch_trigger = { WHO = this }` call still sits at the top
+# level of this limit, so `this` is still the candidate under substitution — the
+# hazard its own comment names (a nested SCOPE block re-resolving `this`) is not
+# present here.
+# =============================================================================
+tnt_ai_world_partner_structural_trigger = {
+	# Cheapest rows first. Every row down to and including is_at_war is a
+	# flat lookup; the only two that are not are the V15 hierarchy rows
+	# and the opinion read, and both sit at the bottom for that reason.
+	is_ai = yes			# STRICTLY AI<->AI — see the header. REAL: GAME\common\character_interactions\00_gift.txt:499
+	is_alive = yes			# REAL: GAME\common\character_interactions\00_choose_favorite_interaction.txt:103
+	is_landed = yes			# nothing to trade otherwise. REAL: GAME\common\character_interactions\00_character_interactions.txt:26
+	is_ruler = yes			# REAL: GAME\common\character_interactions\00_alliance.txt:1124
+	NOT = { has_variable = tnt_ai_world_cd }
+	NOT = { this = root }
+	# V15, USER ITEM 3: NO SILENT TREATY WITH THE WALL, IN EITHER ROLE.
+	# The proposer half is the mirror row in tnt_72_ai_world.txt. It is
+	# IN THE LIMIT and not after the pick, so a Watch neighbour is
+	# SKIPPED and the iterator takes somebody else - which hands back
+	# the 99 of 584 pairs (17.0%) the 2026-08-17 run aimed at
+	# k_the_wall, including 29 draws of the SILENT MARRIAGE archetype
+	# and the run's SINGLE completed treaty (WDONE y=8083 arch=wed:
+	# Edric Stark of e_the_north marrying into the Lord Commander's
+	# house - the user's "брак между правителем и ночным дозором"
+	# exactly, on a path where no human ever saw it).
+	# S-TITLE, S-ARTIFACT and S-WED need no rows of their own: the pair
+	# is gone before the archetype is drawn. The T46 call inside
+	# S-FEALTY's entry trigger stays as it is - it is now redundant for
+	# the Watch but still carries the WILDLING half, which this row
+	# does not.
+	# IT ALSO CATCHES AGOT'S RUINS/WILDERNESS PLACEHOLDERS, through
+	# T48's second flag government_is_uninteractable - measured as this
+	# pulse's THIRD most frequent partner (the holder of c_wilderness,
+	# 47 of 584 pairs) and the only title seller in the whole run whose
+	# counties ever passed S-TITLE's reach gate. That is why NO
+	# `is_lowborn = no` row was added here: it would have caught the
+	# same placeholder while also excluding genuinely lowborn landed
+	# rulers, and the government test is the precise instrument.
+	# Full argument, vanilla-only safety proof and cost: T48
+	# tnt_not_the_watch_trigger, common\scripted_triggers\tnt_40_triggers.txt.
+	# `PARAM = this` into a scripted trigger inside an iterator limit:
+	# REAL, GAME\common\character_interactions\06_ep3_interactions.txt
+	# :33-36, :48-51.
+	tnt_not_the_watch_trigger = { WHO = this }
+	# V15, SANDBOX HEALTH: NOT THE OTHER PARTY'S OWN LIEGE OR VASSAL.
+	# `NOT = { this = root }` alone does NOT exclude root's own liege on
+	# this iterator family, which is why vanilla pairs a `this !=` row
+	# with a hierarchy row every time it uses one:
+	#   GAME\common\scripted_effects\00_mongol_invasion_effects.txt
+	#     :1985-1986   (this != scope:mongol_emperor AND
+	#                   top_liege != scope:mongol_emperor)
+	#   GAME\common\scripted_effects\09_mpo_greatest_of_khans_effects.txt
+	#     :8205-8206   (the same pair as NOT blocks)
+	# MEASURED 2026-08-17 without them: 290 of 584 pairs (49.7%) had ONE
+	# recipient, the Emperor of Dorne, and the 290 actors were his own
+	# Dornish vassals. These two rows are SYMMETRIC, unlike vanilla's
+	# one-directional `top_liege !=`, and they are T45's own structural
+	# rows - the retired trigger's readable half, reused without
+	# reviving it.
+	# THEY ARE ALSO WHAT MAKES THE V16 CROSS-RANK ITERATOR SAFE: pairing
+	# across tiers necessarily meets more liege/vassal pairs than
+	# same-rank pairing did, and these two rows refuse every one of them.
+	# REAL: GAME\common\scripted_triggers\00_war_and_peace_triggers.txt
+	# :187 (target_is_liege_or_above) and :199 (target_is_vassal_or_below).
+	# Both are ENGINE triggers, so mod-load safe with and without AGOT.
+	# DO NOT call tnt_can_war_each_other_trigger here instead. V17
+	# revived it (for A18's hostage gate), so "it is commented out" is
+	# no longer the reason - THESE TWO ARE: its nested `top_liege = {
+	# target_is_vassal_or_below = $B$ }` block re-resolves `this` to the
+	# top liege under textual substitution, which is the 85,778-error
+	# rule its own header records. Its OR also demands both-independent or
+	# both-vassals-of-one-realm, which is right for a peace guarantee
+	# and wrong for selling a trinket or arranging a marriage.
+	# COST ORDER: these two are the ONLY rows in this limit that are not
+	# flat - each walks the liege chain, at most four steps on a
+	# 1066-style map - so they are written BELOW is_at_war, immediately
+	# before the opinion read, and not up here with the flat lookups.
+	# A ruler in the middle of a war has no business signing a
+	# side-treaty he cannot honour, and it keeps the pulse away from
+	# the busiest part of the AI's own decision space. Since USER
+	# ITEM 26 this row also CARRIES THE LAW's at-war half on the
+	# silent path: a candidate at peace cannot be at war with root
+	# (war is symmetric), which is strictly stronger than the door's
+	# NOT = { is_at_war_with } form - do not weaken it to the pair
+	# form without re-reading item 26.
+	is_at_war = no			# REAL: GAME\common\character_interactions\00_courtier_and_guest_interactions.txt:168, 00_culture_interactions.txt:123 (both inside a live ai_potential)
+	# THE TWO HIERARCHY ROWS ANNOUNCED ABOVE. Argument, measurement and
+	# vanilla proof are in the comment block a dozen lines up; they sit
+	# here because a liege-chain walk is the only non-flat thing in this
+	# limit besides the opinion read.
+	# *** SINCE 2026-08-25 THESE TWO ROWS ALSO DEFINE THE AI'S ULTIMATUM
+	# *** REACH, AND A READER WHO COMES HERE TO WIDEN IT MUST READ THIS
+	# *** FIRST. *** The user's ratio ruling removed the last relationship
+	# term from the threat formula, so a ruler's own vassals and his own
+	# liege chain became LEGAL victims - and the alert gave the PLAYER
+	# pools for both (common\important_actions\tnt_91_alerts.txt, pools 1
+	# and 3). The sandbox deliberately did NOT follow, and these two rows
+	# are the whole reason: they are the SHARED gate of all eight
+	# archetypes, so deleting one to let A5 extort inside a realm would
+	# also let wedding, title, artifact and fealty concentrate on a
+	# ruler's own vassals - which is the exact defect the 290-of-584
+	# measurement above records. AN ULTIMATUM-ONLY EXEMPTION IS ALSO
+	# REFUSED: it would be a second copy of this trigger minus two rows,
+	# the drifting-duplicate class of house law 9. If the sandbox is ever
+	# to extort inside a realm, the move is a NEW named trigger that
+	# CALLS the flat rows of this one - never a fork, never a row quietly
+	# dropped here. The consequence is stated where it is visible: the
+	# player's threat scope is now strictly WIDER than the AI's, argued
+	# at E17b in common\scripted_effects\tnt_38_ai_world.txt.
+	NOT = { target_is_liege_or_above = root }
+	NOT = { target_is_vassal_or_below = root }
+}
+
+
+# Ordinary silent bargains retain USER ITEM 26(b)'s willingness floor. The
+# coercive submission lane above/below is the one deliberate non-caller.
+tnt_ai_world_partner_valid_trigger = {
+	tnt_ai_world_partner_structural_trigger = yes
+	# USER ITEM 26(b), the hatred half, same law as the player's
+	# door (tnt_10_interaction.txt is_valid) and the letter path
+	# (tnt_37_ai_offer.txt): no silent treaty with a partner whose
+	# opinion of the proposer sits at the -100 clamp. THIS = the
+	# candidate, root is absolute (= the proposer). `opinion` inside
+	# an iterator limit: REAL,
+	# GAME\common\scripted_effects\00_ai_conqueror_effects.txt:485, :501;
+	# the block form is GAME\common\character_interactions\05_bp2_interactions.txt:199-202.
+	opinion = {
+		target = root
+		value >= -99
+	}
+}
+
+
+# =============================================================================
+# T49b  tnt_ai_coercive_fealty_pair_trigger = { A = <hegemon> B = <victim> }
+#
+# Strategic threat is deliberately a separate road from both the cash ultimatum
+# and consensual S-FEALTY. It is reachable only for an independent king/emperor
+# with a real field army and free vassal capacity, against a peaceful, playable,
+# lower-tier independent AI neighbour. Both rulers must be at peace: changing a
+# liege in the middle of an ordinary war is unsafe, and in AGOT Mega Wars the
+# temporary `agot_pwl_direct` independence is explicitly not a real vassalization
+# opportunity. The recent-independence opinion lock mirrors vanilla's interaction
+# validity and prevents an immediate undo of a granted release. The shared threat
+# gate adds independence, no alliance or hostage link, and the fifteen-year pair
+# memory. Submission has BOTH a raw 4:1 max-strength floor and 100 final threat
+# points: prestige/dread may strengthen the instrument, but may never turn a merely
+# prestigious near-peer into an "overwhelming" hegemon. The 2026-09-30 access
+# ruling applies to every threat. At normal N=5, equal prestige/dread needs
+# a 21:1 ratio for 100 points; the separate raw 4:1 floor still applies.
+#
+# $A$ and $B$ MUST BOTH BE ABSOLUTE HANDLES on both live call sites. T49 reads
+# root as proposer, so the caller names the iterator candidate before calling;
+# passing relative `this` here would rebind inside the $A$ scope and waste a pulse.
+# =============================================================================
+tnt_ai_coercive_fealty_pair_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $A$
+			exists = $B$
+		}
+		$A$ = {
+			is_ai = yes
+			is_alive = yes
+			is_landed = yes
+			is_ruler = yes
+			is_adult = yes
+			is_independent_ruler = yes
+			is_at_war = no
+			highest_held_title_tier >= tier_kingdom
+			vassal_limit_available > 0
+			NOT = { has_variable = tnt_ai_world_cd }
+			max_military_strength > 0
+			current_military_strength >= fifty_percent_of_max_military_strength
+			NOT = { has_truce = $B$ }
+			NOT = { has_variable = agot_pwl_direct }
+		}
+		$B$ = {
+			tnt_ai_world_partner_structural_trigger = yes
+			is_independent_ruler = yes
+			is_at_war = no
+			is_playable_character = yes
+			is_tributary = no
+			is_confederation_member = no
+			NOT = { has_variable = agot_pwl_direct }
+			NOT = {
+				has_opinion_modifier = {
+					modifier = granted_independence_opinion
+					target = $A$
+				}
+			}
+			highest_held_title_tier < $A$.highest_held_title_tier
+			NOR = {
+				government_has_flag = cannot_be_vassal_or_liege
+				government_has_flag = government_is_herder
+			}
+		}
+		tnt_vassalage_pair_allowed_trigger = { A = $A$  B = $B$ }
+		tnt_can_threat_trigger = { A = $A$  B = $B$ }
+		$A$ = { tnt_threat_ratio_value >= 4 }
+		$A$ = { tnt_threat_points_value >= 100 }
+	}
+	trigger_else = { always = no }
+}
+
+
+# =============================================================================
+# T50  tnt_ai_world_title_saleable_trigger    NO PARAMETERS     <- NEW in V16
+#
+# Scope: A LANDED TITLE. scope:actor MUST be the buyer and scope:recipient the
+# seller — i.e. it is callable only from inside the AI-to-AI pulse's chain
+# (common\scripted_effects\tnt_38_ai_world.txt), which is where both scopes live.
+#
+# May the actor buy THIS title from the recipient in a silent AI-to-AI treaty?
+# It is the whole of S-TITLE's eligibility: county tier, T3, and the reach gate.
+#
+# WHY IT EXISTS (V16, user item 2, finding Q2-F5). E20's entry trigger asked only
+# for a cedable county; its PICK asked for a cedable county ON THE BUYER'S REACH.
+# So the archetype could win the draw and then find nothing, and it did: of 227
+# arch=title draws in the 2026-08-17 run, 134 ended WSKIP why=no_eligible_title
+# (59%), which E20's own comment already diagnosed as "the entry trigger proved a
+# cedable county EXISTS, so this means the reach gate filtered them all". Each of
+# those 134 draws also spent 22 of the sandbox draw's 100 weight points on
+# nothing. THE INVARIANT THE LETTER PATH STATES FOR ITSELF IS NOW TRUE HERE TOO
+# (tnt_37_ai_offer.txt, A10's pass 3: "the LAST pass's limit must be the entry
+# trigger's own body"). One definition, called from both places, so they cannot
+# drift.
+#
+# THIS IS LEGALITY, NOT A BALANCE, so it is inside E12's rule for entry triggers
+# ("CHEAP LEGALITY TESTS ONLY, never a balance", tnt_38_ai_world.txt:1109-1114).
+# THE COST IS STATED HONESTLY: the reach gate now runs on every firing pulse
+# instead of on the 22% that draw S-TITLE. It is a bounded MAP walk and not a
+# value chain, which is what that rule is about, and it is cheap in the common
+# case because the de jure disjunct comes FIRST and is one flat comparison —
+# `any_neighboring_county` is only reached when the buyer is not the de jure
+# liege, `any_held_title` short-circuits on the first county that passes, and the
+# two parties are neighbouring realms by construction of the partner pick. In
+# exchange, the identical walk stops running inside a doomed pick 134 times a
+# half-year.
+#
+# THE `holder` READ IS GUARDED, WHICH THE INLINE VERSION WAS NOT. E20's pick used
+# `OR = { holder = scope:actor  holder = { any_liege_or_above = { this =
+# scope:actor } } }` — an UNGUARDED dereference of a neighbouring county's holder,
+# evaluated once per (held county x neighbouring county). The letter path already
+# replaced all six copies of that same body for this reason and records why
+# (tnt_37_ai_offer.txt, the R13 paragraph above A8's adjacency row): a
+# neighbouring county with no holder is not hypothetical, and AGOT fills its
+# unowned map with placeholder holders. Vanilla's own trigger for this exact
+# iterator body opens `holder ?= { … }` and is semantically identical
+# (`this = $TARGET$` OR `target_is_liege_or_above = $TARGET$` versus
+# `any_liege_or_above = { this = … }`):
+#   GAME\common\scripted_triggers\00_title_triggers.txt:153-159
+#     county_held_or_vassal_to_target_trigger = { TARGET = … }
+# It is a VANILLA scripted trigger, so it is mod-load safe with and without AGOT.
+#
+# ROW-BY-ROW EVIDENCE (all four rows were already shipped and cited at E20; this
+# trigger moves them, it does not invent them):
+#   tier = tier_county                 one county is a border adjustment, a duchy
+#                                      is a war — E20's own gate 1
+#   tnt_can_cede_title_trigger         T3, which itself refuses the seller's
+#                                      primary title and capital county
+#   target_is_de_jure_liege_or_above   REAL on a title scope with a title target,
+#     GAME\common\casus_belli_types\09_mpo_wars.txt:3672
+#   any_neighboring_county             REAL, and paired with its across-water
+#     sibling in vanilla's own border test,
+#     GAME\common\schemes\scheme_types\ep3_dispute_border_scheme.txt:36-46
+#
+# DELIBERATELY NOT ADDED: the across-water door. E20's gate is the LAND border on
+# purpose (a silent land transfer over a strait is a different design question
+# from a letter the player can refuse), and widening it here would change the
+# archetype's meaning inside a commit whose job is to make the two ends agree.
+# The letter path's A8/A10 keep their paired-OR; this one keeps its single door.
+# =============================================================================
+tnt_ai_world_title_saleable_trigger = {
+	tier = tier_county
+	tnt_can_cede_title_trigger = { GIVER = scope:recipient }
+	# The reach gate, both honest readings (item 7b, E20 header gate 3):
+	# de jure tidy-up OR a county on the buyer's own frontier.
+	OR = {
+		target_is_de_jure_liege_or_above = scope:actor.primary_title
+		any_neighboring_county = {
+			county_held_or_vassal_to_target_trigger = { TARGET = scope:actor }
+		}
+	}
+}
+
+
+# =============================================================================
+# T16  tnt_truce_available_trigger = { A = <character>  B = <character> }
+#
+# Reporting wrapper for T13. BOUND (build 2) to tnt_truce_p_toggle /
+# _r_toggle.is_valid, with the GUI's enabled+tooltip pair on both rows.
+# One reason only, because T13 has one gate.
+# =============================================================================
+# RETIRED V13, USER ITEM 1 - T16 GOES WITH THE TRUCE. See TOMBSTONE B in
+# common\scripted_effects\tnt_32_apply.txt.
+# ALREADY ORPHANED BEFORE THE RETIREMENT (finding E4), exactly like T14 above:
+# v2 BUILD 3 re-pointed both truce toggles at T21 and this wrapper has had zero
+# callers ever since. Its loc keys stay DEFINED in both .yml files.
+# tnt_truce_available_trigger = {
+# 	trigger_if = {
+# 		limit = {
+# 			exists = $A$
+# 			exists = $B$
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_truce_same_realm
+# 			$A$ = {
+# 				NOR = {
+# 					target_is_liege_or_above = $B$
+# 					target_is_vassal_or_below = $B$
+# 				}
+# 			}
+# 		}
+# 		custom_description = {
+# 			text = tnt_err_truce_self
+# 			NOT = { $A$ = { this = $B$ } }
+# 		}
+# 	}
+# 	trigger_else = {
+# 		custom_description = {
+# 			text = tnt_err_no_partner
+# 			always = no
+# 		}
+# 	}
+# }

@@ -1,0 +1,2813 @@
+######################################################################
+### PARLEY: THE NEGOTIATING TABLE - v2 panels, deal sheet and contextual controls
+###
+### A types-only file. NO registration in gui/scripted_widgets is needed
+### (same reasoning as tnt_types.gui; proven by
+###  MOD\3276373926\gui\00_jdb_bc_map_icon_layer.gui).
+###
+### WHY THIS FILE EXISTS
+###   tnt_types.gui already carries the row chrome, the columns and the small
+###   widgets. Everything NEW that v2 needs - the contextual "chosen object"
+###   controls (user item 3.3), the centre deal sheet (item 3.4), the contextual
+###   card, the prisoner panel row (defect D3's redesign - RETIRED with the
+###   prisoner terms, user item 7, and commented out in section 4) and the four
+###   shells reserved for build 2 - lives here so tnt_types.gui stays readable.
+###
+### v3 ITERATION 1 CHANGES IN THIS FILE
+###   ADD 4 the deal sheet's tnt_sheet_alliance_r and tnt_sheet_truce_r rows are
+###       DELETED. Each pact is one term between two rulers and is now one mutual
+###       row in the centre column bound to tnt_alliance_p / tnt_truce_p; the _r
+###       variables have no writer and no reader left.
+###       V13 USER ITEM 1: BOTH PACTS ARE RETIRED OUTRIGHT, so the two surviving
+###       _p sheet rows are commented out in section 2b as well and the mutual
+###       lines in the centre column went with them. A DESIGN REFUSAL, not a bug
+###       fix - vanilla gates both behind the Diplomacy perk
+###       defensive_negotiations_perk. Tombstones A and B,
+###       gui\tnt_diplomacy_window.gui.
+###   V13 the claim groups tnt_sheet_sel_claim_p / _r are commented out in this
+###       file with their types in gui\tnt_panel_multiselect.gui: FOUR sheet
+###       groups now, not six (title x2, artifact x2). Same ruling, different
+###       vanilla gate - claim fabrication is a LEARNING investment.
+###   ADD 4 `block "tnt_toggle_line_icon" {}` on type tnt_toggle_line - empty by
+###       default, so the seven obligation rights that already use that type are
+###       untouched. The two mutual pact rows use it to keep the icon they had
+###       while they lived in a column.
+###   CAP the two domain counters are now the FIRST two lines of
+###       tnt_context_card. With the selection cap gone they are the only signal
+###       that a big gift is a bad idea, so they are read first; they already turn
+###       red above the limit through tnt_domain_over_p/_r_value.
+###
+### BUILD 2 CHANGES IN THIS FILE
+###   2.2  THE DEAL SHEET NOW LISTS MULTIPLE OBJECTS PER TERM. The six
+###        single-object rows (title / claim / artifact x 2 sides) became six
+###        instances of author:multiselect's group types, tnt_sheet_sel_title_p
+###        and friends: a head row with the term's price plus a nested
+###        `datamodel` naming every chosen object. The six deleted variables
+###        tnt_title_p/_r, tnt_claim_p/_r, tnt_artifact_p/_r (30-V2-DESIGN
+###        section 3.1) are no longer named anywhere in this file.
+###   2.2  `type tnt_chosen_count` - the filled-state control for a multi-select
+###        row: a count badge instead of one object's icon.
+###   U1a  TWO DOMAIN COUNTERS in the contextual card, as instances of
+###        author:multiselect's tnt_multi_domain_line. MANDATORY once several
+###        titles can be ceded at once (30-V2-DESIGN section 1 row U1). The
+###        card's height cap rose from 96 to 180 to hold them.
+###   2.1  a marriage-pair summary line and a contract summary line in the card,
+###        both through loc keys that print the variables themselves, so no
+###        separator string is hard-coded in this .gui (Law R14).
+###
+###   TWO TYPES WERE WRITTEN IN THIS FILE AND THEN DELETED, and both deletions
+###   are recorded at the site where the type used to be (sections 2a and 3b):
+###   a per-object sheet sub-row and a domain counter. Both were superseded by
+###   gui\tnt_panel_multiselect.gui, whose author owns the values, the loc keys
+###   and the geometry contract those two widgets have to agree with.
+###
+### R-LAYOUT, obeyed in every type below (30-V2-DESIGN section 9 D2):
+###   a direct child of hbox / vbox / flowcontainer carries NEITHER `position`
+###   NOR `parentanchor`. Cross-axis centring is done by wrapping the child in a
+###   plain `widget` and anchoring INSIDE that, which is what vanilla's own
+###   stepper does (GAME\gui\window_knights.gui:716-759 - the hbox children have
+###   no anchors, `parentanchor = center` appears only inside button_round at
+###   :731 and :755).
+###
+### R-SPILL, obeyed on every text widget that prints GAME text (item 3.2c):
+###   `autoresize = no` + `layoutpolicy_horizontal = expanding`, and the
+###   inherited `elide = right` is never overridden. type text_single inherits
+###   autoresize = yes (GAME\gui\preload\labels.gui:6-16), and a self-resizing
+###   child of an hbox reports a minimum width equal to its full text width, so
+###   one long duchy name pushes the row's controls outside the column. The exact
+###   pairing used here is vanilla's at GAME\gui\frontend_bookmarks.gui:1869-1876.
+###
+### THE HEIGHT CONVENTION ("floor + content + cap"), canonical statement - every
+### mod panel follows one of three tiers, and a height that fits none of them is
+### a defect:
+###   TIER 1 - PANEL SHELLS (vbox): `size = { W 0 }` + `maximumsize = { W cap }`,
+###     so the vbox measures its children and the cap preserves the old ceiling.
+###     In-tree proof: tnt_panel_multi (gui\tnt_panel_multiselect.gui) and
+###     tnt_editor_panel below; as of the height pass, tnt_panel_marriage too.
+###   TIER 2 - SCROLL AREAS: `autoresizescrollarea = yes` + `size = { 0 0 }` +
+###     `minimumsize = { -1 floor }` + `maximumsize = { -1 cap }` - the vanilla
+###     ledger pattern (GAME\gui\window_ledger.gui:9405-9408; minimumsize with
+###     -1: GAME\gui\interaction_declare_war.gui:314). The floor is N visible
+###     rows, so an empty list still reads as a list.
+###   TIER 3 - ROWS AND ONE-LINERS: datamodel rows stay FIXED height (vanilla
+###     perf rule, GAME\gui\window_epidemics.gui:449-450 "required for
+###     performance reasons"); one-line read-outs (sheet rows, counter lines,
+###     context lines, heads) stay fixed + elide (R-SPILL); MOD-AUTHORED PROSE
+###     that must never lose words uses text_multi + autoresize = yes +
+###     max_width, and its holder gets `minimumsize = { -1 H }` instead of
+###     size/maximumsize (in-tree model: the rule lines,
+###     gui\tnt_panel_people.gui block "tnt_multi_domain").
+###
+### Every base type was verified on disk while writing this file:
+###   hbox / vbox / widget / icon / textbox        GAME\gui\preload\defaults.gui
+###   text_single / text_multi                     GAME\gui\preload\labels.gui:6 / :19
+###   spacer / expand / divider_light              GAME\gui\shared\windows.gui:590 / :597 / :944
+###   button_standard                              GAME\gui\shared\buttons.gui:153
+###   button_standard_list                         GAME\gui\shared\buttons.gui:348
+###   button_round                                 GAME\gui\shared\buttons.gui:1149
+###   button_checkbox (30x30)                      GAME\gui\shared\buttons.gui:1322
+###   button_plus_small / button_minus_small        GAME\gui\shared\buttons_icons.gui:596 / :608
+###   header_pattern                               GAME\gui\shared\windows.gui:683
+###   scrollbox                                    GAME\gui\shared\lists.gui:3185
+###   button_artifact                              GAME\gui\window_inventory.gui:1606
+###   coa_title_tiny / _crown                      GAME\gui\shared\coat_of_arms.gui:595 / :591
+###   portrait_head_tiny                           GAME\gui\window_ledger.gui:6867
+###   portrait_head_small                          GAME\gui\shared\portraits.gui:45
+###   Background_Area / _Dark / _Solid             GAME\gui\shared\backgrounds.gui:41 / :51 / :69
+###   Window_Background / Window_Margins           GAME\gui\shared\windows.gui:144 / :122
+###   Scrollbox_Margins (15/15/15/20)              GAME\gui\shared\windows.gui:135
+###
+### DELIBERATELY NOT DERIVED FROM scrollbox: a scan of all 373 vanilla .gui
+### files finds ZERO `type X = scrollbox`. tnt_deal_sheet is therefore a vbox
+### that the caller drops into a plain scrollbox's `scrollbox_content`, which
+### takes exactly one child (GAME\gui\shared\lists.gui:3182).
+######################################################################
+
+types TwdPanels
+{
+
+	####################################################################
+	### 1. THE CONTEXTUAL "CHOSEN OBJECT" CONTROL   (user item 3.3)
+	###
+	### The complaint was: "the artifact and non-aggression rows use generic
+	### buttons that do not fit their content". The answer is a two-state
+	### control slot on tnt_item_row_picker: while nothing is chosen the row
+	### keeps the ordinary `button_standard "tnt_btn_pick"`; once something IS
+	### chosen that button hides and a CONTENT-SHAPED control appears -
+	### the real artifact icon with its rarity frame, the third party's
+	### portrait, the title's coat of arms.
+	###
+	### The two states are mutually exclusive `visible =` expressions on the
+	### already-shipped guard .Artifact.IsValid / .Char.IsValid / .Title.IsValid
+	### (vanilla-proven form: GAME\gui\window_government_administration.gui:3233
+	### `Not( Title.MakeScope.Var('...').Title.IsValid )`; already used in this
+	### mod at tnt_diplomacy_window.gui's tnt_picker_label blockoverrides).
+	###
+	### The wrapper is a button_standard holding an `alwaystransparent = yes`
+	### widget, which is EXACTLY vanilla's own artifact row:
+	###   GAME\gui\interaction_templates.gui:517-533
+	###     button_standard = { ... hbox = { widget = { size = { 80 80 }
+	###       alwaystransparent = yes  button_artifact = { size = { 100% 100% } } }
+	### alwaystransparent on the holder is what makes the whole subtree
+	### click-through, so the OUTER button owns the click and the inner
+	### button_artifact / coa / portrait never swallows it.
+	###
+	### 10+ vanilla types derive from button_standard, e.g.
+	### GAME\gui\window_ledger.gui:3860 `type button_basic_ledger_item`.
+	####################################################################
+	### `size = { 44 100% }`, i.e. the FULL row height, is deliberate. R-LAYOUT
+	### forbids a parentanchor on this widget because its parent is the control
+	### hbox, so a 44x44 button would be laid out at that hbox's cross-axis origin
+	### instead of centred. Filling the height and centring the CONTENT inside is
+	### the same solution vanilla uses for its own artifact row, where the wrapper
+	### button_standard is `size = { 100% 100% }` of an 80 px item
+	### (GAME\gui\interaction_templates.gui:513-533).
+	type tnt_chosen_button = button_standard
+	{
+		name = "tnt_chosen_button"
+		size = { 44 100% }
+		using = tooltip_es
+
+		### Hidden by default: the EMPTY state is the normal case, and a row
+		### that has never been touched must not flash a control.
+		block "tnt_chosen_visible"
+		{
+			visible = no
+		}
+
+		### The instantiation site supplies datacontext = "[TntVar('tnt_x').Artifact]"
+		### (or .Char / .Title). Kept as a block so the type stays item-agnostic.
+		block "tnt_chosen_context" {}
+
+		### Clicking the chosen object re-opens its picker: same scripted gui as
+		### the empty state's button, so there is exactly one entry point per row.
+		block "tnt_chosen_click" {}
+
+		block "tnt_chosen_tooltip" {}
+
+		widget = {
+			name = "tnt_chosen_holder"
+			size = { 100% 100% }
+			alwaystransparent = yes
+
+			block "tnt_chosen_content" {}
+		}
+	}
+
+
+	### ================================================================
+	### BUILD 3 - tnt_chosen_artifact AND tnt_chosen_title ARE SUPERSEDED,
+	### AND THAT IS THE ANSWER TO ITEM 3.3, NOT AN OMISSION.
+	### ================================================================
+	### Both are written, both are correct, and both have ZERO instantiations. All
+	### six title / claim / artifact rows use tnt_chosen_count instead
+	### (tnt_diplomacy_window.gui:584, :620, :813, :1177, :1212, :1332), and the long
+	### note above that type says why in one line: "there is no single object to draw
+	### once a term can hold five titles". Item 3.3 asked for a content-shaped
+	### control per row; for a multi-select term the content IS a count, so the count
+	### badge is the content-shaped control. The one row that still holds exactly one
+	### object - promise not to attack a third party - does get its shaped control,
+	### tnt_chosen_char (:851, :1365).
+	### THEY ARE KEPT because the moment any of the six rows is capped at one object
+	### again, or an "exactly one selected" state wants the real icon beside the
+	### count, this is the finished widget for it - `tnt_chosen_button` + one
+	### blockoverride, no new geometry. An uninstantiated type costs nothing at load.
+	### If a later author instantiates one, note that tnt_chosen_title needs a Title
+	### datacontext and tnt_chosen_artifact an Artifact one, supplied by the INSTANCE
+	### through block "tnt_chosen_context" - the count badge needs neither, which is
+	### the other reason it suited six rows that read a script value.
+	###
+	### ARTIFACT: the real icon plus vanilla's rarity backing frame.
+	### `blockoverride "on_click" {}` strips button_artifact's own two onclicks
+	### (ToggleGameViewData('artifact_details', ...) and
+	###  LocalPlayerNewArtifacts.RemoveNewArtifact) - GAME\gui\window_inventory.gui:1640-1644.
+	### Neither belongs in a negotiation, and the view-opening family of keys is
+	### blacklisted (00-ARCHITECTURE section 4.6 + 30-V2-DESIGN R4). None of those
+	### blacklisted names is SPELLED anywhere in this mod, so a mechanical
+	### blacklist grep stays at zero hits.
+	type tnt_chosen_artifact = tnt_chosen_button
+	{
+		blockoverride "tnt_chosen_content"
+		{
+			button_artifact = {
+				name = "tnt_chosen_artifact_icon"
+				size = { 38 38 }
+				parentanchor = center
+
+				blockoverride "on_click" {}
+			}
+		}
+	}
+
+
+	### THIRD PARTY (promise not to attack): the character's own head.
+	### 38 px matches the size this mod already ships for portrait_head_tiny in
+	### tnt_picker_row_char, so the crop is the one already seen in game.
+	type tnt_chosen_char = tnt_chosen_button
+	{
+		blockoverride "tnt_chosen_content"
+		{
+			portrait_head_tiny = {
+				name = "tnt_chosen_char_portrait"
+				size = { 38 38 }
+				parentanchor = center
+				### USER ITEM 17(c): the only portrait living in the table besides
+				### the two column heads (the nonwar rows instantiate this type).
+				### Portraits render in a later pass than flat widgets and punch
+				### through the modal dims, so it hides while a picker or a preset
+				### menu is up - same gate and same vanilla call sites as
+				### tnt_column_portrait, gui\tnt_types.gui (Or/Not:
+				### GAME\gui\frontend_main.gui:891; GetVariableSystem.Exists:
+				### GAME\gui\hud.gui:1006).
+				visible = "[Not( Or( TntOn('tnt_picker'), GetVariableSystem.Exists( 'tnt_preset_menu' ) ) )]"
+			}
+		}
+	}
+
+
+	### TITLE / CLAIM: the title's coat of arms.
+	###
+	### DEVIATION FROM 30-V2-DESIGN, stated on purpose: the design names
+	### coa_title_tiny_crown. That variant re-shows the `crown` icon, and the
+	### crown strip is 22 px tall on top of the 36 px CoA with spacing -4
+	### (GAME\gui\shared\coat_of_arms.gui:595-655), i.e. 54 px - taller than a
+	### 56 px row can hold with any padding at all. Plain coa_title_tiny leaves
+	### the crown hidden and, because its flowcontainer is `ignoreinvisible = yes`,
+	### the hidden crown costs no height: the control is 36 px.
+	### `blockoverride "position"` is required because coa_title_tiny shifts its
+	### flowcontainer up by 10 px to make room for that crown (block "position" at
+	### :601-603); with the crown hidden the shift only pushes the CoA out of the
+	### button. That override is VERBATIM VANILLA on this very type -
+	### GAME\gui\window_county_view.gui:3561-3565:
+	###     coa_title_tiny = {
+	###         datacontext = "[HoldingView.GetHolder.GetPrimaryTitle]"
+	###         blockoverride "position" {
+	###             position = { 0 0 }
+	###         }
+	###     }
+	### (also GAME\gui\window_travel_route_edit.gui:242-246, empty-brace form).
+	### The Title comes from the datacontext the INSTANCE puts on the outer button
+	### through block "tnt_chosen_context"; datacontexts propagate down, which is
+	### how the two negotiation columns already work.
+	### The tier is not lost - the row's grey second line prints the full title
+	### name, and the CoA's own LandedTitleTooltip is left intact.
+	type tnt_chosen_title = tnt_chosen_button
+	{
+		blockoverride "tnt_chosen_content"
+		{
+			coa_title_tiny = {
+				name = "tnt_chosen_title_coa"
+				parentanchor = center
+
+				blockoverride "position"
+				{
+					position = { 0 0 }
+				}
+			}
+		}
+	}
+
+
+	### MULTI-SELECT (item 2.2): a count badge.
+	###
+	### There is no single object to draw once a term can hold five titles, so the
+	### filled state of a multi-select row shows HOW MANY are on the table and
+	### re-opens the panel on click - the same one entry point per row the
+	### single-object controls above use.
+	###
+	### The digit itself comes from author:multiselect's
+	### tnt_count_sel_<item>_<side>_value, read through the shipped TntSV. An
+	### earlier draft counted the list in the GUI instead, with
+	### GetDataModelSize over MakeScope.GetList - which is vanilla and returns
+	### int32 (GAME\gui\frontend_bookmarks.gui:1679 compares it,
+	### GAME\gui\map_icon_layer.gui:1414 prints it) but has only ever run on
+	### ENGINE datamodels, and which would have been a SECOND way to answer a
+	### question the mod already answers in script. The count that prices the
+	### term is the count the badge shows.
+	###
+	### The badge keeps autoresize at its inherited `yes` ON PURPOSE - unlike
+	### every text in this file that prints game text. Its content is one or two
+	### digits, its parent is the plain widget `tnt_chosen_holder` (not a layout),
+	### and `parentanchor = center` needs the widget to size to its text to sit in
+	### the middle of the 44 px button. R-SPILL is about layout children whose
+	### full text width becomes the row's minimum width; that cannot happen here.
+	type tnt_chosen_count = tnt_chosen_button
+	{
+		blockoverride "tnt_chosen_content"
+		{
+			text_single = {
+				name = "tnt_chosen_count_text"
+				parentanchor = center
+				align = nobaseline|center
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+
+				block "tnt_chosen_count_label" {}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 2. THE DEAL SHEET   (user item 3.4 - "in the centre, in full")
+	###
+	### One static row per term per side, each with its own `visible`, all under
+	### `ignoreinvisible = yes` so hidden rows collapse to nothing. NOT a
+	### datamodel: a datamodel needs one uniform element type and our terms are
+	### numbers, flags, titles, artifacts and characters. A variable-driven
+	### `visible` costs one map lookup per frame (00-ARCHITECTURE section 3.4).
+	###
+	### Every row is FIXED SIZE - PDX's own rule, "This is required for
+	### performance reasons", GAME\gui\window_epidemics.gui:449-450.
+	###
+	### The points column reads the item's own tnt_val_<item>_<side>_value, the
+	### same value tnt_gain_total_value / tnt_loss_total_value are built from, so
+	### the sheet and the breakdown tooltip can never disagree.
+	###
+	### ONE FAMILY OF ROWS IS THE EXCEPTION, and it does not weaken that rule: the
+	### marriage pair rows print a VARIABLE stored on the pair (tnt_wed_net),
+	### because those same stored numbers are what tnt_val_marriage_p/_r_value sum.
+	### Reading a summand instead of the sum is still reading ONE number, not
+	### deriving a second one. See the long note above tnt_sheet_marriage_pairs.
+	####################################################################
+	type tnt_sheet_group = hbox
+	{
+		name = "tnt_sheet_group"
+		layoutpolicy_horizontal = expanding
+		size = { 0 24 }
+		maximumsize = { -1 24 }
+		spacing = 6
+		### The 3 px VERTICAL margin is what centres the text line. R-LAYOUT
+		### forbids `parentanchor = vcenter` on a child of this hbox, and an hbox
+		### lays its children out at the cross-axis origin, so the margin has to do
+		### the job: 24 - 2*3 = 18 px of content for an 18 px line of Font_Size_Small.
+		margin = { 4 3 }
+		alwaystransparent = yes
+
+		text_single = {
+			name = "tnt_sheet_group_text"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#high"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Type_Flavor
+			using = Font_Size_Medium
+
+			block "tnt_sheet_group_label"
+			{
+				text = "tnt_sheet_you_give"
+			}
+		}
+	}
+
+
+	### Row anatomy, 26 px: [icon 20] [name 118] [detail, elided] [X 24] [points 52]
+	### Width budget in the 470-wide centre panel:
+	###   470 - 20 (panel margin) - 8 - 26 (scroll margins) = 416
+	###   416 - 8 (row margin) = 408 = 20 + 6 + 118 + 6 + 170 + 6 + 24 + 6 + 52
+	### V5 (user item 15a): the 24 px X cell took its 30 px (cell + spacing) out
+	### of the elidable detail column, 200 -> 170, so every FIXED column keeps
+	### its old edge.
+	type tnt_sheet_row = hbox
+	{
+		name = "tnt_sheet_row"
+		layoutpolicy_horizontal = expanding
+		size = { 0 26 }
+		maximumsize = { -1 26 }
+		spacing = 6
+		### 3 px vertical margin centres the line - see tnt_sheet_group above.
+		margin = { 4 3 }
+		### V5 (user item 15a): was alwaystransparent = yes while the row was a
+		### pure read-out. The remove button below has to RECEIVE clicks, and an
+		### alwaystransparent ANCESTOR makes its whole subtree click-through
+		### (this mod's proven doctrine) - so the row went opaque to the hit
+		### test, exactly like tnt_toggle_line, this file's other interactive
+		### hbox. Every non-interactive child keeps its own alwaystransparent =
+		### yes, so nothing else about hover changed.
+		alwaystransparent = no
+		ignoreinvisible = yes
+
+		### THE ROW'S OWN TOOLTIP SLOT (V26). This file's doctrine for an elided
+		### label is written twice - 2b below and tnt_panel_contract.gui's
+		### obligation rows - as "the full name lives in the tooltip", but the
+		### type never implemented it: it had no tooltip property, no block for
+		### one and no using = tooltip_es, so whatever the 170 px detail column
+		### cut off was simply GONE and the player had no hover to recover it.
+		###
+		### The block is EMPTY by default and that is what makes this safe for
+		### the other thirty-odd instances: a widget carrying `using =
+		### tooltip_es` and no `tooltip` property emits nothing at all - the
+		### template sets only tooltip_type and the four anchors
+		### (GAME\gui\preload\defaults.gui:12-19) - so a row that does not fill
+		### the block is unchanged, byte for byte, in behaviour. The row is
+		### already alwaystransparent = no (see just above), so no new hit-test
+		### plumbing is needed, and the X button in tnt_sheet_x_holder keeps its
+		### own tooltip = "tnt_sheet_remove_tip" and still wins on its own rect.
+		### Only rows whose detail is PROSE fill the block; a row whose detail is
+		### a number or an object name has nothing a tooltip could add.
+		using = tooltip_es
+
+		block "tnt_sheet_tooltip" {}
+
+		### Hidden until the term is actually part of the offer. Overridden per
+		### instance with TntOn('tnt_gold_p') for flags and numbers, or with
+		### TntVar('tnt_title_p').Title.IsValid for object-valued terms.
+		block "tnt_sheet_visible"
+		{
+			visible = no
+		}
+
+		### R-LAYOUT: the icon is wrapped in a plain widget so it may centre.
+		widget = {
+			name = "tnt_sheet_icon_holder"
+			size = { 20 100% }
+			alwaystransparent = yes
+
+			icon = {
+				name = "tnt_sheet_icon"
+				size = { 18 18 }
+				parentanchor = center
+				alwaystransparent = yes
+
+				block "tnt_sheet_icon"
+				{
+					texture = "gfx/interface/icons/character_interactions/icon_gold.dds"
+				}
+			}
+		}
+
+		### The term's name. A fixed loc key, so autoresize is harmless - but it
+		### is switched off anyway so a long translation cannot widen the row.
+		text_single = {
+			name = "tnt_sheet_name"
+			min_width = 118
+			max_width = 118
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#medium"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_sheet_name"
+			{
+				text = "tnt_item_gold"
+			}
+		}
+
+		### The detail: the amount for a currency, the object's name for a title,
+		### artifact or character. THIS is the one that prints game text, so
+		### R-SPILL applies in full.
+		###
+		### IT IS ALSO THE ROW'S ONLY EXPANDING CHILD, which is why the eight
+		### flag-only rows (alliance / marriage / hook / vassal, both sides)
+		### override it with `text = ""` and NEVER with `visible = no`. This hbox
+		### carries `ignoreinvisible = yes`, so an invisible child costs no space
+		### at all: hiding it would collapse the 170 px of slack (200 before the
+		### V5 X cell) and pull tnt_sheet_points ~170 px left, so those eight
+		### rows would print their points in the middle of the row while the
+		### rest print them at the right edge. `text = ""` keeps the widget in
+		### the layout and empty.
+		### An empty string is vanilla-proven (GAME\gui\interaction_templates.gui:1321,
+		### GAME\gui\window_ledger.gui:6428).
+		text_single = {
+			name = "tnt_sheet_detail"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#weak"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_sheet_detail"
+			{
+				text = "[TntNum('tnt_gold_p')|0]"
+			}
+		}
+
+		### V5 (user item 15a) - THE REMOVE CONTROL'S SLOT, a fixed 24 px cell.
+		### EMPTY by default, so a row that cannot be removed inline (the derived
+		### taper row, the AI's own usehook demand, the two hook-tier rows) keeps
+		### its geometry by simply not filling the block. Instances fill it with
+		### a 20 px button_cancel_small - the bare small X vanilla draws inline
+		### with its own onclick and tooltip (GAME\gui\shared\buttons_icons.gui:50,
+		### GAME\gui\window_army.gui:1111-1115).
+		###
+		### It sits BEFORE the points column ON PURPOSE. The two row families
+		### are siblings in one scrollbox: their points columns only stay
+		### flush because points is the LAST child of both, so the 30 px this
+		### cell costs comes out of the elidable detail column - the one
+		### width the families were never required to agree on (see 2a below).
+		### A cell AFTER points would have shifted this family's numbers 30 px
+		### left of the other's. V6 (user item 7): tnt_multi_sheet_row
+		### (gui\tnt_panel_multiselect.gui) grew the SAME cell in the same
+		### place, so the reasoning now binds both families identically.
+		###
+		### R-LAYOUT: a plain widget, so the instance's button may anchor inside
+		### it; the holder itself carries no anchor. Deliberately NOT
+		### alwaystransparent - a transparent ancestor would kill the X's click
+		### (the row-level note above).
+		widget = {
+			name = "tnt_sheet_x_holder"
+			size = { 24 100% }
+
+			block "tnt_sheet_remove" {}
+		}
+
+		text_single = {
+			name = "tnt_sheet_points"
+			min_width = 52
+			max_width = 52
+			align = nobaseline|right
+			default_format = "#high"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_sheet_points"
+			{
+				text = "[TntSV('tnt_val_gold_p_value')|0]"
+			}
+		}
+	}
+
+
+	####################################################################
+	### 2a. THERE IS NO PER-OBJECT SUB-ROW TYPE IN THIS FILE. It was written and
+	### then deleted, and the note stays so nobody writes it a second time.
+	###
+	### The multi-select sheet groups are `tnt_sheet_sel_title_p` and its siblings,
+	### from gui\tnt_panel_multiselect.gui (six until V13 user item 1 retired the
+	### claim pair; FOUR live now), and the per-object row inside
+	### them is that file's `tnt_multi_sheet_row`. Two 20-something-pixel row
+	### families living as siblings in ONE scrollbox is a real defect, not a
+	### duplication smell: the sheet's columns only line up while every row family
+	### agrees on height, spacing, margin, name width and points width, and
+	### author:multiselect's header states that its geometry is copied from
+	### tnt_sheet_row below TO THE PIXEL. One copy can keep that promise; two
+	### cannot.
+	###
+	### One architectural limit is worth restating here because it explains why the
+	### per-object rows print NO points. A per-object price would need a script
+	### value evaluated with the title or artifact as a scope, and this mod can
+	### never do that: GuiScope.SetRoot(X).GetScriptValueBreakdown and ScriptValue
+	### supply ROOT ONLY (00-ARCHITECTURE section 2.7, "Hard limit"), Law R9
+	### restricts every balance value to root plus var: reads, and Law R8 forbids
+	### chaining a second .AddScope. Each group's HEAD row therefore carries the
+	### whole term's price, which is also the number that enters the balance, so
+	### the sheet and the breakdown tooltip still cannot disagree - which is the
+	### property user item 1.2 is about.
+	###
+	### V5 (user item 15a): tnt_sheet_row grew a 24 px remove cell BETWEEN detail
+	### and points. V6 (user item 7): tnt_multi_sheet_row grew the SAME cell in
+	### the same place, and its six group HEAD rows now carry the X, wired to
+	### the gate-free tnt_sel_<item>_<side>_clear entries
+	### (tnt_22b_multiselect.txt) - the per-object rows stay X-less because a
+	### per-object removal sgui does not exist; per-object removal still lives
+	### in the picker panels' chosen columns (tnt_sel_*_remove). The alignment
+	### promise above survives in both families for the same reason: the cell
+	### is paid for by the elidable detail column and points stays the LAST
+	### child of both.
+	####################################################################
+
+
+	####################################################################
+	### 2b. THE SHEET ITSELF - 2 group headers and one row per term per side
+	### (item 19 added four rows per side: independence, hostage, ward, courtier -
+	### the ward pair is RETIRED, V16 user item 5, so three per side survive).
+	### USER ITEMS 1 AND 7 REMOVED FIVE ROWS: nonwar x2, prisoners x2 and the
+	### picked-captives row, and V16 USER ITEM 5 REMOVED TWO MORE: ward x2. All
+	### seven are commented out in place below rather than deleted.
+	###
+	### Dropped by the caller into a scrollbox's `scrollbox_content`, which takes
+	### exactly ONE child (GAME\gui\shared\lists.gui:3182).
+	###
+	### EVERY instance overrides `name`. type tnt_sheet_row sets
+	### name = "tnt_sheet_row" in its own body, and 30 same-named direct siblings
+	### make the engine log "Duplicate children with the same name override
+	### previous widgets" 30 times - and that line would contain tnt_, which the
+	### acceptance checklist forbids in error.log.
+	###
+	### Order matches the two negotiation columns top to bottom, so the eye can
+	### track a term from the column it was set in to the sheet.
+	###
+	### BUILD 2 hangs the six multi-select datamodels off block "tnt_sheet_multi"
+	### at the bottom of each side, next to that side's single-object rows.
+	###
+	### V5 (user item 15a) - THE ROW X. Every removable row fills
+	### block "tnt_sheet_remove" with the 20 px button_cancel_small, wired
+	### STRICTLY to a scripted_gui that already exists - this file invents no
+	### removal logic, so the balance re-reads by itself exactly as it does
+	### when the same sgui is run from its own column control:
+	###   * the four currencies x2 sides -> their _none presets
+	###     (tnt_22_v2.txt), the same effect the columns' "none" preset runs;
+	###   * a marriage pair -> tnt_wed_remove (tnt_22a_marriage.txt, written as
+	###     "the small round X on a pair row"); the singular character rows ->
+	###     tnt_pick_<item>_<side>_clear (tnt_21_pickers.txt); the list rows ->
+	###     tnt_sel_<item>_<side>_clear (tnt_22b_multiselect.txt).
+	###     (nonwar x2 -> tnt_nonwar_*_clear and the picked captives ->
+	###      tnt_sel_prisoner_p_clear were the worked examples here until user
+	###      items 1 and 7 retired those rows; the rule they illustrate stands.)
+	###   * the flag terms -> their own toggles: a row is only visible while
+	###     its term is ON, so Execute always lands in the remove branch.
+	###     FIVE of those toggles carry an availability is_valid (alliance,
+	###     truce, threat, vassal x2, usehook_p) - THREE since V13 user item 1
+	###     retired the alliance and the truce with their _off wrappers; the
+	###     survivors are threat, vassal x2 and usehook_p. The doctrine at
+	###     tnt_22c_hooks_contracts.txt:111 - taking a term OFF the table must
+	###     never be refused - wants gate-free _off wrappers instead; they do
+	###     not exist yet, and this wave may not add scripted_guis. When the
+	###     sgui owner ships them, rebind those Xes and delete this sentence.
+	### THE ROWS WITH NO X, each for a reason recorded at the row: the taper (a
+	### derived discount, not a term), the AI's usehook demand (read-only by
+	### design), and - as of item 19 - the two GRANT INDEPENDENCE rows, whose
+	### only registered scripted gui is the gated tnt_indep_<side>_toggle. The
+	### rule is the same one the V5 note above states: an X may only be wired to
+	### a gate-free entry point, because a removal must never be refusable.
+	### (Two rows named here in V5 have since been wired and are no longer in
+	### this list: the two hook tiers got tnt_hook_<side>_clear, and the grand
+	### wedding got tnt_wed_grand_clear.)
+	### The multi-select groups draw their own rows in author:multiselect's file -
+	### see 2a above for where their X belongs. (Six until V13 user item 1 retired
+	### the claim pair; four live now.)
+	####################################################################
+	type tnt_deal_sheet = vbox
+	{
+		name = "tnt_deal_sheet"
+		layoutpolicy_horizontal = expanding
+		spacing = 2
+		ignoreinvisible = yes
+
+		################################################################
+		### WHAT YOU GIVE  (_p)
+		################################################################
+		tnt_sheet_group = {
+			name = "tnt_sheet_head_p"
+			blockoverride "tnt_sheet_group_label" { text = "tnt_sheet_you_give" }
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_gold_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_gold_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_gold" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_gold_p')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_gold_p_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_gold_p_none')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_prestige_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_prestige_p')]" }
+			### USER ITEM 3: was flat_icons/prestige.dds, a BLACK ALPHA MASK (every
+			### opaque pixel RGB 0,0,0) - the path was always valid, the texture is
+			### simply not a coloured icon. The level-texture datafunction returns
+			### the coloured one: GAME\gui\hud.gui:6521-6525. GetPlayer and NOT
+			### Character - a deal-sheet row has no Character in its datacontext.
+			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_prestige" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_prestige_p')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_prestige_p_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_prestige_p_none')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_piety_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_piety_p')]" }
+			### USER ITEM 3: same black-alpha-mask defect and same cure as the
+			### prestige row - GAME\gui\hud.gui:6586-6590.
+			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_piety" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_piety_p')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_piety_p_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_piety_p_none')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_influence_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_influence_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_influence_01.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_influence" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_influence_p')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_influence_p_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_influence_p_none')]"
+				}
+			}
+		}
+
+		####################################################################
+		### RETIRED WITH THE ALLIANCE AND THE NON-AGGRESSION TRUCE - V13 USER ITEM 1.
+		### Both pacts were built, shipped and played, then CONSIDERED AND WITHDRAWN
+		### FOR AN INDEFINITE PERIOD on the user's ruling. THIS IS A DESIGN REFUSAL,
+		### NOT A BUG FIX: vanilla gates both behind the same Diplomacy lifestyle
+		### perk, defensive_negotiations_perk
+		### (GAME\common\character_interactions\00_alliance.txt:1184, and
+		### GAME\common\scripted_triggers\03_fp2_scripted_triggers.txt:725-735 whose
+		### OR opens with `always = no`), so buying them at this table
+		### short-circuits an investment the player never made.
+		### Nothing is deleted; do not re-enable one half - each row's X calls a
+		### scripted_gui (tnt_alliance_p_off / tnt_truce_p_off) that is retired with
+		### it. THE TRUCE PRICE IS RETIRED; THE ALLIANCE PRICE IS NOT, and since
+		### 2026-08-24 it has a live DISPLAY row at the foot of this side - a
+		### consequence of the couples, never this bought term. tnt_label_years STAYS
+		### DEFINED on purpose: an undefined key prints raw. INDICES 3 AND 4: retired.
+		### Full tombstones: TOMBSTONE A and TOMBSTONE B on the two centre lines in
+		### gui\tnt_diplomacy_window.gui, and common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_alliance_p"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_alliance_p')]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/alliance.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_alliance" }
+#			blockoverride "tnt_sheet_detail"  { text = "" }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_alliance_p_value')|0]" }
+#			### The same toggle the mutual row's checkbox executes; ON here, so
+#			### it removes. Gated - see the 2b header's rebind note.
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_alliance_p_off')]"
+#				}
+#			}
+#		}
+#
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_truce_p"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_truce_p')]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/negotiate_settlement_interaction.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_truce" }
+#			blockoverride "tnt_sheet_detail"  { text = "tnt_label_years" }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_truce_p_value')|0]" }
+#			### Same as the alliance X above: the mutual row's own gated toggle.
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_truce_p_off')]"
+#				}
+#			}
+#		}
+
+		### ITEM 2.1, REWRITTEN FOR V3 ITERATION 4: THE MARRIAGE TERM IS A LIST.
+		###
+		### The deal used to hold ONE couple, so this was one row naming
+		### tnt_spouse_p. It now holds any number of couples: tnt_wed_list on the
+		### player, one member per pair, each member being the PLAYER-SIDE spouse
+		### and carrying the other half as tnt_wed_partner on itself.
+		###
+		### V4 REQUEST 4 DELETED THE HEAD ROW, AND ITS TWIN UNDER "THEY GIVE" WITH
+		### IT. The two of them printed "Marriage pact / couples in this treaty: 1"
+		### on each side, which reads exactly as the complaint put it - "you give one
+		### character in marriage", "the partner gives one character in marriage" -
+		### a single agreed COUPLE stated twice as two anonymous halves. A chosen
+		### pair must appear in the terms AS A PAIR, so a couple is now ONE row and
+		### that row carries its own price.
+		###
+		### A PER-PAIR PRICE IS POSSIBLE NOW AND WAS NOT BEFORE. Section 2a's
+		### objection is unchanged and still true - GetScriptValueBreakdown and
+		### ScriptValue supply ROOT ONLY, so no script value can be evaluated with a
+		### pair as its scope - but the price no longer has to be evaluated here.
+		### tnt_wed_add_pair_effect stores it ON the pair (tnt_wed_gain,
+		### tnt_wed_loss, tnt_wed_net) at the moment the couple is added, and
+		### tnt_wed_reprice_all_effect refreshes all three after every edit to the
+		### table (tnt_34_marriage.txt). This row reads a VARIABLE, which needs no
+		### root, and tnt_val_marriage_p/_r_value sum those very same stored numbers
+		### - so the sheet still cannot disagree with the breakdown tooltip, which is
+		### what item 1.2 actually asked for.
+		###
+		### WHICH COLUMN HOLDS WHAT, and not the other way round: the name column is
+		### 118 px and fixed (:408-409), so it takes the LINE - one short concept
+		### keyword; the detail column is the row's only expanding child (:427-436),
+		### so it takes BOTH NAMES; the points column takes tnt_wed_net.
+		###
+		### THE COUNT is not lost with the head row: it moved to the detail of the
+		### volume-discount row below, which is the one place where the number of
+		### couples has a consequence worth printing.
+
+		### ONE ROW PER AGREED COUPLE.
+		###
+		### `datacontext = "[Scope.Char]"` unwraps the list member exactly as
+		### GAME\gui\window_situation_list.gui:1079 does inside this same kind of
+		### datamodel, and `size = { 0 26 }` is on the ITEM because PDX require a
+		### fixed size on every datamodel child ("This is required for performance
+		### reasons", GAME\gui\window_epidemics.gui:449-450) - the type sets it too,
+		### and the multi-select groups restate it on the item for the same reason.
+		###
+		### The name column holds the LINE for that couple (tnt_wed_row_line reads
+		### tnt_wed_matri off the row's own character) and the detail column holds
+		### both names (tnt_wed_pair_row reads tnt_wed_partner off it).
+		###
+		### THE POINTS COLUMN IS NO LONGER EMPTY (V4 request 4). It reads
+		### tnt_wed_net off the row's own character through the same
+		### `Character.MakeScope.Var( … ).GetValue` path the two loc keys above
+		### already use on this very datacontext, so it needs nothing this row did
+		### not already have. `|+=0` prints the sign, which a net that can be
+		### negative needs - a bad match is a row that costs points and must look
+		### like one (the formatter is this mod's own convention,
+		### tnt_panel_contract.gui:1691, tnt_types.gui:1563).
+		###
+		### The number is a SNAPSHOT taken by tnt_wed_add_pair_effect and refreshed
+		### by tnt_wed_reprice_all_effect, never derived here - see the note above
+		### this vbox for why that is the only way a per-pair price can exist at all.
+		vbox = {
+			name = "tnt_sheet_marriage_pairs"
+			layoutpolicy_horizontal = expanding
+			spacing = 2
+			datamodel = "[TntList('tnt_wed_list')]"
+
+			item = {
+				tnt_sheet_row = {
+					name = "tnt_sheet_marriage_pair"
+					datacontext = "[Scope.Char]"
+					size = { 0 26 }
+
+					blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_marriage_p')]" }
+					blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_marriage.dds" }
+					blockoverride "tnt_sheet_name"    { text = "tnt_wed_row_line" }
+					blockoverride "tnt_sheet_detail"  { text = "tnt_wed_pair_row" }
+					blockoverride "tnt_sheet_points"  { text = "[Character.MakeScope.Var('tnt_wed_net').GetValue|+=0]" }
+					### The one PER-ELEMENT X in the sheet, because the row IS the
+					### element and tnt_wed_remove's own header calls it "the small
+					### round X on a pair row" - the sgui was written for this
+					### click. TntPickChar hands it this row's Character (the
+					### datacontext above) as scope:tnt_picked, the same call the
+					### marriage panel's pair list already makes; gate-free, and
+					### tnt_wed_drop_pair_effect reprices everything itself.
+					blockoverride "tnt_sheet_remove"
+					{
+						button_cancel_small = {
+							size = { 20 20 }
+							parentanchor = center
+							tooltip = "tnt_sheet_remove_tip"
+							onclick = "[TntPickChar('tnt_wed_remove')]"
+						}
+					}
+				}
+			}
+		}
+
+		### THE GRAND-WEDDING PROMISE, on the giving side because the HOST pays.
+		###
+		### It is one promise per deal, not one per couple - vanilla allows one
+		### outstanding promise per host - so it is one row, and its detail names
+		### the honoured couple by READING tnt_wed_principal (tnt_wed_grand_couple),
+		### never by position: a CK3 variable list has no index access, so "the
+		### first pair" is not a thing this sheet could express even if it wanted to.
+		###
+		### THE VOLUME DISCOUNT, and it exists BECAUSE the pair rows now carry their
+		### own prices. Each pair's stored gain is what that match is worth ON ITS
+		### OWN; tnt_val_marriage_p_value then multiplies the SUM of the gains by
+		### tnt_marriage_taper_value (tnt_52_marriage_values.txt:2086-2122, x0.95 at two
+		### pairs down to x0.80 at five). So from the second couple onwards
+		### the rows above would add up to slightly more than the balance moves, and
+		### an unexplained gap between the sheet and the scale is the exact class of
+		### bug this project keeps being told not to ship.
+		###
+		### The row makes the gap a TERM. Its number is
+		### tapered_sum - untapered_sum, which is <= 0 by construction, so
+		###     sum of pair nets  +  this row  +  the grand promise below
+		###     ==  tnt_val_marriage_p_value - tnt_val_marriage_r_value
+		### exactly, and the arithmetic a player can do by eye now closes.
+		###
+		### IT IS HIDDEN AT ONE COUPLE, where the taper is x1.00 and the row would
+		### print a truthful but pointless "0" (the script value returns 0 there, and
+		### `visible` tests the list size for the same reason - a row that says
+		### nothing is a row that costs 26 px of the centre column, which is the
+		### thing V4 iteration 3 was spent shortening).
+		tnt_sheet_row = {
+			name = "tnt_sheet_wed_taper"
+			blockoverride "tnt_sheet_visible" { visible = "[And( TntOn('tnt_marriage_p'), GreaterThanOrEqualTo_int32( GetDataModelSize( TntList('tnt_wed_list') ), '(int32)2' ) )]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_marriage.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_wed_taper" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_wed_taper_detail" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_marriage_taper_cut_value')|+=0]" }
+			### NO X (user item 15a): a derived discount, not a term - it is
+			### removed by removing pairs, so block "tnt_sheet_remove" stays empty.
+		}
+
+		### POINTS OF ITS OWN, AS OF V4. The +40 vanilla pays for a promised grand
+		### wedding used to be invisible here on purpose: it was already inside the
+		### head row's total, and two numbers that must agree are one too many
+		### (item 1.2). With the head row gone the +40 has no other home in the
+		### sheet, and leaving it out would put the sheet 40 points below the scale
+		### whenever the promise is on. It is read from tnt_marriage_grand_value -
+		### the same script value tnt_marriage_offer_p_value adds (:1200), not a
+		### copy of the number - so there is still only one 40 in the mod.
+		### THE DREAD ROW, V15. It exists for the same reason the +40 grand-wedding
+		### row above exists: the balance now prices vanilla's whole dread ladder
+		### inside the marriage term (up to 150 points either way,
+		### tnt_52_marriage_values.txt section 12), and a sheet that does not print
+		### it stops summing to the centre number exactly when the number is largest.
+		### The identity this row closes is stated in the header of
+		### tnt_marriage_dread_sheet_value (tnt_52_marriage_values.txt:3002-3011), which names this widget as its ONE
+		### caller. It is the display twin, NOT the term: tnt_marriage_dread_sheet_value
+		### deliberately breaks the tnt_val_<item>_<side>_value naming so the totals
+		### cannot sum it a second time, and it keeps a cost NEGATIVE (`max = 0`)
+		### because the sheet prints the effect on the balance.
+		### HIDDEN WHEN THERE IS NO FEAR: the value returns 0 whenever neither
+		### direction's dread rung fires, so the row is gated on a non-zero reading
+		### rather than on the term being switched on - a row that says nothing costs
+		### 26 px of the centre column, which is the argument the taper row above
+		### makes for itself. The test is the mod's OWN macro, not a hand-rolled
+		### datafunction chain: TntZero is defined at data_binding\tnt_macros.txt:132
+		### as EqualTo_CFixedPoint( ...ScriptValue(V), '(CFixedPoint)0' ), and Not()
+		### around a macro is shipped inside TntNeg itself (:127). CFixedPoint is the
+		### right comparand - a script value is fixed point, and comparing it as an
+		### int would round a real reading to zero.
+		### NO X: like the taper, this is a derived consequence of the couples on the
+		### table, not a term of its own - it is removed by removing the pair.
+		tnt_sheet_row = {
+			name = "tnt_sheet_wed_dread"
+			blockoverride "tnt_sheet_visible" { visible = "[Not( TntZero('tnt_marriage_dread_sheet_value') )]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_marriage.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_wed_dread" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_wed_dread_detail" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_marriage_dread_sheet_value')|+=0]" }
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_wed_grand"
+			blockoverride "tnt_sheet_visible" { visible = "[And( TntOn('tnt_wed_grand'), TntVar('tnt_wed_principal').Char.IsValid )]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_marriage.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_wed_grand" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_wed_grand_couple" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_marriage_grand_value')|+=0]" }
+			### X wired to the gate-free tnt_wed_grand_clear (tnt_22a_marriage.txt),
+			### shipped in V5 exactly because the toggle's gold/DLC gates must not
+			### be able to refuse a removal.
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_wed_grand_clear')]"
+				}
+			}
+		}
+
+		########################################################
+		### ITEM 2.2 - THE THREE MULTI-OBJECT TERMS OF THIS SIDE.
+		###
+		### Each is ONE instance of a group type from
+		### gui\tnt_panel_multiselect.gui: a head row carrying the whole term's
+		### price, plus a nested `datamodel` naming every chosen object under it.
+		### That is the "6 nested datamodels, one per selection list" of
+		### 30-V2-DESIGN section 3.4, and it is what complaint 3.4 asked for
+		### literally - the selected options in the centre, IN FULL.
+		###
+		### THESE THREE LINES REPLACED A HAND-WRITTEN COPY, and the deletion was
+		### the point. This file first grew its own aggregate row plus its own
+		### 22 px `tnt_sheet_subrow`, written before gui\tnt_panel_multiselect.gui
+		### existed. The two row families would have been SIBLINGS IN ONE
+		### SCROLLBOX, so any divergence in height, spacing, margin or column
+		### width between them shows up as a visibly ragged sheet -
+		### author:multiselect's own header promises the geometry is "copied from
+		### tnt_sheet_row TO THE PIXEL" (26 px, spacing 6, margin { 4 3 }, name
+		### column 118, points column 52, middle column the only expanding one),
+		### and that is a promise only one of two copies can keep. That author
+		### also owns every identifier each group needs - tnt_count_sel_*_value,
+		### tnt_val_*_multi_*_value, the six tnt_multi_count_* loc keys - none of
+		### which this file could have named without guessing across an agent
+		### boundary, which is exactly how build 1 shipped defect B-3.
+		###
+		### Order is unchanged: title, then claim, then artifact, in the same
+		### places in the sheet the single-object rows occupied, so the eye still
+		### tracks a term from the column it was set in down to the sheet.
+		########################################################
+		### V6 (user item 7): the three groups of this side NOW CARRY AN X on
+		### their HEAD rows, wired inside author:multiselect's own types to the
+		### gate-free tnt_sel_<item>_p_clear (tnt_22b_multiselect.txt) - see
+		### the 2a box. The per-object rows below each head stay X-less (no
+		### per-object sgui exists); single-object removal lives where it
+		### always did, the picker panel's chosen column.
+		tnt_sheet_sel_title_p = {
+			name = "tnt_sheet_group_title_p"
+		}
+
+		####################################################################
+		### RETIRED WITH THE GRANTED CLAIM - V13 USER ITEM 1. This instantiation goes
+		### with its TYPE: `type tnt_sheet_sel_claim_p` is commented out in
+		### gui\tnt_panel_multiselect.gui, and instantiating an undefined type is an
+		### engine error - the atomic pair rule in its .gui form. A DESIGN REFUSAL,
+		### NOT A BUG FIX: vanilla gates the manufacture of claims behind a LEARNING
+		### investment and a Court Chaplain's council task (task_fabricate_claim,
+		### GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088, its outcome
+		### keyed to learning at :1120/:1126/:1132), so buying a finished claim here
+		### short-circuits that investment. Nothing is deleted; do not re-enable one
+		### half. Order below is unchanged for the survivors: title, then artifact.
+		### Full tombstone: TOMBSTONE C on the claim row in
+		### gui\tnt_diplomacy_window.gui, and common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		tnt_sheet_sel_claim_p = {
+#			name = "tnt_sheet_group_claim_p"
+#		}
+
+		####################################################################
+		### RETIRED WITH THE PRISONER TERMS - USER ITEM 7. Built, shipped and played;
+		### considered and WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling. A
+		### revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+		### ransom interactions, the release on_actions and the opinion/hook consequences
+		### they carry) instead of this mod's private bookkeeping - that divergence is why
+		### the term never read as diplomacy. Nothing is deleted; do not re-enable one
+		### half - this row's X calls a scripted_gui that is retired with it.
+		### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_prisoners_p"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_prisoners_p')]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/prison.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_prisoners" }
+#			blockoverride "tnt_sheet_detail"  { text = "[GetPlayer.GetNumberOfPrisoners|0]" }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_prisoners_p_value')|0]" }
+#			### Gate-free flip (tnt_20_scripted_guis.txt carries no is_valid on
+#			### the two prisoners toggles); ON here, so it removes.
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_prisoners_p_toggle')]"
+#				}
+#			}
+#		}
+
+		####################################################################
+		### RETIRED WITH THE PRISONER TERMS - USER ITEM 7. Built, shipped and played;
+		### considered and WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling. A
+		### revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+		### ransom interactions, the release on_actions and the opinion/hook consequences
+		### they carry) instead of this mod's private bookkeeping - that divergence is why
+		### the term never read as diplomacy. Nothing is deleted; do not re-enable one
+		### half - this row's X calls a scripted_gui that is retired with it.
+		### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		### V4 item A1: the captives picked one by one. Its detail is the count, because
+#		### naming six people in a 470 px column is what the marriage pair rows already
+#		### showed to be unreadable; the panel is where the names live.
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_prisoner_multi_p"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntAny('tnt_sel_prisoner_p')]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/prison.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_prisoner_multi" }
+#			blockoverride "tnt_sheet_detail"  { text = "tnt_multi_count_prisoner_p" }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_shown_prisoner_multi_p_value')|+=0]" }
+#			### A LIST-backed row, so the X clears the whole selection (user item
+#			### 15a rule for lists): tnt_sel_prisoner_p_clear empties the list AND
+#			### refills the candidates, gate-free. Removing ONE captive stays in
+#			### the picker panel, where the names are.
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_sel_prisoner_p_clear')]"
+#				}
+#			}
+#		}
+
+		### ITEM 2.3. tnt_hook_p is now a TIER INDEX 0..3, so the row's own
+		### `visible` still reads correctly - tier 0 IS "no hook" - and the detail
+		### column names the tier instead of standing empty. TntHookTier is the
+		### one-expression four-way loc pick (data_binding/tnt_macros.txt).
+		tnt_sheet_row = {
+			name = "tnt_sheet_hook_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_hook_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_icon.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_hook" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntHookTier('tnt_hook_p')]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_hook_p_value')|0]" }
+			### X wired to tnt_hook_p_clear (tnt_22c_hooks_contracts.txt, V5): the
+			### tier controls step up/down, this removes the term outright,
+			### whatever the tier.
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_hook_p_clear')]"
+				}
+			}
+		}
+
+		### V6: head-row X inside the type, like the title/claim groups above.
+		tnt_sheet_sel_artifact_p = {
+			name = "tnt_sheet_group_artifact_p"
+		}
+
+		####################################################################
+		### RETIRED WITH THE THIRD-PARTY NON-AGGRESSION PROMISE - USER ITEM 1. Built,
+		### shipped and played; considered and WITHDRAWN FOR AN INDEFINITE PERIOD as
+		### surplus for pleasant play - a term about somebody who is not at the table,
+		### for which the other side owes nothing in return. Nothing is deleted; do not
+		### re-enable one half - this row's X calls a scripted_gui that is retired with
+		### it. Overlay index 11 is RETIRED, not free.
+		### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_nonwar_p"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntVar('tnt_nonwar_p').Char.IsValid]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_retreat.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_nonwar" }
+#			### USER ITEM 2: GetUIName, the tooltipped twin of the shipped
+#			### GetUINameNoTooltip, so hovering the name opens the character's own
+#			### tooltip - [Character.GetUIName|U] in an ordinary text at
+#			### GAME\gui\window_legends.gui:481 is the call site. The cell flips its
+#			### type-default alwaystransparent INSIDE the override or the hover
+#			### could never land (the ROW went opaque in V5 already, so only the
+#			### cell was still hover-through); nothing sits under the detail column,
+#			### so no click is stolen. Applied to the six SINGULAR character rows
+#			### only (nonwar / hostage / ward, both sides): the marriage pairs print
+#			### a LOC key, the list rows print counts (their names live in the
+#			### panels), and the guards inside tooltips keep NoTooltip because a
+#			### tooltip inside a tooltip is the one place the link must not fire.
+#			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_nonwar_p').Char.GetUIName]"  alwaystransparent = no }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_nonwar_p_value')|0]" }
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_nonwar_p_clear')]"
+#				}
+#			}
+#		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_vassal_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_vassal_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_vassal" }
+			blockoverride "tnt_sheet_detail"  { text = "" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_vassal_p_value')|0]" }
+			### The fealty row's own gated toggle - 2b header's rebind note.
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_vassal_p_off')]"
+				}
+			}
+		}
+
+		########################################################
+		### ITEM 19 - THE PEOPLE TERMS, GIVING SIDE. THREE OF THE FOUR SURVIVE:
+		### the ward / fosterage pair is RETIRED, V16 user item 5.
+		###
+		### Order matches the negotiation column exactly - independence beside the
+		### fealty row it inverts, then hostage, (ward, retired), courtier - so a
+		### term is still tracked from the column it was set in down to this sheet.
+		###
+		### ALL OF THEM CARRY AN X, each wired to a GATE-FREE clear — a removal must
+		### never be refusable. Hostage, ward and courtier had clears from the
+		### start (tnt_pick_hostage_<side>_clear, tnt_pick_ward_<side>_clear which is
+		### retired with its row, tnt_sel_courtier_<side>_clear); independence gained
+		### tnt_indep_<side>_clear in V7 (tnt_20_scripted_guis.txt, GROUP X) —
+		### until then its rows were deliberately X-less rather than wired to the
+		### gated toggle, whose is_valid is the release legality and can refuse.
+		###
+		### The four prices come from the contract's own value names; the sheet
+		### reads the same tnt_val_* the totals are built from, so the sheet and the
+		### breakdown tooltip cannot disagree (user item 1.2).
+		########################################################
+		tnt_sheet_row = {
+			name = "tnt_sheet_indep_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_indep_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/independence.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_indep" }
+			### A flag term: the detail column is emptied with `text = ""` and NEVER
+			### hidden - it is the row's only expanding child, and hiding it would
+			### pull the points column 170 px left of every other row.
+			blockoverride "tnt_sheet_detail"  { text = "" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_indep_p_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_indep_p_clear')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_hostage_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntVar('tnt_hostage_p').Char.IsValid]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_hostage.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_hostage" }
+			### USER ITEM 2: THE LINKED NAME. This note used to live on
+			### tnt_sheet_nonwar_p and MOVED HERE when user item 1 retired that row;
+			### this is now the first surviving singular-character row in the sheet.
+			###
+			### GetUIName is the tooltipped twin of the shipped GetUINameNoTooltip,
+			### so hovering the name opens the character's own tooltip -
+			### [Character.GetUIName|U] in an ordinary text at
+			### GAME\gui\window_legends.gui:481 is the call site. The cell flips its
+			### type-default alwaystransparent INSIDE the override or the hover could
+			### never land (the ROW went opaque in V5 already, so only the cell was
+			### still hover-through); nothing sits under the detail column, so no
+			### click is stolen. Applied to the SINGULAR character rows only
+			### (hostage, both sides - ward x2 were the other two until V16 user
+			### item 5 retired them, and nonwar x2 before that):
+			### the marriage pairs print a LOC key, the list rows
+			### print counts (their names live in the panels), and the guards inside
+			### tooltips keep NoTooltip because a tooltip inside a tooltip is the one
+			### place the link must not fire.
+			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_hostage_p').Char.GetUIName]"  alwaystransparent = no }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_hostage_p_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_pick_hostage_p_clear')]"
+				}
+			}
+		}
+
+		####################################################################
+		### RETIRED V16, USER ITEM 5 - the ward / fosterage deal-sheet row, _p side.
+		### This row and its _r twin below were the ONLY place the raw ward price was
+		### printed to the player, and printing it is what made the abuse visible in
+		### the first place: [TntSV('tnt_val_ward_p_value')|0] against a partner who
+		### is the player's own vassal reached 118-181 points for a spare or an heir.
+		### The user's ruling: too abusable on points, and the hostage row directly
+		### above already covers the same immersive ground. The audit agreed and found
+		### the abuse STRUCTURAL rather than a matter of one number.
+		### Nothing is deleted; do not re-enable one half - this row's X calls
+		### tnt_pick_ward_p_clear, a scripted_gui that is retired with it, and its
+		### points cell reads a script value that is commented out.
+		### Full WARD TOMBSTONE: common\scripted_effects\tnt_32_apply.txt; the pricing
+		### half is common\script_values\tnt_58_person_values.txt section 3.
+		####################################################################
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_ward_p"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntVar('tnt_ward_p').Char.IsValid]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/child.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_ward" }
+#			### User item 2: linked name - the full note is on tnt_sheet_hostage_p.
+#			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_ward_p').Char.GetUIName]"  alwaystransparent = no }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_ward_p_value')|0]" }
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_pick_ward_p_clear')]"
+#				}
+#			}
+#		}
+
+		### The courtiers are a LIST, so this row follows the same rule as the
+		### artifact group above (user item 15a): the detail is the count and the X
+		### clears the whole selection, because naming three people in a 470 px
+		### column is what the marriage pair rows already proved unreadable.
+		### Removing ONE courtier stays in the panel at overlay index 18, where the
+		### names are. (The picked-captives row was the other list-shaped row that
+		### stated this rule, until user item 7 retired it.)
+		tnt_sheet_row = {
+			name = "tnt_sheet_courtier_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntAny('tnt_sel_courtier_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/courtier_interaction.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_courtier" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_courtier_p" }
+			# Scaled wrapper, not the base price - same rule as the picker panel
+			# (tnt_58_person_values.txt:516-527).
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_shown_courtier_multi_p_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_sel_courtier_p_clear')]"
+				}
+			}
+		}
+
+		### THE TRANSFERRED VASSALS (V26). A LIST, so it follows the courtier
+		### rule above: the detail is the count and the X clears the whole
+		### selection, because naming three rulers with their titles in a 470 px
+		### column is what the marriage pair rows already proved unreadable.
+		### Removing ONE vassal stays in the panel at overlay index 19, where the
+		### names and their primary titles are.
+		### THE ROW IS NOT SEPARATELY RULE-GATED, and it does not need to be: the
+		### only thing that can make it visible is a non-empty tnt_sel_subject_p,
+		### and the only control that can fill that list is the window row, which
+		### carries the tnt_advanced conjunct. A game rule cannot change
+		### mid-campaign, so with the rule off the list is never non-empty - the
+		### same safety-by-unreachability the apply legs rely on (CLAUDE.md 6.13,
+		### position C).
+		tnt_sheet_row = {
+			name = "tnt_sheet_subject_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntAny('tnt_sel_subject_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_subject" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_subject_p" }
+			# Scaled wrapper, not the base price - same rule as the picker panel
+			# and the same defect (D4) it was written to prevent.
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_shown_subject_multi_p_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_sel_subject_p_clear')]"
+				}
+			}
+		}
+
+		### THE THREAT (V4 expansion 1). It is listed on this side because it is the
+		### player's act, but its detail says what it IS rather than what it gives:
+		### tnt_threat_sub names the army, the fear and the standing that make it
+		### worth anything. The points are read from tnt_val_threat_p_value, the same
+		### value the fifth balance figure prints - the threat is the one term that
+		### is not inside either column total, so this row and that figure are the
+		### only two places it appears, and they read one value.
+		### A HOOK SPENT (V4 item 2). Its detail names the strength, because "you used
+		### a hook" and "you burned your one favour" are different sentences and the
+		### player is entitled to know which he agreed to.
+		### V4 item A2: the debt the partner called in. Negative points - it is what he
+		### wants over and above the terms - so the sheet shows it with its sign.
+		tnt_sheet_row = {
+			name = "tnt_sheet_usehook_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_usehook_r')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_strong.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_usehook_r" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_usehook_r_sub" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_usehook_r_value')|+=0]" }
+			### Prose detail in an elidable cell - same reason as the threat row.
+			blockoverride "tnt_sheet_tooltip" { tooltip = "tnt_item_usehook_r_desc" }
+			### NO X (user item 15a): the AI's OWN demand, written by the letter
+			### path - read-only by design, like the disabled checkbox on the
+			### left-column row tnt_row_usehook_r. The player answers it with a
+			### counter-offer or a rejection, not by deleting the AI's line.
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_usehook_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_usehook_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_strong.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_usehook" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_usehook_sub" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_usehook_p_value')|+=0]" }
+			### Prose detail in an elidable cell - same reason as the threat row.
+			blockoverride "tnt_sheet_tooltip" { tooltip = "tnt_item_usehook_desc" }
+			### The spend-a-hook row's own gated toggle - 2b header's rebind note.
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_usehook_p_off')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_threat_p"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_threat_p')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/icon_dread.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_threat" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_threat_sub" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_threat_p_value')|+=0]" }
+			### The detail above is prose in a 170 px elidable cell, so the row
+			### hands over the same full description the window row gives.
+			blockoverride "tnt_sheet_tooltip" { tooltip = "tnt_item_threat_desc" }
+			### The threat row's own gated toggle - 2b header's rebind note.
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_threat_p_off')]"
+				}
+			}
+		}
+
+		### THE ALLIANCE THE COUPLES BRING - A ROW AT LAST, 2026-08-24.
+		###
+		### UNTIL THIS ROW THE SHEET PRINTED NOTHING FOR IT AT ALL, and that is a
+		### coverage hole rather than a polish complaint: tnt_val_alliance_p_value is
+		### a live summand of tnt_gain_total_value (tnt_50_values.txt:2326) worth up
+		### to 150 points, and on the very deal the user reported it fired - that
+		### run's ALLY row carries yield=1, pre=0. So up to 150 points moved the
+		### centre number with no line anywhere on screen naming them. That is the
+		### "two numbers that must agree" defect class this sheet keeps being told
+		### not to ship, in its worst form: one number and no second number at all.
+		###
+		### THE RECORDED REFUSAL IS ABOUT A DIFFERENT WIDGET AND MUST NOT BE READ AS
+		### IF IT COVERED THIS ONE. It sits inside tnt_balance_value
+		### (tnt_50_values.txt:2799-2801) and says a row of its own "would need a
+		### SIXTH figure" - the five figures it protects are the BALANCE PANEL's, in
+		### gui\tnt_types.gui. A tnt_sheet_row costs no figure whatever: this sheet
+		### already carries two derived non-term rows for exactly that reason, the
+		### volume discount and the dread row inside the marriage block.
+		###
+		### WHY IT STANDS LAST ON THIS SIDE INSTEAD OF BESIDE THE COUPLES, and the
+		### reason is a property of the row rather than an apology. 2a's ordering
+		### rule is "each row sits in the position its term occupies in the
+		### negotiation column, or the sheet stops being readable top-to-bottom
+		### against the column it mirrors" - and THIS ROW MIRRORS NOTHING. The
+		### alliance TERM is retired (the tombstone far above), so there is no
+		### window row for it to line up with, which makes it the one row in the
+		### side with no column position to keep. It therefore joins the tail, where
+		### the other figures that are not terms the player ticked already live.
+		### The itemised breakdown orders it the other way, immediately BEFORE the
+		### marriage row (tnt_50_values.txt:2807-2813); both orders are deliberate
+		### and neither is the other's mistake.
+		### THE SECOND REASON IS HOUSE LAW 7 AND IT IS WORTH WRITING DOWN: an insert
+		### beside the couples moves every line below it in this file, and two
+		### citations into this file that a parallel lane owns anchor at :1445 and
+		### :1467, inside the two rows immediately above this one. Appending here
+		### moves neither.
+		###
+		### THE GATE IS THE BRIDGE VARIABLE AND NOTHING ELSE - the same row the
+		### price's own limit carries, so the row and the charge appear and vanish
+		### together. tnt_wed_reprice_all_effect writes it (tnt_34_marriage.txt:972)
+		### when vanilla's own yields_alliance says a committed couple opens a pact,
+		### and clears it unconditionally at the top of that same effect (:834).
+		### A script value may not ask yields_alliance - zero vanilla call sites in
+		### GAME\common\script_values - so the flag an EFFECT wrote is the only legal
+		### reading of it here. TntOn reads an unset variable as 0, so no exists
+		### guard is needed or possible: R13 is about OBJECT variables, and this one
+		### is numeric.
+		###
+		### PERFORMANCE (house law 6) IS UNCHANGED, MEASURED RATHER THAN HOPED.
+		### tnt_val_alliance_p_value already runs on this window's per-frame path
+		### inside tnt_ai_accept_value, which gui\tnt_types.gui binds to a `text` at
+		### :1660 and to two `visible` at :1422 and :1433. This row adds a second
+		### evaluation of a value the window computes every frame regardless.
+		###
+		### NO X: like the volume discount and the dread row this is a derived
+		### consequence of the couples on the table and not a term of its own - it
+		### is removed by removing the pair that opened it. The RETIRED alliance
+		### TERM's row is the commented-out block far above; it had an X because it
+		### was something the player bought. Do not confuse the two and do not
+		### revive that one.
+		###
+		### ZERO NEW LOCALIZATION: tnt_item_alliance and tnt_bd_alliance_p both
+		### already ship in all nine languages and neither carries a [..] token.
+		### `|0` and not `|+=0` because the value is clamped to 0..150 and every
+		### other tnt_val_* row in this column prints unsigned; the marriage rows
+		### sign themselves only because their nets can go negative.
+		tnt_sheet_row = {
+			name = "tnt_sheet_wed_ally"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_wed_ally_any')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/alliance.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_alliance" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_bd_alliance_p" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_alliance_p_value')|0]" }
+		}
+
+		### BUILD 1 reserved this block for "the three multi-select datamodels of
+		### the player's side", and author:multiselect's own header points the gui
+		### owner at it. BUILD 2 put the three groups INLINE above instead, and the
+		### reason is a design point rather than laziness: each group has to sit in
+		### the position its term occupies in the negotiation column - title after
+		### marriage, claim after title, artifact after hook - or the sheet stops
+		### being readable top-to-bottom against the column it mirrors. A single
+		### block at the bottom of the side would stack all three below the other
+		### twelve terms. Same three type instances either way; only their position
+		### differs, and position is what the block cannot express.
+		### The block stays declared and empty: it costs nothing and it is the
+		### natural home for a per-side extension (an AI counter-offer marker, a
+		### subtotal row). The example this note used to give - a prisoner sub-list
+		### - is retired with the prisoner terms, user item 7.
+		block "tnt_sheet_multi_p" {}
+
+		spacer = {
+			size = { 0 6 }
+		}
+
+		################################################################
+		### WHAT THEY GIVE  (_r)
+		################################################################
+		tnt_sheet_group = {
+			name = "tnt_sheet_head_r"
+			blockoverride "tnt_sheet_group_label" { text = "tnt_sheet_they_give" }
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_gold_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_gold_r')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_gold" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_gold_r')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_gold_r_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_gold_r_none')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_prestige_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_prestige_r')]" }
+			### USER ITEM 3: was flat_icons/prestige.dds, a BLACK ALPHA MASK (every
+			### opaque pixel RGB 0,0,0) - the path was always valid, the texture is
+			### simply not a coloured icon. The level-texture datafunction returns
+			### the coloured one: GAME\gui\hud.gui:6521-6525. GetPlayer and NOT
+			### Character - a deal-sheet row has no Character in its datacontext.
+			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_prestige" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_prestige_r')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_prestige_r_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_prestige_r_none')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_piety_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_piety_r')]" }
+			### USER ITEM 3: same black-alpha-mask defect and same cure as the
+			### prestige row - GAME\gui\hud.gui:6586-6590.
+			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_piety" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_piety_r')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_piety_r_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_piety_r_none')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_influence_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_influence_r')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_influence_01.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_influence" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_influence_r')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_influence_r_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_influence_r_none')]"
+				}
+			}
+		}
+
+		### V3 ADDITION 4 - THE PARTNER'S ALLIANCE AND TRUCE ROWS ARE DELETED.
+		### An alliance and a non-aggression pact are ONE pact between two rulers, so
+		### the deal now carries them once, as the two mutual rows in the centre
+		### column bound to tnt_alliance_p / tnt_truce_p. tnt_alliance_r and
+		### tnt_truce_r have no writer and no reader left, so these two rows could
+		### only ever have been invisible - and while they were writable they were the
+		### double count the user saw subtracting points.
+		### The surviving _p rows above are the pact, and they stay on the "what you
+		### give" side because that is where tnt_val_alliance_p_value /
+		### tnt_val_truce_p_value price it, and the sheet must never disagree with the
+		### breakdown tooltip (user item 1.2). If a mutual GROUP header is ever wanted
+		### in the sheet, block "tnt_sheet_multi_p" is the declared home for it.
+		### THERE IS NO MARRIAGE ROW ON THIS SIDE, AND THAT IS THE POINT OF V4
+		### REQUEST 4. There used to be tnt_sheet_marriage_r here, the mirror of the
+		### deleted head row: same icon, same "Marriage pact" name, the same count in
+		### its detail, and tnt_val_marriage_r_value in its points. Two rows for one
+		### agreed couple is precisely what the user described as "you give one
+		### character in marriage / the partner gives one character in marriage", and
+		### it is not how the thing works: a pact is ONE object, and both halves of
+		### its price are already inside that couple's own tnt_wed_net, one row in the
+		### "You give" list.
+		###
+		### tnt_val_marriage_r_value IS NOT DEAD - it is still half the balance and
+		### still appears in the breakdown tooltip. Only its SHEET row is gone.
+		###
+		### (tnt_spouse_r was already not read here: the script author demoted it to a
+		### staging cursor, so it empties the moment a pair is committed.)
+
+		### ITEM 2.2 - the partner's three multi-object terms, same shape and same
+		### reasoning as the player's side above.
+		### V6: head-row X inside the types here too, wired to the gate-free
+		### tnt_sel_<item>_r_clear - same shape as the player's trio above.
+		tnt_sheet_sel_title_r = {
+			name = "tnt_sheet_group_title_r"
+		}
+
+		####################################################################
+		### RETIRED WITH THE GRANTED CLAIM - V13 USER ITEM 1. The partner-side twin
+		### of the group retired under "you give" above; it goes with its type
+		### (`type tnt_sheet_sel_claim_r`, commented out in
+		### gui\tnt_panel_multiselect.gui) because an instantiation of an undefined
+		### type is an engine error. A DESIGN REFUSAL, NOT A BUG FIX - see the note
+		### on the player-side twin. Nothing is deleted; do not re-enable one half.
+		### Full tombstone: TOMBSTONE C on the claim row in
+		### gui\tnt_diplomacy_window.gui, and common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		tnt_sheet_sel_claim_r = {
+#			name = "tnt_sheet_group_claim_r"
+#		}
+
+		####################################################################
+		### RETIRED WITH THE PRISONER TERMS - USER ITEM 7. Built, shipped and played;
+		### considered and WITHDRAWN FOR AN INDEFINITE PERIOD on the user's ruling. A
+		### revival must lean on the VANILLA PRISONER SYSTEM (ransom_cost_value, the
+		### ransom interactions, the release on_actions and the opinion/hook consequences
+		### they carry) instead of this mod's private bookkeeping - that divergence is why
+		### the term never read as diplomacy. Nothing is deleted; do not re-enable one
+		### half - this row's X calls a scripted_gui that is retired with it.
+		### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		### The detail column reads the PARTNER's prisoner count, so it needs the
+#		### partner in the datacontext. TntPartner is the macro for exactly that
+#		### (data_binding/tnt_macros.txt) and is already used as the right
+#		### column's datacontext.
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_prisoners_r"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_prisoners_r')]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/prison.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_prisoners" }
+#			blockoverride "tnt_sheet_detail"  { text = "[TntPartner.GetNumberOfPrisoners|0]" }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_prisoners_r_value')|0]" }
+#			### Gate-free flip, like its _p twin above.
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_prisoners_r_toggle')]"
+#				}
+#			}
+#		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_hook_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_hook_r')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_icon.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_hook" }
+			blockoverride "tnt_sheet_detail"  { text = "[TntHookTier('tnt_hook_r')]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_hook_r_value')|0]" }
+			### X wired to tnt_hook_r_clear - the mirror of hook_p's, see there.
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_hook_r_clear')]"
+				}
+			}
+		}
+
+		### V6: head-row X inside the type, see the trio note above.
+		tnt_sheet_sel_artifact_r = {
+			name = "tnt_sheet_group_artifact_r"
+		}
+
+		####################################################################
+		### RETIRED WITH THE THIRD-PARTY NON-AGGRESSION PROMISE - USER ITEM 1. Built,
+		### shipped and played; considered and WITHDRAWN FOR AN INDEFINITE PERIOD as
+		### surplus for pleasant play - a term about somebody who is not at the table,
+		### for which the other side owes nothing in return. Nothing is deleted; do not
+		### re-enable one half - this row's X calls a scripted_gui that is retired with
+		### it. Overlay index 11 is RETIRED, not free.
+		### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+		####################################################################
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_nonwar_r"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntVar('tnt_nonwar_r').Char.IsValid]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_retreat.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_nonwar" }
+#			### User item 2: linked name - the full note is on tnt_sheet_hostage_p.
+#			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_nonwar_r').Char.GetUIName]"  alwaystransparent = no }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_nonwar_r_value')|0]" }
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_nonwar_r_clear')]"
+#				}
+#			}
+#		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_vassal_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_vassal_r')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_vassal" }
+			blockoverride "tnt_sheet_detail"  { text = "" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_vassal_r_value')|0]" }
+			### The fealty row's own gated toggle - 2b header's rebind note.
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_vassal_r_off')]"
+				}
+			}
+		}
+
+		########################################################
+		### ITEM 19 - THE FOUR PEOPLE TERMS, RECEIVING SIDE.
+		### Same order, same shapes and the same X rule as the _p group above -
+		### independence has no X because no gate-free clearer is registered for it.
+		### _r means the PARTNER gives: his hostage, his child, his courtiers, and
+		### his release of the player from fealty.
+		########################################################
+		tnt_sheet_row = {
+			name = "tnt_sheet_indep_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntOn('tnt_indep_r')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/independence.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_indep" }
+			blockoverride "tnt_sheet_detail"  { text = "" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_indep_r_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_indep_r_clear')]"
+				}
+			}
+		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_hostage_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntVar('tnt_hostage_r').Char.IsValid]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_hostage.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_hostage" }
+			### User item 2: linked name - the full note is on tnt_sheet_hostage_p.
+			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_hostage_r').Char.GetUIName]"  alwaystransparent = no }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_hostage_r_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_pick_hostage_r_clear')]"
+				}
+			}
+		}
+
+		### RETIRED V16, USER ITEM 5 - the _r twin of the retired ward sheet row in
+		### the _p block above, where the tombstone is.
+#		tnt_sheet_row = {
+#			name = "tnt_sheet_ward_r"
+#			blockoverride "tnt_sheet_visible" { visible = "[TntVar('tnt_ward_r').Char.IsValid]" }
+#			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/child.dds" }
+#			blockoverride "tnt_sheet_name"    { text = "tnt_item_ward" }
+#			### User item 2: linked name - the full note is on tnt_sheet_hostage_p.
+#			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_ward_r').Char.GetUIName]"  alwaystransparent = no }
+#			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_ward_r_value')|0]" }
+#			blockoverride "tnt_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_pick_ward_r_clear')]"
+#				}
+#			}
+#		}
+
+		tnt_sheet_row = {
+			name = "tnt_sheet_courtier_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntAny('tnt_sel_courtier_r')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/courtier_interaction.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_courtier" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_courtier_r" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_courtier_multi_r_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_sel_courtier_r_clear')]"
+				}
+			}
+		}
+
+		### THE TRANSFERRED VASSALS, partner's side (V26). The mirror of
+		### tnt_sheet_subject_p; the points read the RAW _r value because demands
+		### are unscaled (I5) and no tnt_shown_* wrapper is registered for them.
+		tnt_sheet_row = {
+			name = "tnt_sheet_subject_r"
+			blockoverride "tnt_sheet_visible" { visible = "[TntAny('tnt_sel_subject_r')]" }
+			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+			blockoverride "tnt_sheet_name"    { text = "tnt_item_subject" }
+			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_subject_r" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_subject_multi_r_value')|0]" }
+			blockoverride "tnt_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_sel_subject_r_clear')]"
+				}
+			}
+		}
+
+		### Same as tnt_sheet_multi_p above: still declared, still empty, and the
+		### partner's three groups are inline in the positions their terms occupy.
+		block "tnt_sheet_multi_r" {}
+	}
+
+
+	####################################################################
+	### 3. THE CONTEXTUAL CARD  (bottom of the centre column)
+	###
+	### Up to seven lines, each independently `visible`-gated, with
+	### `ignoreinvisible = yes` on the card so the hidden ones cost no height.
+	### Build 1 used only values that already existed in tnt_50_values.txt:
+	###   tnt_gold_shortfall_value          (:182)  > 0 means the PLAYER cannot pay
+	###   tnt_partner_gold_shortfall_value  (:191)  > 0 means the PARTNER cannot pay
+	###   tnt_items_count_value             (:1340) how many terms are on the table
+	###
+	### BUILD 2 adds four more lines - the two domain counters (idea U1(a)), the
+	### marriage pair summary (item 2.1) and the vassal contract summary (item
+	### 2.5). Build 1's note said they were "deliberately absent" because
+	### referencing an undefined script value logs on EVERY evaluation; that
+	### objection is answered rather than ignored:
+	###   * the two domain counters are instances of author:multiselect's own
+	###     tnt_multi_domain_line, so every identifier in them - the two
+	###     tnt_domain_over_*_value flags, the two tnt_domain_line_* loc keys -
+	###     is that author's, already used by their own title panels;
+	###   * their `visible` is the gate TntPos('tnt_domain_shown_value') - see
+	###     the two instances in tnt_context_card below - so nothing renders a
+	###     domain number until titles are actually moving; that value is
+	###     author:multiselect's own, already evaluated by their title panels;
+	###   * the marriage and contract summaries read no script value whatsoever -
+	###     they are loc keys that print variables.
+	### block "tnt_context_extra" therefore stays free for the next author.
+	####################################################################
+	type tnt_context_line = hbox
+	{
+		name = "tnt_context_line"
+		layoutpolicy_horizontal = expanding
+		size = { 0 28 }
+		maximumsize = { -1 28 }
+		spacing = 6
+		### 4 px vertical margin: 28 - 8 = 20 px of content, which is the 20 px
+		### icon and one 18 px line of Font_Size_Small.
+		margin = { 4 4 }
+		alwaystransparent = yes
+		ignoreinvisible = yes
+
+		block "tnt_context_visible"
+		{
+			visible = no
+		}
+
+		widget = {
+			name = "tnt_context_icon_holder"
+			size = { 22 100% }
+			alwaystransparent = yes
+
+			icon = {
+				name = "tnt_context_icon"
+				size = { 20 20 }
+				parentanchor = center
+				alwaystransparent = yes
+
+				block "tnt_context_icon"
+				{
+					texture = "gfx/interface/icons/character_interactions/icon_gold.dds"
+				}
+			}
+		}
+
+		### text_single, not text_multi: the row has a FIXED height, and a
+		### text_multi with autoresize = yes would silently wrap to two lines and
+		### be clipped by maximumsize. Card lines are written as one-liners and
+		### elide, which is R-SPILL applied to our own loc rather than game text.
+		text_single = {
+			name = "tnt_context_text"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_context_text"
+			{
+				text = "tnt_ctx_terms"
+			}
+		}
+	}
+
+
+	####################################################################
+	### 3b. THE DOMAIN-LIMIT COUNTER   (idea U1(a), BUILD 2 - MANDATORY)
+	###
+	### 30-V2-DESIGN section 1 row U1 is blunt about why this exists: the vanilla
+	### grant-titles screen itself cannot be reused (it is 100 % C++), but two of
+	### its ideas are worth stealing, and the domain counter "becomes MANDATORY
+	### once 2.2 lets a player dump five counties on someone".
+	###
+	### THERE IS NO tnt_domain_counter TYPE IN THIS FILE. One was written - a
+	### plain widget with a Status_Bad wash, an icon_domain.dds icon and a
+	### "[resulting]/[limit]" text built from FixedPointToInt( ScriptValue ) and
+	### Character.GetDomainLimit, copied from GAME\gui\hud.gui:7087-7109 - and it
+	### was deleted when gui\tnt_panel_multiselect.gui landed with
+	### `type tnt_multi_domain_line`, which is the same widget written by the
+	### author who owns the numbers.
+	###
+	### The two centre-column counters are therefore two INSTANCES of that type,
+	### in the contextual card below. Three things came free with the swap, and
+	### each of them was a guess this file would otherwise have had to make:
+	###   * the over-limit flags are real and named - tnt_domain_over_p_value /
+	###     tnt_domain_over_r_value - so the comparison happens in script rather
+	###     than being re-derived in the GUI from Character.GetDomainLimit;
+	###   * the numbers live inside the loc keys tnt_domain_line_p / _r, which
+	###     print tnt_domain_after_p/_r_value and tnt_domain_limit_p/_r_value
+	###     themselves, so no loc key of this file has to be invented and the
+	###     "N / M" wording is identical in the panel and in the centre column;
+	###   * one geometry, so the line cannot look like two different widgets
+	###     depending on where the player is looking at it.
+	###
+	### The panel shows its copy only while the title picker is open; the centre
+	### column shows these two whenever a title is on the table, which is what the
+	### build-2 task list asked for - the counter belongs where the deal is read,
+	### not only where it is edited.
+	####################################################################
+
+
+	### BUILD 2 raised the cap from 96 (three 28 px lines) to 180. BUILD 3 raised it
+	### again to 208, because 180 was 24 px short of this card's own maximum content
+	### and silently CLIPPED the last child. Do the sum before changing it:
+	###     5 x tnt_context_line       @ size = { 0 28 }  (:841)  = 140
+	###     2 x tnt_multi_domain_line  @ size = { 0 26 }
+	###                        (tnt_panel_multiselect.gui:398)    =  52
+	###     6 inter-child gaps         @ spacing = 2              =  12
+	###                                                     TOTAL = 204
+	### The seven children are afford_p, afford_r, the two domain counters, the
+	### marriage pair summary, the contract summary and the neutral term count, and
+	### their seven `visible` conditions are INDEPENDENT - a deal that moves a county
+	### each way, marries a pair, swears fealty and over-promises gold on both sides
+	### satisfies all seven at once, which is a normal ambitious offer and not a
+	### contrived one. At 180 the seventh line (tnt_context_terms) was cut off.
+	### `ignoreinvisible = yes` removes hidden children and is why one or two lines
+	### is the usual case, but it does nothing once all seven are visible.
+	### THE VERTICAL BUDGET STILL WORKS. The centre column's fixed content was ~462
+	### of ~786 px at the 180 cap, so 208 makes it ~490 and left ~296 for the deal
+	### sheet. V5 (user item 15b) folded the verdict row into the headline's
+	### tooltip, so the same worst case now reads ~435 fixed and ~351 for the
+	### sheet, comfortably above its raised minimumsize = { 0 200 } (scrollbox
+	### tnt_deal_sheet_scroll in tnt_types.gui - cited by name, the old line
+	### number here had already drifted once).
+	type tnt_context_card = vbox
+	{
+		name = "tnt_context_card"
+		layoutpolicy_horizontal = expanding
+		minimumsize = { 0 34 }
+		maximumsize = { -1 208 }
+		spacing = 2
+		ignoreinvisible = yes
+
+		background = {
+			using = Background_Area_Dark
+		}
+
+		########################################################
+		### IDEA U1(a) - THE TWO DOMAIN COUNTERS, AND AS OF V3 THEY ARE THE FIRST
+		### TWO LINES OF THE CARD.
+		###
+		### They used to sit third and fourth, under the two gold-shortfall lines.
+		### V3 removed the three-object selection cap, so nothing stops a player
+		### putting nine counties on the table, and these two lines are now the ONLY
+		### signal that a big gift is a bad idea - the panels' cap warning is
+		### silenced at the source (no derived type wires it any more, see
+		### gui\tnt_panel_multiselect.gui section 2).
+		### Being read first is the cheapest prominence there is, and it costs no
+		### height: `ignoreinvisible = yes` means the order only matters when a line
+		### is actually shown.
+		###
+		### Both are shown as soon as ANY title is on the table on EITHER side,
+		### because a title trade moves both realms' domain size at once: what the
+		### player cedes leaves his domain and enters the partner's, and vice
+		### versa. Gating each side on only its own list would hide the counter of
+		### whichever ruler is RECEIVING, which is precisely the ruler about to
+		### break his limit.
+		###
+		### THE TWO BLOCKOVERRIDES AND THE `visible` ARE EXACTLY WHAT THE TITLE
+		### PANELS PASS (gui\tnt_panel_multiselect.gui, blockoverride
+		### "tnt_multi_domain"), on purpose: one line, one wording, one pair of
+		### flags, whether the player is reading the deal or editing it.
+		###
+		### `visible` is set DIRECTLY on the instance rather than through a block,
+		### because tnt_multi_domain_line has no visibility block of its own - inside
+		### the panel each line is wrapped in something already gated. The gate used
+		### here is author:multiselect's own tnt_domain_shown_value, "titles are
+		### actually moving", which is the SAME test their panel wraps its two copies
+		### in - so the centre column and the panel appear and disappear together
+		### instead of on two similar-but-different conditions. Setting a plain
+		### property on a type instance is what every other instance in this mod
+		### does, and `visible` is neither a position nor an anchor, so R4 is not in
+		### play.
+		###
+		### NOT tnt_domain_over_value, which is the flag 30-V2-DESIGN section 4.4
+		### names for this card and which author:multiselect offers as a one-line
+		### alternative. That flag says only "somebody WILL be over" - it is a
+		### warning, not a readout, and the task list asks for the numbers:
+		### "resulting-size slash limit, turning red above the limit, as
+		### interaction_grant_titles.gui:105 and :125 do". Those two vanilla lines are
+		### a Status_Bad background gated on
+		### GreaterThan_int32( GetResultingDomainSize, GetActor.GetDomainLimit ) plus a
+		### "[resulting]/[limit]" text, and tnt_multi_domain_line is that shape with
+		### the comparison done in script instead of the GUI - the red half is
+		### tnt_domain_over_p/_r_value, passed below, so the warning is included
+		### rather than replaced.
+		tnt_multi_domain_line = {
+			name = "tnt_domain_after_p"
+			visible = "[TntPos('tnt_domain_shown_value')]"
+
+			blockoverride "tnt_multi_domain_label" { text = "tnt_domain_line_p" }
+			blockoverride "tnt_multi_domain_over"  { visible = "[TntPos('tnt_domain_over_p_value')]" }
+		}
+
+		tnt_multi_domain_line = {
+			name = "tnt_domain_after_r"
+			visible = "[TntPos('tnt_domain_shown_value')]"
+
+			blockoverride "tnt_multi_domain_label" { text = "tnt_domain_line_r" }
+			blockoverride "tnt_multi_domain_over"  { visible = "[TntPos('tnt_domain_over_r_value')]" }
+		}
+
+		### The player cannot pay what he just promised.
+		tnt_context_line = {
+			name = "tnt_context_afford_p"
+			blockoverride "tnt_context_visible" { visible = "[GreaterThan_CFixedPoint( TntSV('tnt_gold_shortfall_value'), '(CFixedPoint)0' )]" }
+			blockoverride "tnt_context_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
+			blockoverride "tnt_context_text"    { text = "tnt_ctx_afford_p"  default_format = "#N" }
+		}
+
+		### The partner cannot pay what he is being asked for.
+		tnt_context_line = {
+			name = "tnt_context_afford_r"
+			blockoverride "tnt_context_visible" { visible = "[GreaterThan_CFixedPoint( TntSV('tnt_partner_gold_shortfall_value'), '(CFixedPoint)0' )]" }
+			blockoverride "tnt_context_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
+			blockoverride "tnt_context_text"    { text = "tnt_ctx_afford_r"  default_format = "#N" }
+		}
+
+		########################################################
+		### THE TWO DOMAIN COUNTERS USED TO STAND HERE, third and fourth in the card.
+		### V3 moved them to the TOP of the card - see the long note there. Nothing
+		### else about them changed: same type, same two flags, same gate, same loc
+		### keys, and `ignoreinvisible = yes` means the move costs no height either way.
+		###
+		### ITEM 2.1 - the marriage pair, summarised.
+		###
+		### The two names live in the LOC KEY, not here. A .gui `text =` is one
+		### expression and the pair needs two names plus a separator, and Law R14
+		### forbids a hard-coded separator string in this file. Loc CAN print
+		### variables and script values - proven at
+		### GAME\localization\english\activities\survey_activity_l_english.yml:697
+		### and coronation_activity_l_english.yml:634 - so tnt_ctx_marriage prints
+		### both tnt_spouse_p and tnt_spouse_r itself. One key, one line, zero
+		### English in the .gui.
+		###
+		### The `visible` is the guard: the line only appears once BOTH spouses are
+		### chosen, so the loc key never has to print an invalid handle.
+		###
+		### V3 ITERATION 4. The deal holds a LIST of couples, so this card cannot
+		### name two people any more - tnt_ctx_marriage now prints how many
+		### marriages are on the table (and the honoured couple, when one is), and
+		### the gate is "does the list hold anything", TntAny, which is
+		### Not(IsDataModelEmpty(GetList)) and already runs in every picker panel.
+		### The old gate tested tnt_spouse_p / _r, which are now a STAGING cursor
+		### that tnt_wed_add empties on every commit: this line would have vanished
+		### the instant the player actually agreed a couple.
+		tnt_context_line = {
+			name = "tnt_context_marriage"
+			blockoverride "tnt_context_visible" { visible = "[TntAny('tnt_wed_list')]" }
+			blockoverride "tnt_context_icon"    { texture = "gfx/interface/icons/character_interactions/icon_marriage.dds" }
+			blockoverride "tnt_context_text"    { text = "tnt_ctx_marriage"  default_format = "#high" }
+		}
+
+		########################################################
+		### ITEM 2.5 - the vassal contract, summarised.
+		###
+		### Same technique and the same reason: the nine tnt_ob_* variables belong
+		### to author:hooks-contracts and their values are levels, not names, so
+		### tnt_ctx_contract prints them from loc. Only ONE contract can ever
+		### exist in a deal (T11 forbids both sides swearing fealty), which is why
+		### the nine variables carry no side suffix and why one summary line is
+		### enough for both columns.
+		tnt_context_line = {
+			name = "tnt_context_contract"
+			blockoverride "tnt_context_visible" { visible = "[Or( TntOn('tnt_vassal_p'), TntOn('tnt_vassal_r') )]" }
+			blockoverride "tnt_context_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
+			blockoverride "tnt_context_text"    { text = "tnt_ctx_contract"  default_format = "#high" }
+		}
+
+		### The neutral state: how many terms are on the table.
+		tnt_context_line = {
+			name = "tnt_context_terms"
+			blockoverride "tnt_context_visible" { visible = "[GreaterThan_CFixedPoint( TntSV('tnt_items_count_value'), '(CFixedPoint)0' )]" }
+			blockoverride "tnt_context_icon"    { texture = "gfx/interface/icons/character_interactions/scroll_scales.dds" }
+			blockoverride "tnt_context_text"    { text = "tnt_ctx_terms"  default_format = "#weak" }
+		}
+
+		### Still free. Build 2's four new lines are inline above, because none of
+		### them is instance-specific and the card is instantiated exactly once.
+		block "tnt_context_extra" {}
+	}
+
+
+	####################################################################
+	####################################################################
+	### RETIRED - THE PRISONER PANEL ROW (defect D3's redesign).  USER ITEM 7.
+	###
+	### This type existed only to draw one captive inside the two read-only dungeon
+	### panels at overlay index 8, and both of those panels are retired with the
+	### prisoner terms (gui\tnt_diplomacy_window.gui). It has no other consumer, so
+	### it is commented out rather than left as dead-but-live code.
+	###
+	### KEPT READABLE ON PURPOSE: a revival that leans on the vanilla prisoner system
+	### - which is what the FAMILY B tombstone says a revival must do - still needs a
+	### row shape for a captive, and this one was already through the D3 composition
+	### fix. Nothing is deleted; do not re-enable one half.
+	### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+	####################################################################
+#	### 4. PRISONER PANEL ROW   (defect D3's redesign)
+#	###
+#	### v1 hung the prisoner list off a `tooltipwidget` inside a
+#	### `blockoverride`, and the container it used had a vbox as a direct child -
+#	### that is defect D3, "A (flow)container can't have an hbox/vbox as a direct
+#	### child", logged at tnt_diplomacy_window.gui:272 and :515.
+#	### 50-RUNTIME-LOG-FINDINGS:71 and 30-V2-DESIGN section 1 row 3.3 both say the
+#	### item should become a NORMAL panel like every other pickable item, so the
+#	### list now lives in a tnt_picker_panel at picker index 8 and this is its row.
+#	###
+#	### The datamodel is the ENGINE's own: `datamodel = "[Character.GetPrisoners]"`
+#	### yields Character-scoped items directly, with no Scope.Char unwrap - verbatim
+#	### vanilla at GAME\gui\window_ledger.gui:6098-6106, where the item body reads
+#	### the ambient Character. The panel supplies the jailer as its datacontext.
+#	###
+#	### Read-only on purpose: releasing SOME prisoners needs the wave-3c
+#	### multi-select machinery (a tnt_sel_prisoner_p/_r list); the term itself
+#	### stays the shipped all-or-nothing toggle, whose scripted gui already exists.
+#	####################################################################
+#	type tnt_prisoner_row = hbox
+#	{
+#		name = "tnt_prisoner_row"
+#		layoutpolicy_horizontal = expanding
+#		size = { 0 42 }
+#		maximumsize = { -1 42 }
+#		spacing = 8
+#		margin = { 8 0 }
+#		alwaystransparent = yes
+#
+#		background = {
+#			using = Background_Area_Dark
+#		}
+#
+#		widget = {
+#			name = "tnt_prisoner_portrait_holder"
+#			size = { 38 100% }
+#			alwaystransparent = yes
+#
+#			portrait_head_tiny = {
+#				name = "tnt_prisoner_portrait"
+#				size = { 36 36 }
+#				parentanchor = center
+#			}
+#		}
+#
+#		### The two texts sit inside a vbox between two `expand = {}`, which is the
+#		### R-LAYOUT way to centre on the cross axis when the row is much taller
+#		### than the text (here 42 vs 20). A vbox as a child of an hbox is legal -
+#		### only a (flow)container rejects hbox/vbox children (defect D3) - and an
+#		### hbox nested back inside that vbox is legal for the same reason.
+#		###
+#		### Both expands carry an explicit unique name: `type expand` hard-codes
+#		### `name = "expander"` (GAME\gui\shared\windows.gui:598), and two
+#		### same-named direct siblings make the engine log a duplicate-child line
+#		### naming this file - which the acceptance bar forbids for tnt_ paths.
+#		### Same treatment as tnt_row_text in tnt_types.gui.
+#		vbox = {
+#			name = "tnt_prisoner_text"
+#			layoutpolicy_horizontal = expanding
+#			layoutpolicy_vertical = expanding
+#			alwaystransparent = yes
+#
+#			expand = {
+#				name = "tnt_prisoner_text_pad_top"
+#			}
+#
+#			hbox = {
+#				name = "tnt_prisoner_text_row"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 8
+#
+#				text_single = {
+#					name = "tnt_prisoner_name"
+#					layoutpolicy_horizontal = expanding
+#					autoresize = no
+#					text = "[Character.GetUINameNoTooltip]"
+#					align = nobaseline|left
+#					default_format = "#high"
+#					alwaystransparent = yes
+#					fontsize_min = 12
+#					using = Font_Size_Medium
+#				}
+#
+#				### Who the prisoner actually is, which is what decides whether
+#				### releasing him is worth anything. GetPrimaryTitle.GetNameNoTooltip|U
+#				### is verbatim vanilla - GAME\gui\multiplayer_lobby.gui:679,
+#				### GAME\gui\window_barbershop.gui:1286. A landless prisoner prints
+#				### nothing, which is the correct answer and needs no loc key.
+#				### `Character.GetImprisonmentTypeText` was considered and REJECTED:
+#				### it does not exist - zero hits in GAME\gui and zero in the engine
+#				### string table, only GetImprisonmentWarScore /
+#				### GetImprisonmentReasons do.
+#				text_single = {
+#					name = "tnt_prisoner_title"
+#					min_width = 130
+#					max_width = 130
+#					autoresize = no
+#					text = "[Character.GetPrimaryTitle.GetNameNoTooltip|U]"
+#					align = nobaseline|right
+#					default_format = "#weak"
+#					alwaystransparent = yes
+#					fontsize_min = 12
+#					using = Font_Size_Small
+#				}
+#			}
+#
+#			expand = {
+#				name = "tnt_prisoner_text_pad_bottom"
+#			}
+#		}
+#	}
+
+
+	####################################################################
+	### 5. THE FIVE BUILD-1 SHELLS - THREE OF THEM ARE NOW LOAD-BEARING.
+	###
+	### Build 1 wrote these five shapes for the three panels build 2 would need,
+	### and recorded them as "defined, never instantiated". Build 2's panels came
+	### from three other authors, and TWO OF THOSE AUTHORS BUILT THEIRS OUT OF
+	### THESE - so three of the five are now parents or children of shipped,
+	### instantiated widgets and MUST NOT be deleted as dead code:
+	###
+	###   tnt_editor_panel        USED. `type tnt_panel_contract = tnt_editor_panel`
+	###                           (gui\tnt_panel_contract.gui). The contract sheet
+	###                           at overlay index 12 IS this chrome - its header,
+	###                           its Window_Background, its tnt_picker_close.
+	###   tnt_level_stepper       USED. The tax and levy rows of that same sheet
+	###                           instantiate it, which is exactly the job build 1
+	###                           wrote it for ("the shape the tax / levy
+	###                           obligation levels and the hook tier both need").
+	###   tnt_toggle_line         USED. The seven obligation rights of that sheet
+	###                           are seven instances of it.
+	###   tnt_multiselect_columns unused. gui\tnt_panel_multiselect.gui builds its
+	###                           own two-column body. Kept as the drop-in body if
+	###                           tnt_panel_multi ever has to be rebuilt here: its
+	###                           blocks tnt_multiselect_available_list /
+	###                           _chosen_list take exactly the two datamodels the
+	###                           contract names.
+	###   tnt_pair_slot           unused. gui\tnt_panel_marriage.gui ships its own
+	###                           tnt_marriage_pair_slot, deliberately - that file
+	###                           refuses to derive from this one because
+	###                           "tnt_panels.gui" sorts AFTER
+	###                           "tnt_panel_marriage.gui" and it did not want to
+	###                           rest on the loader resolving a parent type from a
+	###                           later file. Note that tnt_panel_contract DOES
+	###                           take that risk and it is worth watching in the
+	###                           first launch: "tnt_panels.gui" >
+	###                           "tnt_panel_contract.gui" for the same reason
+	###                           ('_' sorts before 's'), so if the engine cannot
+	###                           resolve tnt_editor_panel as a parent, the
+	###                           contract sheet is the symptom.
+	###
+	### Note the ONE identifier they may already use: tnt_picker_close, the
+	### shipped scripted gui that clears tnt_picker / tnt_picker_side.
+	####################################################################
+
+	### A wider panel than tnt_picker_panel (540x640), because a marriage pair
+	### editor and a 9-row contract sheet both need two columns.
+	### Chrome copied from tnt_picker_panel, including the reason it does NOT use
+	### Window_Decoration_Spike: that template injects icon CHILDREN, which a vbox
+	### would lay out in its flow. Window_Background contributes only a
+	### background = { } block, which is not a flow child - proven at
+	### GAME\gui\activity_window_widgets\funeral_deceased_selection_widget.gui:85-90.
+	type tnt_editor_panel = vbox
+	{
+		name = "tnt_editor_panel"
+		parentanchor = center
+		### V4 item 4: height follows content, 700 becomes the ceiling. Same fix as
+		### tnt_picker_panel and tnt_panel_multi; the body block's own scrollbox carries
+		### the cap, so a nine-row contract sheet no longer opens a 700 px window.
+		size = { 760 0 }
+		maximumsize = { 760 700 }
+		alwaystransparent = no
+
+		using = Window_Background
+
+		vbox = {
+			using = Window_Margins
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			spacing = 6
+
+			header_pattern = {
+				layoutpolicy_horizontal = expanding
+
+				blockoverride "header_text"
+				{
+					block "tnt_editor_panel_title"
+					{
+						text = "tnt_window_title"
+					}
+				}
+
+				blockoverride "button_close_tooltip"
+				{
+					tooltip = "tnt_btn_close"
+				}
+
+				blockoverride "button_close"
+				{
+					onclick = "[TntExec('tnt_picker_close')]"
+				}
+			}
+
+			block "tnt_editor_panel_body"
+			{
+				spacer = {}
+			}
+		}
+	}
+
+
+	### Two side-by-side lists: "available" on the left, "chosen" on the right.
+	### This is the whole of item 2.2's mechanism - a row click MOVES the object
+	### between two script variable lists, so no membership datafunction is ever
+	### needed. Both halves are plain vboxes the consumer fills with a datamodel.
+	type tnt_multiselect_columns = hbox
+	{
+		name = "tnt_multiselect_columns"
+		layoutpolicy_horizontal = expanding
+		layoutpolicy_vertical = expanding
+		spacing = 10
+
+		vbox = {
+			name = "tnt_multiselect_available"
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			spacing = 4
+
+			text_single = {
+				name = "tnt_multiselect_available_head"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+
+				block "tnt_multiselect_available_label"
+				{
+					text = "tnt_picker_available"
+				}
+			}
+
+			divider_light = {
+				layoutpolicy_horizontal = expanding
+			}
+
+			block "tnt_multiselect_available_list"
+			{
+				spacer = {}
+			}
+		}
+
+		vbox = {
+			name = "tnt_multiselect_chosen"
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			spacing = 4
+
+			text_single = {
+				name = "tnt_multiselect_chosen_head"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+
+				block "tnt_multiselect_chosen_label"
+				{
+					text = "tnt_picker_chosen"
+				}
+			}
+
+			divider_light = {
+				layoutpolicy_horizontal = expanding
+			}
+
+			block "tnt_multiselect_chosen_list"
+			{
+				spacer = {}
+			}
+		}
+	}
+
+
+	### One labelled checkbox line: the shape the nine-row vassal contract sheet
+	### (item 2.5) and the matrilineal switch (item 2.1) both need.
+	### R-LAYOUT: the checkbox lives inside a plain widget so it may centre.
+	###
+	### TWO TOOLTIP BLOCKS, ON PURPOSE - added in build 3, and read this before
+	### "simplifying" them into one.
+	###   block "tnt_toggle_line_tooltip"     is on THIS hbox. It is what the player
+	###     sees when the cursor is over the row's label, which is where the eye
+	###     goes. The label text_single is alwaystransparent = yes, so its hover
+	###     falls through to here.
+	###   block "tnt_toggle_line_box_tooltip" is on the button_checkbox, BESIDE
+	###     block "tnt_toggle_line_enabled". A checkbox is NOT transparent, so it
+	###     eats its own hover; with the tooltip only on the parent, hovering the
+	###     one widget that greys out produced no tooltip at all. `enabled` and the
+	###     explanation of why a control is unavailable must sit on the SAME widget
+	###     (GAME\gui\window_faith.gui:900-902), which is also the shape this mod
+	###     already uses correctly in type tnt_item_row_toggle (tnt_types.gui:310,
+	###     :312, both children of one button_checkbox).
+	### The innermost non-transparent widget under the cursor wins, so the two never
+	### fight: over the box you get the box's, anywhere else on the row you get the
+	### row's. Both default to empty, so an existing consumer that sets only the
+	### first keeps working exactly as before.
+	type tnt_toggle_line = hbox
+	{
+		name = "tnt_toggle_line"
+		layoutpolicy_horizontal = expanding
+		### TIER 3 of the height convention (file header): a one-line labelled
+		### control row stays FIXED and its label elides. Long RU term names may
+		### elide here - accepted; the full name lives in the tooltip.
+		size = { 0 34 }
+		maximumsize = { -1 34 }
+		spacing = 6
+		margin = { 6 0 }
+		alwaystransparent = no
+		ignoreinvisible = yes
+
+		using = tooltip_es
+
+		block "tnt_toggle_line_visible" {}
+
+		block "tnt_toggle_line_tooltip" {}
+
+		### V3 ADDITION 4 - AN OPTIONAL LEADING ICON, empty by default.
+		### The two mutual pact lines in the centre column (alliance, non-aggression)
+		### need the same icon the columns' rows carry, or a term that moved out of a
+		### column would arrive in the centre unrecognisable. Every existing consumer
+		### - the seven obligation rights of gui\tnt_panel_contract.gui - leaves it
+		### unwritten, and an unwritten block contributes no child at all, so their
+		### geometry is bit-for-bit what it was.
+		### V13 USER ITEM 1: THE TWO PACT LINES ARE RETIRED and the block's only
+		### fillers are commented out with them, so it is once again empty at every
+		### live call site. THE BLOCK STAYS DECLARED - the reasoning above is why it
+		### was added and the type's sibling tnt_action_line uses the same shape for
+		### the marriage line that survives in that centre section.
+		### R4: whatever lands here is a direct child of THIS hbox, so it must not
+		### carry `position` or `parentanchor` itself. The filler passes a plain
+		### `widget` and anchors the icon INSIDE it, which is the mechanism
+		### tnt_item_frame's own icon holder uses (tnt_types.gui, "tnt_row_icon_holder").
+		block "tnt_toggle_line_icon" {}
+
+		text_single = {
+			name = "tnt_toggle_line_text"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#medium"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Medium
+
+			block "tnt_toggle_line_label"
+			{
+				text = "tnt_item_vassal"
+			}
+		}
+
+		widget = {
+			name = "tnt_toggle_line_box_holder"
+			size = { 40 100% }
+
+			button_checkbox = {
+				name = "tnt_toggle_line_box"
+				parentanchor = center
+
+				using = tooltip_es
+
+				block "tnt_toggle_line_sgui" {}
+
+				block "tnt_toggle_line_var" {}
+
+				block "tnt_toggle_line_enabled" {}
+
+				### Co-located with the block above. See the type header.
+				block "tnt_toggle_line_box_tooltip" {}
+			}
+		}
+	}
+
+
+	####################################################################
+	### V4 FIX 3 - AN ACTION LINE. The same 34 px line as tnt_toggle_line above,
+	### except the control on it is a BUTTON and not a checkbox.
+	###
+	### WHY IT EXISTS. Marriage is not a flag the player raises, it is a SCREEN he
+	### opens: vanilla's matchmaker does the picking and what comes back is a list
+	### of couples. A checkbox said the wrong thing twice - it looked like a term
+	### that could be ticked off, and its `checked` state was only a read-only echo
+	### of whether the list happened to be non-empty, so clicking a TICKED box
+	### opened the screen again rather than removing anything. The user asked for a
+	### proper button; this is that button, in the same geometry so the centre
+	### column's rows still line up.
+	###
+	### THE MOUSE LESSON IS OBEYED HERE - _docs\README.md item 4, and it cost a
+	### day. The button is the ONLY non-transparent widget on this line: the icon
+	### holder and the icon carry alwaystransparent = yes, and there is NO label
+	### text_single at all. The button itself is the expanding child and holds the
+	### wording, so there is nothing that could come to lie on top of it.
+	###
+	### The hbox is alwaystransparent = no, like tnt_level_stepper above, which is
+	### the type in this file already proven to deliver clicks to its buttons.
+	####################################################################
+	type tnt_action_line = hbox
+	{
+		name = "tnt_action_line"
+		layoutpolicy_horizontal = expanding
+		size = { 0 34 }
+		maximumsize = { -1 34 }
+		spacing = 6
+		margin = { 4 4 }
+		alwaystransparent = no
+
+		block "tnt_action_line_visible" {}
+
+		### R-LAYOUT: whatever lands here is a direct child of this hbox, so it
+		### passes a plain `widget` and anchors the icon INSIDE it - same contract
+		### as block "tnt_toggle_line_icon".
+		block "tnt_action_line_icon" {}
+
+		button_standard = {
+			name = "tnt_action_line_button"
+			layoutpolicy_horizontal = expanding
+			size = { 0 26 }
+			using = tooltip_es
+
+			block "tnt_action_line_text"    { text = "tnt_btn_stage_marriage" }
+			block "tnt_action_line_tooltip" { tooltip = "tnt_btn_stage_marriage_full" }
+			block "tnt_action_line_click"   {}
+		}
+	}
+
+
+	### A 0..N level stepper with a NAMED level rather than a number: the shape
+	### the tax / levy obligation levels (item 2.5) and the hook tier (item 2.3)
+	### both need. R12: left click steps by one, right click jumps to the end,
+	### and `button_ignore = none` is mandatory or onrightclick never fires
+	### (vanilla's own stepper, GAME\gui\window_knights.gui:716-759).
+	### R-LAYOUT: neither button_round carries parentanchor - the hbox's height is
+	### its tallest child, so there is nothing to centre against.
+	type tnt_level_stepper = hbox
+	{
+		name = "tnt_level_stepper"
+		spacing = 4
+		alwaystransparent = no
+
+		button_round = {
+			name = "tnt_level_minus_button"
+			size = { 26 26 }
+			button_ignore = none
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_level_minus" {}
+
+			block "tnt_level_minus_big" {}
+
+			block "tnt_level_tt_minus" {}
+
+			button_minus_small = {
+				name = "tnt_level_dec"
+				parentanchor = center
+				alwaystransparent = yes
+			}
+		}
+
+		text_single = {
+			name = "tnt_level_text"
+			min_width = 118
+			max_width = 118
+			autoresize = no
+			align = nobaseline|center
+			default_format = "#high"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_level_label" {}
+		}
+
+		button_round = {
+			name = "tnt_level_plus_button"
+			size = { 26 26 }
+			button_ignore = none
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_level_plus" {}
+
+			block "tnt_level_plus_big" {}
+
+			block "tnt_level_tt_plus" {}
+
+			button_plus_small = {
+				name = "tnt_level_inc"
+				parentanchor = center
+				alwaystransparent = yes
+			}
+		}
+	}
+
+
+	### One half of the marriage pair editor: a big portrait over a name, the
+	### whole thing clickable to open that side's spouse list.
+	type tnt_pair_slot = widget
+	{
+		name = "tnt_pair_slot"
+		size = { 180 190 }
+		alwaystransparent = no
+
+		using = tooltip_es
+
+		block "tnt_pair_slot_context" {}
+
+		block "tnt_pair_slot_click" {}
+
+		block "tnt_pair_slot_tooltip" {}
+
+		vbox = {
+			size = { 100% 100% }
+			spacing = 6
+			alwaystransparent = yes
+
+			widget = {
+				name = "tnt_pair_portrait_holder"
+				layoutpolicy_horizontal = expanding
+				size = { 0 130 }
+				alwaystransparent = yes
+
+				portrait_head_small = {
+					name = "tnt_pair_portrait"
+					parentanchor = center
+				}
+			}
+
+			text_single = {
+				name = "tnt_pair_name"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = nobaseline|center
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+
+				block "tnt_pair_slot_name" {}
+			}
+
+			text_single = {
+				name = "tnt_pair_sub"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = nobaseline|center
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+
+				block "tnt_pair_slot_sub" {}
+			}
+		}
+	}
+
+}

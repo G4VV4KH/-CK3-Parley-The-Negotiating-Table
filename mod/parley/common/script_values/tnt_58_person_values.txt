@@ -1,0 +1,949 @@
+﻿###############################################################################
+# PARLEY — THE PRICE OF A PERSON.  Item 19, values domain (contract v1 §1.B).
+#
+# Ten values: the eight item prices of the four new people-terms, plus the two
+# courtier selection counters the ledger rows in tnt_50_values.txt need.
+#   HOSTAGES            tnt_val_hostage_p_value / _r_value
+#   GRANT INDEPENDENCE  tnt_val_indep_p_value / _r_value
+#   WARD / FOSTERAGE    *** RETIRED V16, USER ITEM 5 *** — section 3 below is a
+#                       tombstone; tnt_val_ward_p_value / _r_value are commented out
+#                       and have no consumer left anywhere in the mod. EIGHT LIVE
+#                       VALUES, not ten.
+#   COURTIER TRANSFER   tnt_val_courtier_multi_p_value / _r_value
+#                       tnt_count_sel_courtier_p_value / _r_value
+#
+# _p = THE PLAYER GIVES, _r = THE PARTNER GIVES. That is a COLUMN identity and
+# nothing else in this file may borrow the suffix (contract §1). Every _p price is
+# a member of tnt_gain_total_value; every _r price is a member of
+# tnt_loss_total_value; the sign lives in which column the row joins, never in the
+# number (invariant I6 — no price in this file may go negative, and each of the
+# four constructions below says explicitly where its clamp is).
+#
+# THE GUARD SHAPE IS NOT DECORATION AND IT IS THE SAME AS THE NEIGHBOURS'.
+# Invariant I1 says an EMPTY treaty reads exactly 0, and these ten values are read
+# on every frame the window is open, selected or not. So:
+#   * a single-object term tests `exists = var:tnt_<x>` (+ `> 0` for the two bools),
+#     exactly like tnt_val_vassal_p_value (tnt_50_values.txt:2157-2173);
+#   * a list-shaped term tests `has_variable_list` BEFORE it ever iterates or asks
+#     for a size — the engine logs an error for a size query on a list that was
+#     never created, and tnt_reset_offer_effect clears these lists on every window
+#     open, so "not created" is the NORMAL state, not an edge case. Vanilla pairs
+#     the same two in one block: GAME\common\achievements\ep2_achievements.txt:265-273.
+#     Shipped precedent in this mod: tnt_54_multiselect_values.txt:161-225, :985-995.
+#   * every object-valued variable is read through `?=` (Law 12), and the price is
+#     added INSIDE that block, so a variable pointing at somebody who no longer
+#     exists contributes nothing at all rather than a stale number.
+#
+# THE PARTNER IS NEVER A GUI SCOPE. root is the player and the partner arrives
+# through the R0.4 prologue `var:tnt_partner ?= { save_temporary_scope_as = tnt_p }`;
+# values that also need the PLAYER by name (because they hand him to a vanilla
+# value as a scope) run the tnt_me rescue block, whose full argument is at
+# tnt_52_marriage_values.txt:823-839.
+#
+# WHAT IS DELIBERATELY NOT HERE:
+#   * no AI archetype prices — contract R6 keeps all four terms out of the composer
+#     and the sandbox in this pass, so nothing in tnt_56/tnt_37 reads this file;
+#   * no negative rows for a courtier the partner minds losing. Vanilla's -25
+#     councillor and its rival row are REFUSALS in tnt_courtier_candidate_trigger
+#     (contract R5), not prices — a negative price would break I6 and would let a
+#     selection make the deal better by taking more;
+#   * no display wrappers (`tnt_shown_*`). The four panels do not exist yet; when
+#     B4 needs one it is a three-line value beside its term, multiplied by
+#     tnt_deal_mult_value, and it is NEVER added to a total
+#     (pattern: tnt_54_multiselect_values.txt:1029-1036).
+###############################################################################
+
+
+###############################################################################
+# 1. HOSTAGES — VANILLA'S OWN LADDER, FORWARDED WHOLE
+#
+# There is nothing to invent here and it would be wrong to try: CK3 already prices
+# exactly this transaction, on exactly these three scopes, in
+#   GAME\common\script_values\05_bp2_hostage_values.txt:413-620  hostage_value
+# which answers "what is THIS child, out of THAT court, worth to THIS warden" —
+# age inverted (younger is better), +20 an own child, +10 a grandchild, up to +100
+# for the place in the line of succession, -50 non-inheriting, -25 sickly, -15 bad
+# genes, +15 good ones, and three "he outranks me" ladders of 20 per level, plus
+# +10 neighbouring and +50 when the home court is the warden's own liege.
+#
+# HOW IT IS CALLED. Vanilla's own two forwards are the template, verbatim:
+#     interaction_actor_hostage_value      :623-633
+#         scope:actor = { save_temporary_scope_as = home_court }
+#         scope:recipient = { save_temporary_scope_as = warden }
+#         scope:secondary_actor = { save_temporary_scope_as = hostage }
+#         add = scope:hostage.hostage_value
+#     interaction_recipient_hostage_value  :636-647   — the SAME three names saved
+#         the other way round, and :850-855 sums the two in one expression. That
+#         pair is the proof that re-saving a temporary scope inside one evaluation
+#         overwrites it, which is what makes the _p and _r values below safe to
+#         evaluate in either order in the same frame.
+#     call_to_arms_hostage_value           :858-863   — save, then read
+#         hostage_value in the same block. That is the shape used below.
+#
+# THE ONE THING BOLTED ON: `min = 0` (contract R5). hostage_value is also a SORT
+# KEY in vanilla and is allowed to go negative for a sickly or non-inheriting
+# child; a negative price would put a gift into the wrong column and break I6.
+# A worthless hostage is worth nothing — he is never worth less than nothing.
+#
+# SCOPE ROLES, and they are the whole meaning of the two values:
+#   _p  home_court = the PLAYER (he hands over one of his own), warden = the partner
+#   _r  home_court = the PARTNER, warden = the player
+###############################################################################
+
+tnt_val_hostage_p_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_hostage_p
+			exists = var:tnt_partner
+		}
+		# The player's court is the home court; the partner is the warden.
+		scope:tnt_me = { save_temporary_scope_as = home_court }
+		scope:tnt_p = { save_temporary_scope_as = warden }
+		var:tnt_hostage_p ?= {
+			save_temporary_scope_as = hostage
+			add = {
+				value = hostage_value
+				min = 0
+				# THE FLOOR, AND ITS REASON IS NOW STATED HERE RATHER THAN BORROWED.
+				# It used to read "the same floor the ward ladder carries, and for the
+				# same reason (see section 3's clamp note)"; section 3 is a tombstone
+				# since V16 user item 5, so the argument lives here, on the surviving
+				# term that needs it. 10 IS THIS MOD'S OWN FLOOR FOR ONE UNREMARKABLE
+				# HUMAN BEING — the base rung of the prisoner ladder, which is itself
+				# retired with its term but whose rungs this file inherited and still
+				# uses at :492 for the courtier price, so the number is anchored in a
+				# live sibling and not in a dead section.
+				# WHY A FLOOR AT ALL: a term that prices to 0 is a row the
+				# player cannot see while the send gate counts it anyway. It is not
+				# theoretical here - vanilla's hostage_value carries three negative
+				# riders (-50 non-inheriting, -25 sickly, -15 bad genes) and falls
+				# with age, so an ordinary adult kinsman, a sickly child or a
+				# daughter under male-only succession all price under 10 and some
+				# price at 0. Without this floor the AI's hostage archetype composes
+				# a letter that then dies unseen in .0001's substance floor.
+				min = 10
+			}
+		}
+	}
+}
+
+tnt_val_hostage_r_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_hostage_r
+			exists = var:tnt_partner
+		}
+		# Mirror image: the partner's court is the home court, the player is the warden.
+		# The three scope names are re-saved here on purpose — vanilla's own :636-647
+		# does the same, and :850-855 proves the overwrite holds within one evaluation.
+		scope:tnt_p = { save_temporary_scope_as = home_court }
+		scope:tnt_me = { save_temporary_scope_as = warden }
+		var:tnt_hostage_r ?= {
+			save_temporary_scope_as = hostage
+			add = {
+				value = hostage_value
+				min = 0
+				# The mirror of the _p side's floor - see its note. This is the side
+				# the AI's own hostage archetype writes, so it is the one that was
+				# actually losing letters.
+				min = 10
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# 2. GRANT INDEPENDENCE — THE FEALTY TERM, READ BACKWARDS
+#
+# VANILLA PRICES THIS AT NOTHING, and that is a fact about the interaction and not
+# a gap we may fill with a number of our own choosing:
+#   grant_independence_interaction, GAME\common\character_interactions\00_character_interactions.txt:2132
+#   has `auto_accept = yes` (:2207) — no ai_accept block exists anywhere in the
+#   game for "I release you", because no vassal has ever refused his freedom.
+# So the only honest source is the reverse transaction, which vanilla DOES price
+# and which this mod has already imported: the fealty pair at tnt_50_values.txt:2126-2253,
+#   offer_fealty_interaction        base =  50   (00_character_interactions.txt:1445)
+#   offer_vassalization_interaction base = -50   (00_character_interactions.txt:144)
+#
+# ONE CROWN, ONE PRICE, WHICHEVER WAY IT TRAVELS. The body below is character for
+# character tnt_val_vassal_r_value's (tnt_50_values.txt:2175-2253):
+#     100 + 5 x <the realm that changes hands>, capped at 250
+# read on whoever REGAINS his sovereignty. The player who frees his vassal hands
+# back precisely what "you become my vassal" takes, so it is priced at precisely
+# what that term charges. Deliberately the 100 and not the 50: the 50/100 gap is
+# vanilla's offered-versus-demanded gap and it is already spent once in the fealty
+# pair; charging it again here would make a man cheaper to re-subjugate than to
+# free, which is an arbitrage and not a rule.
+#
+# DIRECTION, FIXED BY CONTRACT §1.B AND NOT TO BE INVERTED:
+#   _p  THE PLAYER RELEASES HIS VASSAL — and his vassal is the partner, which is
+#       why this term needs no picker and no panel. The partner regains HIS realm,
+#       so the size term is read on scope:tnt_p.
+#   _r  the partner releases the player. The player regains his own realm, so the
+#       size term is read on the current scope, which is root, which is the player
+#       — the same read tnt_val_vassal_p_value makes at :1770.
+# The two can never both be on the table (the partner cannot be liege and vassal at
+# once), and the cross-term guard tnt_no_indep_and_vassal_trigger keeps
+# independence and fealty out of one treaty; both live in tnt_42_people_gates.txt.
+# realm_size as a field: GAME\common\script_values\00_law_values.txt:615.
+###############################################################################
+
+tnt_val_indep_p_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_indep_p
+			var:tnt_indep_p > 0
+		}
+		add = {
+			value = 100
+			scope:tnt_p ?= {
+				add = {
+					value = realm_size
+					multiply = 5
+				}
+			}
+			max = 250
+		}
+	}
+}
+
+tnt_val_indep_r_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_indep_r
+			var:tnt_indep_r > 0
+		}
+		add = {
+			value = 100
+			add = {
+				value = realm_size
+				multiply = 5
+			}
+			max = 250
+		}
+	}
+}
+
+
+###############################################################################
+# 3. WARD / FOSTERAGE — *** RETIRED V16, USER ITEM 5 ***
+#
+# Both prices below are commented out. Their four consumers in tnt_50_values.txt
+# (tnt_gain_total_value, tnt_loss_total_value and the two tnt_balance_value ledger
+# rows) and their two GUI readers in gui/tnt_panels.gui went in the same pass, so
+# nothing reads either name.
+#
+# THE USER'S RULING: "too abusable on points — for immersion the ability to
+# take/send a hostage is enough." THE AUDIT AGREED, AND THE REST OF THIS BANNER IS
+# WHY. THE ORIGINAL DESIGN ARGUMENT IS KEPT VERBATIM BELOW, because it is still the
+# best statement of what the term was FOR, and a revival needs it. What follows
+# first is the verdict that overturned it.
+#
+#-----------------------------------------------------------------------------
+# THE VERDICT: THE ABUSE IS STRUCTURAL, NOT A NUMBER. Five reasons.
+#-----------------------------------------------------------------------------
+# (1) NOT ONE NUMBER — and the header below invites exactly that fix, calling
+#     multiply = 0.5 "the one number in this file that a playtest should be allowed
+#     to move". Moving it does not work. The case the player can MANUFACTURE at will
+#     is an 8-year-old SPARE offered to his own count vassal: 237 raw. Bringing that
+#     to about 20 points needs multiply = 0.084. At that scale a first-in-line heir
+#     offered to an equal prices 16 and everything below an heir collapses onto
+#     min = 10 — the term goes FLAT-PRICED, which is the exact defect this header
+#     rejected vanilla's own flat numbers for. THE EXTRACTION COMES FROM THE
+#     LADDER'S SHAPE, NOT ITS SCALE.
+# (2) WRONG LADDER. hostage_value prices what a WARDEN gains: prestige/piety/renown
+#     income (GAME\common\scripted_effects\05_bp2_hostage_effects.txt:518-580), a
+#     shot at the perpetual hostage_loyalty hook
+#     (GAME\common\hook_types\00_hook_types.txt:206-208 via
+#     GAME\common\on_action\childhood_on_actions.txt:348), and a person taken out of
+#     the home court's use (is_hostage = no gates
+#     bp2_valid_for_standard_interactions_trigger,
+#     GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:232). A GUARDIAN
+#     GAINS NONE OF IT: hostage_depart_effect STRIPS any guardian/ward relation as
+#     its first act (05_bp2_hostage_effects.txt:436-465), so vanilla treats warden
+#     and guardian as MUTUALLY EXCLUSIVE STATES. The header below reasons that "a
+#     ward is a hostage without the chain" and then charges half a hostage for it;
+#     the missing half is not a discount, it is a different transaction.
+# (3) WRONG DIRECTION. The ladder's three x20 rank gaps (dynasty renown, title tier,
+#     prestige level) and its +50 is_liege_or_above_of row all fire when the GIVER
+#     outranks the RECEIVER — and the player CHOOSES the receiver. Against his own
+#     count vassal (a legal partner: T1 widened the pool to liege/vassal pairs) those
+#     rows total +190, so up to +190 of the price is PLAYER-SELECTED, and it rises
+#     exactly where vanilla's guardian appetite rises LEAST (offer_ward_interaction's
+#     ai_accept is base = 0,
+#     GAME\common\character_interactions\00_education_interactions.txt:1340).
+#     WORKED: heir 96 / spare 33.5 between equals; heir 181 / spare 118.5 against the
+#     player's own count vassal. At tnt_gold_per_point_value = 10 (+5 vs a duke or
+#     above) that is 1,185-2,715 gold, and the whole _p column is then multiplied by
+#     tnt_deal_mult_value.
+# (4) THE ASSET COMES BACK, unlike every other _p term: the child stays his child,
+#     stays in the succession and returns at adulthood (remove_guardian_effect ...
+#     RETURN_WARD = yes, GAME\common\scripted_effects\00_education_effects.txt:2027-2032)
+#     — and the guardian PAYS THE PLAYER OPINION for the privilege
+#     (GAME\common\opinion_modifiers\00_childhood_opinions.txt:124/132/140,
+#     +25 / +15 / +50).
+# (5) THE LADDER CANNOT TELL A BASTARD FROM A SPARE, so the header's own claim
+#     directly below — that the child-sensitive ladder stops the player "shipping his
+#     least-loved bastard for the price of his heir" — IS HALF FALSE. True for
+#     heir-vs-spare (100 succession points apart); FALSE for bastard-vs-spare, which
+#     price IDENTICALLY (33.5 between equals, 118.5 against a vassal), because no row
+#     in hostage_value reads legitimacy and `has_trait_with_flag = can_not_marry` is
+#     the EUNUCH flag (GAME\common\traits\00_traits.txt:6646-6652), not a bastard's.
+#
+# AND THE ABUSABLE LEG HAD NO TELEMETRY. tnt_ward_p appears NOWHERE in
+# tnt_3b_log.txt — all three emitters read tnt_ward_r — so the _p direction was
+# invisible in all 9,362 TNTLOG lines of the 2026-08-17 run. Four rounds of
+# telemetry could not have caught this.
+#
+# THE ONE-CHANGE REPAIR, IF THIS TERM IS EVER REVIVED: the abuse is ENTIRELY in the
+# _p leg. Ship _r only — no tnt_ward_p row, no tnt_set_show_gate_effect
+# = { ITEM = ward_p }, no tnt_val_ward_p_value in tnt_gain_total_value — and the term
+# is not abusable at all, because a ward the player RECEIVES is a cost to him. That
+# is a two-line change, not a number. NOTE AGAINST IT: the AI's own _r letters (A15)
+# were declined 3 of 4 in the 2026-08-17 run, so _r-only would be unabusable but
+# also unloved.
+#
+# Full WARD TOMBSTONE, including what the hostage term does and does not inherit:
+# common\scripted_effects\tnt_32_apply.txt, TOMBSTONE W.
+#
+#-----------------------------------------------------------------------------
+# WHAT FOLLOWS IS THE ORIGINAL SECTION 3 HEADER, KEPT VERBATIM AS THE TOMBSTONE.
+# Read it for the design intent; read the verdict above for why it did not hold.
+#-----------------------------------------------------------------------------
+###############################################################################
+# ###############################################################################
+# # 3. WARD / FOSTERAGE — HALF A HOSTAGE, AND THE HALF IS THE ONLY INVENTED NUMBER
+# #
+# # A ward is a hostage without the chain. Same child, same foreign hall, the same
+# # years of his life — but he is a guest, he comes home educated, and the guardian
+# # gets no hook, no ransom and no lever in a war. Everything that makes one child
+# # worth more than another is identical in the two cases (his age, his blood, his
+# # place in the succession, how far the two houses stand apart), and vanilla has
+# # already written that ladder once, in hostage_value. So the ward reads the SAME
+# # ladder and takes half of it.
+# #
+# # WHY NOT VANILLA'S OWN FOSTERAGE NUMBERS. They exist, and they are flat:
+# #   offer_guardianship_interaction ai_accept, GAME\common\character_interactions\00_education_interactions.txt:2559
+# #     base = -50 (:2560), -100 more when it is the parent's own child going to a
+# #     FOREIGN court (:2600-2615) — our case exactly — +25 when the guardian is
+# #     family (:2631-2638), +100 when the asker is his liege (:2570-2574);
+# #   offer_ward_interaction ai_accept, same file :1339
+# #     base = 0 (:1340), +100 if the child is the would-be guardian's own
+# #     (:1392-1399), +50 respect the liege (:1385-1389).
+# # Read together they say a fosterage into a foreign court is worth about 150 to
+# # the parent and near 0 to the guardian — and NEITHER figure changes by a point
+# # depending on WHICH child is sent. A term whose price never moves teaches the
+# # player nothing and lets him ship his least-loved bastard for the price of his
+# # heir. The child-sensitive ladder is the better instrument, and it happens to
+# # land in the same band: half of hostage_value is about 20 for an ordinary young
+# # child and about 70 for a first-in-line heir, against vanilla's flat 150 for the
+# # most reluctant case in the game.
+# #
+# # THE CLAMPS, in order, and each one earns its place:
+# #   min = 0   before the halving — hostage_value is also a sort key in vanilla and
+# #             may be negative for a sickly or non-inheriting child (I6);
+# #   multiply = 0.5  the ratio described above. It is OURS. It is also the one
+# #             number in this file that a playtest should be allowed to move.
+# #   min = 10  after it — a ward that is on the table is a term, and a term that
+# #             prices to 0 is a row the player cannot see and the send gate counts
+# #             anyway. 10 is this mod's own floor for one unremarkable human being
+# #             (the prisoner ladder's base rung — that ladder is RETIRED with its
+# #             term and commented out at tnt_50_values.txt §8, so the numbers are
+# #             now THIS file's own; the rung itself does not move).
+# # All three sit INSIDE the `?=` block, so an unselected term — or a variable
+# # pointing at a child who has died — adds nothing at all rather than the floor.
+# #
+# # THE GUARDIAN IS THE PARTNER RULER HIMSELF. There is no sub-picker (contract
+# # §1.B), so scope:warden is scope:tnt_p on the _p side and the player on the _r
+# # side, exactly as for hostages.
+# ###############################################################################
+#
+# tnt_val_ward_p_value = {
+# 	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+# 	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+# 	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+# 	if = {
+# 		limit = { NOT = { exists = scope:tnt_me } }
+# 		if = {
+# 			limit = { exists = scope:actor }
+# 			scope:actor = { save_temporary_scope_as = tnt_me }
+# 		}
+# 		else = { save_temporary_scope_as = tnt_me }
+# 	}
+# 	value = 0
+# 	if = {
+# 		limit = { NOT = { exists = scope:tnt_p } }
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+# 	}
+# 	if = {
+# 		limit = {
+# 			exists = var:tnt_ward_p
+# 			exists = var:tnt_partner
+# 		}
+# 		# The player's child, into the partner's court: home court player, guardian partner.
+# 		scope:tnt_me = { save_temporary_scope_as = home_court }
+# 		scope:tnt_p = { save_temporary_scope_as = warden }
+# 		var:tnt_ward_p ?= {
+# 			save_temporary_scope_as = hostage
+# 			add = {
+# 				value = hostage_value
+# 				min = 0
+# 				multiply = 0.5
+# 				min = 10
+# 			}
+# 		}
+# 	}
+# }
+#
+# tnt_val_ward_r_value = {
+# 	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+# 	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+# 	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+# 	if = {
+# 		limit = { NOT = { exists = scope:tnt_me } }
+# 		if = {
+# 			limit = { exists = scope:actor }
+# 			scope:actor = { save_temporary_scope_as = tnt_me }
+# 		}
+# 		else = { save_temporary_scope_as = tnt_me }
+# 	}
+# 	value = 0
+# 	if = {
+# 		limit = { NOT = { exists = scope:tnt_p } }
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+# 	}
+# 	if = {
+# 		limit = {
+# 			exists = var:tnt_ward_r
+# 			exists = var:tnt_partner
+# 		}
+# 		# The partner's child, into the player's court: the roles swap, the ladder does not.
+# 		scope:tnt_p = { save_temporary_scope_as = home_court }
+# 		scope:tnt_me = { save_temporary_scope_as = warden }
+# 		var:tnt_ward_r ?= {
+# 			save_temporary_scope_as = hostage
+# 			add = {
+# 				value = hostage_value
+# 				min = 0
+# 				multiply = 0.5
+# 				min = 10
+# 			}
+# 		}
+# 	}
+# }
+
+
+###############################################################################
+# 4. COURTIER TRANSFER — PRICED PER HEAD, ON THIS MOD'S OWN SCALE FOR A PERSON
+#
+# THE VANILLA SOURCE IS demand_courtier_interaction,
+# GAME\common\character_interactions\00_tributary_interactions.txt:3492, whose
+# ai_accept (:3707-3802) is a list of reasons the OWNER minds losing the man:
+#     -25 he is a councillor or holds a court position   :3747-3756
+#     -15 he is a knight                                 :3758-3764
+#     -50 he has an inspiration                          :3766-3770
+#     -25 he is the owner's close or extended family     :3772-3778
+#     -50 he is the owner's friend                       :3780-3786
+#   +1000 he is the RIVAL of the owner                   :3795-3801
+# and whose ai_will_do (:3809-3861) carries ONE +100 row with an OR list of the
+# reasons the asker wants him: good sum of skills, monumental martial, extreme
+# prowess, an inspiration, or a friend/lover of the asker.
+#
+# WHY THOSE MAGNITUDES ARE NOT COPIED. They are vanilla acceptance points for a
+# whole interaction; this ledger already carries the mod's own scale for a human
+# being, and it is the prisoner ladder — 10 for a nobody, +15 if he is the other
+# man's kin, +25 more for a landed count. THE LADDER IS RETIRED WITH ITS TERM
+# (commented out at tnt_50_values.txt §8 and in tnt_54_multiselect_values.txt), so
+# it is reproduced in the four rows below and is now THIS FILE'S OWN. Nothing about
+# the sizing changes: one person moving from one court to another must cost the
+# same whatever the window calls him, or the player will simply use the cheaper
+# word. So vanilla's list decides WHICH rung, and that ladder decides how big a
+# rung is.
+#
+# THE THREE ROWS, per selected head:
+#     10   any adult head (the ladder's base rung)
+#    +15   close or extended family of the court he is leaving
+#          (vanilla's AI_FAMILY_REASON says the giver minds; the ladder above
+#           says kinship is worth 15 in this window)
+#    +25   EXCEPTIONAL, ONE CHARGE ONLY — five legs of an if / else_if chain, never
+#          a sum (contract R5): an inspired, monumentally skilled, extremely
+#          prowessed man who is also the receiver's friend is one very good man,
+#          not four, and summing the legs would price him at 110 and make the third
+#          head in the selection look free by comparison.
+# So an ordinary courtier is 10, the giver's own cousin 25, and the ceiling for one
+# head is 50.
+#
+# THE LIST IS UNCAPPED (V11, user item 2: the cap of three was retired from
+# tnt_24_people.txt's two courtier add-entries, so courtiers now behave like every
+# other multi-select term), so the TERM has no ceiling — only a per-head price.
+# Nothing above needed re-tuning for that: the value was always per-head and
+# unbounded, and what discourages an over-large offer is the balance itself.
+#
+# V11: THE +10 KNIGHT ROW IS RETIRED, AND IT WAS ALWAYS DEAD ARITHMETIC.
+# It read `is_knight_of = $SENDER$` — the very court the man is leaving — and
+# tnt_courtier_candidate_trigger refuses a knight of that same $SENDER$ outright
+# (tnt_42_people_gates.txt:711, vanilla's own row from
+# 00_courtier_guest_management_triggers.txt:398). That trigger is the ONLY thing
+# that fills tnt_list_courtier_p/_r (tnt_3a_people.txt:261-274, :293-306) and the
+# only thing that re-validates the exec leg (:371-379), so no member of either
+# selection list could ever satisfy the row. The header used to advertise "an
+# exceptional household knight 45" and a per-head ceiling of 60 — a class this term
+# cannot move at all, and a number it could never reach. Vanilla's
+# AI_IS_KNIGHT_REASON is therefore deliberately NOT priced here; if knights should
+# ever become transferable, the change is to the gate at tnt_42_people_gates.txt:711
+# and it needs its own ruling, because that row is vanilla's.
+#
+# WHAT IS *NOT* PRICED, on purpose: the councillor, the rival and the knight.
+# Contract R5 makes all three REFUSALS in tnt_courtier_candidate_trigger
+# (tnt_42_people_gates.txt) instead of prices, because a negative row here would
+# break I6 and would let a player improve his own offer by adding another name to
+# it (I4).
+#
+# IDENTIFIERS USED HERE, each with a real call site:
+#   (is_knight_of, GAME\common\character_interactions\00_tradition_interactions.txt:27,
+#    was here and is no longer used by either ladder — see the V11 note above.)
+#   is_close_or_extended_family_of, inside a script value
+#                             GAME\common\script_values\00_mongol_values.txt:142
+#   sum_of_all_skills_value / sum_of_all_skills_threshold_good
+#                             GAME\common\script_values\00_basic_values.txt:599 / :634
+#                             (the threshold is 5 x high_skill_rating), compared as
+#                             one against the other verbatim at
+#                             00_tributary_interactions.txt:3541 and :3818
+#   monumentally_high_skill_rating = 25 / extremely_high_skill_rating = 20
+#                             GAME\common\script_values\00_basic_values.txt:479 / :478
+#   exists = inspiration      00_tributary_interactions.txt:3821
+#   has_relation_friend / has_relation_lover  :3816-3817
+# every_in_list over a list of characters puts the courtier himself in scope, so
+# every test above reads off him with no scope juggling — the same arrangement the
+# captive list uses at tnt_54_multiselect_values.txt:996-1025.
+###############################################################################
+
+tnt_val_courtier_multi_p_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_partner
+			has_variable_list = tnt_sel_courtier_p
+		}
+		every_in_list = {
+			variable = tnt_sel_courtier_p
+			add = {
+				value = 10
+				# The court he is LEAVING is the player's, so kin and knighthood read on him.
+				if = {
+					limit = { is_close_or_extended_family_of = scope:tnt_me }
+					add = 15
+				}
+				# (The +10 knight row stood here and is RETIRED as unreachable —
+				# see the ladder header.)
+				# ONE charge for being exceptional. if / else_if, never a sum (R5).
+				if = {
+					limit = { exists = inspiration }
+					add = 25
+				}
+				else_if = {
+					limit = { sum_of_all_skills_value >= sum_of_all_skills_threshold_good }
+					add = 25
+				}
+				else_if = {
+					limit = { martial >= monumentally_high_skill_rating }
+					add = 25
+				}
+				else_if = {
+					limit = { prowess >= extremely_high_skill_rating }
+					add = 25
+				}
+				else_if = {
+					# The receiving side's own attachment to the man — vanilla's
+					# ai_will_do reason, read against the partner because he is the
+					# one being handed the courtier on this side of the ledger.
+					limit = {
+						OR = {
+							has_relation_friend = scope:tnt_p
+							has_relation_lover = scope:tnt_p
+						}
+					}
+					add = 25
+				}
+			}
+		}
+	}
+}
+
+# Display wrapper, exactly as for the other three _p terms (title/claim/artifact at
+# tnt_54_multiselect_values.txt:949-965; the captive wrapper was the fourth and is
+# RETIRED, commented out in that file with its term): the base value
+# above is a member of the SCALED gain side (tnt_50_values.txt:2385, inside
+# tnt_gain_total_value, which the headline multiplies by tnt_deal_mult_value), so a
+# panel quoting the raw value quotes a number in the wrong currency — the exact
+# "+50 and +40 gives +110" defect the wrapper family exists to prevent. The courtier
+# _p panel was the last one still doing that (defect D4); the GUI must quote THIS
+# name, never the base. The _r side deliberately gets no wrapper: demands are
+# unscaled (I5), so the raw _r value is already the right currency.
+# NEVER add this to any total — the base value is already in tnt_gain_total_value,
+# and adding this would apply the multiplier twice.
+tnt_shown_courtier_multi_p_value = {
+	value = tnt_val_courtier_multi_p_value
+	multiply = tnt_deal_mult_value
+	round = yes
+}
+
+tnt_val_courtier_multi_r_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_partner
+			has_variable_list = tnt_sel_courtier_r
+		}
+		every_in_list = {
+			variable = tnt_sel_courtier_r
+			add = {
+				value = 10
+				# Mirror image: these men leave the PARTNER's court and arrive in the
+				# player's, so the "his court minds" row reads on scope:tnt_p and
+				# the attachment row reads on the player.
+				if = {
+					limit = { is_close_or_extended_family_of = scope:tnt_p }
+					add = 15
+				}
+				# (The +10 knight row stood here and is RETIRED as unreachable — the
+				# candidate trigger refuses a knight of scope:tnt_p, who is $SENDER$
+				# on this side. See the ladder header.)
+				if = {
+					limit = { exists = inspiration }
+					add = 25
+				}
+				else_if = {
+					limit = { sum_of_all_skills_value >= sum_of_all_skills_threshold_good }
+					add = 25
+				}
+				else_if = {
+					limit = { martial >= monumentally_high_skill_rating }
+					add = 25
+				}
+				else_if = {
+					limit = { prowess >= extremely_high_skill_rating }
+					add = 25
+				}
+				else_if = {
+					limit = {
+						OR = {
+							has_relation_friend = scope:tnt_me
+							has_relation_lover = scope:tnt_me
+						}
+					}
+					add = 25
+				}
+			}
+		}
+	}
+}
+
+# --- the two courtier counters ------------------------------------------------
+# Same shape as the seven counters of tnt_54_multiselect_values.txt:161-225 and
+# :1039-1050, and they exist for the same two reasons: tnt_balance_value must be
+# able to ask "is anything selected?" without touching a list that may not exist,
+# and tnt_items_count_value — the send gate — must count each chosen head as one
+# term, because with multi-select each chosen object IS a term.
+# has_variable_list first, always: a size query on a list that was never created
+# is an error line per frame, and an empty list is this window's normal state.
+# The panel badge may read these too; nothing else does.
+tnt_count_sel_courtier_p_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_courtier_p }
+		every_in_list = {
+			variable = tnt_sel_courtier_p
+			add = 1
+		}
+	}
+}
+
+tnt_count_sel_courtier_r_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_courtier_r }
+		every_in_list = {
+			variable = tnt_sel_courtier_r
+			add = 1
+		}
+	}
+}
+
+
+###############################################################################
+# SECTION 6 — TRANSFER A VASSAL   *** THE THIRD PEOPLE TERM (V26) ***
+#
+# VANILLA HAS NO SCRIPTED PRICE FOR THIS AND THAT IS A MEASURED FACT, NOT AN
+# ASSUMPTION. grant_vassal_interaction ends with the line
+# "# AI handled entirely though code"
+# (GAME\common\character_interactions\00_vassal_interactions.txt:336) and
+# carries neither ai_accept nor ai_will_do. So the price is ASSEMBLED FROM
+# VANILLA NUMBERS rather than invented, and each of the four anchors is named
+# here with the line it comes from.
+#
+#   (1) 40 — granted_vassal, opinion 40 for 10 years
+#       (GAME\common\opinion_modifiers\00_title_opinions.txt:32-35). This is
+#       vanilla's ONLY direct statement of what one vassal changing liege is
+#       worth to the man who receives him, and note that it is FLAT: vanilla
+#       does not scale it by the vassal's size at all.
+#   (2) + 5 x realm_size — the mod's own scale for "how much realm actually
+#       changes hands", lifted verbatim from tnt_val_vassal_p/_r_value
+#       (tnt_50_values.txt section 4.C item 12), which is itself derived from
+#       vanilla's become_tributary +50 / demand_tributary -60 gap. A one-county
+#       count and a fifteen-county duke are not the same gift, and (1) alone
+#       cannot say so.
+#   (3) max = 200 — dominant_positive_ai_value
+#       (GAME\common\script_values\00_ai_values.txt:27), the top rung vanilla
+#       has and the same ceiling tnt_val_vassal_p_value already uses. IT IS
+#       WRITTEN LAST ON PURPOSE: a cap applied before the de jure multiplier
+#       would not be a cap at all.
+#   (4) x 1.4 when the land is already the receiver's by right — the ratio the
+#       ceded-county ladder already ships for exactly this fact
+#       (tnt_54_multiselect_values.txt, the de jure row of
+#       tnt_val_title_multi_p/_r_value). Reusing it keeps "de jure" worth the
+#       same everywhere in the window.
+#
+# WHAT THE LADDER PRODUCES, so a later round can check it without re-deriving:
+#   count, 1 county          45
+#   duke, 6 counties         70
+#   duke, 15 counties       115
+#   a large liege           capped at 200
+# At the base gold rate of 10 per point (tnt_50_values.txt, tnt_gold_base_rate_value)
+# that is 450 to 2,000 coins — inside a real wallet, which is lesson A13: an
+# object the payer cannot afford dies silently and takes its whole letter with
+# it.
+#
+# *** NO VASSAL-LIMIT DISCOUNT, AND THIS IS THE STANDING RULING RATHER THAN AN
+# *** OVERSIGHT. *** User item 13 threw the domain-limit discounts out of the
+# title price for two reasons that apply here word for word: a receiver already
+# over his limit would mark down everything offered to him, and on the _r side a
+# discount on what the PARTNER hands over sits in tnt_loss_total_value, which
+# the headline SUBTRACTS — so a player who kept himself over his own limit would
+# buy vassals cheaply from everybody. Vanilla agrees about the DIRECTION too: it
+# does not discount an over-limit transfer, it REFUSES it —
+# `vassal_limit_available < 1` gives `add = -1000` in its own ai_will_do
+# (GAME\common\character_interactions\00_character_interactions.txt:244-254), and
+# grant_vassal's own AI row is a hard `vassal_count < vassal_limit` test
+# (00_vassal_interactions.txt:77). A limit is a refusal or it is nothing.
+#
+# THE SIGN. Both per-item values return >= 0 (I6), _p is an ordinary unsigned
+# member of tnt_gain_total_value (the partner RECEIVES vassals, so he gains) and
+# _r an ordinary unsigned member of tnt_loss_total_value (he GIVES them up); the
+# minus lives in the headline's own subtraction and in the ledger row's
+# `multiply = -1`. That is the doctrine of section 0.3 in tnt_55_hc_values.txt
+# and the exact wiring the courtier pair above uses. THE NINE-OBLIGATION
+# EXCEPTION (pre-signed values) DOES NOT APPLY HERE and must not be borrowed.
+#
+# `realm_size`: field, GAME\common\script_values\00_law_values.txt:615.
+# `any_this_title_or_de_jure_above` in a script value's limit:
+#   the ceded-title ladder in tnt_54_multiselect_values.txt, quoting
+#   GAME\common\character_interactions\00_character_interactions.txt:2189.
+# `add = <named script value>` inside every_in_list, evaluated in the ITEM's
+#   scope: tnt_val_artifact_multi_p_value (tnt_54_multiselect_values.txt) does
+#   exactly this with tnt_artifact_piece_value.
+###############################################################################
+
+# --- THE HEAD CORE. SCOPE: THE VASSAL BEING TRANSFERRED. ---------------------
+# DIRECTION-NEUTRAL except for one row, and that row reads a saved scope rather
+# than a parameter, because a script value cannot take parameters. The two
+# wrappers below each write scope:tnt_subject_recv immediately before their own
+# loop; the name is used nowhere else in the mod. Guarded with `exists` (R13):
+# with no receiver saved the de jure row simply does not apply and the head
+# degrades to the plain 40 + 5 x realm_size, which is the correct answer for a
+# partnerless evaluation rather than a throw.
+tnt_subject_head_value = {
+	value = 40
+	add = {
+		value = realm_size
+		multiply = 5
+	}
+	if = {
+		limit = {
+			exists = scope:tnt_subject_recv
+			primary_title ?= {
+				any_this_title_or_de_jure_above = {
+					holder ?= scope:tnt_subject_recv
+				}
+			}
+		}
+		multiply = 1.4
+	}
+	max = 200
+}
+
+# --- the player's side: HE hands vassals to the partner ----------------------
+tnt_val_subject_multi_p_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_partner
+			has_variable_list = tnt_sel_subject_p
+		}
+		# On THIS side the receiver is the partner. Written unconditionally and
+		# immediately before the loop: the two wrappers deliberately share the
+		# name and each one owns it for the length of its own iteration.
+		scope:tnt_p ?= { save_temporary_scope_as = tnt_subject_recv }
+		every_in_list = {
+			variable = tnt_sel_subject_p
+			add = tnt_subject_head_value
+		}
+	}
+}
+
+# Display wrapper — THE SAME RULE AND THE SAME DEFECT (D4) AS THE COURTIER
+# WRAPPER ABOVE. The base value is a member of the SCALED gain side
+# (tnt_gain_total_value, which the headline multiplies by tnt_deal_mult_value),
+# so a panel or a sheet row quoting the raw value quotes a number in the wrong
+# currency. The GUI must quote THIS name, never the base. The _r side gets no
+# wrapper: demands are unscaled (I5).
+# NEVER add this to any total — the base is already in tnt_gain_total_value, and
+# adding this would apply the multiplier twice.
+tnt_shown_subject_multi_p_value = {
+	value = tnt_val_subject_multi_p_value
+	multiply = tnt_deal_mult_value
+	round = yes
+}
+
+# --- the partner's side: HE hands vassals to the player ----------------------
+tnt_val_subject_multi_r_value = {
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_partner
+			has_variable_list = tnt_sel_subject_r
+		}
+		# Mirror image: these men arrive in the PLAYER's realm, so he is the
+		# receiver the de jure row asks about.
+		scope:tnt_me ?= { save_temporary_scope_as = tnt_subject_recv }
+		every_in_list = {
+			variable = tnt_sel_subject_r
+			add = tnt_subject_head_value
+		}
+	}
+}
+
+# --- the two subject counters -------------------------------------------------
+# Same shape and the same two reasons as the courtier counters above:
+# tnt_balance_value must be able to ask "is anything selected?" without touching
+# a list that may not exist, and tnt_items_count_value — the send gate — must
+# count each chosen head as one term, because with multi-select each chosen
+# object IS a term.
+# has_variable_list first, always.
+tnt_count_sel_subject_p_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_subject_p }
+		every_in_list = {
+			variable = tnt_sel_subject_p
+			add = 1
+		}
+	}
+}
+
+tnt_count_sel_subject_r_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_subject_r }
+		every_in_list = {
+			variable = tnt_sel_subject_r
+			add = 1
+		}
+	}
+}

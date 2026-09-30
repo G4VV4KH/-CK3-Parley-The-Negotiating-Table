@@ -1,0 +1,1011 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — script values, part 3 of 3
+# USER ITEM 2.4 — THE THREE TRADEABLE CURRENCIES: PRESTIGE, PIETY, INFLUENCE
+#
+# 26 values: 1 influence-availability helper                          §1
+#          + 3 per-point unit prices                                 §1b
+#          + 6 per-item valuations (3 currencies x 2 sides)           §2
+#          + 6 affordability shortfalls (3 currencies x 2 sides)      §3
+#          + 2 auto-balance targets      (v3 iteration 3, ADD-3)      §4
+#          + 3 letter-generosity values  (user items 5+9)             §4b
+#          + 5 standard-payment presets  (v3 iteration 3, ADD-2)      §5
+# (plus tnt_ab_mult_floor_value, the division-guarded multiplier, between §4
+#  and §4b - it predates the count line and is argued in place.)
+#
+# Authority: 30-V2-DESIGN §1 row 2.4 (verdict AMBER, mechanism named) and
+# 41-hooks-prestige-contracts.md §2 (the evidence). The user asked for prestige
+# AND piety AND influence; report 41 declared influence out of scope for v2 and
+# the user overruled that, so influence is here, gated (see §0.3).
+#
+# ---------------------------------------------------------------------------
+# §0.1  THE EXCHANGE RATE — WHERE THE NUMBERS COME FROM
+# ---------------------------------------------------------------------------
+# Not invented. Vanilla ships a two-sided bribe menu with SEVEN currencies whose
+# charged amount and AI-acceptance bonus are defined side by side, which pins the
+# rate exactly:
+#   amounts   GAME\common\script_values\00_scheme_values.txt:51-209
+#               bribe_value / greater_bribe_value      :51-96, :146-149
+#               prestige_bribe_value  = medium_prestige_value + 25*actor_tier
+#                                                     + 25*recipient_tier   :151-164
+#               influence_bribe_value = major_influence_value + …           :181-194
+#               piety_bribe_value     = medium_piety_value + …              :196-209
+#   acceptance GAME\common\scripted_modifiers\00_scheme_scripted_modifiers.txt:545-775
+#               gold (large, ~300 g)   +20                       :567-581, :599-613
+#               prestige (300)         +20  (arrogant +10 / humble -10)  :646-666
+#               influence (250)        +20  (ambitious +10 / content -10) :667-687
+#               piety (250)            +20  (zealous +10)                 :739-754
+#   constants  medium_prestige_value 150, major_prestige_value 350
+#                                     GAME\common\script_values\00_basic_values.txt:1000-1005
+#              medium_piety_value 100                            :1119-1124
+#              major_influence_value 100, monumental_influence_value 250
+#                                     GAME\common\script_values\07_ep3_values.txt:4-9
+#
+#   ==> 300 prestige == 300 gold == 250 piety == 250 influence == +20 AI points
+#   ==> 1 prestige = 1.0 gold  ·  1 piety = 1.2 gold  ·  1 influence = 1.2 gold
+#
+# Second, independent corroboration that prestige tracks gold roughly 1:1 for the
+# AI: demanding a tributary costs `cost = { prestige = minor_prestige_value }` (75)
+# at GAME\common\character_interactions\00_tributary_interactions.txt:886-888, and
+# fp3 vassalisation costs `medium_prestige_value` (150) at
+# GAME\common\character_interactions\00_fp3_interactions.txt:1831-1833 — the same
+# band vanilla charges in gold for the same favours.
+#
+# ---------------------------------------------------------------------------
+# §0.2  v3 ITERATION 2 — EACH CURRENCY NOW HAS ITS OWN VANILLA UNIT PRICE, AND
+#       THE INCOME DIVISOR IS GONE
+# ---------------------------------------------------------------------------
+# WHAT THIS REPLACES. Iterations 0-1 priced every currency as
+#     amount x <gold-relative rate> / tnt_partner_year_income_value x 100
+# because the mod's currency was "100 points ~= one year of the partner's income".
+# The rates themselves (1.0 / 1.2 / 1.2) were correctly derived in §0.1 above and
+# they are NOT what changed. What changed is the denominator: that currency is not
+# vanilla's, and it is not even a fixed multiple of vanilla's, because it drifts
+# with the partner's income. See the CALIBRATION block at the top of
+# tnt_50_values.txt for the full argument.
+#
+# WHAT REPLACES IT. §0.1 already establishes that vanilla's bribe menu buys +20
+# acceptance points for one `prestige_bribe_value`, one `piety_bribe_value` or one
+# `influence_bribe_value`. Those three amounts are not constants — they are
+# TIER-DRIVEN, and vanilla writes them out in full:
+#     prestige_bribe_value  = 150 + 25 x actor tier + 25 x recipient tier
+#                             GAME\common\script_values\00_scheme_values.txt:151-164
+#     piety_bribe_value     = 100 + 25 x actor tier + 25 x recipient tier   :196-209
+#     influence_bribe_value = 100 + 25 x actor tier + 25 x recipient tier   :181-194
+#     (bases: medium_prestige_value 150, medium_piety_value 100,
+#      major_influence_value 100 — the same three constants §0.1 cites)
+# Divide by the +20 each of them buys and the unit price falls out exactly:
+#     prestige  per point = 7.5 + 1.25 x (my tier + his tier)
+#     piety     per point = 5   + 1.25 x (my tier + his tier)
+#     influence per point = 5   + 1.25 x (my tier + his tier)
+# which for the four like-for-like pairings is
+#     count<->count   prestige 12.5   piety 10     influence 10
+#     duke <->duke    prestige 15     piety 12.5   influence 12.5
+#     king <->king    prestige 17.5   piety 15     influence 15
+#     emperor<->emp.  prestige 20     piety 17.5   influence 17.5
+# Those are the four values §1b below returns, and they are the divisors the six
+# valuations of §2 use. **THE FLAT RATE IS WHAT VANILLA ACTUALLY USES: its exchange
+# rates key off TIER and never off income.**
+#
+# THE FOUR CURRENCIES STAY MUTUALLY CONSISTENT BY CONSTRUCTION, which was §0.2's
+# original concern and is still satisfied — more strictly than before. Every one of
+# the four (gold in tnt_50_values.txt, these three here) is now
+#     amount / <that currency's own vanilla bribe unit price>
+# so all four are denominated in the same raw acceptance point, tnt_gain_total_value
+# and tnt_loss_total_value still add apples to apples, and the four printed figures
+# still sum to the headline. The old §0.2 achieved consistency by forcing three
+# currencies through gold's divisor; this achieves it by giving each currency the
+# divisor vanilla gives it, which is both more accurate and no less consistent.
+# Retune by editing the three per-point values of §1b and nothing else.
+#
+# The old consequence-to-accept ("a pauper values 300 prestige as highly as 300
+# gold") is likewise gone: 300 prestige to a duke is now +20 and 300 gold to the
+# same duke is +20, which is exactly what vanilla's own two bribe rows pay.
+#
+# No max clamp, matching tnt_val_gold_p_value which has none either — vanilla's
+# bands are linear (1x -> +10, 2x -> +20), so a linear uncapped rate is the faithful
+# extrapolation. The steppers' affordability clamp — the giver's stock — is the
+# only ceiling since user item 4 removed the sanity literals (see §0.5).
+#
+# ---------------------------------------------------------------------------
+# §0.3  INFLUENCE IS GOVERNMENT-GATED, AND THE GUI CANNOT TEST THAT ITSELF
+# ---------------------------------------------------------------------------
+# Influence is the Roads to Power administrative currency, not a general
+# resource. It exists only for governments carrying the flag
+# `government_has_influence`:
+#   administrative_government   GAME\common\governments\00_government_types.txt:490
+#   celestial_government        :816
+#   steppe_admin_government     :1116
+#   japan_administrative_government
+#                               GAME\common\governments\01_japan_government_types.txt:73
+# Vanilla's own influence send-option gates on exactly that flag:
+#   GAME\common\character_interactions\00_character_interactions.txt:1311-1319
+#     is_shown = { scope:actor = { government_has_flag = government_has_influence } }
+#     is_valid = { scope:actor = { influence >= medium_influence_value } }
+#
+# A script value CAN call government_has_flag. THE GUI CANNOT — the data-binding
+# layer has no such datafunction, and a per-row GetScriptedGui call is forbidden
+# by Law 11. So the sgui author writes two MIRROR VARIABLES on the player when the
+# window opens:
+#     tnt_infl_ok_p = 1  if the PLAYER'S   government has the flag, else 0 (or unset)
+#     tnt_infl_ok_r = 1  if the PARTNER'S  government has the flag, else 0 (or unset)
+# and everything on this side reads only those mirrors. That keeps the flag test
+# in script, where it is legal, and gives the GUI a plain 0/1 to bind to.
+#
+# BOTH mirrors are required for EITHER direction, because a transfer needs a pool
+# at both ends: `change_influence` on a character whose government has no
+# influence is a silent no-op, so a one-sided influence row would look paid for
+# and do nothing. Report 41 §2.3 reaches the same conclusion: "Gate the whole
+# influence row on … for both sides, else hide it."
+#
+# UNSET IS SAFE. If the sgui half has not shipped yet, or the window was opened by
+# an older save, the mirrors do not exist, tnt_influence_ok_value returns 0, and
+# every influence value here returns 0. Nothing errors and nothing is priced.
+#
+# ---------------------------------------------------------------------------
+# §0.4  WHY SHORTFALLS ARE MANDATORY HERE AND NOT MERELY TIDY
+# ---------------------------------------------------------------------------
+# There is no transfer effect for any of the three (`transfer_prestige`,
+# `pay_prestige`, `pay_short_term_prestige`, `add_influence`, `remove_influence`,
+# `remove_prestige` — ALL BLACKLISTED, all confirmed absent, report 41 §2.1/§2.9).
+# The only mechanism is two independent calls, vanilla's own pattern at
+# GAME\common\character_interactions\00_invite_agent_to_scheme.txt:166-176:
+#     add_prestige = { value = <amount>  multiply = -1 }
+#     scope:recipient = { add_prestige = <amount> }
+# That is NOT atomic and NOT conserved: a giver with less than the amount is
+# simply driven NEGATIVE, silently. Prestige, piety and influence can all go
+# below zero — vanilla tests for it: `prestige < 0`
+# (GAME\common\character_interactions\00_diarch_interactions.txt:3137), `piety < 0`
+# (GAME\common\script_values\00_war_values.txt:549), and gates its own bribes with
+# `scope:actor.prestige >= prestige_bribe_value` / `scope:actor.piety >= piety_bribe_value`
+# (GAME\common\character_interactions\00_invite_agent_to_scheme.txt:673, :911).
+# So the ONLY thing standing between a player and an accidental -4000 prestige is
+# the send gate. The six values below are what it reads.
+#
+# SIGN CONVENTION, identical to tnt_gold_shortfall_value:
+#     > 0   the giver cannot pay        (tnt_send_offer.is_valid must refuse)
+#     <= 0  fine
+# and read as `<name> <= 0` in a custom_description row, contract §5 group G.
+#
+# THE SHAPE MATTERS. The subtraction lives INSIDE the selection test, so a value
+# returns exactly 0 when nothing of that currency is on the table. The v1 gold
+# shortfalls put `subtract = gold` outside the `if`, which meant a ruler already
+# in debt or already at negative prestige could not propose ANY deal, not even a
+# deal without that currency in it. Both gold values were reshaped in
+# tnt_50_values.txt in the same commit; the long note is there.
+#
+# ---------------------------------------------------------------------------
+# §0.5  WHAT THE OTHER AUTHORS MUST BUILD AGAINST THESE VALUES
+# ---------------------------------------------------------------------------
+# sgui (tnt_22*_currency.txt):
+#   * steppers for tnt_prestige_p/_r, tnt_piety_p/_r, tnt_influence_p/_r.
+#     Prestige and piety have NO literal cap since user item 4 — the giver's
+#     stock is the range (the 30-V2-DESIGN §3.2 "0..10000" is superseded).
+#     Influence keeps 0..1000 — influence pools are an order of magnitude
+#     smaller than prestige pools (monumental_influence_value 250 vs
+#     monumental_prestige_value 1500), report 41 §2.8's recommendation, and
+#     item 4 did not name influence.
+#   * at window open, write the two mirrors:
+#         if = { limit = { government_has_flag = government_has_influence }
+#                set_variable = { name = tnt_infl_ok_p  value = 1 } }
+#         var:tnt_partner ?= { … }  -> tnt_infl_ok_r on the PLAYER, describing the
+#                                      PARTNER (all offer state lives on the
+#                                      player, 30-V2-DESIGN §3)
+#   * add all six amount variables AND both mirrors to tnt_reset_offer_effect /
+#     tnt_close_window_effect (R-CLEAN: for every write, name the removal).
+#   * six new rows in tnt_send_offer.is_valid, one per value in §3 below.
+# gui:
+#   * gate the influence row's `visible` on the mirrors, never on
+#     government_has_flag, which the GUI cannot call.
+# effects (tnt_33*_apply.txt): the two-call pattern of §0.4, giver first with
+#   `multiply = -1`, then the receiver. Use plain `add_prestige` / `add_piety`,
+#   not the `_no_experience` variants, matching vanilla's bribe
+#   (00_invite_agent_to_scheme.txt:169-173) — that is the player-legible
+#   behaviour. Influence has exactly one effect, `change_influence`, and it is
+#   signed; there is no `remove_influence`.
+#
+# ---------------------------------------------------------------------------
+# §0.6  THE FILE'S OWN RULES, inherited unchanged from tnt_50_values.txt
+# ---------------------------------------------------------------------------
+# 1. root is ALWAYS the player. GetScriptValueBreakdown supplies root and nothing
+#    else, so these values read only root and var: values (Law 6 / R9).
+# 2. The partner is reached through R0.4's prologue and never as a GUI scope:
+#        var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+#    proof that this works inside a script value:
+#    GAME\common\script_values\00_scheme_values.txt:2434-2437.
+#    NOTE the D4 collision: `tnt_p` is a TEMPORARY scope in the value files and a
+#    PERMANENT scope of the same name was saved by tnt_send_offer. v2 renames the
+#    permanent one to tnt_deal_partner; the temporary name here does not move
+#    (30-V2-DESIGN §9 D4 — "Leave every save_temporary_scope_as = tnt_p and every
+#    scope:tnt_p inside the two value files exactly as they are").
+# 3. Never compare two variables (Law 4 / R7). Every test below is
+#    var-against-literal or named-value-against-literal.
+# 4. No `desc =` on any value in this file. Only tnt_balance_value and
+#    tnt_ai_accept_value carry desc (contract §4 rule 3). The desc ROWS for these
+#    six item values live in tnt_balance_value, keys tnt_bd_prestige_p/_r,
+#    tnt_bd_piety_p/_r, tnt_bd_influence_p/_r — and per Law 8 / R10 none of those
+#    keys may contain the $VALUE$ token, because the breakdown widget renders the
+#    number in its own right-aligned column
+#    (GAME\gui\shared\value_breakdown.gui:1935-1955).
+# 5. Every division guarded (`divide = { value = X  min = 1 }`); every
+#    object-valued variable read guarded by `exists =` or `?=` (Law 12 / R13).
+# 6. All six per-item values return >= 0. The sign is applied once, by
+#    tnt_balance_value / tnt_loss_total_value.
+#
+# GRAMMAR PROOFS FOR THE FORMS USED BELOW (all re-grepped for 1.19.0.6)
+#   value/add = var:x                  GAME\common\script_values\00_activity_values.txt:2524
+#   exists = var:x in a limit          GAME\common\script_values\00_activity_values.txt:2522
+#   exists = scope:x in a limit        GAME\common\script_values\00_activity_values.txt:1992
+#   var:x > <literal> in a limit       GAME\common\script_values\00_activity_values.txt:541
+#   divide = { value = <named> min = 1 }
+#                                      GAME\common\script_values\00_culture_values.txt:22
+#   if / else_if with multiply inside
+#     one add = { } block              GAME\common\character_interactions\00_alliance.txt:2005-2014
+#                                      and shipped at tnt_50_values.txt (alliance rows)
+#   add = { value = X  subtract = Y }  GAME\common\scripted_modifiers\00_scheme_scripted_modifiers.txt:709-723
+#   has_trait = X inside a script value
+#                                      GAME\common\script_values\04_ep2_hunt_values.txt:2100
+#   root.<currency> / scope:X.<currency> as a numeric read:
+#     gold      GAME\common\character_interactions\00_tributary_interactions.txt:961  (add = scope:recipient.gold)
+#     prestige  GAME\common\script_values\tgp_values.txt:742                          (add = scope:dead_character.prestige)
+#               GAME\common\on_action\ruler_designer.txt:76                            (value = root.prestige)
+#     piety     GAME\common\character_interactions\00_invite_agent_to_scheme.txt:911   (scope:actor.piety >= piety_bribe_value)
+#     influence GAME\common\script_values\07_ep3_values.txt:5552-5553                  (value = scope:heretic.influence
+#                                                                                       subtract = root.influence)
+#   bare field reads in the current scope, for comparison:
+#     prestige  GAME\common\script_values\09_mpo_values.txt:2330  (value = prestige)
+#     piety     GAME\common\on_action\death.txt:1971, :1998       (value = piety / add = piety)
+#     influence NO bare call site exists — which is why every influence read
+#               below is dotted. Do not "simplify" it to a bare `influence`.
+###############################################################################
+
+
+###############################################################################
+# §1  THE INFLUENCE AVAILABILITY HELPER  (1 value)
+#
+# 1 only when BOTH governments can hold influence, 0 otherwise. Read by the six
+# influence values here, by tnt_balance_value's two influence rows and by
+# tnt_items_count_value's two influence slots (all in tnt_50_values.txt), and it
+# is also the value the GUI should bind the influence row's `visible` to.
+#
+# It is a script value and not a trigger so that the GUI can read it through
+# TntSV without a scripted_gui call per frame (Law 11), and so that every
+# consumer asks the same question in the same place.
+###############################################################################
+tnt_influence_ok_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_infl_ok_p
+			var:tnt_infl_ok_p > 0
+			exists = var:tnt_infl_ok_r
+			var:tnt_infl_ok_r > 0
+		}
+		add = 1
+	}
+}
+
+
+###############################################################################
+# §1b  THE THREE UNIT PRICES  (3 values, NEW in v3 iteration 2)
+#
+# How much prestige / piety / influence buys ONE acceptance point. Derived in §0.2
+# from vanilla's three bribe values and the +20 each of them buys:
+#     prestige  7.5 + 1.25 x (my tier + his tier)      SV:151-164, SSM:647-666
+#     piety     5   + 1.25 x (my tier + his tier)      SV:196-209, SSM:740-754
+#     influence 5   + 1.25 x (my tier + his tier)      SV:181-194, SSM:668-687
+#   SV  = GAME\common\script_values\00_scheme_values.txt
+#   SSM = GAME\common\scripted_modifiers\00_scheme_scripted_modifiers.txt
+# The gold sibling, tnt_gold_per_point_value, lives in tnt_50_values.txt §4.A,
+# beside the gold term it divides. All four are the same idea.
+#
+# WHOSE TIERS. Vanilla reads `scope:actor.highest_held_title_tier` and
+# `scope:recipient.highest_held_title_tier` (verbatim, SV:157 and :162), so the sum
+# is OUR tier plus the PARTNER'S. root is the player, and the partner is reached
+# through var:tnt_partner — R7-clean, no cross-character comparison anywhere.
+# `highest_held_title_tier` as a script-value field: GAME\common\script_values\00_title_tiers_values.txt:10.
+#
+# THE `min` IS THE FORMULA'S OWN FLOOR FOR TWO LANDED RULERS (both at tier_barony,
+# i.e. 1 + 1): prestige 7.5 + 2.5 = 10, piety and influence 5 + 2.5 = 7.5. It is
+# there so that an unlanded or freshly-dispossessed character cannot shrink the
+# divisor below anything vanilla would produce, and so that the `divide` in §2 can
+# never approach zero. It is NOT a tuning knob.
+#
+# PIETY AND INFLUENCE ARE DEFINED SEPARATELY DESPITE HAVING IDENTICAL BODIES.
+# Vanilla defines them as two separate values with two separate bases that merely
+# happen to both be 100 (medium_piety_value, major_influence_value), and one of
+# them may be retuned by a patch without the other. Collapsing them into one name
+# would hide that.
+###############################################################################
+
+tnt_prestige_per_point_value = {
+	value = 7.5
+	add = {
+		value = highest_held_title_tier
+		multiply = 1.25
+	}
+	var:tnt_partner ?= {
+		add = {
+			value = highest_held_title_tier
+			multiply = 1.25
+		}
+	}
+	min = 10
+}
+
+tnt_piety_per_point_value = {
+	value = 5
+	add = {
+		value = highest_held_title_tier
+		multiply = 1.25
+	}
+	var:tnt_partner ?= {
+		add = {
+			value = highest_held_title_tier
+			multiply = 1.25
+		}
+	}
+	min = 7.5
+}
+
+tnt_influence_per_point_value = {
+	value = 5
+	add = {
+		value = highest_held_title_tier
+		multiply = 1.25
+	}
+	var:tnt_partner ?= {
+		add = {
+			value = highest_held_title_tier
+			multiply = 1.25
+		}
+	}
+	min = 7.5
+}
+
+
+###############################################################################
+# §2  THE SIX PER-ITEM VALUATIONS
+#
+# Canonical shape, identical to the 24 of contract §4.C:
+#     tnt_val_<currency>_<side>_value = {
+#         value = 0
+#         var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+#         if = { limit = { <selected> }  add = { <amount> <rate> <divisor> <riders> } }
+#     }
+#
+# THE PERSONALITY RIDERS AND WHOSE TRAITS THEY READ.
+# Vanilla puts them on the RECIPIENT of the currency
+# (00_scheme_scripted_modifiers.txt:646-687, :739-754, `scope:recipient = { … }`).
+# Both of our sides read the PARTNER'S traits, and the sign does not flip:
+#   _p  the partner RECEIVES  — an arrogant ruler prizes prestige he is handed;
+#   _r  the partner GIVES UP  — an arrogant ruler minds losing prestige just as
+#                               much, so the term he demands for parting with it
+#                               is larger by the same factor.
+# The player's own personality never enters: every number in this mod is priced
+# in the partner's eyes.
+# +-10 on a base of 20 in vanilla == +-50 %, hence multiply = 1.5 / 0.5.
+#   prestige   arrogant +50 % · humble -50 %
+#   piety      zealous  +50 %
+#   influence  ambitious +50 % · content -50 %
+# Trait definitions: GAME\common\traits\00_traits.txt — arrogant :2947,
+# humble :3006, ambitious :3476, content :3557, zealous :3814.
+###############################################################################
+
+# --- PRESTIGE ---------------------------------------------------------------
+# RATE: amount / tnt_prestige_per_point_value (§1b), i.e. one point per 15 prestige
+# between two dukes and per 12.5 between two counts. ANCHOR CHECK: 300 prestige to a
+# duke reads 300/15 = +20, which is exactly what vanilla's bribe menu pays for one
+# `prestige_bribe_value` (SSM:647-666, `value = 20`; SV:151-164 makes that 300 for a
+# duke-to-duke pair). Exact parity.
+# The old `multiply = 1.0` gold-relative rate and the income divisor are gone — see
+# §0.2. Nothing else in these six bodies changed.
+tnt_val_prestige_p_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_prestige_p
+			var:tnt_prestige_p > 0
+		}
+		add = {
+			value = var:tnt_prestige_p
+			divide = { value = tnt_prestige_per_point_value  min = 1 }
+			if = {
+				limit = { scope:tnt_p ?= { has_trait = arrogant } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { scope:tnt_p ?= { has_trait = humble } }
+				multiply = 0.5
+			}
+		}
+	}
+}
+
+tnt_val_prestige_r_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_prestige_r
+			var:tnt_prestige_r > 0
+		}
+		add = {
+			value = var:tnt_prestige_r
+			divide = { value = tnt_prestige_per_point_value  min = 1 }
+			if = {
+				limit = { scope:tnt_p ?= { has_trait = arrogant } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { scope:tnt_p ?= { has_trait = humble } }
+				multiply = 0.5
+			}
+		}
+	}
+}
+
+# --- PIETY ------------------------------------------------------------------
+# RATE: amount / tnt_piety_per_point_value (§1b) — 12.5 piety per point between two
+# dukes. ANCHOR CHECK: 250 piety to a duke reads 250/12.5 = +20, vanilla's own
+# figure for one `piety_bribe_value` (SSM:740-754; SV:196-209 makes that 250 for a
+# duke-to-duke pair). Exact parity.
+tnt_val_piety_p_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_piety_p
+			var:tnt_piety_p > 0
+		}
+		add = {
+			value = var:tnt_piety_p
+			divide = { value = tnt_piety_per_point_value  min = 1 }
+			if = {
+				limit = { scope:tnt_p ?= { has_trait = zealous } }
+				multiply = 1.5
+			}
+		}
+	}
+}
+
+tnt_val_piety_r_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_piety_r
+			var:tnt_piety_r > 0
+		}
+		add = {
+			value = var:tnt_piety_r
+			divide = { value = tnt_piety_per_point_value  min = 1 }
+			if = {
+				limit = { scope:tnt_p ?= { has_trait = zealous } }
+				multiply = 1.5
+			}
+		}
+	}
+}
+
+# --- INFLUENCE --------------------------------------------------------------
+# RATE: amount / tnt_influence_per_point_value (§1b) — 12.5 influence per point
+# between two dukes. ANCHOR CHECK: 250 influence to a duke reads 250/12.5 = +20,
+# vanilla's own figure for one `influence_bribe_value` (SSM:668-687; SV:181-194
+# makes that 250 for a duke-to-duke pair). Exact parity.
+# The extra `tnt_influence_ok_value > 0` clause is the government gate of §0.3.
+# It is repeated verbatim in tnt_balance_value's two influence rows and in
+# tnt_items_count_value's two influence slots — all three tests must agree or a
+# row can be priced without being counted, or counted without being priced.
+tnt_val_influence_p_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_influence_p
+			var:tnt_influence_p > 0
+			tnt_influence_ok_value > 0
+		}
+		add = {
+			value = var:tnt_influence_p
+			divide = { value = tnt_influence_per_point_value  min = 1 }
+			if = {
+				limit = { scope:tnt_p ?= { has_trait = ambitious } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { scope:tnt_p ?= { has_trait = content } }
+				multiply = 0.5
+			}
+		}
+	}
+}
+
+tnt_val_influence_r_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_influence_r
+			var:tnt_influence_r > 0
+			tnt_influence_ok_value > 0
+		}
+		add = {
+			value = var:tnt_influence_r
+			divide = { value = tnt_influence_per_point_value  min = 1 }
+			if = {
+				limit = { scope:tnt_p ?= { has_trait = ambitious } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { scope:tnt_p ?= { has_trait = content } }
+				multiply = 0.5
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# §3  THE SIX AFFORDABILITY SHORTFALLS
+#
+# > 0 means the giver cannot pay. Read by tnt_send_offer.is_valid as `<= 0`
+# (contract §5 group G). See §0.4 for why these are load-bearing and why the
+# subtraction sits inside the `if`.
+#
+# The six is_valid rows the sgui author must add, with their loc keys:
+#   custom_description = { text = tnt_err_no_prestige            tnt_prestige_shortfall_value <= 0 }
+#   custom_description = { text = tnt_err_partner_no_prestige    tnt_partner_prestige_shortfall_value <= 0 }
+#   custom_description = { text = tnt_err_no_piety               tnt_piety_shortfall_value <= 0 }
+#   custom_description = { text = tnt_err_partner_no_piety       tnt_partner_piety_shortfall_value <= 0 }
+#   custom_description = { text = tnt_err_no_influence           tnt_influence_shortfall_value <= 0 }
+#   custom_description = { text = tnt_err_partner_no_influence   tnt_partner_influence_shortfall_value <= 0 }
+#
+# The `_p` values describe the PLAYER paying (root). The `_partner_` values
+# describe the partner paying, and each needs `exists = scope:tnt_p`, because a
+# partner who died while the window was open must make the value read 0 rather
+# than error — R0.4's prologue leaves scope:tnt_p absent in that case.
+#
+# The influence pair also carries the government gate: when the mirrors say the
+# row is unavailable the amount can never have been set, and even if a stale
+# variable survived a government change the value returns 0 so the gate cannot
+# lock the player out of every other deal.
+###############################################################################
+
+# --- PRESTIGE ---------------------------------------------------------------
+tnt_prestige_shortfall_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_prestige_p
+			var:tnt_prestige_p > 0
+		}
+		add = {
+			value = var:tnt_prestige_p
+			subtract = scope:tnt_me.prestige
+		}
+	}
+}
+
+tnt_partner_prestige_shortfall_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_prestige_r
+			var:tnt_prestige_r > 0
+			exists = scope:tnt_p
+		}
+		add = {
+			value = var:tnt_prestige_r
+			subtract = scope:tnt_p.prestige
+		}
+	}
+}
+
+# --- PIETY ------------------------------------------------------------------
+tnt_piety_shortfall_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_piety_p
+			var:tnt_piety_p > 0
+		}
+		add = {
+			value = var:tnt_piety_p
+			subtract = scope:tnt_me.piety
+		}
+	}
+}
+
+tnt_partner_piety_shortfall_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_piety_r
+			var:tnt_piety_r > 0
+			exists = scope:tnt_p
+		}
+		add = {
+			value = var:tnt_piety_r
+			subtract = scope:tnt_p.piety
+		}
+	}
+}
+
+# --- INFLUENCE --------------------------------------------------------------
+tnt_influence_shortfall_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_influence_p
+			var:tnt_influence_p > 0
+			tnt_influence_ok_value > 0
+		}
+		add = {
+			value = var:tnt_influence_p
+			subtract = scope:tnt_me.influence
+		}
+	}
+}
+
+tnt_partner_influence_shortfall_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_influence_r
+			var:tnt_influence_r > 0
+			tnt_influence_ok_value > 0
+			exists = scope:tnt_p
+		}
+		add = {
+			value = var:tnt_influence_r
+			subtract = scope:tnt_p.influence
+		}
+	}
+}
+
+
+###############################################################################
+# §4  THE TWO AUTO-BALANCE TARGETS  (2 values, NEW in v3 iteration 3, user ADD-3)
+#
+# WHY THESE EXIST AT ALL. A script value cannot take a parameter, but the
+# auto-balance effect must be usable at two different fairness targets — tight for
+# the player's button (the user asked for the MINIMUM acceptable deal) and looser
+# for the AI composer (its letter has to survive up to 200 days of world drift
+# before the player opens it). So tnt_39_autobalance.txt writes its two parameters
+# onto the player as ordinary variables at the top of the entry point and removes
+# them again at the bottom of the same effect. These two values are the only
+# readers.
+#
+#   tnt_ab_margin    the headline the deal should sit AT or ABOVE to count as
+#                    balanced. MUST BE >= 1: the mod's only acceptance test is
+#                    `tnt_ai_accept_value > 0` and exactly 0 declines
+#                    (tnt_50_values.txt:3537-3543).
+#   tnt_ab_ceiling   the headline above which the deal is a windfall and should be
+#                    trimmed. Always >= tnt_ab_margin; the gap between them is the
+#                    dead band in which the button does nothing.
+#
+# BOTH RETURN EXACTLY 0 OUTSIDE A CALL, because the `exists =` guard fails once
+# the effect has removed its two variables. Nothing else in the mod reads them, so
+# a stale evaluation cannot leak into the balance.
+#
+# WHY THE SUBTRACTION IS A DIFFERENCE AND NOT A COMPARISON. Law 4 / R7 permits
+# var-against-literal and named-value-against-literal tests only. Every test in
+# tnt_39_autobalance.txt — the two branch tests, the two `while` limits and the
+# per-currency step tests — is therefore `tnt_ab_deficit_value > 0` or
+# `tnt_ab_surplus_value > 0`, i.e. a NAMED VALUE against the LITERAL 0. The
+# comparison that would have been forbidden (a named value against a variable)
+# happens here, once, as arithmetic inside an `add` block, which is the sanctioned
+# form: GAME\common\scripted_modifiers\00_scheme_scripted_modifiers.txt:709-723.
+#
+# `min = 0` is what makes them one-sided: the deficit is 0 whenever the deal is
+# already good enough, the surplus is 0 whenever it is not a windfall, and the two
+# can never both be positive.
+###############################################################################
+
+tnt_ab_deficit_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_ab_margin }
+		add = {
+			value = var:tnt_ab_margin
+			subtract = tnt_ai_accept_value
+		}
+	}
+	min = 0
+}
+
+tnt_ab_surplus_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_ab_ceiling }
+		add = {
+			value = tnt_ai_accept_value
+			subtract = var:tnt_ab_ceiling
+		}
+	}
+	min = 0
+}
+
+
+###############################################################################
+# tnt_ab_mult_floor_value — THE MODIFIER MULTIPLIER, MADE SAFE TO DIVIDE BY
+#
+# WHY THIS EXISTS AT ALL, AND IT IS THE ARITHMETIC BUG BEHIND "THE AI OFFERS
+# WILDLY UNBALANCED DEALS".
+#
+# The balance is multiplicative: headline = offer x tnt_deal_mult_value - demands.
+# Everything the balancer adds to the PLAYER's column (`_p`) is part of `offer`,
+# so it is scaled by the multiplier before it reaches the headline. But
+# tnt_ab_sweeten_effect sized its step as `deficit x <currency>_per_point_value`,
+# i.e. in RAW points, as if the multiplier were 1. The consequences were exactly
+# what the user reported:
+#   opinion +100 (mult 2.0)  a step meant to close 10 points closed 20 -> the AI
+#                            ends up far ABOVE its ceiling, i.e. handed a windfall
+#   opinion -50  (mult 0.5)  the same step closed 5 -> two passes were not enough
+#                            and the letter went out still under-priced
+# Dividing the step by the multiplier makes one pass land on the target regardless
+# of how the partner feels about us, which is what "balance to +1" requires.
+#
+# THE DEMANDS SIDE IS NOT SCALED and must NOT be divided: tnt_ab_ai_pay_effect
+# writes the `_r` column, which enters the headline through tnt_loss_total_value at
+# full weight. So only the sweeten path divides. That asymmetry is the model's, not
+# a special case invented here (tnt_50_values.txt, tnt_ai_accept_value).
+#
+# `min = 0.1` IS A DIVISION GUARD, NOT A DESIGN CHOICE. tnt_deal_mult_value is
+# `min = 0`, and it really does reach 0 when the modifier stack sums to -100 (a
+# partner who hates us, of another faith, of another culture). Dividing by 0 in a
+# script value is undefined behaviour; 0.1 makes the step ten times larger
+# instead, which is arithmetically right - at mult 0.1 you really do need ten times
+# the gold - and which then hits the "can the player actually pay this" clamp
+# (and influence's surviving 1000 cap), so the offer is abandoned rather than mis-priced. That
+# is the correct outcome: at mult 0 no amount of gold can move the headline, and
+# the AI has nothing to propose.
+###############################################################################
+tnt_ab_mult_floor_value = {
+	value = tnt_deal_mult_value
+	min = 0.1
+}
+
+
+###############################################################################
+# §4b  THE THREE LETTER-GENEROSITY VALUES  (user items 5+9)
+#
+# THE RULING THESE IMPLEMENT: an over-generous letter is KEPT - the raised
+# opinion explains the gift and the user prefers the immersion - but the
+# MATERIAL half of the generosity is capped per letter, and a letter that still
+# sits deep in the AI's favour after the cap is shipped MARKED as a deliberate
+# gift instead of being aborted. The mechanism lives in
+# tnt_39_autobalance.txt's tnt_ai_pricebalance_effect (the ceiling raise) and
+# tnt_37_ai_offer.txt's settle (the tnt_ai_gift marker); these three values are
+# the whole of its arithmetic, and they live HERE for the same reason the two
+# §4 targets do - Law R7 permits only named-value-against-literal tests, so
+# every "is X bigger than the cap" question must be pre-computed as a
+# difference and asked as `> 0`.
+#
+# tnt_ai_generosity_cap_value - THE CAP, 25 acceptance points. Just above
+# vanilla's `low` band on the AI-acceptance ladder
+# (GAME\common\script_values\00_ai_values.txt:22-34: low = 20, so 25 sits
+# between `low` and `medium`), i.e. the largest gift is a real, visible
+# courtesy and still under half of vanilla's `very_high` (75) that a single
+# bribe row may reach. In coin: 25 x tnt_gold_per_point_value = 250-375 gold
+# per letter, bounded however high the relationship rows climb.
+#
+# tnt_ab_gift_excess_value - how far the CURRENT surplus overshoots the cap.
+# Read once, by the ceiling-raise block in tnt_ai_pricebalance_effect, while
+# var:tnt_ab_ceiling is still the entry literal; > 0 means "this letter would
+# shed more than the cap, raise the ceiling by exactly this much". Outside a
+# balance call tnt_ab_surplus_value is exactly 0 (its `exists` guard fails),
+# so this returns 0 there too.
+#
+# tnt_ai_gift_headroom_value - how far the FINISHED headline still exceeds the
+# cap. Read by the settle after the balance returns (the ceiling variables are
+# gone by then; this value deliberately needs neither) to decide whether the
+# letter carries the tnt_ai_gift marker, and by the SETTLE telemetry line.
+# > 0 means "the partner signs this with more enthusiasm than the cap allows
+# him to pay for - a deliberate gift of standing, not of coin".
+###############################################################################
+
+tnt_ai_generosity_cap_value = {
+	value = 25
+}
+
+tnt_ab_gift_excess_value = {
+	value = tnt_ab_surplus_value
+	subtract = tnt_ai_generosity_cap_value
+	min = 0
+}
+
+tnt_ai_gift_headroom_value = {
+	value = tnt_ai_accept_value
+	subtract = tnt_ai_generosity_cap_value
+	min = 0
+}
+
+
+###############################################################################
+# §5  THE FIVE STANDARD PAYMENTS  (5 values, NEW in v3 iteration 3, user ADD-2)
+#
+# The amount the "customary payment" preset button puts on the table in one click.
+# ADD-2's complaint was clicking, verbatim: "if I need to give a lot of gold I
+# avoid many clicks." These five are the semantic answer, and each is DERIVED,
+# never a magic number.
+#
+# GOLD — ONE YEAR OF THE GIVER'S INCOME, which is exactly the phrase the user
+# used. `yearly_character_income` is a real field
+# (GAME\common\script_values\01_dynamic_values.txt:316) and vanilla itself builds
+# a gift threshold out of it:
+#     gift_interaction_cutoff = { value = yearly_character_income  multiply = 3
+#                                 min = 10  max = 300 }
+# The `min = 10` below is that same floor, taken from that same line, so a pauper's
+# preset is still a payment rather than a rounding error. (The old `max = 5000`
+# sanity crop is gone — user item 4; the set helper's affordability clamp is the
+# only ceiling.)
+# The `_r` twin reads tnt_partner_year_income_value (tnt_50_values.txt:287), which
+# is the partner's income already floored at 12 — the two are deliberately NOT one
+# value, because the giver differs and R7 forbids reaching the partner any other
+# way than through var:tnt_partner.
+#
+# PRESTIGE / PIETY / INFLUENCE — ONE FULL VANILLA BRIBE. THERE IS NO SUCH THING AS
+# A YEAR OF PRESTIGE INCOME: CK3 exposes no per-character accumulation field for
+# any of the three (measured — there is no `monthly_prestige`, `monthly_piety` or
+# `monthly_influence` script-value field anywhere in GAME\common or GAME\events;
+# the only prestige/piety/influence names that exist are the flat constants
+# minor_/medium_/major_*_gain and the *_level fields). Pretending otherwise would
+# have meant inventing a number, so the preset instead pays exactly ONE of
+# vanilla's own bribe amounts:
+#     tnt_<cur>_per_point_value x 20  ==  prestige_bribe_value
+#                                        piety_bribe_value
+#                                        influence_bribe_value
+# because §1b derived those three per-point prices by dividing each bribe amount
+# by the +20 acceptance it buys (SV:151-209, SSM:647-754). Multiplying by 20
+# reverses the derivation exactly, so the button hands over 300 prestige between
+# two dukes, 250 piety, 250 influence — vanilla's own figures — and the deal sheet
+# prints +20 for it, which is vanilla's own acceptance number for the same gift.
+# That is the tightest possible definition of "the customary single payment", and
+# it costs no new constant: retune §1b and these three follow.
+#
+# THE PRESETS ARE STILL CLAMPED TO WHAT THE GIVER HOLDS. These five values say
+# what the payment MEANS; the affordability ceiling is applied by
+# tnt_cur_set_p_effect / tnt_cur_set_r_effect / tnt_infl_p_set_effect /
+# tnt_infl_r_set_effect in tnt_39_autobalance.txt, in the same if/else shape the
+# 24 steppers use. A ruler with 40 gold pressing "a year of my income" on a 300
+# gold income offers 40, not 300.
+#
+# THE OTHER THREE PRESETS NEED NO VALUE AT ALL, deliberately: "half of what I
+# hold" is the stock times 0.5 and "everything I can afford" is the stock times 1,
+# both read straight off the field by the two `_frac_` helpers, and "nothing" is a
+# remove_variable. Naming eight more values for those would have been eight more
+# things to keep in step for no added meaning.
+###############################################################################
+
+tnt_std_gold_p_value = {
+	value = 0
+	add = yearly_character_income
+	min = 10
+}
+
+tnt_std_gold_r_value = {
+	value = tnt_partner_year_income_value
+	min = 10
+}
+
+tnt_std_prestige_value = {
+	value = tnt_prestige_per_point_value
+	multiply = 20
+	round = yes
+}
+
+tnt_std_piety_value = {
+	value = tnt_piety_per_point_value
+	multiply = 20
+	round = yes
+}
+
+tnt_std_influence_value = {
+	value = tnt_influence_per_point_value
+	multiply = 20
+	round = yes
+}
+
+
+###############################################################################
+# THE PLAYER'S SIDE OF A LAND SALE, IN GOLD (V14, user item 6)
+#
+# What arch 10's chosen title would cost the player if the whole gap were closed
+# in coin. Read ONCE, by arch 10's wallet pass in
+# common\scripted_effects\tnt_37_ai_offer.txt, where root is the player and
+# var:tnt_partner is the AI - the state every value on the letter path stands in
+# (tnt_ai_offer.0001 writes tnt_partner in its immediate, BEFORE it composes).
+#
+# WHY IT EXISTS. The ask is closed out of the PLAYER's purse and the sweeten
+# ladder's gold rung is clamped `max = gold` on root = the player
+# (tnt_39_autobalance.txt:1660-1667). If that clamp bites, tnt_ai_accept_value
+# never crosses 0, .0001's go/no-go throws the letter away UNSEEN, and the
+# proposer's multi-year lock is already spent. So a title the player cannot pay
+# for is not a bold offer, it is a burnt draw. arch 10's old `tier = tier_county`
+# constant was trying to say exactly this and saying it with a constant; this
+# says it with the player's actual purse, which is the honest form of a
+# reachability rule.
+#
+# IT IS THE RAW PRICE, NOT THE ASK. The settle-up's relation rows can subsidise
+# several hundred gold of it and the sweeten ladder can also spend prestige,
+# piety and influence, so this test is deliberately CONSERVATIVE: it downgrades a
+# few deals the player could in fact have afforded, and that failure is benign -
+# he is offered a county instead of a duchy. If a run ever measures arch=10
+# composing county-only again, scale this down; do not delete the pass.
+#
+# Outside a live negotiation tnt_val_title_multi_r_value is 0 (its own
+# `has_variable_list = tnt_sel_title_r` + `exists = var:tnt_partner` guard,
+# tnt_54_multiselect_values.txt:517-521), so this value is 0 and the pass never
+# fires.
+###############################################################################
+tnt_val_title_multi_r_gold_value = {
+	value = tnt_val_title_multi_r_value
+	multiply = tnt_gold_per_point_value
+	min = 0
+	round = yes
+}

@@ -1,0 +1,1159 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — script values, part 4 of 4
+# USER ITEM 2.3 (hook tiers) and USER ITEM 2.5 (the vassal contract template)
+#
+# Owner: hooks-contracts.  26 values:
+#     §1   4  hooks        — 2 tier prices + 2 "can a hook still be granted"
+#     §2   4  direction    — which side swears fealty, the sign, and the two
+#                            government tests that follow from it
+#     §3   5  legality     — is each gated obligation settable right now
+#     §4   9  prices       — one per obligation, SIGNED FROM THE PARTNER'S SIDE
+#     §5   4  display      — the two printable level indices, the sheet total and
+#                            the changed-row count
+#
+# ---------------------------------------------------------------------------
+# §0.1  THE FILE'S OWN RULES, inherited unchanged from tnt_50_values.txt
+# ---------------------------------------------------------------------------
+# 1. root is ALWAYS the player. GetScriptValueBreakdown supplies root and
+#    nothing else, so every value here reads ONLY root and var: values (R9).
+# 2. The partner is reached through contract R0.4's prologue and never as a GUI
+#    scope:   var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+#    Proof that this works inside a script value:
+#    GAME\common\script_values\00_scheme_values.txt:2434-2437.
+#    D4: `tnt_p` is the TEMPORARY name used by ~60 value prologues; the
+#    PERMANENT deal scope is tnt_deal_partner. Never introduce a third user of
+#    either name (30-V2-DESIGN §9 D4).
+# 3. Never compare two variables (R7). Every test below is
+#    var-against-literal or named-value-against-literal.
+# 4. No `desc =` on any value in this file. Only tnt_balance_value and
+#    tnt_ai_accept_value carry desc (contract §4 rule 3). The desc ROWS for the
+#    nine obligation prices live in tnt_balance_value, keys tnt_bd_ob_* — and
+#    per R10 none of those keys may contain the $VALUE$ token, because the
+#    breakdown widget renders the number in its own right-aligned column
+#    (GAME\gui\shared\value_breakdown.gui:1935-1955).
+# 5. Every object-valued variable read is guarded by `exists =` or `?=` (R13).
+#
+# ---------------------------------------------------------------------------
+# §0.2  THE ONE PLACE THIS FILE BREAKS A CONTRACT RULE, AND WHY
+# ---------------------------------------------------------------------------
+# 10-CONTRACT §4 rule 5 says every per-item value returns >= 0 and the sign is
+# applied once, by the aggregate. THE NINE OBLIGATION PRICES IN §4 ARE SIGNED.
+# They have to be: a high tax is a COST to the subject and a GAIN to the liege,
+# and both sit in the same deal. 30-V2-DESIGN amendment A-2 (from §2 C-7, report
+# 41 W-11) grants exactly this exemption and states the consequence:
+#
+#     "each obligation gets its own explicit row in tnt_balance_value WITHOUT
+#      the aggregate's multiply = -1, and rule 5 is restated as: all per-item
+#      values of the twelve v1 items return >= 0; the nine obligation values are
+#      signed and are added directly"
+#
+# ---------------------------------------------------------------------------
+# §0.3  WHOSE SIDE THE SIGN IS ON — READ THIS BEFORE TOUCHING §4
+# ---------------------------------------------------------------------------
+# tnt_ai_accept_value answers ONE question: would THE PARTNER accept? So every
+# row in it must be signed from the partner's point of view. Vanilla's own
+# obligation prices (00_character_interactions.txt:1029-1053) are written from
+# the would-be VASSAL's point of view, and vanilla mirrors them by hand for the
+# liege side (:1657-1668, the same numbers with the sign flipped).
+#
+# We cannot mirror by hand, because ONE variable set serves both directions
+# (the nine tnt_ob_* carry no side suffix — T11 forbids both sides swearing
+# fealty, so only one contract can ever be on the table). Instead each price is
+# written once from the SUBJECT's point of view and multiplied by
+# tnt_ob_sign_value:
+#
+#   tnt_vassal_p = 1  the PLAYER swears fealty  -> the player is the subject,
+#                     the partner is the liege. A high tax on the player pleases
+#                     the partner.                                sign = -1
+#   tnt_vassal_r = 1  the PARTNER swears fealty -> the partner is the subject.
+#                     A high tax on the partner is his own burden. sign = +1
+#   neither           nothing on the table.                        sign =  0
+#
+# CONSEQUENCE FOR THE BALANCE INTEGRATOR: the nine values below are ALREADY
+# correctly signed for tnt_ai_accept_value. Add them with a plain
+#     add = { value = tnt_val_ob_tax_value  desc = tnt_bd_ob_tax }
+# and NEVER with a multiply. See NOTES3-hooks-contracts.md for the exact rows.
+#
+# ---------------------------------------------------------------------------
+# §0.4  WHY THE LEGALITY VALUES OF §3 EXIST AT ALL
+# ---------------------------------------------------------------------------
+# Report 41 W-9: it is UNKNOWN whether vassal_contract_set_obligation_level
+# enforces the level's own is_valid or the type's is_shown, and vanilla never
+# depends on it — it duplicates every gate in the interaction instead
+# (religious_exemption's is_valid = { scope:recipient.faith != scope:actor.faith },
+# 00_character_interactions.txt:1276-1278). So we duplicate them too, three times
+# over, each layer catching what the one before it cannot:
+#   * §3 here          -> the GUI greys the row out (cheap, one value read; a
+#                         GetScriptedGui in a per-row `enabled` is what R11 is
+#                         about, and a script value costs a fraction of it)
+#   * tnt_22c_*.txt    -> the setter refuses to write the variable at all
+#   * tnt_36_*.txt     -> the apply leg refuses to emit the line
+# A gate that only lives in the GUI is not a gate: the variable survives a
+# partner change, a conversion and a save/load.
+#
+# GATES, WITH THE EXACT VANILLA SOURCE OF EACH:
+#   religious_rights          subject.faith != liege.faith
+#                             GAME\common\subject_contracts\contracts\special_contracts.txt:298
+#   fortification_rights      liege.culture has_innovation = innovation_battlements   :356-360, :370-374
+#   coinage_rights            liege.culture has_innovation = innovation_currency_02   :398-402, :412-416
+#   succession_rights         subject can_have_confederate_partition_succession_law_trigger = yes
+#                                                                                     :435-439, :449-453
+#   title_revocation_rights   same faith, OR the liege's faith lacks the jizya
+#                             doctrine parameter                                      :523-533, :543-553
+#   council_rights            no gate at all                                          :492-519
+#   war_declaration_rights    no gate at all                                          :468-490
+#   feudal_government_taxes / _levies
+#                             in the feudal_vassal group only
+#                             GAME\common\subject_contracts\groups\subject_contract_groups.txt:1-15
+#
+# ---------------------------------------------------------------------------
+# §0.5  GRAMMAR PROOFS FOR EVERY FORM USED BELOW (real call sites only, R2/R3)
+# ---------------------------------------------------------------------------
+#   value/add = var:x                 GAME\common\script_values\00_activity_values.txt:2524
+#   exists = var:x in a limit         GAME\common\script_values\00_activity_values.txt:2522
+#   var:x > <literal> in a limit      GAME\common\script_values\00_activity_values.txt:541
+#   var:x = <literal> in a limit      permitted by contract R0.3, 242 vanilla uses
+#   <named value> > 0 in a limit      already shipped: tnt_influence_ok_value > 0 in
+#                                     tnt_53_currency_values.txt and tnt_50_values.txt
+#   top-level `multiply = <named>`    GAME\common\script_values\00_basic_values.txt:1485-1495
+#                                     (minor_dynasty_prestige_value multiplies by
+#                                      scale_dynasty_prestige_by_era after its value row)
+#   government_has_flag in a value    GAME\common\script_values\07_ep3_values.txt (influence
+#                                     rows) and shipped at tnt_30_effects.txt:178
+#   faith = scope:X.faith             GAME\common\character_interactions\00_alliance.txt:836
+#                                     GAME\common\character_interactions\00_diarch_interactions.txt:6416
+#                                     (the sanctioned replacement for the blacklisted
+#                                      has_same_faith, 00-ARCHITECTURE §4.6)
+#   culture = { has_innovation = X }  GAME\common\subject_contracts\contracts\special_contracts.txt:357-359
+#   has_doctrine_parameter            GAME\common\subject_contracts\contracts\special_contracts.txt:529
+#   has_hook = <char> (flat)          GAME\common\character_interactions\00_invite_agent_to_scheme.txt:612
+#                                     GAME\common\character_interactions\00_vassal_interactions.txt:521
+#   can_have_confederate_partition_succession_law_trigger = yes
+#                                     GAME\common\scripted_triggers\00_law_triggers.txt:113-124
+#                                     (no parameters; its first OR branch is
+#                                      government_has_flag = government_is_feudal, so it is
+#                                      implied for a feudal subject — called anyway, because
+#                                      relying on the implication would break the day the
+#                                      trigger changes)
+###############################################################################
+
+
+###############################################################################
+# §1  HOOKS — USER ITEM 2.3
+###############################################################################
+
+# --- 1.1 THE TIER PRICE LADDER ----------------------------------------------
+# tnt_hook_p / tnt_hook_r stopped being 0/1 flags and are now TIER INDICES:
+#   0 (or absent) none · 1 weak favour · 2 strong · 3 eternal
+# (30-V2-DESIGN §3.2. The coordinated-edit list is W-12 in that section.)
+#
+# v3 ITERATION 2 — 20 / 50 / 100, WHICH IS NOW VANILLA'S LADDER VERBATIM FOR THE
+# FIRST TWO RUNGS. It was 30 / 70 / 120: the same anchors, but multiplied up into
+# the old "100 points is a year of the partner's income" currency. That currency is
+# gone (tnt_50_values.txt, CALIBRATION block), so the scaling step goes with it and
+# vanilla's own two figures are used as they stand:
+#     +20 weak   00_scheme_scripted_modifiers.txt:615-621  (scope:offer_hook)
+#     +50 strong 00_scheme_scripted_modifiers.txt:622-628  (scope:offer_hook_strong)
+# THE THIRD RUNG (eternal, never consumed) IS STILL INVENTED — vanilla offers only
+# two tiers of hook — but it is now +100, which keeps the 20 -> 50 -> 100 geometric
+# feel AND lands exactly on vanilla's price for SPENDING a weak hook you already
+# hold (00_marriage_scripted_modifiers.txt:12-13, `add = 100`). A hook that can be
+# spent forever being worth one guaranteed spend is a defensible floor, and the
+# parity table recommends this number by name.
+#
+# NOT the +100/+200 ladder of 00_marriage_scripted_modifiers.txt:11-22: that is
+# the price of SPENDING a hook you already hold to coerce somebody, a different
+# mechanic. 30-V2-DESIGN §2 C-1 settles it, and report 41's own 85/210/300 table
+# is explicitly withdrawn there.
+#
+# THESE ARE NOT THE VALUES THE BALANCE READS. tnt_50_values.txt owns
+# tnt_val_hook_p_value / _r_value (flat 85 today, referenced by
+# tnt_gain_total_value, tnt_loss_total_value and tnt_balance_value). The
+# integration line asks its owner to replace each three-line body with
+# `add = tnt_val_hook_tier_p_value`, so the ladder lives in exactly one file and
+# no consumer moves. See NOTES3-hooks-contracts.md.
+#
+# `>= 3` rather than `= 3` on the last rung: the setters clamp to 3, but a value
+# that silently prices nothing when a variable goes out of range is the worse
+# failure of the two.
+tnt_val_hook_tier_p_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_hook_p
+			var:tnt_hook_p = 1
+		}
+		add = 20
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_hook_p
+			var:tnt_hook_p = 2
+		}
+		add = 50
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_hook_p
+			var:tnt_hook_p >= 3
+		}
+		add = 100
+	}
+}
+
+tnt_val_hook_tier_r_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_hook_r
+			var:tnt_hook_r = 1
+		}
+		add = 20
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_hook_r
+			var:tnt_hook_r = 2
+		}
+		add = 50
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_hook_r
+			var:tnt_hook_r >= 3
+		}
+		add = 100
+	}
+}
+
+
+# --- 1.2 CAN A HOOK STILL BE GRANTED IN THIS DIRECTION? ---------------------
+# 1 = yes, 0 = the receiver ALREADY holds a hook over the giver.
+#
+# WHY THIS IS NOT OPTIONAL (report 41 W-13). Our apply leg goes through
+# add_hook_if_possible_default_length_effect, whose whole body is
+#     if = { limit = { can_add_hook = { … } }  add_hook = { … } }
+# (GAME\common\scripted_effects\00_hook_effects.txt:28-41). That guard SWALLOWS
+# FAILURE SILENTLY, so without a gate the player pays for a term that quietly
+# never applies. Vanilla gates the same case in the interaction instead:
+#     is_valid = { NOT = { scope:recipient = { has_hook = scope:actor } } … }
+# (GAME\common\character_interactions\00_invite_agent_to_scheme.txt:606-615).
+#
+# DIRECTION, and it is the one thing to get right here. The side that GIVES this
+# term ends up OWING: the RECEIVER gains the hook, the GIVER is the one hooked
+# (the shipped comment at tnt_32_apply.txt:714-722 spells this out, citing
+# GAME\common\character_interactions\00_grant_titles_interaction.txt:1065-1077).
+#   _p : the player grants a hook on himself -> the receiver is the PARTNER, so
+#        the test is "does the partner already hold a hook on the player".
+#   _r : mirrored.
+#
+# Default 1 with a -1 correction, rather than 0 with a +1: if the partner is
+# missing or dead the value reads 1, the row stays offerable and the apply-time
+# can_add_hook is the last word. A gate that locks the player out when it cannot
+# answer is worse than one that defers.
+#
+# THE NESTING IS THE GUARD, and it is the shipped idiom of this mod rather than a
+# new one: an outer `if = { limit = { exists = scope:tnt_p } }` decides whether
+# the inner test is evaluated AT ALL, and the inner test lives inside an
+# `add = { }` block, exactly as the currency values put their trait riders inside
+# one (tnt_53_currency_values.txt:289-302). Writing both tests as two rows of one
+# limit would NOT be equivalent: a limit is an AND-list with no promised
+# evaluation order, so `exists` on one row cannot be relied on to keep the scope
+# reference on the next row from being resolved.
+tnt_hook_free_p_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 1
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = { exists = scope:tnt_p }
+		add = {
+			value = 0
+			# the partner is the RECEIVER on this side: does he already hold one?
+			if = {
+				limit = { scope:tnt_p ?= { has_hook = scope:tnt_me } }
+				add = -1
+			}
+		}
+	}
+}
+
+tnt_hook_free_r_value = {
+	value = 1
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = { exists = scope:tnt_p }
+		add = {
+			value = 0
+			# the PLAYER is the receiver on this side
+			if = {
+				limit = { has_hook = scope:tnt_p }
+				add = -1
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# §2  WHICH SIDE SWEARS FEALTY — USER ITEM 2.5
+#
+# The nine tnt_ob_* variables carry NO side suffix (30-V2-DESIGN §1 row 2.5:
+# "T11 already forbids both sides swearing fealty, so only one contract can ever
+# be edited"), so every consumer has to ask the direction separately. These
+# three values are the single place that question is answered.
+#
+# Deliberately written from the two tnt_vassal_* variables directly and NOT from
+# each other, so that no value here compares one script value with another (R7)
+# and each can be read in isolation.
+###############################################################################
+
+# 0 = no fealty on the table · 1 = the PLAYER swears · 2 = the PARTNER swears.
+#
+# BUILD 3: NOW LIVE, with one consumer, and not the one this header used to claim.
+# It said "read by the panel's three explanatory lines"; it was not -
+# gui\tnt_panel_contract.gui drives those from TntOn('tnt_vassal_p') /
+# ('tnt_vassal_r') directly, which is one variable read instead of a script-value
+# evaluation and is the cheaper answer to the same question.
+# THE REAL CONSUMER is the nine obligation rows of tnt_balance_value
+# (tnt_50_values.txt), where each limit reads `tnt_ob_dir_value > 0` beside its
+# `exists = var:tnt_ob_<x>`. Switching the fealty toggle off leaves the nine
+# tnt_ob_* variables behind on purpose (see the residue note at the end of §4), and
+# tnt_ob_sign_value goes to 0 with the toggle - so without this guard the player's
+# breakdown would print up to nine "0" rows for a contract nobody is signing.
+# Do NOT add this value to any aggregate: it is an enum, not a price.
+tnt_ob_dir_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_vassal_p
+			var:tnt_vassal_p > 0
+		}
+		add = 1
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_vassal_r
+			var:tnt_vassal_r > 0
+		}
+		add = 2
+	}
+}
+
+# -1 · +1 · 0 — see §0.3. Multiplied into all nine prices of §4.
+tnt_ob_sign_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_vassal_p
+			var:tnt_vassal_p > 0
+		}
+		add = -1
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_vassal_r
+			var:tnt_vassal_r > 0
+		}
+		add = 1
+	}
+}
+
+# 1 when the SUBJECT of the pending contract is feudal.
+# This is the gate on ten of the eleven feudal_vassal contract types: setting
+# feudal_government_taxes on a clan, tribal or administrative vassal names a
+# type that is not in that subject's contract group and writes error.log.
+# Vanilla applies exactly this guard before touching any feudal obligation
+# (GAME\common\scripted_effects\00_interaction_effects.txt:2150-2153, with the
+# clan branch at :2204-2216).
+tnt_ob_feudal_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_vassal_p
+			var:tnt_vassal_p > 0
+			government_has_flag = government_is_feudal
+		}
+		add = 1
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_vassal_r
+			var:tnt_vassal_r > 0
+			scope:tnt_p ?= { government_has_flag = government_is_feudal }
+		}
+		add = 1
+	}
+}
+
+# 1 when the SUBJECT is clan. A clan_vassal group has religious_rights but has
+# NO feudal_government_taxes / _levies (subject_contract_groups.txt:29-41), so
+# the clan branch of the sheet offers religious protection and nothing else —
+# which is exactly the shape of vanilla's own religious_exemption_clan option.
+tnt_ob_clan_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_vassal_p
+			var:tnt_vassal_p > 0
+			government_has_flag = government_is_clan
+		}
+		add = 1
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_vassal_r
+			var:tnt_vassal_r > 0
+			scope:tnt_p ?= { government_has_flag = government_is_clan }
+		}
+		add = 1
+	}
+}
+
+
+###############################################################################
+# §3  IS EACH OBLIGATION LEGAL RIGHT NOW — seven gates
+#
+# 1 = settable · 0 = not. See §0.4 for why these exist and §0.5 for the proof of
+# every trigger used. Each one folds in the government test, so a consumer never
+# has to remember to ask both questions.
+#
+# council_rights and war_declaration_rights have NO gate of their own in vanilla,
+# so their availability IS tnt_ob_feudal_value and they get no value here.
+###############################################################################
+
+# religious_rights — the "religious protection" the user asked for by name.
+# Vanilla level key religious_rights_protected, index 1, score 3 — the joint
+# highest score in the whole feudal group (special_contracts.txt:332-350).
+# Available to feudal AND clan subjects (both groups carry the type), and only
+# when the two faiths actually differ.
+tnt_ob_relig_ok_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			OR = {
+				tnt_ob_feudal_value > 0
+				tnt_ob_clan_value > 0
+			}
+			# `exists` does the LOGICAL job (a limit is an AND-list, so a missing
+			# partner falsifies the whole row) and `?=` does the SAFETY job (no
+			# dotted read of a scope that may not resolve). Both are needed; see
+			# the longer note on tnt_ob_revoke_ok_value below.
+			exists = scope:tnt_p
+			NOT = { scope:tnt_p ?= { faith = scope:tnt_me.faith } }
+		}
+		add = 1
+	}
+}
+
+# fortification_rights — the LIEGE's culture must have innovation_battlements.
+# The liege is the partner on the _p side and the player on the _r side, which
+# is why the two branches read different scopes.
+tnt_ob_fort_ok_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_vassal_p
+			var:tnt_vassal_p > 0
+			scope:tnt_p ?= {
+				culture = { has_innovation = innovation_battlements }
+			}
+		}
+		add = 1
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_vassal_r
+			var:tnt_vassal_r > 0
+			culture = { has_innovation = innovation_battlements }
+		}
+		add = 1
+	}
+}
+
+# coinage_rights — the LIEGE's culture must have innovation_currency_02.
+tnt_ob_coin_ok_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_vassal_p
+			var:tnt_vassal_p > 0
+			scope:tnt_p ?= {
+				culture = { has_innovation = innovation_currency_02 }
+			}
+		}
+		add = 1
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_vassal_r
+			var:tnt_vassal_r > 0
+			culture = { has_innovation = innovation_currency_02 }
+		}
+		add = 1
+	}
+}
+
+# succession_rights — the SUBJECT must be able to hold confederate partition.
+# This is the one obligation on the sheet that FAVOURS THE LIEGE (score -1,
+# subject_opinion -5, flag locked_to_partition), which is why its price in §4 is
+# negative from the subject's side.
+tnt_ob_succ_ok_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_vassal_p
+			var:tnt_vassal_p > 0
+			can_have_confederate_partition_succession_law_trigger = yes
+		}
+		add = 1
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_vassal_r
+			var:tnt_vassal_r > 0
+			scope:tnt_p ?= { can_have_confederate_partition_succession_law_trigger = yes }
+		}
+		add = 1
+	}
+}
+
+# title_revocation_rights — vanilla's is_shown, simplified without changing it.
+# Verbatim vanilla (special_contracts.txt:523-533):
+#     OR = { subject.faith = liege.faith
+#            NOR = { subject.faith = liege.faith
+#                    liege.faith = { has_doctrine_parameter = unlock_jizya_contract } } }
+# The NOR's first row can never be true when the OR's first row is false, so the
+# whole expression is exactly "same faith OR the liege's faith has no jizya
+# contract". Written that way below; the vanilla shape is quoted here so the next
+# reader can check the simplification instead of trusting it.
+#
+# EVERY ROW BELOW IS INDIVIDUALLY GUARDED, and that is deliberate: a limit is an
+# AND-list with no promised evaluation order, so `exists = scope:tnt_p` on one
+# row cannot be relied on to protect a dotted read on another. The same-faith
+# test is therefore written as `scope:tnt_p ?= { faith = root.faith }` — the
+# optional-link form (R13) — rather than as `faith = scope:tnt_p.faith`.
+#   faith = root.faith            GAME\common\decisions\dlc_decisions\tgp\tgp_tenet_decisions.txt:27
+#   faith = { <faith trigger> }   GAME\common\character_interactions\00_alliance.txt:841
+#                                 GAME\common\character_interactions\00_adoption.txt:596
+# With no partner both rows read false / true respectively and the gate opens;
+# the setter and the apply leg are the layers that then refuse (§0.4).
+tnt_ob_revoke_ok_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_vassal_p
+			var:tnt_vassal_p > 0
+			OR = {
+				# the player is the subject, so the LIEGE is the partner
+				scope:tnt_p ?= { faith = scope:tnt_me.faith }
+				NOT = {
+					scope:tnt_p ?= {
+						faith = { has_doctrine_parameter = unlock_jizya_contract }
+					}
+				}
+			}
+		}
+		add = 1
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_vassal_r
+			var:tnt_vassal_r > 0
+			OR = {
+				# the partner is the subject, so the LIEGE is the player (root)
+				scope:tnt_p ?= { faith = scope:tnt_me.faith }
+				NOT = {
+					faith = { has_doctrine_parameter = unlock_jizya_contract }
+				}
+			}
+		}
+		add = 1
+	}
+}
+
+
+###############################################################################
+# §4  THE NINE PRICES — SIGNED FROM THE PARTNER'S POINT OF VIEW (§0.3)
+#
+# Each body reads as the SUBJECT's gain (+) or burden (-), then the whole thing
+# is multiplied by tnt_ob_sign_value, which is -1 when the player is the subject.
+#
+# WHERE THE NUMBERS COME FROM — and which are vanilla and which are not.
+# Vanilla prices exactly four of these, in the ai_accept of
+# offer_vassalization_interaction (GAME\common\character_interactions\00_character_interactions.txt:1029-1053),
+# all from the would-be vassal's point of view:
+#     religious_exemption      +60   (feudal: normal tax + low levies + religious_rights)
+#     religious_exemption_clan +30   (religious_rights only)
+#     low_obligations          +30   (tax 1 AND levies 1, jointly)
+#     high_obligations         -40   (tax 3 AND levies 3, jointly)
+#     normal_obligations         0   (no modifier at all)
+# and council_rights is priced +30 in the scheme-bribe menu
+# (00_scheme_scripted_modifiers.txt:688-708).
+#
+# EVERYTHING ELSE IS EXTRAPOLATED (report 41 W-6, 30-V2-DESIGN §11 item 4):
+# the split of vanilla's joint tax+levy figures, the levels 0 and 4 of both
+# ladders, and the five remaining rights. The extrapolation follows each level's
+# own `score` and `subject_opinion`, which are the numbers vanilla itself uses to
+# rank obligations:
+#     feudal_government_taxes   score  2 / 1 / 0 / -2 / -3   opinion +10/+5/0/-15/-25
+#     feudal_government_levies  score  2 / 1 / 0 / -1 / -2   opinion +10/+5/0/-15/-25
+#                               (GAME\common\subject_contracts\contracts\feudal.txt:1-189)
+#     religious_rights          score  3      council_rights score 3
+#     succession_rights         score -1
+#                               (special_contracts.txt:349, :516, :454)
+# Tax carries the heavier half of the joint figures because its score spread is
+# wider (2..-3 against 2..-2) and because its opinion penalties bite the same.
+# TUNE THESE BY PLAY, NOT BY ARGUMENT — they are the softest numbers in the
+# build after the eternal hook.
+#
+# Every price re-tests its own §3 gate. An ungated price would bill the player
+# for a line that tnt_36_hooks_contracts.txt is about to refuse to emit, which is
+# the exact class of dishonesty user item 1.2 is about.
+#
+# ===========================================================================
+# v3 ITERATION 2 — WHY THIS SECTION SURVIVED THE RECALIBRATION ALMOST INTACT
+# ===========================================================================
+# Iteration 2 moved the whole mod off "100 points is a year of the partner's income"
+# and onto raw vanilla acceptance points (tnt_50_values.txt, CALIBRATION block), and
+# every other per-item price in the build shrank by roughly a factor of ten. THESE
+# NINE DID NOT, because they were never on the income scale in the first place: the
+# four vanilla-priced ones are lifted straight out of offer_vassalization's own
+# ai_accept, which is a raw point sum like every other ai_accept in the game.
+#
+# THE PROOF THAT THE SPLIT IS EXACT, and it is worth writing down because it is the
+# strongest evidence in the file that this section is correctly calibrated. Vanilla
+# prices tax and levies JOINTLY (00_character_interactions.txt:1029-1053):
+#       low_obligations   (tax 1 AND levies 1)  = +30
+#       high_obligations  (tax 3 AND levies 3)  = -40
+# Our split:
+#       tax 1 = +20   levies 1 = +10   ->  +30   EXACT
+#       tax 3 = -25   levies 3 = -15   ->  -40   EXACT
+# religious_exemption +60 feudal / +30 clan and council_rights +30 are likewise
+# vanilla verbatim. So six of the nine sum to vanilla's own figures to the point,
+# and they are LEFT ALONE.
+#
+# THE ONLY EDITS: tnt_val_ob_revoke_value and tnt_val_ob_war_value moved 25 -> 20,
+# to snap the two remaining invented numbers onto vanilla's offset ladder
+# (00_ai_values.txt:22-34: very_low 10 / low 20 / medium 35). fortification 20,
+# coinage 20 and succession -20 were already on it.
+# DO NOT "rescale this section for consistency" with the rest of the build. It is
+# already consistent; rescaling it is how it would stop being so.
+###############################################################################
+
+# feudal_government_taxes, levels 0..4 (exempt / low / normal / high / extortionate).
+# Level 2 is vanilla's default and prices nothing, which is why there is no
+# branch for it and why an UNSET variable also prices nothing.
+tnt_val_ob_tax_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_tax
+			var:tnt_ob_tax = 0
+		}
+		add = 45
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_tax
+			var:tnt_ob_tax = 1
+		}
+		add = 20
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_tax
+			var:tnt_ob_tax = 3
+		}
+		add = -25
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_tax
+			var:tnt_ob_tax >= 4
+		}
+		add = -45
+	}
+	multiply = tnt_ob_sign_value
+}
+
+# feudal_government_levies, levels 0..4.
+tnt_val_ob_levy_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_levy
+			var:tnt_ob_levy = 0
+		}
+		add = 30
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_levy
+			var:tnt_ob_levy = 1
+		}
+		add = 10
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_levy
+			var:tnt_ob_levy = 3
+		}
+		add = -15
+	}
+	else_if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_levy
+			var:tnt_ob_levy >= 4
+		}
+		add = -30
+	}
+	multiply = tnt_ob_sign_value
+}
+
+# religious_rights -> 1. The only obligation vanilla prices differently for the
+# two government types: +60 feudal, +30 clan (:1029-1040).
+tnt_val_ob_relig_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_relig_ok_value > 0
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_relig
+			var:tnt_ob_relig > 0
+		}
+		add = 60
+	}
+	else_if = {
+		limit = {
+			tnt_ob_relig_ok_value > 0
+			tnt_ob_clan_value > 0
+			exists = var:tnt_ob_relig
+			var:tnt_ob_relig > 0
+		}
+		add = 30
+	}
+	multiply = tnt_ob_sign_value
+}
+
+# council_rights -> 1. +30 is VANILLA EXACT (00_scheme_scripted_modifiers.txt:688-708,
+# "council rights in contract": +30, +10 arrogant / -20 humble; we take the base).
+tnt_val_ob_council_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_council
+			var:tnt_ob_council > 0
+		}
+		add = 30
+	}
+	multiply = tnt_ob_sign_value
+}
+
+# title_revocation_rights -> 1. Invented: same shape as council_rights
+# (subject_opinion +5, a protective flag) minus the liege's own
+# powerful_vassal_opinion penalty, so a little less.
+# v3 ITERATION 2: 25 -> 20, purely to snap onto vanilla's offset ladder
+# (GAME\common\script_values\00_ai_values.txt:22-34, `low` = 20). Every OTHER number
+# in this section was already denominated in raw acceptance points and is therefore
+# untouched — see the recalibration note at the head of §4.
+tnt_val_ob_revoke_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_revoke_ok_value > 0
+			exists = var:tnt_ob_revoke
+			var:tnt_ob_revoke > 0
+		}
+		add = 20
+	}
+	multiply = tnt_ob_sign_value
+}
+
+# war_declaration_rights -> 1. Invented, same reasoning as revoke. 25 -> 20 in
+# v3 iteration 2 for the same ladder-snapping reason.
+tnt_val_ob_war_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_war
+			var:tnt_ob_war > 0
+		}
+		add = 20
+	}
+	multiply = tnt_ob_sign_value
+}
+
+# fortification_rights -> 1. Invented, and lower than the opinion rights because
+# it is an economic perk that also costs the liege a tax_factor of -0.10
+# (fortification_rights_contract_taxes).
+tnt_val_ob_fort_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_fort_ok_value > 0
+			exists = var:tnt_ob_fort
+			var:tnt_ob_fort > 0
+		}
+		add = 20
+	}
+	multiply = tnt_ob_sign_value
+}
+
+# coinage_rights -> 1. Invented, same band as fortification.
+tnt_val_ob_coin_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_coin_ok_value > 0
+			exists = var:tnt_ob_coin
+			var:tnt_ob_coin > 0
+		}
+		add = 20
+	}
+	multiply = tnt_ob_sign_value
+}
+
+# succession_rights -> 1 (forced partition). THE ONE OBLIGATION ON THE SHEET
+# THAT FAVOURS THE LIEGE, so its subject-side price is NEGATIVE. Invented from
+# score -1 and subject_opinion -5.
+tnt_val_ob_succ_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_succ_ok_value > 0
+			exists = var:tnt_ob_succ
+			var:tnt_ob_succ > 0
+		}
+		add = -20
+	}
+	multiply = tnt_ob_sign_value
+}
+
+
+###############################################################################
+# §5  FOUR DISPLAY-ONLY VALUES
+###############################################################################
+
+# --- 5.1 THE TWO LEVELS AS THE SHEET MUST PRINT THEM ------------------------
+# UNSET MEANS NORMAL, i.e. 2 — and that is the whole reason these two values
+# exist. Everywhere in script the distinction is free: tnt_val_ob_tax_value
+# prices neither an absent variable nor an explicit 2, and
+# tnt_exec_obligations_effect writes level 2 for both. THE GUI CANNOT DO THAT.
+# TntNum reads an unset variable as 0, so a level label bound straight to
+# var:tnt_ob_tax would proudly announce "Tax Exempt" on a sheet nobody has
+# touched — a 45-point term the player never chose.
+#
+# The alternatives were worse. Initialising the variables to 2 when the window
+# opens means two variables that tnt_close_window_effect has to remember to
+# delete, on top of the nine the reset already handles, and a "Clear all" that
+# leaves them behind reads as Exempt again. Asking the GUI whether a variable is
+# set needs the mods-only "is this variable set" datafunction, which this mod
+# deliberately never uses (gui\tnt_diplomacy_window.gui:76-79). A two-line script
+# value costs nothing and cannot leak into a save.
+#
+# `value = 2` then `add = { value = var:X  subtract = 2 }` yields exactly var:X
+# when the variable exists, and 2 when it does not.
+tnt_ob_tax_shown_value = {
+	value = 2
+	if = {
+		limit = { exists = var:tnt_ob_tax }
+		add = {
+			value = var:tnt_ob_tax
+			subtract = 2
+		}
+	}
+}
+
+tnt_ob_levy_shown_value = {
+	value = 2
+	if = {
+		limit = { exists = var:tnt_ob_levy }
+		add = {
+			value = var:tnt_ob_levy
+			subtract = 2
+		}
+	}
+}
+
+# --- 5.1b CAN THE LADDER STEP FURTHER - four button gates --------------------
+# Read by the stepper buttons' `enabled` in gui\tnt_panel_contract.gui. Built on
+# the shown values so "unset means 2" is inherited: an untouched sheet steps both
+# ways. The feudal test is folded in (S3's doctrine: a consumer never asks both
+# questions), which also covers both directions - tnt_ob_feudal_value carries the
+# _p and _r branches itself. Ceiling 4 = the last rung of BOTH vanilla ladders,
+# positions 0..4 (GAME\common\subject_contracts\contracts\feudal.txt:97-99 tax
+# extortionate, :176-178 levies extortionate); only feudal subjects reach these
+# rows (groups\subject_contract_groups.txt:1-4), so no other ladder length exists.
+tnt_ob_tax_can_up_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			tnt_ob_tax_shown_value < 4
+		}
+		add = 1
+	}
+}
+
+tnt_ob_tax_can_down_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			tnt_ob_tax_shown_value > 0
+		}
+		add = 1
+	}
+}
+
+tnt_ob_levy_can_up_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			tnt_ob_levy_shown_value < 4
+		}
+		add = 1
+	}
+}
+
+tnt_ob_levy_can_down_value = {
+	value = 0
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			tnt_ob_levy_shown_value > 0
+		}
+		add = 1
+	}
+}
+
+# --- 5.2 THE SHEET FOOTER AND THE CONTRACT CARD -----------------------------
+
+# The sheet's own footer figure and the centre column's contract card.
+#
+# *** DISPLAY ONLY. NEVER ADD THIS TO tnt_balance_value OR TO
+# *** tnt_gain_total_value / tnt_loss_total_value. ***
+# The nine prices of §4 go in individually, each with its own desc row, which is
+# what makes the breakdown readable. Adding this as well double-counts the whole
+# contract. Its name deliberately does NOT start with tnt_val_, the mod's prefix
+# for a priced deal item, so a grep for the balance's inputs never finds it.
+# V4: SCALED, BECAUSE THE HEADLINE SCALES IT. All nine obligation prices are members
+# of tnt_gain_total_value, and the V4 model multiplies that total by the modifier stack
+# (tnt_deal_mult_value). A panel footer quoting the raw sum was therefore quoting a
+# different currency from the scales - the same defect the marriage preview had, where
+# "+50 and +40" turned into +110.
+#
+# THE TWO LEVEL READOUTS ABOVE ARE NOT TOUCHED, and that distinction matters:
+# tnt_ob_tax_shown_value and tnt_ob_levy_shown_value are OBLIGATION LEVELS (2 is the
+# ordinary rate), not points. Multiplying a level by a treaty modifier would be
+# nonsense - it is the price of the change that scales, not the tax band itself.
+# V7 SPLIT — THE FOOTER PRINTED 0 FOREVER AT A HOSTILE TABLE, AND THE BUG WAS
+# THE MULTIPLY ON A SIGNED SUM. tnt_deal_mult_value is max(0,100+S)/100, and at
+# the user's test table (opinion -100 plus faith/threshold rows) S <= -100, so
+# the old `multiply` zeroed WHATEVER the nine terms summed to - while the
+# headline visibly moved, because there the nine prices enter RAW (their desc
+# rows carry no multiply; the multiplier only scales the POSITIVE gift stack
+# through tnt_gain_scale_unit_value, floored at 0). Footer said 0, scales moved:
+# the user's report verbatim.
+#
+# THE FIX REPRODUCES THE HEADLINE'S MARGINAL ARITHMETIC IN BOTH REGIMES:
+#   * a POSITIVE sheet (rights gifted to the subject) scales by the same
+#     multiplier the headline applies to gifts - including honestly reading 0 at
+#     mult = 0, where the headline's own marginal is 0 too;
+#   * a NEGATIVE sheet (rights extracted) passes RAW, exactly as those rows
+#     enter tnt_ai_accept_value.
+# The footer agrees with the nine visible tnt_bd_ob_* rows in SIGN and direction
+# in every regime, and with their exact sum whenever no multiplier applies (any
+# all-negative sheet; any sheet at mult = 1). A MIXED-SIGN sheet is approximated
+# at sum level: the multiplier is applied to the positive TOTAL here, while the
+# rows display their raw per-term figures - the bounded, accepted imprecision.
+tnt_ob_sheet_raw_value = {
+	value = 0
+	add = tnt_val_ob_tax_value
+	add = tnt_val_ob_levy_value
+	add = tnt_val_ob_relig_value
+	add = tnt_val_ob_council_value
+	add = tnt_val_ob_revoke_value
+	add = tnt_val_ob_war_value
+	add = tnt_val_ob_fort_value
+	add = tnt_val_ob_coin_value
+	add = tnt_val_ob_succ_value
+}
+
+tnt_ob_sheet_total_value = {
+	value = tnt_ob_sheet_raw_value
+	if = {
+		limit = { tnt_ob_sheet_raw_value > 0 }
+		multiply = tnt_deal_mult_value
+	}
+	round = yes
+}
+
+# How many rows of the sheet differ from the contract a plain fealty would
+# produce. Vanilla's default is tax 2 / levies 2 and every right off, which is
+# also what tnt_exec_vassal_effect leaves behind when the sheet is untouched
+# (tnt_32_apply.txt:889-890).
+#
+# STATUS (updated by the V25 doc sweep - the BUILD 3 "UNREFERENCED" claim expired
+# long ago): FOUR live reader families exist today - the contract footer status
+# pair (tnt_panel_contract.gui:1735-1736/:1748-1749 via tnt_ob_status_default/_changed), the
+# letter's contract gate, tnt_ctx_contract's readout, and the log emitter's
+# tnt_ob_changed_value > 0 guard (the V18 phantom-rows fix). What REMAINS true and
+# load-bearing: it is NOT part of tnt_items_count_value and must never be - the
+# deal item being counted is the FEALTY, counted once by that value's two
+# tnt_vassal_* rows, and the nine tnt_ob_* variables only detail its terms. They
+# also cannot exist without it - every setter in tnt_22c_hooks_contracts.txt is
+# gated on tnt_ob_feudal_value or tnt_ob_relig_ok_value, and both return 0 unless
+# tnt_vassal_p > 0 or tnt_vassal_r > 0 - so a contract sheet can never be the only
+# thing on the table and "the send gate misses the contract sheet" cannot happen.
+tnt_ob_changed_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_ob_tax
+			NOT = { var:tnt_ob_tax = 2 }
+		}
+		add = 1
+	}
+	if = {
+		limit = {
+			exists = var:tnt_ob_levy
+			NOT = { var:tnt_ob_levy = 2 }
+		}
+		add = 1
+	}
+	if = {
+		limit = {
+			exists = var:tnt_ob_relig
+			var:tnt_ob_relig > 0
+		}
+		add = 1
+	}
+	if = {
+		limit = {
+			exists = var:tnt_ob_council
+			var:tnt_ob_council > 0
+		}
+		add = 1
+	}
+	if = {
+		limit = {
+			exists = var:tnt_ob_revoke
+			var:tnt_ob_revoke > 0
+		}
+		add = 1
+	}
+	if = {
+		limit = {
+			exists = var:tnt_ob_war
+			var:tnt_ob_war > 0
+		}
+		add = 1
+	}
+	if = {
+		limit = {
+			exists = var:tnt_ob_fort
+			var:tnt_ob_fort > 0
+		}
+		add = 1
+	}
+	if = {
+		limit = {
+			exists = var:tnt_ob_coin
+			var:tnt_ob_coin > 0
+		}
+		add = 1
+	}
+	if = {
+		limit = {
+			exists = var:tnt_ob_succ
+			var:tnt_ob_succ > 0
+		}
+		add = 1
+	}
+}

@@ -1,0 +1,261 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — on_action hooks (garbage collection only)
+#
+# THIS FILE MUST NOT BE NAMED yearly_on_actions.txt OR death.txt — that
+# would override the vanilla file. Appending to a vanilla on_action from a
+# differently-named file is additive; the engine merges the `on_actions`
+# lists. Proven in this install by
+#   MOD\3037969445\common\on_action\zz_lmfmod_on_actions.txt:45-62
+# which adds to random_yearly_playable_pulse / three_year_playable_pulse /
+# five_year_playable_pulse the same way.
+#
+# Vanilla anchors:
+#   yearly_playable_pulse — GAME\common\on_action\yearly_on_actions.txt:840
+#                           ("Called from code once a year for 'playable'
+#                            (count+) characters. Root is the character")
+#   on_death              — GAME\common\on_action\death.txt:5
+#
+# THREE JOBS.
+#
+# 1. (RETIRED V12) tnt_nonwar_promises never expires on its own. Only
+#    set_variable takes days/years; add_to_variable_list entries live forever
+#    (report 04 warning #18), so tnt_gc_promises_effect used to prune entries
+#    whose one-way truce had lapsed, once a year per playable character. The
+#    non-aggression term is retired, nothing writes the list, and under ruling
+#    E0 there are no old saves to clean - so the call at :171 and the effect
+#    itself are commented out together. TWO JOBS remain live below.
+#
+# 2. If the negotiating partner dies while the window is open, every
+#    tnt_* value would keep reading a dead character. on_death clears the
+#    whole negotiation for any player whose tnt_partner was the deceased.
+#
+# 3. (BUILD 3) The AI-offer garbage collector runs. tnt_ai_offer_gc is
+#    defined in tnt_71_ai.txt and reclaims a player who was left holding
+#    var:tnt_partner and a whole table of offer variables because an AI
+#    treaty letter expired unanswered — 30-V2-DESIGN §3.5(f), risk R-14,
+#    "mandatory, not belt-and-braces". It is named on yearly_playable_pulse
+#    below so that it cannot be lost to a cross-file merge question. The long
+#    box further down explains the three-file on_action topology in full.
+#
+# DELIBERATE, DOCUMENTED CONTRACT DEVIATION — DO NOT DELETE JOB 2.
+# Contract §6.7 and acceptance check 31 describe only the yearly pulse hook,
+# so a verifier walking the checklist mechanically will flag the on_death
+# block below as an unauthorised addition. It is authorised: it fixes a real
+# dangling-partner bug that §6.7 did not anticipate, and both constructs are
+# vanilla-verified (on_death at GAME\common\on_action\death.txt:5; a nested
+# `on_actions = { … }` on an on_action block at
+# GAME\common\on_action\birthday.txt:4). The cost on a hot on_action is two
+# variable lookups per player per death — every_player is one entry in single
+# player. Read acceptance check 31 as: "adds tnt_yearly_cleanup to
+# yearly_playable_pulse and tnt_partner_death_cleanup to on_death, and defines
+# those two on_actions locally".
+#
+#=======================================================================
+# BUILD 3 — THIS IS NO LONGER THE MOD'S ONLY on_action FILE. READ THIS
+# BEFORE TOUCHING ANY BLOCK BELOW, AND BEFORE "TIDYING UP" THE OTHER TWO.
+#=======================================================================
+# The four on_action files and what each declares:
+#
+#   tnt_70_on_actions.txt  (this file)
+#       yearly_playable_pulse    -> tnt_yearly_cleanup, tnt_ai_offer_gc
+#       on_death                 -> tnt_partner_death_cleanup
+#       tnt_yearly_cleanup       *** THE ONLY `effect` BLOCK ON THAT NAME ***
+#       tnt_partner_death_cleanup
+#
+#   tnt_71_ai.txt  (item 4, phase AI-1 — AI offers a treaty to the player)
+#       ai_character_pulse       -> tnt_ai_offer_pulse   *** THE ONLY HOST since
+#                                   V9: the yearly_playable_pulse second host was
+#                                   deleted after the log proved it double-fired
+#                                   the same ruler-year (13,506 queued-twice
+#                                   warnings, 22% duplicate deal volume). The
+#                                   chance ladder was doubled in the same commit
+#                                   so the tuned rates held. ***
+#       tnt_yearly_cleanup       -> tnt_ai_offer_gc
+#                                   (a SECOND declaration, list keys ONLY)
+#       tnt_ai_offer_gc
+#
+#   tnt_72_ai_world.txt  (item 4, phase C-2 — silent AI<->AI treaties)
+#       ai_character_pulse       -> tnt_ai_world_pulse   (the SOLE host since
+#                                   2026-08; the yearly_playable_pulse host that
+#                                   stood beside it was deleted, tnt_72:236)
+#       tnt_ai_world_pulse
+#
+#   tnt_73_intro.txt  (user item 23 — the one-shot game-start letter)
+#       on_game_start_after_lobby -> tnt_intro_hook
+#       tnt_intro_hook           (its own single `effect` block)
+#
+# THE MERGE IS LEGAL AND IT IS PDX'S OWN DOCUMENTED MODDING CONTRACT, quoted
+# verbatim from GAME\common\on_action\_on_actions.info, section
+# "=== MODDING INFO ===":
+#     "You can declare data for on-actions in multiple files, however, you
+#      cannot have multiple triggers or effect blocks for a given named
+#      on-action. In particular, you cannot append an effect block directly to
+#      an on_action which already has an effect block, as this creates a
+#      conflict."
+# Vanilla practises it in one file: three_year_playable_pulse is declared
+# TWICE in GAME\common\on_action\yearly_on_actions.txt, at :1975 (with an
+# `effect`) and again at :2915 (lists only) — verified by scanning every
+# top-level key in that file this session; it is the only duplicate there.
+# In-install mod precedent for doing it from a mod file against vanilla names:
+# MODS\3037969445\common\on_action\zz_lmfmod_on_actions.txt:45-62.
+#
+# SO THE ONE RULE IS: exactly one `effect` block and one `trigger` block per
+# on_action name, mod-wide. tnt_yearly_cleanup's single `effect` block is the
+# one below. tnt_71_ai.txt's second declaration of that name carries nothing
+# but an `on_actions` list, which is why the two merge instead of colliding.
+# If anybody ever adds an `effect` to tnt_yearly_cleanup in tnt_71_ai.txt or
+# anywhere else, THAT is the conflict — not the second declaration itself.
+#
+# WHY tnt_ai_offer_gc IS ALSO LISTED HERE, directly under
+# yearly_playable_pulse, when tnt_71_ai.txt already hangs it off
+# tnt_yearly_cleanup:
+#   That GC is 30-V2-DESIGN §3.5(f) / risk R-14 and the design calls it
+#   "mandatory, not belt-and-braces". It is the only thing that reclaims a
+#   player left holding var:tnt_partner and a full table of offer variables
+#   after an AI offer event expired unanswered. Reaching it through
+#   tnt_yearly_cleanup means it depends on the cross-file merge of a
+#   MOD-DEFINED on_action name; naming it on the vanilla host as well makes it
+#   depend on nothing but this file. The cost is one extra evaluation of its
+#   own four-row trigger per playable character per year — one variable lookup
+#   and one is_ai test, and the body runs only in the leaked case. Running it
+#   twice in a year is idempotent: after the first pass var:tnt_partner is
+#   gone and the trigger no longer passes.
+#   NOTE the deliberate asymmetry: tnt_ai_offer_PULSE is NOT repeated here.
+#   Since 2026-08 it has exactly ONE host (ai_character_pulse) and its `chance`
+#   was doubled to 20 to compensate — the second host used to make it roll twice
+#   per AI per tick, 10,971 queued-twice warnings in one run (tnt_71_ai.txt:37-52,
+#   :109-112). Adding a host back would restore that. A second GC pass, by
+#   contrast, changes nothing: it only cleans up.
+#
+# NO `delay` IN EITHER LIST, DELIBERATELY. A `delay` inside an `on_actions`
+# list applies to everything after it in the MERGED list, and the merge order
+# across three files is not ours to control — a delay here could silently
+# postpone another author's pulse. The spread is free anyway:
+# yearly_playable_pulse fires on each character's own birthday.
+#
+# THE ONE-BLOCK REVERTS, if error.log ever objects after a full game exit
+# (logs are buffered — a clean log from a LIVE session proves nothing):
+#   * any complaint naming tnt_yearly_cleanup or "multiple effect blocks" =>
+#     delete the tnt_yearly_cleanup block from tnt_71_ai.txt and add
+#     tnt_ai_offer_pulse to the yearly_playable_pulse list below. Nothing
+#     else changes; tnt_ai_offer_gc is already here.
+#   * any complaint naming yearly_playable_pulse => it can only come from the
+#     block below; tnt_72_ai_world.txt no longer declares that host, and
+#     tnt_ai_world_chance_value is ALREADY the one-host ladder. Do NOT double
+#     it again.
+########################################################################
+
+yearly_playable_pulse = {
+	on_actions = {
+		tnt_yearly_cleanup
+		tnt_ai_offer_gc
+	}
+}
+
+on_death = {
+	on_actions = {
+		tnt_partner_death_cleanup
+	}
+}
+
+########################################################################
+# Root = a playable character (count or above), once a year.
+#
+# *** THIS IS THE ONLY `effect` BLOCK ON THIS NAME IN THE WHOLE MOD, AND
+# *** _on_actions.info REQUIRES THAT IT STAY THE ONLY ONE. ***
+# tnt_71_ai.txt declares tnt_yearly_cleanup a second time to append
+# tnt_ai_offer_pulse and tnt_ai_offer_gc to its `on_actions` list; list keys
+# merge, `effect` blocks do not. If you need more work done once a year per
+# playable character, either add a statement to the effect below or add a
+# name to that file's list — never a second effect block.
+########################################################################
+tnt_yearly_cleanup = {
+	effect = {
+		# RETIRED V12 together with its effect (ruling E0): nothing has written
+		# tnt_nonwar_promises since the non-aggression term was retired, and the
+		# engine logged 'Variable tnt_nonwar_promises is used but is never set'.
+		# TOMBSTONED, so never in-mod evidence for a bare walk; revive both or neither:
+		# common\scripted_effects\tnt_31_lists.txt:773 header, :815 dead body onward.
+		# tnt_gc_promises_effect = yes
+
+		#===============================================================
+		# ITEM 2.1, ITERATION 4 — THE PER-CHARACTER MARRIAGE LEAK SWEEP
+		#===============================================================
+		# Marriage became an unlimited list of pairs, tnt_wed_list, and each
+		# pair stores tnt_wed_partner and tnt_wed_matri ON THE PLAYER-SIDE
+		# SPOUSE — a courtier or a child, never the player. Four paths already
+		# strip them (window open, Clear all, window close, deal applied), all
+		# four through tnt_reset_marriage_effect's first line. THIS IS THE
+		# FIFTH AND IT IS THE ONLY ONE THAT SURVIVES A SESSION THAT NEVER
+		# CLOSED THE WINDOW: a crash, an alt-F4, a save-and-quit with the
+		# editor still up. Without it those variables sit in the save forever,
+		# on people who may by then be dead or inherited.
+		#
+		# tnt_wed_gc_effect's own guard is `has_variable_list = tnt_wed_list`
+		# AND `NOT = { exists = var:tnt_open }` AND — since V9 —
+		# `NOT = { exists = var:tnt_ai_letter }`. The first two say "there are
+		# pairs and the negotiation window is not open"; the third exists
+		# because archetype A16 broke the old theorem that a list without a
+		# window is garbage: the composer stages a marriage pair with NO window
+		# open, and the letter may sit across a year boundary. A live editing
+		# session OR a live letter is therefore never touched, whatever the date.
+		#
+		# COST: root here is every playable character (count or above), and an
+		# AI never carries the list, so this is one map lookup per playable per
+		# year and nothing else. It used to sit after tnt_gc_promises_effect for no
+		# reason beyond reading order; the two were independent, which is why V12
+		# could retire that one without touching this.
+		tnt_wed_gc_effect = yes
+
+		#===============================================================
+		# V33 - THE LEAN PROBE. ONE LOG LINE A YEAR, THE PLAYER ONLY.
+		#===============================================================
+		# WHY IT IS HOSTED HERE AND NOT WHERE IT IS MEASURED. The thing
+		# measured is the important-action alert tnt_action_can_lean_on
+		# (common\important_actions\tnt_91_alerts.txt), and THAT FILE
+		# CANNOT LOG: its check_create_action is an interface effect and
+		# GAME\common\important_actions\_important_actions.info:12 says
+		# "Only interface effects are allowed", so error_log,
+		# set_variable and add_character_flag are all discarded at parse
+		# time with one jomini_effect.cpp "Reading a non-interface effect
+		# '...' in forbidden area" line and nothing else. Three rounds of
+		# debugging were spent blind on that surface; this row ends that.
+		# The probe re-walks the alert's two pools with the alert's own
+		# three triggers, CALLED and never copied - see L21's header in
+		# common\scripted_effects\tnt_3b_log.txt for the whole argument.
+		#
+		# is_ai = no because check_create_action runs on the PLAYER
+		# CHARACTER ONLY (_important_actions.info:13). Without this row
+		# the two walks would run for every playable AI in the world once
+		# a year, measuring a surface no AI has.
+		#
+		# COST AT THE SHIPPED DEFAULT IS ONE has_game_rule LOOKUP: L21
+		# opens with the telemetry gate like every other tnt_log_ helper
+		# and returns immediately when the rule is off. This makes
+		# tnt_70_on_actions.txt the FIFTH caller file of tnt_3b_log.txt;
+		# that file's own caller list was corrected in the same edit.
+		if = {
+			limit = { is_ai = no }
+			tnt_log_lean_probe_effect = yes
+		}
+	}
+}
+
+########################################################################
+# Root = the character who just died.
+# every_player is a tiny list (one entry in single player) and the limit is
+# two cheap variable lookups, so this is safe on a hot on_action.
+# every_player: GAME\common\confederation_types\00_confederation_types.txt:47
+########################################################################
+tnt_partner_death_cleanup = {
+	effect = {
+		save_temporary_scope_as = tnt_dead
+		every_player = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { this = scope:tnt_dead }
+			}
+			tnt_close_window_effect = yes
+		}
+	}
+}

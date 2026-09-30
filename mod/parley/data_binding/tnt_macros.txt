@@ -1,0 +1,310 @@
+﻿# Parley: The Negotiating Table - data_binding macros.
+# Macro names are GLOBAL across all mods, so every one is prefixed Tnt.
+# Contract 10-CONTRACT.md section 7.2 listed 13; v2 build 1 added the three
+# script-value comparison macros, for 16; v2 build 2 adds four more (row
+# gating, the two selection-list emptiness readers and the hook tier name),
+# for 20 in total.
+#
+# Zero-argument macros are legal: proven by
+#   MOD\Warcraft-Guardians-of-Azeroth-2-dev\data_binding\wc_macros.txt:33  definition = "Caster"
+# Macro file format copied from that same file.
+#
+# `replace_with` is written FULLY EXPANDED in every macro below - one macro never
+# names another. That is the shipped style and it removes any question about
+# whether the expander is recursive.
+#
+# NEVER chain two .AddScope() calls (Law 5). No macro below has more than one.
+
+macro = {
+	description = "TWD: variable handle on the player"
+	definition = "TntVar(V)"
+	replace_with = "GetPlayer.MakeScope.Var(V)"
+}
+
+macro = {
+	description = "TWD: numeric value of a player variable"
+	definition = "TntNum(V)"
+	replace_with = "GetPlayer.MakeScope.Var(V).GetValue"
+}
+
+macro = {
+	description = "TWD: is a 0/1 player variable switched on"
+	definition = "TntOn(V)"
+	replace_with = "GreaterThan_CFixedPoint( GetPlayer.MakeScope.Var(V).GetValue, '(CFixedPoint)0' )"
+}
+
+macro = {
+	description = "TWD: a script-built variable list on the player, as a datamodel"
+	definition = "TntList(V)"
+	replace_with = "GetPlayer.MakeScope.GetList(V)"
+}
+
+macro = {
+	description = "TWD: a named script value evaluated with the player as root"
+	definition = "TntSV(V)"
+	replace_with = "GetPlayer.MakeScope.ScriptValue(V)"
+}
+
+# 1-arg datafunction on a GuiScope -> ValueBreakdown object.
+# NOT the 2-arg string macro from GAME\data_binding\00_script_value_bindings.txt:7-11.
+macro = {
+	description = "TWD: ValueBreakdown object for a named script value"
+	definition = "TntBreakdown(V)"
+	replace_with = "GuiScope.SetRoot( GetPlayer.MakeScope ).GetScriptValueBreakdown(V)"
+}
+
+macro = {
+	description = "TWD: the negotiation partner as a Character"
+	definition = "TntPartner"
+	replace_with = "GetPlayer.MakeScope.Var('tnt_partner').Char"
+}
+
+macro = {
+	description = "TWD: run a scripted gui with the player as root"
+	definition = "TntExec(S)"
+	replace_with = "GetScriptedGui(S).Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )"
+}
+
+macro = {
+	description = "TWD: is a scripted gui valid for the player"
+	definition = "TntValid(S)"
+	replace_with = "GetScriptedGui(S).IsValid( GuiScope.SetRoot( GetPlayer.MakeScope ).End )"
+}
+
+macro = {
+	description = "TWD: build the failure tooltip of a scripted gui"
+	definition = "TntTip(S)"
+	replace_with = "GetScriptedGui(S).BuildTooltip( GuiScope.SetRoot( GetPlayer.MakeScope ).End )"
+}
+
+macro = {
+	description = "TWD: run a picker setter passing the row Title as scope:tnt_picked"
+	definition = "TntPickTitle(S)"
+	replace_with = "GetScriptedGui(S).Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope( 'tnt_picked', Title.MakeScope ).End )"
+}
+
+macro = {
+	description = "TWD: run a picker setter passing the row Artifact as scope:tnt_picked"
+	definition = "TntPickArtifact(S)"
+	replace_with = "GetScriptedGui(S).Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope( 'tnt_picked', Artifact.MakeScope ).End )"
+}
+
+macro = {
+	description = "TWD: run a picker setter passing the row Character as scope:tnt_picked"
+	definition = "TntPickChar(S)"
+	replace_with = "GetScriptedGui(S).Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope( 'tnt_picked', Character.MakeScope ).End )"
+}
+
+########################################################################
+# v2 ADDITIONS - three comparisons on a named script value.
+#
+# WHY: the verdict icon, the two verdict texts and the deal sheet's empty state
+# all test tnt_ai_accept_value or tnt_items_count_value against 0, in six places
+# across two .gui files. Written out longhand that is
+#   GreaterThan_CFixedPoint( GetPlayer.MakeScope.ScriptValue('x'), '(CFixedPoint)0' )
+# every time, and a single mistyped cast is a silent always-false expression.
+# One definition, six uses, no possible drift.
+#
+# The three datafunctions used are all already exercised by this mod:
+# GreaterThan_CFixedPoint and Not at tnt_types.gui's verdict icon,
+# EqualTo_CFixedPoint at the picker overlay's index tests (vanilla precedent
+# GAME\gui\activity_window_widgets\debate_success_chance.gui:137).
+########################################################################
+
+macro = {
+	description = "TWD: is a named script value strictly greater than zero"
+	definition = "TntPos(V)"
+	replace_with = "GreaterThan_CFixedPoint( GetPlayer.MakeScope.ScriptValue(V), '(CFixedPoint)0' )"
+}
+
+# Deliberately the exact negation of TntPos, because the only acceptance test
+# in this mod is `tnt_ai_accept_value > 0` and EXACTLY 0 declines
+# (GAME\gui\interaction_templates.gui:3089,
+#  GAME\localization\english\interactions_l_english.yml:23).
+macro = {
+	description = "TWD: is a named script value zero or negative"
+	definition = "TntNeg(V)"
+	replace_with = "Not( GreaterThan_CFixedPoint( GetPlayer.MakeScope.ScriptValue(V), '(CFixedPoint)0' ) )"
+}
+
+macro = {
+	description = "TWD: is a named script value exactly zero"
+	definition = "TntZero(V)"
+	replace_with = "EqualTo_CFixedPoint( GetPlayer.MakeScope.ScriptValue(V), '(CFixedPoint)0' )"
+}
+
+########################################################################
+# BUILD 2 ADDITIONS - four macros. 16 -> 20.
+# 10-CONTRACT section 7.2's "exactly these 13" was already amended to 16 by
+# build 1; it is amended again here to 20 - the SAME number the top of this file
+# states, and the number a `definition = "` count over this file returns. (The
+# figure read 22 until build 3; it was a typo, not a plan for two more.)
+# Every name is Tnt-prefixed, so there is no possibility of collision with
+# another mod's macro table.
+#
+# Still written FULLY EXPANDED - no macro names another. Recursion in the
+# expander is never assumed anywhere in this file.
+########################################################################
+
+########################################################################
+# TntRow - THE ROW-VISIBILITY MACRO (the user's "hide unavailable rows").
+#
+# author:gating computes 26 answers ONCE, at window open, into the character
+# variables tnt_show_<item>_<side> (0/1). This macro is what every one of the
+# 26 rows binds its `visible` to. It is a plain variable read - two map
+# lookups - and NEVER a GetScriptedGui call: Law R11 forbids that, because a
+# scripted gui in a per-row `visible` runs the full script trigger every frame
+# per instance and vanilla uses that shape at only ~20 sites in the whole game
+# (00-ARCHITECTURE section 2.10).
+#
+# THE SECOND HALF OF THE EXPRESSION IS A DELIBERATE SAFETY NET, and it is the
+# whole reason this is a macro rather than a bare TntOn.
+#   TntOn on an UNSET variable reads 0, i.e. "hide".
+# So if the gating variables are never written - the gating author's effect
+# missing, or the integrator forgetting to call it - a bare TntOn would hide
+# EVERY row and leave the player an empty window. That is exactly defect B-3
+# of build 1 (the influence rows were gated on a variable nothing wrote and
+# were invisible in every game), and it must not happen to all 26 rows at once.
+#
+# tnt_gate_live is the one-bit "the gating pass ran" flag. The gating effect
+# sets it to 1 as its last statement; tnt_close_window_effect removes it.
+# While it is absent the Or() is true for every row, so the window degrades
+# EXACTLY to build 1 - all rows shown - instead of degrading to nothing.
+#
+# Or( ... ) and Not( ... ) are both vanilla datafunctions:
+#   GAME\gui\frontend_main.gui:891   visible = "[Or( Not( StatusIsLoggedIn ), StatusIsUserNameEmpty )]"
+#   GAME\gui\frontend_ingame_menu.gui:210  nests Or three deep.
+########################################################################
+########################################################################
+# V4: EVERY ROW IS SHOWN. THE HIDE-UNAVAILABLE RULE IS RETIRED.
+#
+# The user's ruling, and the reasoning is his: "let us bring back showing ALL the
+# options and simply leave the unavailable ones blocked - a new user of the mod then
+# gets a fuller picture of what is possible." That is right, and the threat row
+# proved it the hard way: an option that is absent teaches nothing, and a player who
+# cannot see a mechanic cannot learn what it needs.
+#
+# THE GATE VARIABLES ARE NOT DELETED, and that is deliberate. Every
+# tnt_show_<item>_p is still computed by tnt_refresh_show_gates_effect and still
+# answers "may this be offered", which is what the row's `enabled` and its tooltip
+# are built from. Only the VISIBILITY question now answers yes always.
+#
+# HOW TO PUT THE OLD BEHAVIOUR BACK, in one line and with no other edit: the macro
+# reads tnt_hide_unavailable, a variable nothing writes. Set it to 1 anywhere - a
+# game rule, a footer toggle, a console command - and every row returns to being
+# hidden unless its own gate is up, because the second half of the Or() is exactly
+# the old test. Nothing else in the mod has to know.
+#
+# Or( … ) and Not( … ) are both vanilla datafunctions:
+#   GAME\gui\frontend_main.gui:891   visible = "[Or( Not( StatusIsLoggedIn ), StatusIsUserNameEmpty )]"
+########################################################################
+macro = {
+	description = "TWD: may this negotiation row be shown (V4: always, unless tnt_hide_unavailable is raised)"
+	definition = "TntRow(V)"
+	replace_with = "Or( Not( GreaterThan_CFixedPoint( GetPlayer.MakeScope.Var('tnt_hide_unavailable').GetValue, '(CFixedPoint)0' ) ), Or( GreaterThan_CFixedPoint( GetPlayer.MakeScope.Var(V).GetValue, '(CFixedPoint)0' ), Not( GreaterThan_CFixedPoint( GetPlayer.MakeScope.Var('tnt_gate_live').GetValue, '(CFixedPoint)0' ) ) ) )"
+}
+
+########################################################################
+# THE COMPANION TO THE ABOVE: is this row's own gate up?
+#
+# With TntRow now always true, the rows need a separate answer for `enabled` -
+# otherwise a row that may not be offered would look clickable. This is the OLD
+# TntRow test, unchanged, under a name that says what it means. A row whose
+# scripted gui already has an is_valid keeps using TntValid, which explains itself
+# in the tooltip; the rest use this.
+########################################################################
+macro = {
+	description = "TWD: is this negotiation row's own gate up (used for `enabled` now that every row is visible)"
+	definition = "TntGate(V)"
+	replace_with = "Or( GreaterThan_CFixedPoint( GetPlayer.MakeScope.Var(V).GetValue, '(CFixedPoint)0' ), Not( GreaterThan_CFixedPoint( GetPlayer.MakeScope.Var('tnt_gate_live').GetValue, '(CFixedPoint)0' ) ) )"
+}
+
+########################################################################
+# The two selection-list emptiness readers (user item 2.2, multi-select).
+#
+# A selection list is a script variable list on the player, so it is reached
+# with MakeScope.GetList - the same handle the picker panels already use as a
+# datamodel. These three macros are what replaced the six deleted single-object
+# variables tnt_title_p/_r, tnt_claim_p/_r, tnt_artifact_p/_r
+# (30-V2-DESIGN section 3.1): where the GUI used to ask
+# ".Title.IsValid" it now asks "is the list non-empty".
+#
+# IsDataModelEmpty over a MakeScope.GetList is ALREADY SHIPPED AND RUNNING in
+# this mod - every picker panel's empty state uses it
+# (tnt_diplomacy_window.gui, blockoverride "tnt_picker_panel_empty"), and the
+# 119 852-line observed session contained nothing about it. That is why
+# TntAny is Not(IsDataModelEmpty(...)) and not the shorter vanilla
+# DataModelHasItems: the latter is real (GAME\gui\hud.gui:7399) but has only
+# ever been used on ENGINE datamodels, never on a script variable list.
+#
+# author:multiselect independently reached the same shape for its own panels'
+# empty states (gui/tnt_panel_multiselect.gui, blockoverride
+# "tnt_multi_available_empty"), so the mod asks "is this list empty" exactly
+# one way in three files.
+########################################################################
+macro = {
+	description = "TWD: does a script variable list hold at least one object"
+	definition = "TntAny(V)"
+	replace_with = "Not( IsDataModelEmpty( GetPlayer.MakeScope.GetList(V) ) )"
+}
+
+macro = {
+	description = "TWD: is a script variable list empty"
+	definition = "TntNone(V)"
+	replace_with = "IsDataModelEmpty( GetPlayer.MakeScope.GetList(V) )"
+}
+
+# NO COUNT MACRO, AND NO int32 BRIDGE - both were written and then removed
+# once author:multiselect's file landed, and the reason is worth recording so
+# nobody adds them back.
+#   * A count macro over GetDataModelSize( MakeScope.GetList(V) ) works - the
+#     datafunction is vanilla (GAME\gui\frontend_bookmarks.gui:1679 compares it,
+#     GAME\gui\map_icon_layer.gui:1414 prints it) - but it has only ever run on
+#     ENGINE datamodels, never on a script variable list. author:multiselect
+#     ships tnt_count_sel_<item>_<side>_value for the same answer, so the whole
+#     mod asks the count question ONE way, through a script value that is also
+#     what prices the term. TntSV covers it; a second mechanism would only be
+#     a second thing to disagree.
+#   * FixedPointToInt( ScriptValue(V) ) was for comparing a resulting domain
+#     size against Character.GetDomainLimit. author:multiselect ships
+#     tnt_domain_over_p/_r_value instead, so the comparison happens in script
+#     where it belongs and the GUI just reads a flag.
+
+########################################################################
+# TntHookTier - the NAME of a 0..3 hook tier (user item 2.3).
+#
+# tnt_hook_p / tnt_hook_r stopped being 0/1 flags and became tier indices
+# (30-V2-DESIGN section 3.2: 0 none, 1 favour, 2 strong, 3 eternal). The row
+# must print the tier's NAME, and a .gui `text =` property takes exactly one
+# expression - it cannot pick a loc key by arithmetic. This macro is that one
+# expression.
+#
+# Both halves are vanilla-proven, and the combination is verbatim vanilla:
+#   GAME\gui\game_rules.gui:110
+#     text = "[Select_CString( JominiGameRules.HasSelectedCategoryIndex,
+#                              GameRuleCategory.GetName,
+#                              Localize( 'GAME_RULES_CATEGORY_DROPDOWN_NONE_SELECTED' ) )]"
+#   i.e. Select_CString( <bool>, <CString>, Localize( <key> ) ) - exactly our
+#   shape. Further Select_CString sites: GAME\gui\hud.gui:6311,
+#   GAME\gui\interaction_templates.gui:2619, GAME\gui\window_character.gui:4801.
+#   Localize( 'literal' ) also at GAME\gui\window_ledger.gui:417.
+#
+# The nesting order tests 1, then 2, then 3, and falls through to tier 0. That
+# ordering is deliberate: an UNSET or out-of-range variable therefore renders
+# "no hook", which is the honest answer and needs no guard. R13 is satisfied
+# without an exists test because a numeric variable read yields 0, not an
+# invalid object.
+#
+# THREE-DEEP Select_CString nesting is the one thing here that is not vanilla
+# verbatim (vanilla nests Or three deep at frontend_ingame_menu.gui:210, and
+# nests a datafunction inside Select_CString at
+# GAME\gui\window_council_potential_councillor.gui:215, but not this exact
+# shape). FALLBACK if the tier name renders blank or the engine complains:
+# print the bare index with text = "[TntNum('tnt_hook_p')|0]" and move the
+# four names into the control's tooltip. One line, one file.
+########################################################################
+macro = {
+	description = "TWD: the localised name of a 0..3 hook tier variable"
+	definition = "TntHookTier(V)"
+	replace_with = "Select_CString( EqualTo_CFixedPoint( GetPlayer.MakeScope.Var(V).GetValue, '(CFixedPoint)1' ), Localize('tnt_hook_tier_1'), Select_CString( EqualTo_CFixedPoint( GetPlayer.MakeScope.Var(V).GetValue, '(CFixedPoint)2' ), Localize('tnt_hook_tier_2'), Select_CString( EqualTo_CFixedPoint( GetPlayer.MakeScope.Var(V).GetValue, '(CFixedPoint)3' ), Localize('tnt_hook_tier_3'), Localize('tnt_hook_tier_0') ) ) )"
+}

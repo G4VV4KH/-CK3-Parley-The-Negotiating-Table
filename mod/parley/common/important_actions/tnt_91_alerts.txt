@@ -1,0 +1,437 @@
+﻿# =============================================================================
+# tnt_91_alerts.txt - PARLEY'S IMPORTANT-ACTION SURFACE
+#
+# WHAT THIS IS. One entry in the panel the UI labels "Tips" / "Sovety" - NOT
+# "Current Situation", see THE NAME TRAP at throttle 2 below - saying "these
+# rulers can be leaned on right now", and opening our own table on the one you
+# click. The only place in the mod that VOLUNTEERS an opportunity. The THREE
+# rules it applies are called and never copied - see THE SWEEP below.
+#
+# *** WHAT IT MEASURED, AND THE ONE PARAGRAPH A FUTURE SESSION NEEDS. ***
+# RUN D SETTLED THE OLD QUESTION ON 2026-08-24 AND THE USER'S RULING OF THE SAME
+# DAY THEN REPLACED THE RULE IT SETTLED. Player = Kilij Arslan Seljuk of k_rum,
+# chosen deliberately with a STRONGER neighbour; telemetry verbose; 26,886
+# TNTLOG lines over 1178-1185. The probe is tnt_log_lean_probe_effect, L21 of
+# common\scripted_effects\tnt_3b_log.txt (it CALLS this sweep's triggers and
+# restates none of them). Its six lines are kept here verbatim because they are
+# the last measurement of the ladder the ruling retired:
+# LEAN|y=1179|dread=0   |prlvl=1|vassals=16|nbrs=5|passT=0|passDoor=21|passT1=21|pass=0
+# LEAN|y=1180|dread=6   |prlvl=1|vassals=18|nbrs=5|passT=0|passDoor=23|passT1=23|pass=0
+# LEAN|y=1181|dread=13.8|prlvl=1|vassals=19|nbrs=4|passT=0|passDoor=22|passT1=23|pass=0
+# LEAN|y=1182|dread=15  |prlvl=1|vassals=19|nbrs=4|passT=0|passDoor=23|passT1=23|pass=0
+# LEAN|y=1183|dread=15  |prlvl=1|vassals=19|nbrs=4|passT=0|passDoor=23|passT1=23|pass=0
+# LEAN|y=1184|dread=15  |prlvl=1|vassals=19|nbrs=5|passT=0|passDoor=23|passT1=24|pass=0
+# READING. THE SWEEP IS NOT BROKEN AND THE POOLS ARE HEALTHY: 21-24 candidates
+# a year, of which passDoor 21-23 and passT1 21-24 clear the door and partner-
+# validity. ONLY passT WAS ZERO, and it was zero in every single year.
+# (The LEAN line has since changed shape: dread=, prlvl= and passArmy= retired
+# with the ladder; lieges=, tpbar= and tpbest= joined. L21's header lists them.)
+#
+# *** THE CAUSE WAS A RUNG, AND THE RULING OF 2026-08-24 REPLACED THE WHOLE
+# *** LADDER WITH ONE NUMBER. *** The old sweep wanted a bigger army AND
+# prestige_level >= 1 AND a dread rung AND no recent threat, and the dread rung
+# is what emptied both pools: raw dread drifted 0 -> 6 -> 13.8 -> 15 and STALLED
+# at 15, the player's structural resting value rather than unusual gentleness
+# (BASE_DREAD 0 plus baseline modifiers, drifting at the flat
+# DREAD_MONTHLY_CHANGE 0.5, GAME\common\defines\00_defines.txt:120-122), against
+# a bar of 30 and then 20. THE USER REPLACED ALL FOUR ROWS WITH ONE COMPARISON,
+# tnt_threat_points_value >= 100 - a RATIO of armies, scaled by a game rule,
+# multiplied by a prestige-level DIFFERENCE and by a dread DIFFERENCE. The
+# number is defined exactly once, in common\script_values\tnt_57_threat_values.
+# txt, and every consumer calls it. Every rung named below this line is history.
+# THE add_dread REWARD SURVIVES THE RULING AND IS WORTH MORE THAN BEFORE: an
+# accepted threat term grants the threatener add_dread = minor_dread_gain
+# (common\scripted_effects\tnt_32_apply.txt:623). Under the rungs that funded
+# ONE step across a cliff; under the ruling dread is a continuous +1%-per-point
+# factor, so every point of the reward has a smooth payoff.
+#
+# *** THE STEP-FUNCTION PREDICTION THAT STOOD HERE IS DEAD AND ITS OPPOSITE IS
+# *** NOW THE HEALTHY SHAPE. *** It predicted passT jumping from 0 to the whole
+# vassal pool at once, because the old rung's A-side was invariant across
+# candidates. Under the ruling EVERY factor is a per-candidate DIFFERENCE, so
+# passT must show a SPREAD. A step function from 0 to the entire pool now means
+# something is WRONG - most likely a scope that stopped re-anchoring per
+# candidate, which is the one failure mode this design can have. tpbest= and
+# tpbar= exists to tell "nobody is close" from "the value is not evaluating".
+#
+# *** RUN F SETTLED EXISTENCE, 2026-08-25, AND EVERY "IT NEVER REGISTERS"
+# *** THEORY IS DEAD - BUT IT PROVED THE TOP BAR, NOT THE PANEL. *** A
+# temporary type = alert / combine_into_one = no / icon / priority = 100000
+# build PUT ICONS ON THE TOP BAR AND THE USER SAW THEM, so the predicate, the
+# three pools, the two saved scopes, the eight nine-language keys and the
+# try_create_important_action hop are PROVEN. The probe read pass=57..64 a
+# year on that run. THE SHIPPING SHAPE'S GROUPED ROW HAS STILL BEEN SEEN BY
+# NOBODY; no instrument can close that (.info:12). One human pressing TAB.
+#
+# A NEW FILE IN AN EXISTING VANILLA FOLDER, WHICH IS NOT AN OVERRIDE (house law
+# 3). The 33 vanilla filenames are 00_*/01_*/03_*/04_*/05_*/06_*/07_*/09_* plus
+# contract_actions.txt and tgp_actions.txt; tnt_91_ collides with none of them,
+# nor with AGOT's 00_agot_actions.txt / 00_agot_lmf_important_actions.txt, nor
+# with Warcraft's or POD's files here. Verified by Test-Path against all four
+# roots. Index 91 sits beside tnt_90_hook_types.txt in the supporting-database
+# band, and tnt_family_gate.ps1 check 5 measures the law on all three trees.
+#
+# NOTHING IS NEEDED BESIDE THIS FILE. common/important_actions is a script
+# database (CImportantActionTypeDatabase) auto-loaded from the folder itself;
+# GAME\paths_checksummed.settings registers GUI paths only (event_windows,
+# event_window_widgets, decision_view_widgets, activity_window_widgets,
+# activity_locale_widgets, test_gui, highlight_gui), so there is NO analogue of
+# the gui\scripted_widgets\ registration trap that CLAUDE.md section 3 records
+# for the window - the one whose absence makes the window silently never exist.
+# Three installed mods prove it by adding new files here with nothing beside
+# them (AGOT 2962333032, Warcraft 2949767945, POD 2216659254).
+#
+# NO TEXTURE IS SHIPPED, AND THAT IS FORCED RATHER THAN LAZY. The engine refuses
+# combine_into_one on anything but type = action - ck3.exe,
+# C:\mnt\gsg\ck3\titus\source\logic\important_actions_type.cpp, verbatim:
+#     "Important action {} must be type = action or combine_into_one = no"
+# and vanilla obeys it absolutely: of its 95 combine_into_one = yes entries, 95
+# are type = action (269 top-level entries, 33 files, 2026-08-23, re-measured
+# 2026-08-25). *** ONE FIGURE OF IT WAS WRONG, CORRECTED 2026-08-25: 144 - NOT
+# 149 - of the 151 type = action entries ship no icon (the 7 that do:
+# 09_mpo_actions.txt:236, tgp_actions.txt:54/:108/:151/:321/:405/:929), and
+# NEITHER row template BINDS one (:2493-2585 group, :2587-2649 instance) - only
+# the top bar does, hud_notification_templates.gui:47; the group's own icon
+# widget is the unread shimmer, :2526. *** @dread_icon! in the loc covers us.
+#
+# LAW 10 DOES NOT REACH THIS FILE, MEASURED. check_create_action is an EFFECT
+# (.info:12), so the trigger-DESCRIPTION walker never runs over it, and
+# important-action loc is rendered by the important-action tooltip system
+# against a real scope (.info:31 "Uses the scope to be localized"; the GUI
+# binding is GAME\gui\hud_notification_templates.gui:2407,
+# tooltip = "[ImportantActionItem.GetTooltip]") - NOT by
+# GetScriptedGui(S).BuildTooltip. Proof by measurement:
+# GAME\localization\english\important_actions_l_english.yml holds 1220 keys of
+# which 619 carry a [..] token, 388 a [concept|E] link and 330 an @icon!
+# texticon. So the eight tnt_action_can_lean_on_* keys MAY carry tokens and
+# #markup, exactly as tnt_open_negotiations_extra_icon already does at
+# common\character_interactions\tnt_10_interaction.txt:193-194.
+#
+# THE CADENCE IS NOT QUOTABLE AND THE COST ARGUMENT IS THEREFORE RELATIVE.
+# No define governs the important-action period (zero ALERT / IMPORTANT_ACTION
+# hits under GAME\common\defines\, while the analogous suggestion system DOES
+# define its own periods at GAME\common\defines\00_defines.txt:1322-1325), and
+# no on_action anywhere references important actions. What IS established:
+# check_create_action runs on the PLAYER CHARACTER ONLY (.info:13), it is an
+# effect over savegame state rather than a render-frame path, and
+# try_create_important_action is documented "Will keep the current one if
+# already exists", i.e. re-evaluation is idempotent by design. The licence is
+# vanilla's own spend on this identical path at this identical unknown cadence:
+#   GAME\common\important_actions\01_fp1_actions.txt:54 walks every_ruler - the
+#     whole world, ~2000 rulers in 1066 - paying a full
+#     is_character_interaction_potentially_accepted per ruler;
+#   GAME\common\important_actions\00_realm_actions.txt:7-12 walks
+#     every_vassal_or_below + every_courtier with NO gate at all.
+# Ours is ~15 candidates typically, ~60 worst realistic case, at ~7 flat field
+# reads each. If our cost mattered, action_can_vassalize would already be
+# unplayable. Folder-wide vanilla spends 49 is_character_interaction_potentially
+# _accepted and 40 is_character_interaction_valid inside such walks, across 269
+# default-on entries. HOUSE LAW 6 IS NOT ENGAGED: it forbids a trigger walk in a
+# scripted_gui is_valid and on per-frame GUI paths, and this file touches no
+# .gui visible, no row size and none of the 22 [TntValid(..)] / 19 [TntTip(..)]
+# bindings of CLAUDE.md section 3.
+#
+# AN EFFECT MAY NEVER BE ADDED TO check_create_action. .info:12 says "Only
+# interface effects are allowed" and vanilla obeys it absolutely: across all 33
+# files there are ZERO set_variable / set_local_variable / add_to_variable_list
+# / remove_variable / add_character_flag, against 76 save_temporary_scope_as and
+# 53 save_scope_as. This is the SAME restriction that silently deleted MCA's
+# populate-block writes for a whole round (CLAUDE.md section 3): the engine
+# discards the statement at parse time with one
+# `jomini_effect.cpp ... Reading a non-interface effect '...' in forbidden area`
+# line and nothing else. So this entry can never cache its own result, never
+# write telemetry and never set a flag - any future "let us log which rulers
+# were listed" idea is structurally impossible here. TRIGGERS are unrestricted
+# (62 variable reads in the folder: 22 has_variable + 40 var:), which is why the
+# tombstoned var:tnt_open row below was legal - it was law 9, not the engine.
+#
+# THE THROTTLE - why this needs no game rule, and the engine's own controls.
+#   1. combine_into_one = yes collapses N rulers into ONE row: the alert can
+#      never become N rows of spam.
+#   2. *** THE NAME TRAP - AND IT IS AN INFERENCE, NOT A PROVEN CAUSE. *** The
+#      "AND IT IS WHY FIVE REPORTS SAID NOT THERE" that stood here is RETRACTED
+#      (2026-08-25): the five are enumerated nowhere, and for the 2026-08-23
+#      report a RIVAL CAUSE IS PROVEN AND MUTUALLY EXCLUSIVE - the file did not
+#      load at all (:253-266), so no panel name could apply. It stays the
+#      LEADING explanation only where the file DID load. MEASURED: type =
+#      action renders ONLY inside the panel CURRENT_SITUATION_TIPS - english
+#      "Tips", russian "Sovety" (GAME\gui\hud_notification_templates.gui:1738)
+#      - visible_at_creation = no (:1350), SILENT (sound :79 is the alert
+#      path). TO OPEN IT: press TAB (GAME\gui\shortcuts.shortcuts, action_list)
+#      or click :1357-1372, in "suggestions_placer" (GAME\gui\hud.gui:890-904).
+#   3. IT SELF-LIMITS PER PAIR, NOT AS A GROUP - AND "IN A WAY NO VANILLA ALERT
+#      DOES" IS RETRACTED (2026-08-25): vanilla ships six pair locks of this
+#      shape in tgp_actions.txt (:66 :81 :939 :953 :977 :1006), and its
+#      action_would_accept_mandala_embrace tgp_actions.txt:926 IS pool 2's
+#      shape. OURS: tnt_threat_unspent_trigger tnt_41_gates.txt:2329 keys on
+#      the PAIR: ONE threat removes ONE of pass=57..64; THE GROUP ROW STAYS.
+#   4. Per-group then per-instance dismissal, persistent, same .gui, in order:
+#      GuiActionItem.Dismiss (:2495) + ImportantActionItem.Dismiss (:2590),
+#      and IMPORTANT_ACTION_CLICK_TO_DISMISS "#I Right-click to dismiss all#!"
+#      (GAME\localization\english\important_actions_l_english.yml:4), un-done
+#      behind RESET_DISMISSED_TOOLTIP - the lobby toggle's own decision taken
+#      at the BEST moment (CLAUDE.md section 4). has_game_rule: 0 in 33 files.
+#   NAGGING? START AT (b), NOT (a): (a) drops POOL 2, vassals hold it. THE RED
+#   HOLDS WHILE ONE ROW LIVES AND NONE IS DISMISSED (throttle 4); RE-ARMING IS
+#   UNMEASURED. (b) unimportant = { .. } + 2 loc x 9 DEMOTES, 40 vanilla, e.g.
+#   00_war_actions.txt:97-101; (c) a game rule, ONE row. DO NOT PRE-BUILD (c).
+# =============================================================================
+
+tnt_action_can_lean_on = {
+
+	type = action
+	combine_into_one = yes
+	priority = 2000
+	is_dangerous = yes
+
+	# *** THE SHIPPING SHAPE, 2026-08-25 - AND is_dangerous IS NOT FREE; READ THE
+	# LAST LINE. *** type = alert WAS TRIED AND REVERTED THE SAME DAY: RUN F (see
+	# header) proved the entry works AND that the top bar cannot carry it -
+	# notifications_alerts is size = { 720 116 } scissor = yes
+	# (hud_notification_templates.gui:6-8), maxverticalslots = 1 (:28-34), items
+	# 72x72 (:103-108), NO scrollbox in :6-251, TEN fit against pass=57..64, and
+	# 100000 over vanilla's ceiling of 2000 (00_realm_actions.txt:379) evicts his
+	# own alerts. priority = 2000 IS that ceiling and NEEDS AN EXE RESTART, not a
+	# reload (.info:9). is_dangerous sorts above every priority (.info:8-9),
+	# paints the group row Status_Suggestion_Bad (:2504-2506) and reddens the TAB
+	# badge (:1537; the shimmer :1490 also wants an unread action) - 32 vanilla
+	# entries carry it, ZERO type = alert, 23 also combine_into_one, and
+	# action_can_reforge_artifact (00_artifact_actions.txt:1) is an OPPORTUNITY
+	# like ours. *** ITS COST IS THE RED WHILE A ROW LIVES: throttles 3 and 4.
+
+	# =========================================================================
+	# THE SWEEP.
+	#
+	# THE RULE IS CALLED, NEVER COPIED. tnt_can_threat_trigger (T52,
+	# common\scripted_triggers\tnt_41_gates.txt:2388) has TWO authorised second
+	# copies, not one: tnt_threat_p_toggle.is_valid's inline rows under "Edit both
+	# or neither" (tnt_20_scripted_guis.txt:540; the rows are :637 and :641), and
+	# T53 tnt_can_demand_trigger, which restates row 1 (:2447) and row 3 (:2449)
+	# around its own can_attack_in_hierarchy - its header admits it at :2411-2412.
+	# A FOURTH IS FORBIDDEN, so every row below CALLS it - the discipline
+	# tnt_10_interaction.txt:107-113 records for should_use_extra_icon.
+	# NOTHING IS HOISTED, AND THIS IS THE STANDING TEMPTATION OF THIS FILE. The old
+	# ladder made a root-only prefilter (root = { dread >= 20 }) the largest saving
+	# available; THE RULING KILLED IT - every factor is now a per-candidate
+	# DIFFERENCE, so a prefilter from the player's side alone would over-block.
+	# THREE POOLS SINCE 2026-08-24, ALL BOUNDED - AND NOT ALL THE LEGAL CLASSES.
+	# every_vassal is DIRECT vassals only - never every_vassal_or_below, unbounded
+	# in realm size (~60-150 on run D's realm) and buying only deep sub-vassals.
+	#   every_vassal:  REAL, and inside a check_create_action, at GAME\common\
+	#     important_actions\00_personal_actions.txt:196,
+	#     00_realm_actions.txt:185, :704, :752
+	#   every_neighboring_and_across_water_top_liege_realm_owner:  REAL, same
+	#     folder, FOUR live sites - 00_war_actions.txt:13, 03_fp2_actions.txt:90,
+	#     tgp_actions.txt:974 and :1002 (20 under GAME\common). The first is this
+	#     pool's shape verbatim: an iterator whose limit opens with
+	#     save_temporary_scope_as and then tests root against that saved scope.
+	#   every_liege_or_above:  REAL, and inside a check_create_action, at
+	#     00_inheritance_actions.txt:265 and 07_ep3_actions.txt:67 - the latter
+	#     with a per-candidate limit, which is our shape exactly.
+	# POOL 2 WAS WIDENED ON AN ASYMMETRY: the AI composer that hunts the PLAYER
+	# draws with random_neighboring_and_across_water_top_liege_realm_owner
+	# (tnt_37_ai_offer.txt, tnt_ai_offer_try_effect), so a land-only pool 2 left him
+	# written to across water with no answer. *** THAT INEQUALITY IS NOW REVERSED
+	# *** AND IS WRITTEN DOWN (2026-08-25): *** these three pools are STRICTLY
+	# WIDER than the AI's own ultimatum pool - neighbours-and-across-water MINUS
+	# its own vassals and liege chain, argued at E17b in tnt_38_ai_world.txt. Do
+	# not close it by deleting a pool. Since 2026-08-28 POOL 3 can contribute only
+	# the independent top liege; intermediate lieges are rejected by the shared
+	# relation gate. every_ruler stays REFUSED (~2,000 rulers;
+	# 01_fp1_actions.txt:54).
+	# *** AND A FOURTH CLASS IS LEGAL AND UNSWEPT, SO THIS IS NOT A COMPLETENESS
+	# *** CLAIM: A FELLOW VASSAL OF THE SAME LIEGE (2026-08-25). *** No pool above
+	# reaches one - pool 2 returns each neighbouring realm's TOP LIEGE, so a peer
+	# inside the player's own crown is absent entirely. Vanilla's shape and guard:
+	# liege = { every_vassal }, "Fellow vassals", 05_bp2_actions.txt:23-33, behind
+	# top_liege = this at :13; SIZE pool 1's order, run D vassals=16-19.
+	# THE POOLS ARE NOT EXHAUSTIVE AND THE LOC MUST KEEP SAYING SO. The nine
+	# _combined_group_description strings name the pools swept - your vassals, your
+	# lieges, the neighbours on your borders AND ACROSS THE WATER. DROP OR
+	# UNDER-STATE THAT CLAUSE IN ANY LANGUAGE AND THE ALERT STARTS LYING.
+	#
+	# *** ASCII-ONLY FILE, AND IT IS NOT A STYLE RULE - IT IS WHY THE ALERT
+	# DID NOT EXIST IN THE 2026-08-23 RUN. *** This comment used to quote the
+	# Russian clause verbatim. Twenty-six Cyrillic characters in a comment on
+	# this line were enough to kill the WHOLE FILE at load:
+	#   pdx_persistent_reader.cpp:216  Error: "Unexpected token: =, near
+	#   line: 124" in file: "common/important_actions/tnt_91_alerts.txt"
+	# The line it named was the entry's own declaration - the parser reports
+	# where the object it was building started, not where it choked (the
+	# number in that quote is the 2026-08-23 layout and does not track this
+	# file's edits; do not "correct" it). The entry never
+	# registered, so the alert never appeared in ANY tab, with nothing else in
+	# any log. Same lexer hazard house law 8 already fences off in the core
+	# trio (CLAUDE.md law 7: the lexer decodes non-ASCII comment bytes under
+	# the system codepage). KEEP EVERY BYTE OF THIS FILE ASCII.
+	# action_can_vassalize makes exactly the same trade.
+	# =========================================================================
+	check_create_action = {
+
+		# ONE cheap root-only gate, and neither row restates a rule of
+		# tnt_can_threat_trigger. Wrapping the walk in an `if` is vanilla's own
+		# shape here: GAME\common\important_actions\00_war_actions.txt:7-12.
+		#   is_landed  - the interaction's own actor requirement
+		#     (tnt_10_interaction.txt:426, is_shown at :423); an unlanded actor has
+		#     nothing to trade. REAL: GAME\common\character_interactions\
+		#     00_character_interactions.txt:26
+		#   *** THE var:tnt_open ROW IS TOMBSTONED IN PLACE, 2026-08-24, AND THE
+		#     GROUND IS HOUSE LAW 9 RATHER THAN ROBUSTNESS. *** The door itself
+		#     CONSIDERED AND REFUSED this exact gate - tnt_10_interaction.txt
+		#     :400-412, item 4 of its own refused list: "Blocking it here would
+		#     strand the player in a negotiation he cannot switch out of." This
+		#     alert therefore held a STRICTER SECOND COPY OF A REJECTED RULE, the
+		#     drifting-duplicate defect law 9 names as this project's most
+		#     expensive recurring one. THE LEAK IS ALSO REAL AND MEASURED: the
+		#     variable is written TWICE mod-wide (tnt_30_effects.txt:94, untimed;
+		#     tnt_37_ai_offer.txt:5499) and removed ONCE (tnt_30_effects.txt:356).
+		#     Commented out, never deleted, and the line count is held (law 11).
+		if = {
+			limit = {
+				is_landed = yes
+				# NOT = { exists = var:tnt_open }
+			}
+
+			# --- POOL 1: the inside of your own realm ----------------------
+			every_vassal = {
+				limit = {
+					# save_temporary_scope_as AS THE FIRST ROW OF THE LIMIT is
+					# vanilla's own idiom for handing the iterated character to
+					# a block that re-scopes: GAME\common\important_actions\
+					# 00_war_actions.txt:14-22 and :52-53.
+					#
+					# *** IT IS LOAD-BEARING, NOT STYLE. *** tnt_can_threat_
+					# trigger is a TEXT MACRO whose first two statements are
+					# $A$ = { save_temporary_scope_as = tnt_thr_me } and
+					# $B$ = { save_temporary_scope_as = tnt_thr_you }
+					# (tnt_41_gates.txt:2396-2397). THE RULE LIVES ONCE, at
+					# tnt_41_gates.txt:2385-2386: $A$/$B$ must be ABSOLUTE
+					# handles (root, scope:x), never `this`, never `prev`,
+					# because a relative handle re-binds inside the substituted
+					# body. THIS FILE USED TO INVENT A MECHANISM FOR IT AND THE
+					# INVENTION WAS WRONG BOTH WAYS - a braced $B$ = { .. }
+					# leaves `this` bound to the CANDIDATE in this limit, and a
+					# same-man pair gives ratio 1, so (1-1)*N = 0 and the gate
+					# FAILS for everyone rather than passing. Obey the rule, do
+					# not re-derive it here (house law 9).
+					save_temporary_scope_as = tnt_lean_b
+
+					# THE NARROW ROW GOES FIRST. Under the ruling of
+					# 2026-08-24 it is ONE comparison against a literal -
+					# tnt_threat_points_value >= 100 - plus the 15-year pair
+					# lock, and that number is a RATIO of armies scaled by the
+					# tnt_threat_scale game rule and multiplied by a prestige-
+					# level difference and a dread difference. The run-D
+					# reading that stood here belonged to the retired dread
+					# rung; the header keeps its six LEAN lines as history.
+					tnt_can_threat_trigger = { A = root  B = scope:tnt_lean_b }
+					# V28 SKEPTIC FIX: the sweep also asks whether the DOOR is open.
+					# Without this row the alert offered rulers the player is at war
+					# with, or who hate him at the floor - both blocked outright by
+					# tnt_open_negotiations own is_valid_showing_failures_only. CALLED,
+					# never copied: tnt_door_at_war_trigger tnt_41_gates.txt:2960 and
+					# tnt_door_hatred_trigger :2971, paired by tnt_door_open_trigger :2991.
+					tnt_door_open_trigger = { A = root  B = scope:tnt_lean_b }
+
+					# T1, the SAME partner gate tnt_open_negotiations' own
+					# is_shown uses (common\scripted_triggers\
+					# tnt_40_triggers.txt:173, called at
+					# tnt_10_interaction.txt:427) - so the alert can never offer
+					# a ruler the window would then refuse (a mercenary, a holy
+					# order, a landless adventurer, the Watch in either role).
+					# It is evaluated in the ACTOR's scope by construction -
+					# hence `root = { ... }`, NOT a bare call: inside this
+					# iterator `this` is the CANDIDATE, and T1's own
+					# `NOT = { this = $CHARACTER$ }` row (tnt_40_triggers.txt
+					# :176) would then compare the candidate with himself and
+					# FAIL FOR EVERYONE, silently emptying the alert. Two
+					# opposite silent failures from two adjacent lines.
+					root = { tnt_partner_valid_trigger = { CHARACTER = scope:tnt_lean_b } }
+				}
+				try_create_important_action = {
+					important_action_type = tnt_action_can_lean_on
+					actor = root
+					recipient = this
+				}
+			}
+
+			# --- POOL 2: the neighbours, LAND AND ACROSS WATER --------------
+			# WIDENED 2026-08-24 by exactly one word. The argument is the
+			# asymmetry set out in THE SWEEP above: the AI's own composer
+			# already reaches the player across water, so a land-only pool
+			# meant he could be written to and could not answer.
+			every_neighboring_and_across_water_top_liege_realm_owner = {
+				limit = {
+					save_temporary_scope_as = tnt_lean_b
+					tnt_can_threat_trigger = { A = root  B = scope:tnt_lean_b }
+					# The DOOR row - same argument as POOL 1's copy above.
+					tnt_door_open_trigger = { A = root  B = scope:tnt_lean_b }
+					root = { tnt_partner_valid_trigger = { CHARACTER = scope:tnt_lean_b } }
+				}
+				try_create_important_action = {
+					important_action_type = tnt_action_can_lean_on
+					actor = root
+					recipient = this
+				}
+			}
+
+			# --- POOL 3: your own lieges, all the way up -------------------
+			# NEW 2026-08-24. Since 2026-08-28 only an independent target is
+			# eligible, so this pool can contribute only the independent top
+			# liege. Row for row identical to the two pools above - the three
+			# rules are CALLED here too, never copied - and
+			# a man who appears in two pools costs nothing:
+			# try_create_important_action is documented "Will keep the current
+			# one if already exists" and combine_into_one collapses the rest.
+			every_liege_or_above = {
+				limit = {
+					save_temporary_scope_as = tnt_lean_b
+					tnt_can_threat_trigger = { A = root  B = scope:tnt_lean_b }
+					tnt_door_open_trigger = { A = root  B = scope:tnt_lean_b }
+					root = { tnt_partner_valid_trigger = { CHARACTER = scope:tnt_lean_b } }
+				}
+				try_create_important_action = {
+					important_action_type = tnt_action_can_lean_on
+					actor = root
+					recipient = this
+				}
+			}
+		}
+	}
+
+	# =========================================================================
+	# THE CLICK - one click from the alert to our own table, on the chosen man.
+	# The effect runs with the saved scopes and root is the player (.info:17-19).
+	# *** THE "ONE UNVERIFIED HOP" IS SETTLED AND ITS FALLBACK IS NOW SHIPPED
+	# *** RATHER THAN DESCRIBED, 2026-08-24. *** MEASURED: vanilla opens 85
+	# distinct interactions with open_interaction_window and ~30 of them carry
+	# auto_accept = yes - THAT half was never in doubt. But NOT ONE of the 85
+	# carries needs_confirmation, so our pairing of it with
+	# needs_confirmation = { always = no } (tnt_10_interaction.txt:313) cannot
+	# be proven from vanilla and never will be. VANILLA'S OWN ANSWER IS TO SHIP
+	# BOTH EFFECTS, in this order, in the very entry this one is modelled on:
+	# GAME\common\important_actions\00_personal_actions.txt:314-325 (8 such
+	# sites here). The window opens if it can; the character view lands the
+	# player where the mod's right-click entry lives if it cannot.
+	# BINDING FINDING FOR WHOEVER OWNS THE INTERACTION: needs_confirmation is
+	# DEPRECATED - _character_interactions.info:267, to be removed with
+	# TIT-64917 - and vanilla uses it ONCE, 00_tributary_interactions.txt:81.
+	# =========================================================================
+	effect = {
+		open_interaction_window = {
+			interaction = tnt_open_negotiations
+			actor = scope:actor
+			recipient = scope:recipient
+		}
+		# THE LANDING THAT CANNOT FAIL. Second, so the interaction window is
+		# the thing on top when it does open. ck3.exe carries "Actor must be
+		# the same as the current player in {}" - our actor is scope:actor =
+		# root = the player, so we pass; any future edit passing a non-player
+		# actor throws there.
+		scope:recipient = {
+			open_view_data = {
+				view = character
+			}
+		}
+	}
+}

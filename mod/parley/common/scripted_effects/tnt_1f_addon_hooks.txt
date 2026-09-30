@@ -1,0 +1,121 @@
+﻿########################################################################
+# Parley: The Negotiating Table
+# tnt_1f_addon_hooks.txt - THE ADDON SEAM (V23, THE MARRIAGE-GRADE SPLIT)
+########################################################################
+#
+# WHAT THIS FILE IS. Five Parley-owned compatibility hooks. Their current
+# bodies deliberately do nothing, but their names, arguments and six call
+# sites are public ABI and therefore stay stable. MCA 2.0 DOES NOT redefine
+# them: it derives every grade on demand through GUI -> ScriptValue, writes no
+# candidate variables, performs no cleanup sweep and preserves the engine's
+# candidate order. AGOT:MCA likewise overrides only its three documented
+# script values; it owns no scripted-effect body.
+#
+# OWNERSHIP IS THE LOAD CONTRACT. Parley is the sole definition owner for all
+# five names below. Neither MCA nor an adapter may duplicate them. The family
+# gate enforces that rule so parse order cannot silently replace a core hook.
+# A future use of the seam must change the contract and the gate together.
+#
+# THE CONTRACT - NINE NAMES, AND NOTHING ELSE CROSSES THE SEAM.
+#   Hooks the core calls (defined only here):
+#     tnt_ma_grade_stamp_effect { OWNER SIDE }
+#         SCOPE: a candidate, at the moment he has just been appended to
+#         a spouse list. Called from ONE place, inside the `if` of
+#         tnt_spouse_try_add_effect (tnt_34_marriage.txt), directly
+#         after the add_to_variable_list. OWNER = the player who owns
+#         the lists; SIDE = the ruler whose household is being listed.
+#     tnt_ma_grade_strip_p_effect      no args, SCOPE: the player
+#     tnt_ma_grade_strip_r_effect      no args, SCOPE: the player
+#     tnt_ma_grade_strip_all_effect    no args, SCOPE: the player
+#         Called as the FIRST STATEMENT of tnt_fill_spouse_p_effect,
+#         tnt_fill_spouse_r_effect and tnt_clear_spouse_lists_effect
+#         respectively - i.e. immediately BEFORE every
+#         clear_variable_list of a candidate list. All three clear
+#         sites remain in the core and each keeps its hook: grep
+#         `clear_variable_list = tnt_list_spouse` in tnt_34_marriage.txt
+#         - four lines at exactly those three sites (the session clear
+#         empties both lists), each site opening with its hook.
+#     tnt_ma_grade_order_effect { SIDE }
+#         SCOPE: the player. SIDE = p|r, a text macro (the core's own
+#         SIDE convention). Called ONLY from the two populate blocks of
+#         tnt_12_marriage_picker.txt, as the TAIL statement of each -
+#         after the engine's ad-hoc `characters` list has been fed. The
+#         no-op body intentionally leaves native order untouched.
+#   Core state exposed read-only to the addon (writers stay in Parley):
+#     tnt_list_spouse_p / tnt_list_spouse_r   the two candidate lists
+#     tnt_open                                the session marker
+#     var:tnt_partner (on the player)         the negotiation partner
+#   GUI context is supplied by CK3's marriage picker; MCA's public values take
+#   root = candidate and use its own documented tnt_gr_* temporary aliases.
+#   Those aliases are not persistent Parley state.
+#
+# WHY EMPTY STUBS ARE CORRECT END TO END: grades are now pure values, so there
+# is no grade state to stamp, strip or sort. The calls remain in their frozen
+# positions for ABI compatibility. An empty scripted effect is a shipped
+# vanilla shape:
+# GAME\common\scripted_effects\00_camp_officer_effects.txt:131
+#     basic_invalidated_camp_officer_effect = {}
+# The stamp stub carries a never-taken branch instead of an empty body
+# so that BOTH of its arguments are consumed by real script in both
+# configurations - nothing relies on how the engine treats an argument
+# a body never names.
+#
+# LEGACY NOTE. MCA versions predating 2.0 used these hooks to persist
+# tnt_spouse_grade_* variables. Current MCA contains no such writer or cleanup
+# reader. Do not restore that stateful design piecemeal: it leaked data across
+# uninstall and made list sorting depend on parse-order overrides.
+########################################################################
+
+
+########################################################################
+# tnt_ma_grade_stamp_effect          OWNER, SIDE
+#
+# STUB. Writes nothing. The never-taken branch consumes OWNER and SIDE as
+# real scope-change statements so the frozen argument surface remains parser-
+# checked even though current MCA does not call through it.
+########################################################################
+tnt_ma_grade_stamp_effect = {
+	if = {
+		limit = { always = no }
+		$OWNER$ = { save_temporary_scope_as = tnt_ma_hook_sink }
+		$SIDE$ = { save_temporary_scope_as = tnt_ma_hook_sink }
+	}
+}
+
+
+########################################################################
+# tnt_ma_grade_strip_p_effect        no params
+#
+# STUB. Pure-value MCA has no candidate grade state to strip.
+########################################################################
+tnt_ma_grade_strip_p_effect = {}
+
+
+########################################################################
+# tnt_ma_grade_strip_r_effect        no params
+#
+# STUB. The r-list twin of the above.
+########################################################################
+tnt_ma_grade_strip_r_effect = {}
+
+
+########################################################################
+# tnt_ma_grade_strip_all_effect      no params
+#
+# STUB. Session-ending compatibility call; there is no MCA grade state.
+########################################################################
+tnt_ma_grade_strip_all_effect = {}
+
+
+########################################################################
+# tnt_ma_grade_order_effect          SIDE (p|r, text macro)
+#
+# STUB. Native candidate order is preserved. The never-taken branch consumes
+# SIDE in an identifier position and keeps the frozen macro surface checked.
+########################################################################
+tnt_ma_grade_order_effect = {
+	if = {
+		limit = { always = no }
+		save_temporary_scope_as = tnt_ma_hook_sink_$SIDE$
+	}
+}

@@ -1,0 +1,311 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — game rules
+#
+# FOUR rules live here, each shipping at the default the user chose for it.
+#
+#   tnt_advanced_terms    gates the Tier-4 (dangerous) deal items: betrothal,
+#       ceding a title and swearing fealty. Users who do not want realm-graph
+#       mutations switch it off and those three rows disappear from both
+#       columns. Read by tnt_advanced_terms_trigger (tnt_40_triggers.txt) as
+#       has_game_rule = tnt_advanced_terms_on, which tnt_open_window_effect
+#       calls once per window opening to set the tnt_advanced variable — the
+#       variable bridge exists because the GUI reads it directly and a .gui
+#       file cannot ask has_game_rule.
+#
+#   tnt_trade_prestige    USER ITEM 16 — is PRESTIGE tradeable, and WITH WHOM?
+#   tnt_trade_piety       USER ITEM 16 — is PIETY tradeable, and WITH WHOM?
+#       ONE RULE PER CURRENCY, AND SINCE W2 EACH IS A LADDER, NOT A SWITCH.
+#       This is NOT a fourth rule and it does NOT reopen the standing ruling
+#       "NO PER-TERM GAME RULE" (CLAUDE.md section 4): no rule is added, no
+#       gate row is added, no .gui line changes, no new bridge variable is
+#       born and the lobby stays at 26 rows. The two settings that always
+#       existed KEEP THEIR IDS (_on / _off), so every reader, every loc key
+#       and every .gui conjunct written before W2 still means what it meant;
+#       what changed is that the MIDDLE of each ladder asks a RELATIONAL
+#       question instead of a global one. Section 4 blesses exactly this
+#       category - these two rules are "a matter of taste about what money
+#       is", and a rung is a finer statement of the same taste.
+#         tnt_trade_piety     off / faith / religion / on
+#         tnt_trade_prestige  off / peer / on
+#       READ THEM THROUGH THEIR NAMED TRIGGERS, NEVER THROUGH has_game_rule
+#       DIRECTLY: tnt_trade_piety_trigger and tnt_trade_prestige_trigger
+#       (common\scripted_triggers\tnt_40_triggers.txt, T2b and T2c), both
+#       taking { A = <character>  B = <character> } and both answering FOR ONE
+#       PAIR. On every path that matters A = root (the player) and
+#       B = var:tnt_partner (the other side): true in the window (E1 writes
+#       tnt_partner first), true on the letter path (tnt_ai_offer.0001 writes
+#       it in its immediate, before it composes) and therefore true in the
+#       balancer, which both paths reach. So ONE call shape,
+#       { A = root  B = var:tnt_partner }, serves all three positions.
+#       Switching one to `off` still closes EVERY path that can put that
+#       currency on a negotiating table; a middle rung closes the same paths,
+#       but only against the partners that rung excludes:
+#         * the window rows — *** V17 REWROTE THIS BULLET BECAUSE IT WAS FALSE,
+#           AND FALSE IN THE ONE DOCUMENT THE NEXT AUTHOR WILL TRUST. *** The
+#           row's `visible` reads the BRIDGE VARIABLE directly with TntOn:
+#             visible = "[And( TntRow('tnt_show_prestige_p'),
+#                              TntOn('tnt_trade_prest_on') )]"
+#           and that raw-variable conjunct is the ONLY thing that can hide a
+#           row. TntRow alone cannot: its first disjunct keys on
+#           tnt_hide_unavailable, which NOTHING writes since V4 retired the
+#           hide-unavailable rule (data_binding\tnt_macros.txt), so TntRow is
+#           unconditionally true. The bullet used to claim "E33/E34 remove the
+#           row variables and the GUI hides the rows; the steppers and preset
+#           popups behind a hidden row are unreachable" and "no variable bridge
+#           is needed" — all three clauses were wrong, and the measured
+#           consequence was that `off` left both rows visible, both stepper sets
+#           live, the send button willing and the apply leg paying, against a
+#           lobby text that promised the rows would disappear.
+#           The tnt_show_prestige_*/_piety_* triggers READ THE BRIDGE VARIABLE,
+#           not has_game_rule, since W2 (tnt_41_gates.txt:1129, :1138, :1147,
+#           :1156; the why is at :1106-1128). The bridge variables are
+#           tnt_trade_prest_on / tnt_trade_pty_on, written by E1
+#           tnt_open_window_effect AND by tnt_ai_offer_counter_effect (the two
+#           window-opening paths) and removed by E2 tnt_close_window_effect.
+#           ANY NEW RULE MUST COPY THAT PATTERN OR IT WILL SILENTLY FAIL TO HIDE
+#           ITS ROW — that is the one lesson of this bullet.
+#           W2: THE FOUR .gui CONJUNCTS ARE UNCHANGED and must stay unchanged
+#           (tnt_diplomacy_window.gui:529, :565, :2211, :2243). Only the LIMIT
+#           on the two bridge writes moved, in both opening paths, from
+#           `has_game_rule = tnt_trade_<cur>_on` to the pair trigger. The bridge
+#           is therefore now a PER-SESSION SNAPSHOT OF A RELATIONAL ANSWER,
+#           taken at the moment the window opens against the partner it opens
+#           on, which is exactly the granularity a row needs: one window, one
+#           partner. The engine still hides the row by the same mechanism.
+#           TWO CONSEQUENCES A LATER AUTHOR MUST NOT REDISCOVER THE HARD WAY:
+#           (a) the bridge no longer answers "is this currency tradeable" but
+#           "is it tradeable WITH HIM", so nothing outside a window may read it
+#           - see the balancer bullet below; (b) the old NOTE C reasoning of
+#           _docs\tools\tnt_rule_conformance.ps1 ("a game rule cannot change
+#           mid-campaign, so the apply leg is safe by unreachability") NO LONGER
+#           HOLDS for these two rules, because faith and prestige level change
+#           mid-campaign constantly. That is written out at the apply legs
+#           themselves (tnt_33_currency_apply.txt, E30/E31 headers) and is an
+#           OPEN RULING, not an oversight.
+#         * the auto-balance ladder — the prestige/piety seeds and the
+#           sweeten / trim / AI-pay rungs in tnt_39_autobalance.txt skip
+#           (the exact-landing pass is gold-only and needs nothing).
+#           This half always worked: 6 gated rungs per currency, measured.
+#           W2 REPLACED ALL TWELVE has_game_rule ROWS WITH THE PAIR TRIGGER,
+#           AND THE TRAP IS WORTH NAMING BECAUSE IT WOULD BE SILENT: a rung
+#           MUST call tnt_trade_<cur>_trigger and MUST NOT read the bridge
+#           variable var:tnt_trade_prest_on / var:tnt_trade_pty_on. Only E1 and
+#           tnt_ai_offer_counter_effect ever write a bridge, and NEITHER runs on
+#           the composition path - tnt_ai_offer_settle_effect calls
+#           tnt_ai_pricebalance_effect straight out of tnt_ai_offer.0001. A rung
+#           reading the bridge would therefore evaluate 0 on every letter the AI
+#           composes, and the AI would quietly stop paying prestige and piety
+#           altogether, with nothing in any log to say so.
+#         * the AI composer — *** NOTHING TO GATE TODAY. *** No archetype stages
+#           prestige or piety directly; the only writes on that path are the
+#           reclamp in tnt_37_ai_offer.txt, which can only ever LOWER an amount
+#           the settle already put there. Archetype A6, the prestige-paid truce
+#           this note used to name, is RETIRED and index 6 is burnt (the truce
+#           family went with it). Any FUTURE archetype that stages either
+#           currency must add tnt_trade_<cur>_trigger = { A = root
+#           B = var:tnt_partner } to its own entry trigger - the has_game_rule
+#           form it used to be told to copy is now the WRONG shape, because it
+#           cannot see a middle rung.
+#           W2 CHECKED THIS POSITION AGAIN AND IT IS STILL EMPTY ON PURPOSE.
+#           Zero archetypes were changed this round and that is not an omission:
+#           no entry of the composer's one random_list writes tnt_prestige_* or
+#           tnt_piety_*. The whole of the AI's obedience to these two rules runs
+#           through ONE call - tnt_ai_offer_settle_effect ->
+#           tnt_ai_pricebalance_effect (tnt_37_ai_offer.txt), i.e. through the
+#           balancer rungs above. Written down because the NEXT round will
+#           otherwise read the empty diff as a forgotten position and re-open it.
+#       The AI<->AI sandbox needs no gate: every payment tnt_38_ai_world.txt
+#       makes is gold — its prestige transfer effect (E2) has zero call
+#       sites. GOLD has no rule on purpose: a diplomacy mod with no
+#       currency at all is not a setting anyone asked for. INFLUENCE has no
+#       rule either — it is already gated per-government by E2b
+#       (tnt_30_effects.txt), a harder question than any lobby toggle, and
+#       duplicating it here would be two gates to keep in step.
+#
+# Grammar: GAME\common\game_rules\_game_rules.info
+#   "rule_<key>    will be used as the key for game rule names"
+#   "setting_<key> will be used as the key for game rule setting names"
+#   "setting_<key>_desc will be used as the key for game rule setting descs"
+# Shape copied from GAME\common\game_rules\00_game_rules.txt:1540-1548
+# (unrestricted_dynasty_legacies — categories + default + empty settings).
+# `default = <setting id>` inside the rule block is the whole of how a
+# default is declared (00_game_rules.txt:7, `default = normal_difficulty`).
+#
+# `tweaks` and `game_modes` are existing vanilla categories, so this file
+# needs no game_rule_category_* localization key.
+########################################################################
+
+tnt_advanced_terms = {
+	categories = { game_modes tweaks }
+
+	default = tnt_advanced_terms_on
+
+	tnt_advanced_terms_on = { }
+	tnt_advanced_terms_off = { }
+}
+
+# USER ITEM 16. Default ON — trading ships enabled; the off setting exists
+# for players who want prestige to stay reputation rather than coinage.
+# has_game_rule takes the SETTING id, not the rule id — real vanilla call
+# site: GAME\common\character_interactions\00_adoption.txt:16
+# (has_game_rule = no_adoption).
+# WHO READS THIS ONE - MEASURED IN V17, RE-MEASURED W2. Nobody reads
+# has_game_rule = tnt_trade_prestige_* by hand any more except the trigger
+# itself: tnt_39_autobalance.txt x6 (the seeds and the sweeten / trim / AI-pay
+# rungs) and tnt_30_effects.txt + tnt_37_ai_offer.txt (the two bridge writes)
+# all call tnt_trade_prestige_trigger now, and tnt_41_gates.txt x2
+# (tnt_show_prestige_p/_r_trigger, whose answers still reach no acting reader)
+# read the BRIDGE instead, so they can never disagree with the row they gate.
+# NOT tnt_37_ai_offer.txt's archetype A6 - A6 is retired and index 6 is burnt.
+#
+# W2 - THE THREE-RUNG LADDER. Declaration order IS lobby order, so it runs
+# strictest first and the default last; vanilla ships that shape too (a rule
+# whose `default` is not the first-declared setting: GAME\common\game_rules\
+# 00_game_rules.txt:356, adoption, default = default_adoption with no_adoption
+# declared first - 8 vanilla rules do this).
+#   _off   never, with anybody. Unchanged, and the id is kept so the four
+#          existing loc keys and every existing reader survive.
+#   _peer  ONLY against a partner whose prestige level is at or below mine.
+#          The taste it serves: renown flows down a hierarchy of fame, never
+#          up - a petty count does not buy the regard of an emperor. The
+#          comparison is `prestige_level >= <other>.prestige_level` asked of
+#          the PLAYER, so "I am at least as famed as he is".
+#   _on    always. Unchanged, and still the default, so a player who never
+#          touches the lobby sees exactly the mod he saw before W2.
+# NO tnt_err_* KEY IS BORN FOR THE MIDDLE RUNG, and that is this mod's own
+# principle rather than a shortcut: a STRUCTURAL impossibility HIDES the row
+# (tnt_41_gates.txt, the T22 section note), and against one fixed partner in one
+# window session a prestige-level mismatch is structural for the whole life of
+# that window. The explanation lives in setting_tnt_trade_prestige_peer_desc,
+# which is where the player chose the rung in the first place.
+tnt_trade_prestige = {
+	categories = { game_modes tweaks }
+
+	default = tnt_trade_prestige_on
+
+	tnt_trade_prestige_off = { }
+	tnt_trade_prestige_peer = { }
+	tnt_trade_prestige_on = { }
+}
+
+# USER ITEM 16, the piety twin. Default ON. No archetype pays piety today
+# (tnt_37_ai_offer.txt header, "NOT USED BY AN ARCHETYPE"), and as of V17 no
+# archetype pays prestige either, so the two rules are now exactly symmetrical.
+# WHO READS THIS ONE - MEASURED IN V17, RE-MEASURED W2: tnt_39_autobalance.txt
+# x6 (seeds + rungs) and tnt_30_effects.txt + tnt_37_ai_offer.txt (the two
+# tnt_trade_pty_on BRIDGE writes) all call tnt_trade_piety_trigger now;
+# tnt_41_gates.txt x2 (tnt_show_piety_p/_r_trigger, answers still unread) read
+# the bridge. Any future piety archetype must add tnt_trade_piety_trigger =
+# { A = root  B = var:tnt_partner } to its own entry trigger; do NOT copy
+# "exactly as A6 does for prestige" - A6 is retired and index 6 is burnt.
+#
+# W2 - THE FOUR-RUNG LADDER, strictest first because declaration order is lobby
+# order (vanilla proof for a non-first default: GAME\common\game_rules\
+# 00_game_rules.txt:356).
+#   _off       never, with anybody. Id kept; four existing loc keys survive.
+#   _faith     ONLY between two characters of the SAME FAITH. The taste it
+#              serves: piety is standing before one's own clergy, and it means
+#              nothing to a man who prays elsewhere.
+#   _religion  the same thought, one step looser: same RELIGION, i.e. the same
+#              group of faiths, so a Catholic and an Orthodox may still trade
+#              devotion while a Catholic and a Sunni may not.
+#   _on        always, and still the default.
+# Same no-tnt_err_* ruling as the prestige twin above: a faith mismatch against
+# a fixed partner is structural for the window's whole life, so the row HIDES
+# and the explanation lives in setting_tnt_trade_piety_faith_desc /
+# setting_tnt_trade_piety_religion_desc.
+tnt_trade_piety = {
+	categories = { game_modes tweaks }
+
+	default = tnt_trade_piety_on
+
+	tnt_trade_piety_off = { }
+	tnt_trade_piety_faith = { }
+	tnt_trade_piety_religion = { }
+	tnt_trade_piety_on = { }
+}
+
+########################################################################
+# RULE 4 - THE WEIGHT OF A THREAT. N, AND THE USER OWNS THE SCALE.
+#
+# Current 2026-09-30: default N=5; a twofold army at equal prestige/dread
+# gives 5 raw points, below the new100 minimum. A 21:1 army gives100.
+# N remains configurable; the100 minimum applies equally to player and AI.
+#
+# A CALIBRATION RULE, NOT A PER-TERM RULE. It does not reopen the
+# standing ruling "NO PER-TERM GAME RULE" (CLAUDE.md section 4), which
+# forbids a rule that HIDES a term in the lobby before the player has
+# ever seen it. This hides nothing: the threat checkbox is on screen at
+# every setting and greys out with its own named reason exactly as
+# before (tnt_threat_p_toggle, common\scripted_guis\
+# tnt_20_scripted_guis.txt). What moves is how much army it takes to
+# tick the box, and what the fear is worth once it does.
+#
+# THERE IS NO `off` RUNG AND A FUTURE ROUND MUST NOT ADD ONE. An `off`
+# rung IS the rule section 4 forbids, and he did not ask for one. The
+# reversible opt-out for the whole letter path is var:tnt_envoys_refused.
+#
+# ONE READ SITE IN THE WHOLE MOD, AND THAT IS THE DESIGN, NOT LUCK. N is
+# a FACTOR of tnt_threat_points_value, and every consumer already calls
+# that value - the window price (gui\tnt_panels.gui), the toggle's
+# is_valid, the interaction gate (tnt_10_interaction.txt), all three
+# alert pools, the sandbox ultimatum, A21's demand gate T53 and the
+# telemetry probes. So the four-times-shipped defect "a rule read in the
+# window but not in the composer" (V13/A16, V17/A14+A20, V18/A8+A10)
+# CANNOT occur here: it needs two read sites that can disagree, and
+# there is exactly one -
+# tnt_threat_scale_value, in common\script_values\tnt_57_threat_values.txt.
+# _docs\tools\tnt_rule_conformance.ps1 POSITION D asserts that and FAILS
+# if a second read ever appears anywhere under common\.
+#
+# NO BRIDGE VARIABLE, AND ONE WOULD BE ACTIVELY WRONG. tnt_advanced /
+# tnt_trade_prest_on / tnt_trade_pty_on exist only because a .gui cannot
+# ask has_game_rule; this rule reaches the GUI through the script value
+# the GUI already reads. Only the two window-opening paths write a
+# bridge, so a bridge read on the composer, the sandbox or the alert
+# path would evaluate 0 with nothing in any log - the trap written out
+# at :89-98 above. NOTHING JOINS common\decisions\tnt_86_uninstall.txt:
+# no persistent variable is born this round.
+#
+# DECLARATION ORDER IS LOBBY ORDER, so the ladder runs fewest -> most
+# and the default sits second. A non-first default is vanilla-proven:
+# GAME\common\game_rules\00_game_rules.txt:356-370 (adoption,
+# default = default_adoption at :362, no_adoption declared first :364).
+#
+# NINE LOC KEYS AND NO game_rule_category_* KEY - game_modes, ai and
+# tweaks all already exist in vanilla. Three categories on one rule is
+# vanilla's own shape. `ai` is named because this same N drives A21's
+# demand letter and the sandbox ultimatum, and a player looking under AI
+# for "why is he extorting me" must find it there.
+#
+# THE LADDER, AND WHAT EACH RUNG MEANS IN PLAY. The required ratio at
+# reputation and dread parity is 1 + 100/N, because the access minimum is
+# 100 after the 2026-09-30 ruling; N still scales the points, not that minimum:
+#   setting id                    N    ratio needed  price at 2x
+#   tnt_threat_scale_rare       2.5    41.00x        2.5
+#   tnt_threat_scale_normal       5    21.00x          5   DEFAULT
+#   tnt_threat_scale_frequent   7.5    14 1/3x        7.5
+#   tnt_threat_scale_constant    10    11.00x         10
+# WHY 2.5..10 AND NO WIDER: N scales the PRICE as well as the gate - his
+# own ruling, "threat_points is the threat's effect on the deal's
+# points". The 2026-08-28 playtest showed that 100 points at a twofold
+# army overwhelmed the rest of the table. Dividing N and the access bar
+# together by ten preserved every ratio; the second 2026-08-28 playtest then
+# halved both again because the remaining weight still dominated ordinary terms.
+# On 2026-09-30 only the access minimum rises to 100, retaining those small prices.
+# The full dial remains 4x, but access is deliberately much harder on every rung.
+# THE RUNG COUNT, THE IDS AND THE NUMBERS ARE OURS, NOT HIS - he said
+# only "larger to get more threat deals, smaller to get fewer". One word
+# from him changes any of it; each rung costs 2 loc keys x 9 languages.
+########################################################################
+
+tnt_threat_scale = {
+	categories = { game_modes ai tweaks }
+
+	default = tnt_threat_scale_normal
+
+	tnt_threat_scale_rare = { }
+	tnt_threat_scale_normal = { }
+	tnt_threat_scale_frequent = { }
+	tnt_threat_scale_constant = { }
+}

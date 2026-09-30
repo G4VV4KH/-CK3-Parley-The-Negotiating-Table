@@ -1,0 +1,805 @@
+﻿########################################################################
+# PARLEY: PACKAGE-LEVEL EXECUTION PREFLIGHT
+#
+# Public API:
+#
+#   tnt_deal_preflight_trigger = {
+#       PLAYER = <absolute character handle>
+#       PARTNER = <absolute character handle>
+#   }
+#
+# Scope contract: $PLAYER$ owns the staged package and var:tnt_partner. The
+# shipped callers also have root = $PLAYER$, as required by the older named
+# values/gates reused below. PLAYER and PARTNER must be absolute handles: macro
+# substitution is textual and this body changes scope repeatedly.
+#
+# PURE: no persistent variable, flag, list, opinion, resource or realm write.
+# Some reused pure gates save temporary scopes; those die with evaluation.
+# `tnt_open` is deliberately NOT part of this contract: manual confirmation,
+# ordinary AI letters and demands all execute the same package, but only the
+# first path has an open table.
+#
+# FAIL-CLOSED LIMITS:
+#   * a title transfer combined with fealty or independence is refused. Titles
+#     execute before the realm legs, and without a projected realm helper a
+#     county cession can invalidate a later release/fealty gate;
+#   * two same-side courtier/hostage terms may not overlap through a selected
+#     courtier's traveling-family sweep. That sweep executes before the hostage
+#     leg and can otherwise consume a second promised person implicitly;
+#   * the grand-wedding host-gold row is evaluated after projecting both gold
+#     legs, because currencies execute before marriage;
+#   * hidden C++ marriage/betrothal refusals and world changes after this check
+#     cannot be rolled back by script. The local executor guards remain the
+#     final defence, but every script-visible stored leg is validated here.
+########################################################################
+
+tnt_deal_preflight_trigger = {
+	trigger_if = {
+		limit = {
+			exists = $PLAYER$
+			exists = $PARTNER$
+		}
+
+		# -----------------------------------------------------------------
+		# Session identity and live parties. Do not add tnt_open here.
+		# -----------------------------------------------------------------
+		NOT = { $PLAYER$ = { this = $PARTNER$ } }
+		$PLAYER$ = {
+			is_alive = yes
+			is_landed = yes
+			tnt_partner_valid_trigger = { CHARACTER = $PARTNER$ }
+			trigger_if = {
+				limit = { exists = var:tnt_partner }
+				var:tnt_partner ?= { this = $PARTNER$ }
+			}
+			trigger_else = { always = no }
+		}
+		$PARTNER$ = { is_alive = yes }
+
+		$PLAYER$ = {
+			# A package must still contain an executable term.
+			tnt_offer_nonempty_trigger = yes
+
+			# -------------------------------------------------------------
+			# Scalar shape. Currency sliders may legitimately leave a zero
+			# variable behind; negative values are never executable.
+			# -------------------------------------------------------------
+			trigger_if = { limit = { exists = var:tnt_gold_p }      var:tnt_gold_p >= 0 }
+			trigger_if = { limit = { exists = var:tnt_gold_r }      var:tnt_gold_r >= 0 }
+			trigger_if = { limit = { exists = var:tnt_prestige_p }  var:tnt_prestige_p >= 0 }
+			trigger_if = { limit = { exists = var:tnt_prestige_r }  var:tnt_prestige_r >= 0 }
+			trigger_if = { limit = { exists = var:tnt_piety_p }     var:tnt_piety_p >= 0 }
+			trigger_if = { limit = { exists = var:tnt_piety_r }     var:tnt_piety_r >= 0 }
+			trigger_if = { limit = { exists = var:tnt_influence_p } var:tnt_influence_p >= 0 }
+			trigger_if = { limit = { exists = var:tnt_influence_r } var:tnt_influence_r >= 0 }
+
+			trigger_if = {
+				limit = { exists = var:tnt_hook_p }
+				OR = { var:tnt_hook_p = 1  var:tnt_hook_p = 2  var:tnt_hook_p = 3 }
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_hook_r }
+				OR = { var:tnt_hook_r = 1  var:tnt_hook_r = 2  var:tnt_hook_r = 3 }
+			}
+
+			trigger_if = { limit = { exists = var:tnt_vassal_p }  var:tnt_vassal_p = 1 }
+			trigger_if = { limit = { exists = var:tnt_vassal_r }  var:tnt_vassal_r = 1 }
+			trigger_if = { limit = { exists = var:tnt_indep_p }   var:tnt_indep_p = 1 }
+			trigger_if = { limit = { exists = var:tnt_indep_r }   var:tnt_indep_r = 1 }
+			trigger_if = { limit = { exists = var:tnt_usehook_p } var:tnt_usehook_p = 1 }
+			trigger_if = { limit = { exists = var:tnt_usehook_r } var:tnt_usehook_r = 1 }
+			trigger_if = { limit = { exists = var:tnt_threat_p }  var:tnt_threat_p = 1 }
+			trigger_if = { limit = { exists = var:tnt_marriage_p } var:tnt_marriage_p = 1 }
+			trigger_if = { limit = { exists = var:tnt_marriage_r } var:tnt_marriage_r = 1 }
+			trigger_if = { limit = { exists = var:tnt_wed_grand }  var:tnt_wed_grand = 1 }
+
+			# -------------------------------------------------------------
+			# Package-shape laws already owned by named triggers.
+			# -------------------------------------------------------------
+			tnt_no_double_vassal_trigger = yes
+			tnt_people_pair_trigger = yes
+
+			# A side may not both grant and spend the same hook.
+			NOT = {
+				AND = {
+					exists = var:tnt_hook_r
+					exists = var:tnt_usehook_p
+				}
+			}
+			NOT = {
+				AND = {
+					exists = var:tnt_hook_p
+					exists = var:tnt_usehook_r
+				}
+			}
+
+			# Legacy scalar and current list storage are mutually exclusive.
+			trigger_if = {
+				limit = { exists = var:tnt_title_p }
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_title_p }
+					variable_list_size = { name = tnt_sel_title_p  value = 0 }
+				}
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_title_r }
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_title_r }
+					variable_list_size = { name = tnt_sel_title_r  value = 0 }
+				}
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_artifact_p }
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_artifact_p }
+					variable_list_size = { name = tnt_sel_artifact_p  value = 0 }
+				}
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_artifact_r }
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_artifact_r }
+					variable_list_size = { name = tnt_sel_artifact_r  value = 0 }
+				}
+			}
+
+			# No title projection exists. Refuse every title + realm-leg mix.
+			trigger_if = {
+				limit = {
+					OR = {
+						exists = var:tnt_vassal_p
+						exists = var:tnt_vassal_r
+						exists = var:tnt_indep_p
+						exists = var:tnt_indep_r
+					}
+				}
+				NOT = { exists = var:tnt_title_p }
+				NOT = { exists = var:tnt_title_r }
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_title_p }
+					variable_list_size = { name = tnt_sel_title_p  value = 0 }
+				}
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_title_r }
+					variable_list_size = { name = tnt_sel_title_r  value = 0 }
+				}
+			}
+
+			# -------------------------------------------------------------
+			# Live resources. Named shortfalls are authoritative for gold,
+			# prestige and piety; influence is checked live because its old
+			# shortfall is cache-gated and can return a false zero.
+			# -------------------------------------------------------------
+			tnt_gold_shortfall_value <= 0
+			tnt_partner_gold_shortfall_value <= 0
+			tnt_prestige_shortfall_value <= 0
+			tnt_partner_prestige_shortfall_value <= 0
+			tnt_piety_shortfall_value <= 0
+			tnt_partner_piety_shortfall_value <= 0
+
+			trigger_if = {
+				limit = {
+					exists = var:tnt_prestige_p
+					var:tnt_prestige_p > 0
+				}
+				tnt_trade_prestige_trigger = { A = $PLAYER$  B = $PARTNER$ }
+			}
+			trigger_if = {
+				limit = {
+					exists = var:tnt_prestige_r
+					var:tnt_prestige_r > 0
+				}
+				tnt_trade_prestige_trigger = { A = $PARTNER$  B = $PLAYER$ }
+			}
+			trigger_if = {
+				limit = {
+					exists = var:tnt_piety_p
+					var:tnt_piety_p > 0
+				}
+				tnt_trade_piety_trigger = { A = $PLAYER$  B = $PARTNER$ }
+			}
+			trigger_if = {
+				limit = {
+					exists = var:tnt_piety_r
+					var:tnt_piety_r > 0
+				}
+				tnt_trade_piety_trigger = { A = $PARTNER$  B = $PLAYER$ }
+			}
+
+			trigger_if = {
+				limit = {
+					exists = var:tnt_influence_p
+					var:tnt_influence_p > 0
+				}
+				government_has_flag = government_has_influence
+				$PARTNER$ = { government_has_flag = government_has_influence }
+				influence >= { value = var:tnt_influence_p }
+			}
+			trigger_if = {
+				limit = {
+					exists = var:tnt_influence_r
+					var:tnt_influence_r > 0
+				}
+				government_has_flag = government_has_influence
+				$PARTNER$ = {
+					government_has_flag = government_has_influence
+					influence >= { value = $PLAYER$.var:tnt_influence_r }
+				}
+			}
+
+			# -------------------------------------------------------------
+			# Titles and artifacts: validate every stored object against the
+			# same predicate used by its executor. Artifact ownership is also
+			# explicit, because set_owner itself does not reject a stale giver.
+			# -------------------------------------------------------------
+			trigger_if = {
+				limit = { exists = var:tnt_title_p }
+				var:tnt_title_p ?= { tnt_can_cede_title_trigger = { GIVER = $PLAYER$ } }
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_title_r }
+				var:tnt_title_r ?= { tnt_can_cede_title_trigger = { GIVER = $PARTNER$ } }
+			}
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_title_p }
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_title_p
+						NOT = { tnt_can_cede_title_trigger = { GIVER = $PLAYER$ } }
+					}
+				}
+			}
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_title_r }
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_title_r
+						NOT = { tnt_can_cede_title_trigger = { GIVER = $PARTNER$ } }
+					}
+				}
+			}
+
+			trigger_if = {
+				limit = { exists = var:tnt_artifact_p }
+				var:tnt_artifact_p ?= {
+					artifact_owner = $PLAYER$
+					tnt_artifact_giftable_trigger = { RECEIVER = $PARTNER$ }
+				}
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_artifact_r }
+				var:tnt_artifact_r ?= {
+					artifact_owner = $PARTNER$
+					tnt_artifact_giftable_trigger = { RECEIVER = $PLAYER$ }
+				}
+			}
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_artifact_p }
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_artifact_p
+						NOT = {
+							artifact_owner = $PLAYER$
+							tnt_artifact_giftable_trigger = { RECEIVER = $PARTNER$ }
+						}
+					}
+				}
+			}
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_artifact_r }
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_artifact_r
+						NOT = {
+							artifact_owner = $PARTNER$
+							tnt_artifact_giftable_trigger = { RECEIVER = $PLAYER$ }
+						}
+					}
+				}
+			}
+
+			# -------------------------------------------------------------
+			# Hooks, threat, fealty and independence.
+			# -------------------------------------------------------------
+			trigger_if = {
+				limit = { exists = var:tnt_hook_p }
+				tnt_hook_free_p_value > 0
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_hook_r }
+				tnt_hook_free_r_value > 0
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_usehook_p }
+				tnt_usehook_strength_value >= 1
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_usehook_r }
+				tnt_usehook_r_strength_value >= 1
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_threat_p }
+				tnt_can_threat_trigger = { A = $PLAYER$  B = $PARTNER$ }
+			}
+
+			trigger_if = {
+				limit = { exists = var:tnt_vassal_p }
+				tnt_can_vassalize_trigger = { LIEGE = $PARTNER$  VASSAL = $PLAYER$ }
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_vassal_r }
+				tnt_can_vassalize_trigger = { LIEGE = $PLAYER$  VASSAL = $PARTNER$ }
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_indep_p }
+				tnt_can_release_trigger = { LIEGE = $PLAYER$  VASSAL = $PARTNER$ }
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_indep_r }
+				tnt_can_release_trigger = { LIEGE = $PARTNER$  VASSAL = $PLAYER$ }
+			}
+
+			# -------------------------------------------------------------
+			# Hostages and all selected people. Pair gates run only for a
+			# guarded non-empty list; every member gets the executor predicate.
+			# -------------------------------------------------------------
+			trigger_if = {
+				limit = { exists = var:tnt_hostage_p }
+				tnt_can_hostage_trigger = { SENDER = $PLAYER$  WARDEN = $PARTNER$ }
+				var:tnt_hostage_p ?= {
+					is_alive = yes
+					is_hostage = no
+					tnt_hostage_candidate_trigger = { SENDER = $PLAYER$  RECEIVER = $PARTNER$ }
+				}
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_hostage_r }
+				tnt_can_hostage_trigger = { SENDER = $PARTNER$  WARDEN = $PLAYER$ }
+				var:tnt_hostage_r ?= {
+					is_alive = yes
+					is_hostage = no
+					tnt_hostage_candidate_trigger = { SENDER = $PARTNER$  RECEIVER = $PLAYER$ }
+				}
+			}
+
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_courtier_p }
+				trigger_if = {
+					limit = { variable_list_size = { name = tnt_sel_courtier_p  value > 0 } }
+					tnt_can_courtier_trigger = { GIVER = $PLAYER$  RECEIVER = $PARTNER$ }
+				}
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_courtier_p
+						NOT = {
+							is_alive = yes
+							tnt_courtier_candidate_trigger = { SENDER = $PLAYER$  RECEIVER = $PARTNER$ }
+						}
+					}
+				}
+			}
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_courtier_r }
+				trigger_if = {
+					limit = { variable_list_size = { name = tnt_sel_courtier_r  value > 0 } }
+					tnt_can_courtier_trigger = { GIVER = $PARTNER$  RECEIVER = $PLAYER$ }
+				}
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_courtier_r
+						NOT = {
+							is_alive = yes
+							tnt_courtier_candidate_trigger = { SENDER = $PARTNER$  RECEIVER = $PLAYER$ }
+						}
+					}
+				}
+			}
+
+			# Moving one courtier also moves every distinct traveling-family
+			# member with them. Refuse a package where that implicit sweep would
+			# consume another explicit same-side courtier or the same-side hostage
+			# before their own executor runs. The iterator can include its owner,
+			# so self is excluded explicitly.
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_courtier_p }
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_courtier_p
+						save_temporary_scope_as = tnt_pf_courtier
+						any_traveling_family_member = {
+							NOT = { this = scope:tnt_pf_courtier }
+							save_temporary_scope_as = tnt_pf_family_member
+							$PLAYER$ = {
+								OR = {
+									is_target_in_variable_list = {
+										name = tnt_sel_courtier_p
+										target = scope:tnt_pf_family_member
+									}
+									AND = {
+										exists = var:tnt_hostage_p
+										var:tnt_hostage_p ?= { this = scope:tnt_pf_family_member }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_courtier_r }
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_courtier_r
+						save_temporary_scope_as = tnt_pf_courtier
+						any_traveling_family_member = {
+							NOT = { this = scope:tnt_pf_courtier }
+							save_temporary_scope_as = tnt_pf_family_member
+							$PLAYER$ = {
+								OR = {
+									is_target_in_variable_list = {
+										name = tnt_sel_courtier_r
+										target = scope:tnt_pf_family_member
+									}
+									AND = {
+										exists = var:tnt_hostage_r
+										var:tnt_hostage_r ?= { this = scope:tnt_pf_family_member }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_subject_p }
+				trigger_if = {
+					limit = { variable_list_size = { name = tnt_sel_subject_p  value > 0 } }
+					tnt_can_subject_trigger = { GIVER = $PLAYER$  RECEIVER = $PARTNER$ }
+				}
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_subject_p
+						NOT = {
+							is_alive = yes
+							tnt_subject_candidate_trigger = { GIVER = $PLAYER$  RECEIVER = $PARTNER$ }
+						}
+					}
+				}
+			}
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_subject_r }
+				trigger_if = {
+					limit = { variable_list_size = { name = tnt_sel_subject_r  value > 0 } }
+					tnt_can_subject_trigger = { GIVER = $PARTNER$  RECEIVER = $PLAYER$ }
+				}
+				NOT = {
+					any_in_list = {
+						variable = tnt_sel_subject_r
+						NOT = {
+							is_alive = yes
+							tnt_subject_candidate_trigger = { GIVER = $PARTNER$  RECEIVER = $PLAYER$ }
+						}
+					}
+				}
+			}
+
+			# Courtier moves execute before hostage departures, while marriage
+			# executes before both. One character stored in two of those legs
+			# would therefore make the later executor skip after the earlier leg
+			# changed court, liege or marital state. Reject identity overlap only;
+			# unrelated marriage/people terms remain freely combinable.
+			trigger_if = {
+				limit = { exists = var:tnt_hostage_p }
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_courtier_p }
+					NOT = {
+						is_target_in_variable_list = {
+							name = tnt_sel_courtier_p
+							target = var:tnt_hostage_p
+						}
+					}
+				}
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_courtier_r }
+					NOT = {
+						is_target_in_variable_list = {
+							name = tnt_sel_courtier_r
+							target = var:tnt_hostage_p
+						}
+					}
+				}
+				trigger_if = {
+					limit = { has_variable_list = tnt_wed_list }
+					NOR = {
+						is_target_in_variable_list = {
+							name = tnt_wed_list
+							target = var:tnt_hostage_p
+						}
+						any_in_list = {
+							variable = tnt_wed_list
+							var:tnt_wed_partner ?= { this = $PLAYER$.var:tnt_hostage_p }
+						}
+					}
+				}
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_hostage_r }
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_courtier_p }
+					NOT = {
+						is_target_in_variable_list = {
+							name = tnt_sel_courtier_p
+							target = var:tnt_hostage_r
+						}
+					}
+				}
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_courtier_r }
+					NOT = {
+						is_target_in_variable_list = {
+							name = tnt_sel_courtier_r
+							target = var:tnt_hostage_r
+						}
+					}
+				}
+				trigger_if = {
+					limit = { has_variable_list = tnt_wed_list }
+					NOR = {
+						is_target_in_variable_list = {
+							name = tnt_wed_list
+							target = var:tnt_hostage_r
+						}
+						any_in_list = {
+							variable = tnt_wed_list
+							var:tnt_wed_partner ?= { this = $PLAYER$.var:tnt_hostage_r }
+						}
+					}
+				}
+			}
+
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_courtier_p }
+				trigger_if = {
+					limit = { has_variable_list = tnt_wed_list }
+					NOT = {
+						any_in_list = {
+							variable = tnt_sel_courtier_p
+							save_temporary_scope_as = tnt_pf_person
+							$PLAYER$ = {
+								OR = {
+									is_target_in_variable_list = {
+										name = tnt_wed_list
+										target = scope:tnt_pf_person
+									}
+									any_in_list = {
+										variable = tnt_wed_list
+										var:tnt_wed_partner ?= { this = scope:tnt_pf_person }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			trigger_if = {
+				limit = { has_variable_list = tnt_sel_courtier_r }
+				trigger_if = {
+					limit = { has_variable_list = tnt_wed_list }
+					NOT = {
+						any_in_list = {
+							variable = tnt_sel_courtier_r
+							save_temporary_scope_as = tnt_pf_person
+							$PLAYER$ = {
+								OR = {
+									is_target_in_variable_list = {
+										name = tnt_wed_list
+										target = scope:tnt_pf_person
+									}
+									any_in_list = {
+										variable = tnt_wed_list
+										var:tnt_wed_partner ?= { this = scope:tnt_pf_person }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			# -------------------------------------------------------------
+			# Marriage package shape and every committed pair.
+			# -------------------------------------------------------------
+			OR = {
+				AND = {
+					exists = var:tnt_marriage_p
+					exists = var:tnt_marriage_r
+				}
+				AND = {
+					NOT = { exists = var:tnt_marriage_p }
+					NOT = { exists = var:tnt_marriage_r }
+				}
+			}
+
+			trigger_if = {
+				limit = { exists = var:tnt_marriage_p }
+				trigger_if = {
+					limit = { has_variable_list = tnt_wed_list }
+					variable_list_size = { name = tnt_wed_list  value > 0 }
+				}
+				trigger_else = { always = no }
+			}
+			trigger_if = {
+				limit = { NOT = { exists = var:tnt_marriage_p } }
+				trigger_if = {
+					limit = { has_variable_list = tnt_wed_list }
+					variable_list_size = { name = tnt_wed_list  value = 0 }
+				}
+			}
+
+			trigger_if = {
+				limit = { has_variable_list = tnt_wed_list }
+				NOT = {
+					any_in_list = {
+						variable = tnt_wed_list
+						NOT = {
+							is_alive = yes
+							trigger_if = {
+								limit = { exists = var:tnt_wed_matri }
+								var:tnt_wed_matri = 1
+							}
+							trigger_if = {
+								limit = { exists = var:tnt_wed_partner }
+								NOT = { this = var:tnt_wed_partner }
+								can_marry_character_trigger = { CHARACTER = var:tnt_wed_partner }
+								tnt_may_offer_spouse_trigger = { SIDE = $PLAYER$ }
+								var:tnt_wed_partner ?= {
+									is_alive = yes
+									tnt_may_offer_spouse_trigger = { SIDE = $PARTNER$ }
+								}
+							}
+							trigger_else = { always = no }
+						}
+					}
+				}
+			}
+
+			# A principal is meaningful only as a guarded member of the pair list.
+			trigger_if = {
+				limit = { exists = var:tnt_wed_principal }
+				trigger_if = {
+					limit = { has_variable_list = tnt_wed_list }
+					is_target_in_variable_list = {
+						name = tnt_wed_list
+						target = var:tnt_wed_principal
+					}
+				}
+				trigger_else = { always = no }
+			}
+
+			# Grand wedding: exact script-visible host/pair predicates, except
+			# current gold is replaced by the post-currency projected balance.
+			trigger_if = {
+				limit = { exists = var:tnt_wed_grand }
+				exists = var:tnt_marriage_p
+				exists = var:tnt_marriage_r
+				exists = var:tnt_wed_principal
+
+				highest_held_title_tier > tier_barony
+				is_landed_or_landless_administrative = yes
+				has_dlc_feature = tours_and_tournaments
+				has_dlc_feature = advanced_activities
+				is_available = yes
+				NOR = {
+					var:promised_grand_wedding_marriage_countdown ?= { is_alive = yes }
+					has_variable = grand_wedding_promise_pending
+				}
+
+				trigger_if = {
+					limit = {
+						NOT = { exists = var:tnt_gold_p }
+						NOT = { exists = var:tnt_gold_r }
+					}
+					gold >= base_wedding_cost
+				}
+				trigger_else_if = {
+					limit = {
+						exists = var:tnt_gold_p
+						NOT = { exists = var:tnt_gold_r }
+					}
+					gold >= {
+						value = base_wedding_cost
+						add = var:tnt_gold_p
+					}
+				}
+				trigger_else_if = {
+					limit = {
+						NOT = { exists = var:tnt_gold_p }
+						exists = var:tnt_gold_r
+					}
+					gold >= {
+						value = base_wedding_cost
+						subtract = var:tnt_gold_r
+					}
+				}
+				trigger_else = {
+					gold >= {
+						value = base_wedding_cost
+						add = var:tnt_gold_p
+						subtract = var:tnt_gold_r
+					}
+				}
+
+				var:tnt_wed_principal ?= {
+					is_close_or_extended_family_of = $PLAYER$
+					OR = {
+						AND = {
+							is_female = yes
+							exists = var:tnt_wed_matri
+						}
+						AND = {
+							is_male = yes
+							NOT = { exists = var:tnt_wed_matri }
+						}
+					}
+				}
+			}
+
+			# -------------------------------------------------------------
+			# Vassal-contract sheet. Variables are legal only with exactly one
+			# fealty direction, and every chosen right reuses its live OK value.
+			# -------------------------------------------------------------
+			trigger_if = {
+				limit = { exists = var:tnt_ob_tax }
+				OR = {
+					var:tnt_ob_tax = 0  var:tnt_ob_tax = 1  var:tnt_ob_tax = 2
+					var:tnt_ob_tax = 3  var:tnt_ob_tax = 4
+				}
+				tnt_ob_feudal_value > 0
+			}
+			trigger_if = {
+				limit = { exists = var:tnt_ob_levy }
+				OR = {
+					var:tnt_ob_levy = 0  var:tnt_ob_levy = 1  var:tnt_ob_levy = 2
+					var:tnt_ob_levy = 3  var:tnt_ob_levy = 4
+				}
+				tnt_ob_feudal_value > 0
+			}
+
+			trigger_if = { limit = { exists = var:tnt_ob_relig }   var:tnt_ob_relig = 1   tnt_ob_relig_ok_value > 0 }
+			trigger_if = { limit = { exists = var:tnt_ob_council } var:tnt_ob_council = 1 tnt_ob_feudal_value > 0 }
+			trigger_if = { limit = { exists = var:tnt_ob_revoke }  var:tnt_ob_revoke = 1  tnt_ob_revoke_ok_value > 0 }
+			trigger_if = { limit = { exists = var:tnt_ob_war }     var:tnt_ob_war = 1     tnt_ob_feudal_value > 0 }
+			trigger_if = { limit = { exists = var:tnt_ob_fort }    var:tnt_ob_fort = 1    tnt_ob_fort_ok_value > 0 }
+			trigger_if = { limit = { exists = var:tnt_ob_coin }    var:tnt_ob_coin = 1    tnt_ob_coin_ok_value > 0 }
+			trigger_if = { limit = { exists = var:tnt_ob_succ }    var:tnt_ob_succ = 1    tnt_ob_succ_ok_value > 0 }
+
+			trigger_if = {
+				limit = {
+					OR = {
+						exists = var:tnt_ob_tax
+						exists = var:tnt_ob_levy
+						exists = var:tnt_ob_relig
+						exists = var:tnt_ob_council
+						exists = var:tnt_ob_revoke
+						exists = var:tnt_ob_war
+						exists = var:tnt_ob_fort
+						exists = var:tnt_ob_coin
+						exists = var:tnt_ob_succ
+					}
+				}
+				OR = {
+					AND = {
+						exists = var:tnt_vassal_p
+						NOT = { exists = var:tnt_vassal_r }
+					}
+					AND = {
+						exists = var:tnt_vassal_r
+						NOT = { exists = var:tnt_vassal_p }
+					}
+				}
+			}
+		}
+	}
+	trigger_else = { always = no }
+}

@@ -1,0 +1,103 @@
+﻿########################################################################
+# PARLEY - THE MOD-REMOVAL DECISION GROUP
+#
+# WHAT THIS FILE IS. One decision_group_type, tnt_uninstall, so the
+# family's two uninstall decisions - the core's tnt_uninstall_decision
+# (common\decisions\tnt_86_uninstall.txt) and the MCA addon's
+# tnt_ma_uninstall_decision (marriage_calc_assistant\common\decisions\
+# tnt_ma_80_uninstall.txt plus its _agot twin) - sit in a COLLAPSIBLE
+# group of their own at the bottom of the decisions panel instead of
+# standing between the ordinary play decisions. User request.
+#
+# COLLAPSIBLE IS FREE, AND IT IS NOT OURS TO BUILD. EVERY decision group
+# in the panel is a foldout by construction, so declaring the group IS
+# the whole feature - no .gui of ours, no override, law 3 untouched.
+# The vanilla type is GAME\gui\window_decisions.gui:294
+# (type vbox_decision_group_foldout = vbox), bound at :300-301 with
+# oncreate = "[BindFoldOutContext]" and oncreate =
+# "[PdxGuiFoldOut.Unfold]", its title carried on a
+# button_expandable_toggle_field at :303-308 - that button IS the click
+# target - and its body vbox gated at :311 on
+# visible = "[PdxGuiFoldOut.IsUnfolded]". The engine's own schema says
+# the same thing in one word: "Foldable decision group type to put this
+# decision in. Default or not specified will select 'decisions'"
+# (GAME\common\decisions\_decisions.info:34).
+# WHAT WE DO NOT GET: the panel opens EVERY group unfolded and no data
+# field changes that - the Unfold call is hard-coded in the vanilla
+# type - so this group starts expanded and the player collapses it with
+# one click, exactly like vanilla's own groups.
+#
+# A NEW GROUP IS ADDITIVE - MEASURED, NOT ASSUMED.
+# common\decision_group_types is a plain script database: ck3.exe
+# carries CDecisionGroupTypeDatabase alongside the folder string
+# "common/decision_group_types", so a NEW FILE there ADDS keys and
+# overrides nothing. Vanilla ships exactly two files in that folder
+# (00_decision_group_types.txt and _decision_group_types.info) and
+# neither is this name, so family-gate check 5 still reads 0 collisions
+# on all three trees. Four unrelated mods on this machine already add
+# groups from a non-00 filename in exactly this way
+# (POD_decision_group_types.txt, wc_decision_group_types.txt,
+# tfe_decision_group_types.txt, interactive_decision_group_types.txt),
+# so the shape is shipped practice and not an experiment.
+#
+# WHY sort_order = 0. Higher sorts FIRST, ties break on definition order
+# (GAME\common\decision_group_types\_decision_group_types.info:3).
+# Vanilla's ladder ends decisions 10, courtier 1, debug -1
+# (GAME\common\decision_group_types\00_decision_group_types.txt:86-96),
+# so 0 is the only integer that puts this group BELOW every ordinary
+# play group and ABOVE the debug group - the bottom of the real list,
+# which is where a remove-the-mod surface belongs. 0 is also the
+# documented default; it is written out because a default is not a
+# decision.
+#
+# WHY NO gui_tags. The tag list picks the row height and nothing else:
+# extra_big_button 70 / big_button 60 / neither 45-50
+# (window_decisions.gui:323 and :335). Vanilla's own plain groups -
+# decisions, courtier, debug - carry no tags, and an uninstall surface
+# must not be a big illustrated button competing with real play.
+# WHY NO important_decision_group. It is a real engine field (the
+# string is in ck3.exe) but it is undocumented in the .info and vanilla
+# spends it on oaths, nomad_major and major only
+# (00_decision_group_types.txt:8, :29, :45). This group is the exact
+# opposite of important.
+#
+# THE LOC KEY IS ENGINE-COMPOSED, WHICH IS WHY IT DOES NOT BEGIN tnt_.
+# The engine builds "decision_group_type" + <key>
+# (_decision_group_types.info:1; the prefix string decision_group_type_
+# is in ck3.exe), so the key is decision_group_type_tnt_uninstall and we
+# own only the tail. It ships in all nine languages of the core (house
+# law 9), beside the uninstall decision's own five keys. It carries no
+# [..] token and no #markup, so law 10a cannot reach it.
+#
+# THE ADDON REFERENCES THIS KEY AND DELIBERATELY DOES NOT REDEFINE IT.
+# MCA's tnt_ma_uninstall_decision names tnt_uninstall so that BOTH
+# decisions land in ONE group rather than two headers; MCA declares
+# "Parley: The Negotiating Table" in its descriptor's dependencies
+# block, and referencing a declared dependency's decision group is the
+# shipped ecosystem idiom - two AGOT submods on this machine name
+# AGOT's own `artifact` group the same way. MCA may NOT ship a second
+# definition of this key: the family gate's check 7c fails any core name
+# an addon redefines, and a database key duplicated across two trees is
+# a silent-drift hazard no tool pairs.
+# RESIDUE, STATED RATHER THAN HIDDEN: with MCA loaded WITHOUT Parley the
+# key does not resolve. UNMEASURED in game. The field is presentation
+# only - the sweep itself is untouched - so if that configuration ever
+# reports the addon's row missing or mis-titled, the one-line cure is to
+# delete the decision_group_type line from tnt_ma_80_uninstall.txt and
+# re-copy it over the _agot twin.
+#
+# NOT AN OVERRIDE: no vanilla file shares this relative path and no
+# other mod file carries this name. The filename sits inside the core's
+# reserved tnt_[0-9a-f][0-9a-f]_* database namespace (family gate check
+# 8b) and tnt_92_ was free - tnt_90_hook_types.txt and
+# tnt_91_alerts.txt are its neighbours.
+# ENCODING: UTF-8 WITH BOM, LF, one trailing newline (house law 7);
+# ASCII-only comments, the cheap maximum safety after the W1 alert file
+# lost a whole parse to 26 Cyrillic characters in one comment.
+########################################################################
+
+tnt_uninstall = {
+	# The bottom of the real list: below decisions (10) and courtier (1),
+	# above debug (-1). The argument is in the header.
+	sort_order = 0
+}

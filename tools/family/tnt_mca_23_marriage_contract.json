@@ -1,0 +1,16 @@
+{
+  "format": "mca-frozen-patch-v1",
+  "release": "MCA 2.3.0",
+  "reviewed_on": "2026-09-30",
+  "upstream": "CK3 1.19.0.6 gui/interaction_marriage.gui",
+  "normalization": "ReadAllLines joined with LF, no final LF",
+  "vanilla_sha256": "6858C536CF377009515346C6CBF60D7A4A067EA13B7D288C5BEBE06604FED35C",
+  "vanilla_byte_sha256_at_review": "5DD66BB90983A4841EF9BA53F3B24D65AB5108882EEA10B466A8F40C4DCCE5BF",
+  "patch_file": "tnt_mca_23_marriage.patch",
+  "patch_sha256": "A7F5243A5E9FC20FE0E21BF6C52DBDE847F14F9422B76AB1C4A2D527AFDBF53B",
+  "mca_sha256": "8103669B66C70A80AE0FB5C4A6CAB594F77689BDD0096BB595A421DBDC610419",
+  "mca_byte_sha256_at_review": "E4C35987B275F8BAC33EFAE2AFC75C08A9A3D14DB144B8354696DEB1D9436987",
+  "provenance": "Reviewed 2.3 source patch against the retained 2.2 contract: GUI delta is exactly seven added lines, a neutral left spouse label matching the existing right label. Exact reconstruction from the unchanged vanilla baseline passed. New runtime label/genetics acceptance remains separate.",
+  "approved_scope": "All reviewed 2.2 score-sort lifecycle, controls, collectors, snapshot guards, native projection and three derived row sites remain unchanged. Add one marriage-local left_character_label override with INTERACTION_SPOUSE; no layout, callbacks, scoring or global-template edits in this GUI patch.",
+  "update_procedure": "Review upstream and functional changes, regenerate the unified diff against the reviewed vanilla baseline, prove exact reconstruction, and update all three normalized hashes together. Never replace these hashes from an unreviewed live MCA file. Historical 2.2 artifacts are retained."
+}

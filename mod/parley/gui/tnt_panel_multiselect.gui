@@ -1,0 +1,2314 @@
+######################################################################
+### PARLEY: THE NEGOTIATING TABLE - MULTI-SELECT PANEL   (user item 2.2 + U1(a))
+###
+### A types-only file. NO registration in gui/scripted_widgets is needed
+### (same reasoning as tnt_types.gui and tnt_panels.gui; proven by
+###  MOD\3276373926\gui\00_jdb_bc_map_icon_layer.gui).
+###
+### WHAT IS IN HERE, AND WHO USES WHICH PART
+###   1. two ROW types            - tnt_multi_row_title, tnt_multi_row_artifact
+###   2. the COUNTER line         - tnt_multi_counter_line
+###   3. the DOMAIN line          - tnt_multi_domain_line   (U1(a))
+###   4. THE PANEL                - tnt_panel_multi, with the four block
+###                                 names fixed by the GUI NAMING CONTRACT:
+###                                 tnt_multi_title, tnt_multi_counter,
+###                                 tnt_multi_available_list,
+###                                 tnt_multi_chosen_list
+###   5. SIX READY-MADE PANELS    - tnt_panel_multi_title_p / _title_r /
+###                                 _claim_p / _claim_r / _artifact_p /
+###                                 _artifact_r. Each fills all four blocks
+###                                 and carries its own `visible`, so the
+###                                 gui owner instantiates each with ONE
+###                                 line inside blockoverride
+###                                 "tnt_picker_panels".
+###   6. SIX DEAL-SHEET GROUPS    - tnt_sheet_sel_title_p and friends, for
+###                                 blockoverride "tnt_sheet_multi_p" /
+###                                 "tnt_sheet_multi_r" in tnt_panels.gui's
+###                                 tnt_deal_sheet (item 3.4).
+### V13 USER ITEM 1 RETIRED THE CLAIM PAIR IN BOTH FAMILIES: four picker panels
+### and four deal-sheet groups are live now (title x2, artifact x2). The claim
+### types are commented out in place behind a tombstone, never deleted, and
+### overlay index 7 is RETIRED, not free.
+###
+### The generic tnt_panel_multi is kept parameterised even though the six
+### derived panels exist: the contract names its four blocks, a later item
+### (prisoners, per defect D3's redesign, or spouses) will want the same
+### shape, and the derived panels are nothing but six sets of
+### blockoverrides on it.
+###
+### WHY THERE IS NO `down =` ANYWHERE IN THIS FILE
+###   Because there is no membership datafunction in the engine - no
+###   Scope.IsInList, no datamodel Filter / Where / Count
+###   (00-ARCHITECTURE section 4.6). A row's COLUMN is its state: available
+###   on the left, chosen on the right, and a click MOVES it. That is the
+###   entire point of the two-list shape (30-V2-DESIGN section 1 row 2.2)
+###   and it is why this panel needs no per-row test of any kind. The
+###   shipped single-object picker rows DO carry
+###   `down = "[ObjectsEqual( TntVar('tnt_title_p').Title, Title.Self )]"`
+###   because with one slot the question "is this the chosen one" is
+###   answerable; with a list it is not.
+###
+### R-LAYOUT, obeyed everywhere below (30-V2-DESIGN section 9 D2):
+###   a direct child of hbox / vbox / flowcontainer carries NEITHER
+###   `position` NOR `parentanchor`. Every icon, coat of arms, portrait and
+###   glyph that needs centring sits inside a plain `widget` and is
+###   anchored INSIDE that - vanilla's own stepper does exactly this
+###   (GAME\gui\window_knights.gui:716-759: no anchors on the hbox
+###   children, `parentanchor = center` only inside button_round at :731,
+###   :755). The two panels' own `parentanchor = center` IS legal: their
+###   parent is tnt_picker_overlay, a plain widget, which arranges nothing
+###   (same as the shipped tnt_picker_panel, tnt_types.gui:1385-1389).
+###
+### R-SPILL, obeyed on every text widget that prints GAME text (item 3.2c):
+###   `autoresize = no` + `layoutpolicy_horizontal = expanding`, and the
+###   inherited `elide = right` is never overridden. type text_single
+###   inherits autoresize = yes (GAME\gui\preload\labels.gui:6-16) and a
+###   self-resizing child of an hbox reports a minimum width equal to its
+###   full text width, so one long duchy name would push the row's glyph
+###   outside the column.
+###
+### R11: every row carries a FIXED size - PDX's own "This is required for
+###   performance reasons", GAME\gui\window_epidemics.gui:449-450 - and no
+###   GetScriptedGui appears in any visible or down. The only script values
+###   read per frame are the panel's counter (1), its cap flag (1) and, in
+###   the two title panels, the domain pair (4) - read once per PANEL, never
+###   once per row.
+###
+### Every base type verified on disk while writing this file:
+###   hbox / vbox / widget / icon               GAME\gui\preload\defaults.gui
+###   text_single                               GAME\gui\preload\labels.gui:6
+###   template tooltip_es                       GAME\gui\preload\defaults.gui:12
+###   spacer / expand / divider_light           GAME\gui\shared\windows.gui:590 / :597 / :944
+###   button_standard                           GAME\gui\shared\buttons.gui:153
+###   button_standard_list                      GAME\gui\shared\buttons.gui:348
+###   button_plus_small / button_minus_small    GAME\gui\shared\buttons_icons.gui:596 / :608
+###   header_pattern                            GAME\gui\shared\windows.gui:683
+###   scrollbox                                 GAME\gui\shared\lists.gui:3185
+###     (its blocks: scrollbox_margins :3208, scrollbox_content :3213,
+###      scrollbox_empty :3222 - which sits inside a text_single, which is
+###      why the empty-state blockoverride sets `text` and `visible`)
+###   coa_title_tiny                            GAME\gui\shared\coat_of_arms.gui:591
+###   artifact_tooltip                          GAME\gui\cooltip.gui:5568
+###   Window_Background / Window_Margins        GAME\gui\shared\windows.gui:144 / :122
+###   Background_Area_Dark                      GAME\gui\shared\backgrounds.gui:51
+######################################################################
+
+types TwdMultiSelect
+{
+
+	####################################################################
+	### 1. THE TWO ROW TYPES
+	###
+	### Both are twins of the shipped picker rows (tnt_types.gui:1487 and
+	### :1526) so the two columns of this panel look exactly like every
+	### other list in the mod, with three differences:
+	###   * no `down` - see the header;
+	###   * a GLYPH at the right end that says which way a click moves the
+	###     object (+ in the available column, - in the chosen one);
+	###   * the title row uses plain `coa_title_tiny`, not
+	###     `coa_title_tiny_crown`, and wraps it - see the note below.
+	####################################################################
+
+	### TITLE / CLAIM ROW.
+	###
+	### THE COAT OF ARMS: plain coa_title_tiny inside an alwaystransparent
+	### holder, with the position blockoverride.
+	###
+	### Three decisions in one widget, each with a reason:
+	### (a) `coa_title_tiny` and not `coa_title_tiny_crown`. The crown
+	###     variant re-shows the `crown` icon, a 22 px strip stacked above
+	###     the 36 px CoA with spacing -4 (GAME\gui\shared\coat_of_arms.gui:591-655),
+	###     i.e. 54 px of content in a 45 px row. Plain coa_title_tiny
+	###     leaves the crown hidden and, because its flowcontainer is
+	###     `ignoreinvisible = yes`, the hidden crown costs no height at
+	###     all: the control is 36 px. The tier is not lost - it is what
+	###     the coat of arms frame itself shows, and the CoA keeps its own
+	###     LandedTitleTooltip.
+	### (b) `blockoverride "position" { position = { 0 0 } }` is REQUIRED
+	###     with the crown hidden: coa_title_tiny shifts its flowcontainer
+	###     up by 10 px to make room for that crown (block "position" at
+	###     :601-603), and with no crown the shift only pushes the CoA out
+	###     of the row. That override is verbatim vanilla ON THIS VERY TYPE
+	###     - GAME\gui\window_county_view.gui:3561-3565 and
+	###     GAME\gui\window_travel_route_edit.gui:242-246.
+	### (c) the `alwaystransparent = yes` holder. coa_title_tiny is a
+	###     `button_group`, so left to itself it would swallow the click
+	###     that is supposed to reach the row. alwaystransparent on the
+	###     holder makes the whole subtree click-through, which is exactly
+	###     what vanilla's own artifact row does with button_artifact
+	###     (GAME\gui\interaction_templates.gui:517-533) and what this mod
+	###     already does in tnt_chosen_button (tnt_panels.gui:118-124).
+	type tnt_multi_row_title = button_standard_list
+	{
+		name = "tnt_multi_row_title"
+		layoutpolicy_horizontal = expanding
+		size = { 0 45 }
+		using = tooltip_es
+
+		block "tnt_multi_row_click" {}
+
+		block "tnt_multi_row_tooltip" {}
+
+		hbox = {
+			layoutpolicy_horizontal = expanding
+			margin = { 10 0 }
+			spacing = 10
+
+			widget = {
+				name = "tnt_multi_row_coa_holder"
+				size = { 36 100% }
+				alwaystransparent = yes
+
+				coa_title_tiny = {
+					name = "tnt_multi_row_coa"
+					parentanchor = center
+
+					blockoverride "position"
+					{
+						position = { 0 0 }
+					}
+				}
+			}
+
+			text_single = {
+				name = "tnt_multi_row_text"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Title.GetNameNoTooltip|U]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+
+			### The direction glyph. A plain widget holder again, both so it
+			### may centre (R-LAYOUT) and so the glyph cannot eat the click.
+			widget = {
+				name = "tnt_multi_row_glyph_holder"
+				size = { 26 100% }
+				alwaystransparent = yes
+
+				block "tnt_multi_row_glyph"
+				{
+					button_plus_small = {
+						name = "tnt_multi_row_glyph_icon"
+						parentanchor = center
+						alwaystransparent = yes
+					}
+				}
+			}
+		}
+	}
+
+
+	### ARTIFACT ROW. Icon + name + rarity + glyph, i.e. the shipped
+	### tnt_picker_row_artifact plus the glyph. The icon triple
+	### (texture / frame / framesize 240) and `Artifact.GetRarityAndSlotType`
+	### are copied verbatim from that row, which ships and runs.
+	### artifact_tooltip on the row is what makes the real artifact tooltip
+	### appear - the same tooltipwidget the shipped row carries.
+	type tnt_multi_row_artifact = button_standard_list
+	{
+		name = "tnt_multi_row_artifact"
+		layoutpolicy_horizontal = expanding
+		size = { 0 45 }
+		using = tooltip_es
+
+		tooltipwidget = {
+			artifact_tooltip = {}
+		}
+
+		block "tnt_multi_row_click" {}
+
+		block "tnt_multi_row_tooltip" {}
+
+		### USER ITEM 4, THE TRUNCATED ARTIFACT NAME. The fixed furniture in this
+		### row is shrunk so the expanding name column gets the space: margin
+		### 10 -> 6, spacing 10 -> 6, and the rarity column 120 -> 90 below.
+		### With the panel at 900 the row is 369 px, so the name now gets
+		### 369 - 12 (margin) - 32 (icon) - 90 (rarity) - 26 (glyph) - 18 (three
+		### spacings) = 191 px, against 71 px before. Nothing is lost by trimming
+		### rarity: the row already carries the full vanilla artifact_tooltip
+		### above, and the icon draws its own rarity frame (Artifact.GetIconFrame).
+		hbox = {
+			layoutpolicy_horizontal = expanding
+			margin = { 6 0 }
+			spacing = 6
+
+			widget = {
+				name = "tnt_multi_row_artifact_icon_holder"
+				size = { 32 100% }
+				alwaystransparent = yes
+
+				icon = {
+					name = "tnt_multi_row_artifact_icon"
+					size = { 32 32 }
+					parentanchor = center
+					texture = "[Artifact.GetIcon]"
+					frame = "[Artifact.GetIconFrame]"
+					framesize = { 240 240 }
+					alwaystransparent = yes
+				}
+			}
+
+			text_single = {
+				name = "tnt_multi_row_text"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Artifact.GetNameNoTooltip]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+
+			text_single = {
+				name = "tnt_multi_row_rarity"
+				### 120 -> 90, see the note on the hbox above. Stays autoresize = no
+				### and stays FIXED-width: the name beside it is
+				### layoutpolicy_horizontal = expanding inside a list row, and a
+				### variable-width sibling would make the row jump per artifact -
+				### that is R-SPILL, the defect user item 3.2 was about.
+				min_width = 90
+				max_width = 90
+				autoresize = no
+				text = "[Artifact.GetRarityAndSlotType]"
+				align = nobaseline|right
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+
+			widget = {
+				name = "tnt_multi_row_glyph_holder"
+				size = { 26 100% }
+				alwaystransparent = yes
+
+				block "tnt_multi_row_glyph"
+				{
+					button_plus_small = {
+						name = "tnt_multi_row_glyph_icon"
+						parentanchor = center
+						alwaystransparent = yes
+					}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 2. THE COUNTER LINE
+	###
+	### "Chosen: 2" on the left, and on the right a warning slot that is
+	### PERMANENTLY HIDDEN as of the artifact-picker fix.
+	###
+	### THE CAP IS GONE. V4 removed the three-object cap from
+	### tnt_multi_add_effect entirely (tnt_35_multiselect.txt: all four
+	### terms behave alike), yet the stale tnt_cap_hit_claim/artifact_*
+	### flags still fired at >= 3 selected and this line printed
+	### tnt_err_too_many - domain-limit words - at a limit that no longer
+	### exists (the user's "third artifact" bug). The window's instance-
+	### level `visible = no` overrides could not silence it, because the
+	### derived types' plain blockoverride CONSUMED the named block (a
+	### block stays re-overridable only through the block-inside-a-
+	### blockoverride form, see the header of type tnt_panel_multi below).
+	### THE FIX: no derived type fills block "tnt_multi_cap_visible" any
+	### more; the default below stays `visible = no`. The warning text and
+	### the block are KEPT as the wiring point for any future, real cap -
+	### wire it HERE in the derived types, never at the instantiation.
+	### Rows are deliberately never greyed either way: that would need
+	### `enabled = "[TntValid(...)]"` on every row of every list - a
+	### scripted-gui evaluation per row per frame, which Law R11 forbids.
+	###
+	### The counter number cannot come from the GUI, because a loc key
+	### cannot be handed a parameter from a `text =`. It therefore lives
+	### INSIDE the loc string, exactly as this mod already does at
+	### tnt_l_english.yml:247 -
+	###   tnt_ctx_terms:0 "Terms on the table: [GetPlayer.MakeScope.ScriptValue('tnt_items_count_value')|0]"
+	### which is why there are six tnt_sel_count_* keys, one per list.
+	###
+	### The 3 px vertical margin is what centres the text: R-LAYOUT forbids
+	### `parentanchor = vcenter` on a child of this hbox, and an hbox lays
+	### its children out at the cross-axis origin, so 26 - 2*3 = 20 px of
+	### content for an 18 px line. Same trick as tnt_sheet_group
+	### (tnt_panels.gui:226-256).
+	####################################################################
+	type tnt_multi_counter_line = hbox
+	{
+		name = "tnt_multi_counter_line"
+		layoutpolicy_horizontal = expanding
+		size = { 0 26 }
+		maximumsize = { -1 26 }
+		spacing = 8
+		margin = { 4 3 }
+		alwaystransparent = yes
+		ignoreinvisible = yes
+
+		text_single = {
+			name = "tnt_multi_counter_text"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#medium"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			### Forwarded to the panel as the contract block
+			### "tnt_multi_counter" - see tnt_panel_multi. The inner and
+			### outer names are DELIBERATELY DIFFERENT: the verified
+			### block-inside-a-blockoverride form always renames
+			### (GAME\gui\window_ledger.gui:3402-3407 declares
+			### `block "scrollbox_empty_visibility"` inside
+			### `blockoverride "scrollbox_empty"`), and a same-named nesting
+			### is attested nowhere.
+			block "tnt_multi_counter_inner"
+			{
+				text = "tnt_sel_count_title_p"
+			}
+		}
+
+		### The cap warning SLOT - hidden by default and, since the cap's
+		### removal, wired by nobody (see the section header above). Fixed
+		### width; the expanding child above is the one that always stays
+		### visible, so `ignoreinvisible = yes` on this hbox collapses this
+		### widget cleanly instead of shifting anything (the failure mode
+		### tnt_panels.gui:325-334 documents for the deal sheet).
+		text_single = {
+			name = "tnt_multi_cap_text"
+			min_width = 300
+			max_width = 300
+			autoresize = no
+			text = "tnt_err_too_many"
+			align = nobaseline|right
+			default_format = "#N"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_multi_cap_inner"
+			{
+				visible = no
+			}
+		}
+	}
+
+
+	####################################################################
+	### 3. THE DOMAIN LINE   (U1(a) - MANDATORY, see 30-V2-DESIGN row U1)
+	###
+	### One line per side: "Your domain after this deal: 5 / 4", turning
+	### red when the side ends up over its limit.
+	###
+	### WHY IT IS HERE AT ALL. The vanilla grant-titles screen prints
+	###   [GetResultingDomainSize] / [Actor.GetDomainLimit]
+	### with a red warning above the limit (GAME\gui\interaction_grant_titles.gui:105,
+	### :125). That window is 100% C++ and cannot be reused (30-V2-DESIGN
+	### row U1 is RED), but the idea is free, and it stops being a nicety
+	### the moment item 2.2 lets a player push three counties across the
+	### table: every holding above the limit pays no tax and raises no
+	### levies (GAME\localization\english\holdings_l_english.yml:20-31).
+	###
+	### The numbers come from tnt_54_multiselect_values.txt
+	### (tnt_domain_after_p/_r_value, tnt_domain_limit_p/_r_value) and, like
+	### the counter, they live inside the loc string because a `text =`
+	### cannot pass a parameter to a loc key.
+	###
+	### The over-limit state is a SEPARATE widget rather than a
+	### `default_format` swap, because a block can override properties but
+	### the two states want different text as well as a different colour.
+	####################################################################
+	type tnt_multi_domain_line = hbox
+	{
+		name = "tnt_multi_domain_line"
+		layoutpolicy_horizontal = expanding
+		size = { 0 26 }
+		maximumsize = { -1 26 }
+		spacing = 8
+		margin = { 4 3 }
+		alwaystransparent = yes
+		ignoreinvisible = yes
+
+		widget = {
+			name = "tnt_multi_domain_icon_holder"
+			size = { 22 100% }
+			alwaystransparent = yes
+
+			icon = {
+				name = "tnt_multi_domain_icon"
+				size = { 20 20 }
+				parentanchor = center
+				alwaystransparent = yes
+				texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds"
+			}
+		}
+
+		text_single = {
+			name = "tnt_multi_domain_text"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#medium"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			### Named _label, not _text: the widget above is already called
+			### tnt_multi_domain_text and a block that shadows a sibling
+			### widget's name is a reader trap even where the engine does
+			### not care.
+			block "tnt_multi_domain_label"
+			{
+				text = "tnt_domain_after_p"
+			}
+		}
+
+		### The warning half. Shown only when that side is over its limit.
+		text_single = {
+			name = "tnt_multi_domain_warning"
+			min_width = 260
+			max_width = 260
+			autoresize = no
+			text = "tnt_domain_warning"
+			align = nobaseline|right
+			default_format = "#N"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_multi_domain_over"
+			{
+				visible = no
+			}
+		}
+	}
+
+
+	####################################################################
+	### 4. THE PANEL
+	###
+	### A vbox instantiated inside tnt_picker_overlay's block
+	### "tnt_picker_panels", beside the shipped tnt_picker_panel instances.
+	### The overlay itself is already gated on `TntOn('tnt_picker')`
+	### (tnt_types.gui:1362) and swallows clicks, so a panel needs nothing
+	### but its own two index tests.
+	###
+	### 900 x 700 (was 760 x 700), a shell of the same family as the
+	### tnt_editor_panel that tnt_panels.gui reserves for the other compound
+	### editors (tnt_panels.gui:949-953) - two side-by-side lists do not fit the
+	### 540 px single-list panel.
+	###
+	### WIDTH WENT 760 -> 900 FOR USER ITEM 4. The artifact rows truncated
+	### ("Znamya di ...bolshoi nastenn ..."): at 760 the name column was left
+	### exactly 71 px once the 120 px rarity column, the 32 px icon, the 26 px
+	### glyph, the row margin and three spacings had taken their share of 279.
+	### Widening the panel is the half of the fix that helps BOTH columns and
+	### BOTH row types; shrinking the artifact row's fixed furniture is the other
+	### half, on the row itself. At 1920x1080 the panel is centred, so 900 px
+	### still leaves ~500 px of map either side and nothing is clipped.
+	### Width budget: 900 - 80 (Window_Margins) = 820; two columns at 405
+	### with spacing 10; each scroll area 405 - 10 - 26 = 369 px of row.
+	### Height budget: 700 - 38 (margins) - 50 (header) - 26 (counter)
+	###   - 24 (spacing x4) - 52 (domain block, title panels only)
+	###   - 42 (footer) = ~468 px of list, i.e. 10 rows of 45 visible.
+	### That height is now a CEILING and not a demand - see the note on the
+	### Window_Margins vbox inside the type.
+	###
+	### DELIBERATELY NOT Window_Decoration_Spike: that template injects
+	### icon CHILDREN, which a vbox would lay out in its flow.
+	### Window_Background contributes only a `background = { }` block, which
+	### is not a flow child - proven at GAME\gui\activity_window_widgets\
+	### funeral_deceased_selection_widget.gui:85-90 and already relied on by
+	### tnt_picker_panel.
+	###
+	### THE `block` INSIDE A `blockoverride` FORM IS VERIFIED - do not
+	### "simplify" the header. Declaring a block inside a blockoverride of a
+	### reusable type, then overriding that inner block from another file,
+	### is vanilla: `type vbox_ledger` declares
+	###   blockoverride "scrollbox_empty" { block "scrollbox_empty_visibility" {} }
+	### at GAME\gui\window_ledger.gui:3402-3407 and it is overridden from
+	### GAME\gui\interaction_marriage.gui:474. Header-text case:
+	### GAME\gui\cooltip.gui:6034 overridden at GAME\gui\window_court_positions.gui:621.
+	### The shipped tnt_picker_panel uses the same two nestings.
+	####################################################################
+	type tnt_panel_multi = vbox
+	{
+		### V4 (user item 4): HEIGHT FOLLOWS THE CONTENT, WIDTH DOES NOT.
+		### Same fix and same reasoning as tnt_picker_panel in gui\tnt_types.gui - a
+		### fixed 700 px meant a list of two counties opened a near-full-screen panel.
+		### The height leaves `size` and becomes a ceiling, so a vbox measures its
+		### children; 700 stays as the maximum, so nothing that used to fit stops
+		### fitting. The inner scrollboxes drop `layoutpolicy_vertical = expanding`
+		### (an expanding child is what asked for the whole 700 in the first place)
+		### and instead MEASURE THEIR ROWS under a cap - `autoresizescrollarea = yes`
+		### + size { 0 0 } + min/max, the vanilla ledger pattern. A bare cap changes
+		### nothing about the base scrollarea's fixed 100 px height (user item 17(a);
+		### details on the boxes themselves).
+		name = "tnt_panel_multi"
+		parentanchor = center
+		size = { 900 0 }
+		maximumsize = { 900 700 }
+		alwaystransparent = no
+
+		using = Window_Background
+
+		vbox = {
+			using = Window_Margins
+			layoutpolicy_horizontal = expanding
+			### NO layoutpolicy_vertical HERE - USER ITEM 4, and it is the one line
+			### that defeated the V4 fix described immediately above. An expanding
+			### child asks its parent for everything, so this vbox pinned the panel
+			### at its 700 px maximum while the content needed about 463, and the
+			### ~220 px of surplus was then divided between the two list columns'
+			### head / divider / list slots. That is why "Dostupno" and "Vybrano"
+			### rendered as tall empty boxes with the caption floating in the middle
+			### of a ~99 px band and the list crammed at the bottom: the 26 px
+			### caption was always 26 px, it was its SLOT that was wrong.
+			### The scrollboxes below deliberately dropped this same policy for the
+			### same reason; this line was the last thing overriding them.
+			spacing = 6
+
+			header_pattern = {
+				layoutpolicy_horizontal = expanding
+
+				blockoverride "header_text"
+				{
+					### THE CONTRACT BLOCK.
+					block "tnt_multi_title"
+					{
+						text = "tnt_picker_title_title"
+					}
+				}
+
+				blockoverride "button_close_tooltip"
+				{
+					tooltip = "tnt_btn_close"
+				}
+
+				### The shipped closer, which clears tnt_picker and
+				### tnt_picker_side (tnt_21_pickers.txt GROUP E). This file
+				### adds no closer of its own.
+				blockoverride "button_close"
+				{
+					onclick = "[TntExec('tnt_picker_close')]"
+				}
+			}
+
+			### THE TWO CONTRACT BLOCKS "tnt_multi_counter" and
+			### "tnt_multi_cap_visible" are declared HERE, inside the
+			### counter line's own two blockoverrides, so a consumer of
+			### tnt_panel_multi overrides them once at the panel level and
+			### never has to know that a counter line exists.
+			tnt_multi_counter_line = {
+				name = "tnt_multi_counter_row"
+
+				blockoverride "tnt_multi_counter_inner"
+				{
+					block "tnt_multi_counter"
+					{
+						text = "tnt_sel_count_title_p"
+					}
+				}
+
+				blockoverride "tnt_multi_cap_inner"
+				{
+					block "tnt_multi_cap_visible"
+					{
+						visible = no
+					}
+				}
+			}
+
+			####################################################################
+			### V4: THE POINTS LINE. What this selection is worth, and what the whole
+			### treaty stands at, side by side above the two columns.
+			###
+			### THE REQUEST: "insert a points counter for the deal into the multi-picker".
+			### Two numbers rather than one, because they answer different questions and a
+			### player choosing counties needs both: THIS TERM's price, which changes with
+			### every click, and the TREATY's headline, which tells him whether he has
+			### already done enough.
+			###
+			### THE LEFT NUMBER IS A BLOCK, because it differs per panel - a titles panel
+			### must quote the titles value and a captives panel the captives value. Each
+			### of the seven consumers overrides tnt_multi_points_value with its own
+			### figure, and the _p ones pass the SCALED wrapper so the number is in the
+			### same currency as the scales (see tnt_54_multiselect_values.txt).
+			###
+			### THE RIGHT NUMBER NEEDS NO BLOCK: tnt_ai_accept_value is the deciding value
+			### of the whole treaty, identical for every panel.
+			###
+			### `alwaystransparent = yes` on both texts and on the row: this line is a
+			### read-out sitting above clickable lists, and a non-transparent caption over
+			### a control is the defect that cost a day (_docs/README.md item 4).
+			####################################################################
+			hbox = {
+				name = "tnt_multi_points_row"
+				layoutpolicy_horizontal = expanding
+				size = { 0 24 }
+				maximumsize = { -1 24 }
+				margin = { 4 0 }
+				spacing = 8
+				alwaystransparent = yes
+
+				text_single = {
+					name = "tnt_multi_points_label"
+					autoresize = yes
+					text = "tnt_multi_points_label"
+					align = nobaseline|left
+					default_format = "#weak"
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Size_Small
+				}
+
+				text_single = {
+					name = "tnt_multi_points_figure"
+					autoresize = yes
+					align = nobaseline|left
+					default_format = "#high"
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Size_Small
+
+					block "tnt_multi_points_value"
+					{
+						text = ""
+					}
+				}
+
+				expand = {}
+
+				text_single = {
+					name = "tnt_multi_deal_total"
+					autoresize = yes
+					text = "tnt_multi_deal_total"
+					align = nobaseline|right
+					default_format = "#weak"
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Size_Small
+				}
+			}
+
+			divider_light = {
+				layoutpolicy_horizontal = expanding
+			}
+
+			### The two columns. A vbox as a direct child of an hbox is
+			### legal - only a (flow)container rejects hbox/vbox children,
+			### which is defect D3 (30-V2-DESIGN section 9 D3).
+			hbox = {
+				name = "tnt_multi_columns"
+				layoutpolicy_horizontal = expanding
+				layoutpolicy_vertical = expanding
+				spacing = 10
+
+				############################################################
+				### AVAILABLE
+				############################################################
+				vbox = {
+					name = "tnt_multi_available_col"
+					layoutpolicy_horizontal = expanding
+					layoutpolicy_vertical = expanding
+					spacing = 4
+
+					background = {
+						using = Background_Area_Dark
+					}
+
+					### User item 6 pinned this head to one 26 px line (with no
+					### vertical bound it was the only slack-absorbing child of an
+					### expanding column, so an EMPTY list fed it up to 195 px and
+					### the plate ballooned inversely to list fill; residual slack
+					### now sits at the column bottom inside the shared dark plate
+					### and both plates stay level). USER ITEM 8 extracted the
+					### pinned shape into the shared type tnt_col_plate_head
+					### (gui\tnt_types.gui section 12d) - the single-pick panels
+					### wear the same head now, and the vanilla citations for the
+					### pin moved to the type. The widget keeps its name; only
+					### where its geometry is written changed.
+					tnt_col_plate_head = {
+						name = "tnt_multi_available_head"
+
+						blockoverride "tnt_col_plate_head_text"
+						{
+							text = "tnt_picker_available"
+						}
+					}
+
+					divider_light = {
+						layoutpolicy_horizontal = expanding
+					}
+
+					scrollbox = {
+						name = "tnt_multi_available_scroll"
+						layoutpolicy_horizontal = expanding
+						### V4 item 4, corrected by user item 17(a): the cap alone was
+						### not the fix. The base type is a scrollarea with a FIXED
+						### size = { 100 100 } (GAME\gui\shared\lists.gui:3186), and a
+						### scrollarea only sizes to its content with
+						### `autoresizescrollarea = yes` - a bare cap left this
+						### viewport pinned at ~2 rows while the dark column plates
+						### stretched. Full vanilla ledger pattern instead
+						### (GAME\gui\window_ledger.gui:9405-9408): autoresize +
+						### size = { 0 0 } to clear the inherited 100x100 + the 420
+						### cap. The 225 floor is five 45 px rows, so a near-empty
+						### list still reads as a list and the two columns' plates can
+						### never differ by more than that band (minimumsize with -1:
+						### GAME\gui\interaction_declare_war.gui:314).
+						###
+						### D3 BELT: the WIDTH half of the cap was -1, i.e. left to the
+						### layout, and that is the axis that broke. 405 is this column's
+						### own width straight out of the header budget (:513-514: 900 - 80
+						### Window_Margins = 820, two columns of 405 with spacing 10), so it
+						### never binds today - the bound on the empty label above is what
+						### actually fixes D3. It is here so no future content can inflate
+						### the panel sideways, exactly as 420 already forbids vertically:
+						### the worst case becomes a clipped sentence instead of a header
+						### that carries the close X off the screen.
+						autoresizescrollarea = yes
+						size = { 0 0 }
+						minimumsize = { -1 225 }
+						maximumsize = { 405 420 }
+
+						### Item 3.2(b): explicit, never inherited. A row is
+						### `layoutpolicy_horizontal = expanding`, and the
+						### inherited Scrollbox_Margins right margin of 20
+						### (GAME\gui\shared\windows.gui:135-140) leaves the
+						### row's right edge 8 px UNDER the 12 px scrollbar
+						### (GAME\gui\shared\lists.gui:3253-3259). 26 clears
+						### the bar with 14 px to spare; 10 on the left buys
+						### width back. Same numbers as the shipped
+						### tnt_picker_panel.
+						blockoverride "scrollbox_margins"
+						{
+							margin_left = 10
+							margin_right = 26
+							margin_top = 8
+							margin_bottom = 8
+						}
+
+						### D3: THE EMPTY LABEL IS BOUNDED HERE AND NOWHERE ELSE.
+						### Vanilla's empty-state slot is a BARE text_single
+						### (GAME\gui\shared\lists.gui:3218-3226 - block "scrollbox_empty"
+						### lives INSIDE it), so it inherits autoresize = yes, elide = right,
+						### alwaystransparent = no and Font_Size_Small (fontsize 15,
+						### GAME\gui\preload\fonts.gui:16-20) from type text_single
+						### (GAME\gui\preload\labels.gui:6-16). An autoresizing SINGLE-LINE
+						### textbox demands its whole sentence on ONE line: a 155-character
+						### string asks for ~1000 px in a column that has 369 (budget,
+						### :513-514). Nothing upstream stops that demand - the box below is
+						### size = { 0 0 } with -1 on the WIDTH axis of both bounds, and every
+						### ancestor up to the panel is expanding with no maximum - so the
+						### header grew with it and carried the close X off the panel
+						### (buttons_window_control is parentanchor = top|right,
+						### GAME\gui\shared\windows.gui:704-706). This is the file's own
+						### R-SPILL rule (:63-68) applied to the one widget that escaped it.
+						###
+						### multiline + autoresize + max_width is vanilla's own shape for a
+						### wrapping empty-state: GAME\gui\window_court.gui:300-306
+						### (PRISON_EMPTY, max_width 400), GAME\gui\interaction_modify_vassal_window.gui:543-549,
+						### GAME\gui\window_legends.gui:140-154. On a text_single specifically,
+						### with this exact align: GAME\gui\window_artifact_details.gui:616-621
+						### (align = nobaseline, multiline = yes, max_width = 240) and
+						### GAME\gui\window_rally_points.gui:331-338 (the expanding twin);
+						### all three on one textbox at GAME\gui\credits_window.gui:115-125.
+						### The inherited elide = right is NOT a hazard - vanilla's own
+						### type text_multi keeps elide = right beside multiline = yes
+						### (GAME\gui\preload\labels.gui:19-31).
+						###
+						### THESE PROPERTIES SIT BESIDE THE NESTED BLOCK, NOT INSIDE IT, ON
+						### PURPOSE: a derived panel's plain blockoverride CONSUMES the named
+						### block (section 2 header, :313-318), so anything written inside
+						### would be dropped by the four artifact/title panels below, which
+						### set only text + visible. A plain property beside a nested block
+						### inside THIS blockoverride is vanilla at
+						### GAME\gui\window_ledger.gui:3402-3407.
+						###
+						### alwaystransparent = yes is the house rule, not decoration: the
+						### inherited `no` made this ~1000 px caption mouse-opaque right
+						### across the neighbouring column's rows (_docs/README.md item 4).
+						### It also means this widget can never host a tooltip - do not hang
+						### one here.
+						###
+						### 340 = the 369 px of row this column has, less slack.
+						blockoverride "scrollbox_empty"
+						{
+							multiline = yes
+							autoresize = yes
+							max_width = 340
+							align = nobaseline|left
+							alwaystransparent = yes
+							fontsize_min = 12
+
+							block "tnt_multi_available_empty"
+							{
+								text = "tnt_picker_empty"
+								visible = no
+							}
+						}
+
+						blockoverride "scrollbox_content"
+						{
+							### THE CONTRACT BLOCK. scrollbox_content takes
+							### exactly ONE child (GAME\gui\shared\lists.gui:3182).
+							block "tnt_multi_available_list"
+							{
+								spacer = {}
+							}
+						}
+					}
+				}
+
+				############################################################
+				### CHOSEN
+				############################################################
+				vbox = {
+					name = "tnt_multi_chosen_col"
+					layoutpolicy_horizontal = expanding
+					layoutpolicy_vertical = expanding
+					spacing = 4
+
+					background = {
+						using = Background_Area_Dark
+					}
+
+					### User item 6 / user item 8: same shared 26 px head as
+					### tnt_multi_available_head above (full rationale there and on
+					### the type), so neither header can absorb column slack when
+					### its list empties and the two columns cannot drift apart.
+					tnt_col_plate_head = {
+						name = "tnt_multi_chosen_head"
+
+						blockoverride "tnt_col_plate_head_text"
+						{
+							text = "tnt_picker_chosen"
+						}
+					}
+
+					divider_light = {
+						layoutpolicy_horizontal = expanding
+					}
+
+					scrollbox = {
+						name = "tnt_multi_chosen_scroll"
+						layoutpolicy_horizontal = expanding
+						### V4 item 4, corrected by user item 17(a): same autoresize +
+						### floor + cap as the available list (rationale there), so
+						### both boxes track their own rows inside the same 225..420
+						### band and stay level. The 405 width cap is the D3 belt, argued
+						### on the available box above; 405 is this column's own width.
+						autoresizescrollarea = yes
+						size = { 0 0 }
+						minimumsize = { -1 225 }
+						maximumsize = { 405 420 }
+
+						blockoverride "scrollbox_margins"
+						{
+							margin_left = 10
+							margin_right = 26
+							margin_top = 8
+							margin_bottom = 8
+						}
+
+						### D3: the empty label is bounded HERE and nowhere else - same
+						### six properties, same reasons, same vanilla citations as the
+						### available column above; read them there. They sit BESIDE the
+						### nested block so the four derived panels, which override only
+						### text + visible, can never drop them.
+						blockoverride "scrollbox_empty"
+						{
+							multiline = yes
+							autoresize = yes
+							max_width = 340
+							align = nobaseline|left
+							alwaystransparent = yes
+							fontsize_min = 12
+
+							block "tnt_multi_chosen_empty"
+							{
+								text = "tnt_picker_chosen_empty"
+								visible = no
+							}
+						}
+
+						blockoverride "scrollbox_content"
+						{
+							### THE CONTRACT BLOCK.
+							block "tnt_multi_chosen_list"
+							{
+								spacer = {}
+							}
+						}
+					}
+				}
+			}
+
+			### U1(a), AMENDED BY USER ITEM 17(b): THE DOMAIN COUNTER IS
+			### TITLE-PICKER-ONLY.
+			###
+			### This block USED to ship the two counter lines as its default
+			### content, gated on tnt_domain_shown_value - so every panel that
+			### merely inherited the block (claim, artifact, prisoner) showed
+			### the counter whenever a county- or barony-tier title was in the
+			### deal. That was a design choice ("a claim panel is a fine place
+			### to be reminded...") and the user has overruled it: the counter
+			### appears ONLY where titles are picked. Hence an EMPTY default.
+			### The two title panels below keep their explicit
+			### blockoverride "tnt_multi_domain" pairs and show the readout
+			### unconditionally while open; every other consumer inherits
+			### nothing. The deal-reading counter in the CENTRE COLUMN
+			### (tnt_panels.gui, gated on tnt_domain_shown_value) is a
+			### separate, still-wanted feature and is not touched by this
+			### ruling.
+			block "tnt_multi_domain" {}
+
+			### FOOTER. "Clear" empties this term; "Done" dismisses the
+			### panel through the shipped closer. Both `expand` children
+			### carry an explicit unique name: `type expand` hard-codes
+			### `name = "expander"` (GAME\gui\shared\windows.gui:598) and two
+			### same-named direct siblings make the engine log a
+			### duplicate-child line naming this file, which the acceptance
+			### bar forbids for tnt_ paths (same treatment as
+			### tnt_prisoner_row in tnt_panels.gui - that type is RETIRED with the
+			### prisoner terms, user item 7, but the rule it illustrates stands).
+			hbox = {
+				name = "tnt_multi_footer"
+				layoutpolicy_horizontal = expanding
+				size = { 0 42 }
+				maximumsize = { -1 42 }
+				spacing = 10
+
+				button_standard = {
+					name = "tnt_multi_clear_button"
+					size = { 200 34 }
+					text = "tnt_btn_clear"
+					using = tooltip_es
+
+					block "tnt_multi_clear_click" {}
+				}
+
+				expand = {
+					name = "tnt_multi_footer_pad"
+				}
+
+				button_standard = {
+					name = "tnt_multi_done_button"
+					size = { 200 34 }
+					text = "tnt_picker_done"
+					onclick = "[TntExec('tnt_picker_close')]"
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 5. THE SIX READY-MADE PANELS
+	###
+	### The gui owner adds SIX LINES inside blockoverride
+	### "tnt_picker_panels" (gui\tnt_diplomacy_window.gui:1090) and deletes
+	### the six shipped single-object tnt_picker_panel instances at the same
+	### three indices:
+	###     tnt_panel_multi_title_p = {}
+	###     tnt_panel_multi_title_r = {}
+	###     tnt_panel_multi_claim_p = {}      <- RETIRED, V13 user item 1
+	###     tnt_panel_multi_claim_r = {}      <- RETIRED, V13 user item 1
+	###     tnt_panel_multi_artifact_p = {}
+	###     tnt_panel_multi_artifact_r = {}
+	### FOUR PANELS, NOT SIX, SINCE V13 USER ITEM 1. The claim pair is commented
+	### out below with its two instantiations in gui\tnt_diplomacy_window.gui - a
+	### design refusal, not a bug fix: vanilla gates claim fabrication behind a
+	### LEARNING investment (task_fabricate_claim,
+	### GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088). The two lines
+	### are kept in this list rather than struck out so the allocation stays
+	### legible; OVERLAY INDEX 7 IS RETIRED, not free, and is never reused.
+	###
+	### Panel visibility is a pure variable test - the frozen item index
+	### (contract R0.8: 6 = title, 7 = claim RETIRED, 10 = artifact) plus the side.
+	### No GetScriptedGui in any `visible`. EqualTo_CFixedPoint over a
+	### MakeScope value is verbatim vanilla,
+	### GAME\gui\activity_window_widgets\debate_success_chance.gui:137, and
+	### is the form all ten shipped panels already use.
+	###
+	### EVERY instance overrides `name`: type tnt_panel_multi sets
+	### name = "tnt_panel_multi" in its own body, and six same-named direct
+	### siblings would make the engine log "Duplicate children with the same
+	### name override previous widgets" six times - with tnt_ in the line.
+	###
+	### Each row's `datacontext = "[Scope.Title]"` / `"[Scope.Artifact]"`
+	### unwraps the variable-list element; `size = { 0 45 }` is restated at
+	### the item site because R11 wants it there too.
+	####################################################################
+
+	### 6 / side 0 - titles the PLAYER cedes.
+	type tnt_panel_multi_title_p = tnt_panel_multi
+	{
+		name = "tnt_panel_multi_title_p"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)6' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+
+		blockoverride "tnt_multi_title" { text = "tnt_picker_title_title" }
+		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_title_p" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_shown_title_multi_p_value')|+=0]" }
+		### No "tnt_multi_cap_visible" override: the cap is gone and the warning
+		### slot must stay at its hidden type default (section 2 header).
+		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_title_p_clear')]"  tooltip = "tnt_btn_none" }
+
+		blockoverride "tnt_multi_available_empty"
+		{
+			text = "tnt_picker_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_title_p') )]"
+		}
+		blockoverride "tnt_multi_chosen_empty"
+		{
+			text = "tnt_picker_chosen_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_sel_title_p') )]"
+		}
+
+		blockoverride "tnt_multi_available_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_avail_title_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_list_title_p')]"
+
+				item = {
+					tnt_multi_row_title = {
+						name = "tnt_multi_avail_title_p_row"
+						datacontext = "[Scope.Title]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click" { onclick = "[TntPickTitle('tnt_sel_title_p_add')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_add_term" }
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_chosen_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_chosen_title_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_sel_title_p')]"
+
+				item = {
+					tnt_multi_row_title = {
+						name = "tnt_multi_chosen_title_p_row"
+						datacontext = "[Scope.Title]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click" { onclick = "[TntPickTitle('tnt_sel_title_p_remove')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_remove_term" }
+						blockoverride "tnt_multi_row_glyph"
+						{
+							button_minus_small = {
+								name = "tnt_multi_row_glyph_icon"
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+					}
+				}
+			}
+		}
+
+		### U1(a): both sides' domains, because a title deal moves holdings
+		### in both directions at once.
+		blockoverride "tnt_multi_domain"
+		{
+			vbox = {
+				name = "tnt_multi_domain_block_title_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 2
+
+				tnt_multi_domain_line = {
+					name = "tnt_multi_domain_p"
+					blockoverride "tnt_multi_domain_label" { text = "tnt_domain_after_p" }
+					blockoverride "tnt_multi_domain_over" { visible = "[TntPos('tnt_domain_over_p_value')]" }
+				}
+
+				tnt_multi_domain_line = {
+					name = "tnt_multi_domain_r"
+					blockoverride "tnt_multi_domain_label" { text = "tnt_domain_after_r" }
+					blockoverride "tnt_multi_domain_over" { visible = "[TntPos('tnt_domain_over_r_value')]" }
+				}
+			}
+		}
+	}
+
+
+	### 6 / side 1 - titles the PARTNER cedes.
+	type tnt_panel_multi_title_r = tnt_panel_multi
+	{
+		name = "tnt_panel_multi_title_r"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)6' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+
+		blockoverride "tnt_multi_title" { text = "tnt_picker_title_title" }
+		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_title_r" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_val_title_multi_r_value')|+=0]" }
+		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_title_r_clear')]"  tooltip = "tnt_btn_none" }
+
+		blockoverride "tnt_multi_available_empty"
+		{
+			text = "tnt_picker_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_title_r') )]"
+		}
+		blockoverride "tnt_multi_chosen_empty"
+		{
+			text = "tnt_picker_chosen_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_sel_title_r') )]"
+		}
+
+		blockoverride "tnt_multi_available_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_avail_title_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_list_title_r')]"
+
+				item = {
+					tnt_multi_row_title = {
+						name = "tnt_multi_avail_title_r_row"
+						datacontext = "[Scope.Title]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click" { onclick = "[TntPickTitle('tnt_sel_title_r_add')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_add_term" }
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_chosen_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_chosen_title_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_sel_title_r')]"
+
+				item = {
+					tnt_multi_row_title = {
+						name = "tnt_multi_chosen_title_r_row"
+						datacontext = "[Scope.Title]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click" { onclick = "[TntPickTitle('tnt_sel_title_r_remove')]" }
+						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_remove_term" }
+						blockoverride "tnt_multi_row_glyph"
+						{
+							button_minus_small = {
+								name = "tnt_multi_row_glyph_icon"
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_domain"
+		{
+			vbox = {
+				name = "tnt_multi_domain_block_title_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 2
+
+				tnt_multi_domain_line = {
+					name = "tnt_multi_domain_p"
+					blockoverride "tnt_multi_domain_label" { text = "tnt_domain_after_p" }
+					blockoverride "tnt_multi_domain_over" { visible = "[TntPos('tnt_domain_over_p_value')]" }
+				}
+
+				tnt_multi_domain_line = {
+					name = "tnt_multi_domain_r"
+					blockoverride "tnt_multi_domain_label" { text = "tnt_domain_after_r" }
+					blockoverride "tnt_multi_domain_over" { visible = "[TntPos('tnt_domain_over_r_value')]" }
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### RETIRED - THE GRANTED CLAIM ("Peredat pretenziyu"), BOTH OVERLAY PANELS.
+	### V13 USER ITEM 1.
+	###
+	### The two types below are the term's picker panels at overlay index 7, sides
+	### 0 and 1. They retire with the two rows that opened them
+	### (gui\tnt_diplomacy_window.gui) and with the two instantiations in that same
+	### file - a .gui type and its instantiation are a single atomic pair, in both
+	### directions: an instantiation of an undefined type errors, and a type left
+	### defined with no instantiation is dead weight that reads as an oversight.
+	###
+	### THIS IS A DESIGN REFUSAL, NOT A BUG FIX. Nothing here was broken. The
+	### user's ruling: vanilla gates the MANUFACTURE of claims behind a LEARNING
+	### investment - claims are fabricated by the Court Chaplain's council task
+	### (task_fabricate_claim,
+	### GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088) and what comes
+	### out of it is keyed to LEARNING (a duchy-tier claim only above
+	### mediocre_skill_rating at :1120; vassal opinion and piety penalties below
+	### high_skill_rating at :1126 and :1132). You invest in Learning, you staff a
+	### chaplain, you wait years, and you accept the side effects. Buying a
+	### finished claim at the negotiating table short-circuits all of it.
+	###
+	### NOTHING IS DELETED. DO NOT RE-ENABLE ONE HALF - every setter these panels
+	### call (tnt_sel_claim_*_add / _remove / _clear) is retired with them, and the
+	### two candidate lists tnt_list_claim_p/_r lose their filling effect.
+	### OVERLAY INDEX 7 IS RETIRED, not free: never renumbered, never reused.
+	### Full tombstone: TOMBSTONE C in gui\tnt_diplomacy_window.gui and
+	### common\scripted_effects\tnt_32_apply.txt.
+	####################################################################
+#	### 7 / side 0 - claims the PLAYER grants on his own titles.
+#	### No domain block: a claim moves no holdings.
+#	type tnt_panel_multi_claim_p = tnt_panel_multi
+#	{
+#		name = "tnt_panel_multi_claim_p"
+#		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)7' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+#
+#		blockoverride "tnt_multi_title" { text = "tnt_picker_title_claim" }
+#		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_claim_p" }
+#		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_shown_claim_multi_p_value')|+=0]" }
+#		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_claim_p_clear')]"  tooltip = "tnt_btn_none" }
+#
+#		blockoverride "tnt_multi_available_empty"
+#		{
+#			text = "tnt_picker_empty"
+#			visible = "[IsDataModelEmpty( TntList('tnt_list_claim_p') )]"
+#		}
+#		blockoverride "tnt_multi_chosen_empty"
+#		{
+#			text = "tnt_picker_chosen_empty"
+#			visible = "[IsDataModelEmpty( TntList('tnt_sel_claim_p') )]"
+#		}
+#
+#		blockoverride "tnt_multi_available_list"
+#		{
+#			vbox = {
+#				name = "tnt_multi_rows_avail_claim_p"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 3
+#				datamodel = "[TntList('tnt_list_claim_p')]"
+#
+#				item = {
+#					tnt_multi_row_title = {
+#						name = "tnt_multi_avail_claim_p_row"
+#						datacontext = "[Scope.Title]"
+#						size = { 0 45 }
+#
+#						blockoverride "tnt_multi_row_click" { onclick = "[TntPickTitle('tnt_sel_claim_p_add')]" }
+#						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_add_term" }
+#					}
+#				}
+#			}
+#		}
+#
+#		blockoverride "tnt_multi_chosen_list"
+#		{
+#			vbox = {
+#				name = "tnt_multi_rows_chosen_claim_p"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 3
+#				datamodel = "[TntList('tnt_sel_claim_p')]"
+#
+#				item = {
+#					tnt_multi_row_title = {
+#						name = "tnt_multi_chosen_claim_p_row"
+#						datacontext = "[Scope.Title]"
+#						size = { 0 45 }
+#
+#						blockoverride "tnt_multi_row_click" { onclick = "[TntPickTitle('tnt_sel_claim_p_remove')]" }
+#						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_remove_term" }
+#						blockoverride "tnt_multi_row_glyph"
+#						{
+#							button_minus_small = {
+#								name = "tnt_multi_row_glyph_icon"
+#								parentanchor = center
+#								alwaystransparent = yes
+#							}
+#						}
+#					}
+#				}
+#			}
+#		}
+#	}
+
+
+	### RETIRED WITH THE PLAYER-SIDE CLAIM PANEL ABOVE - V13 USER ITEM 1. Same
+	### ruling, same tombstone: a design refusal, because vanilla gates the
+	### manufacture of claims behind a LEARNING investment and a Court Chaplain's
+	### council task (GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088).
+	### Nothing is deleted; do not re-enable one half - the type, its
+	### instantiation in gui\tnt_diplomacy_window.gui and the row that opened it
+	### all retire together.
+#	### 7 / side 1 - claims the PARTNER grants on his own titles.
+#	type tnt_panel_multi_claim_r = tnt_panel_multi
+#	{
+#		name = "tnt_panel_multi_claim_r"
+#		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)7' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+#
+#		blockoverride "tnt_multi_title" { text = "tnt_picker_title_claim" }
+#		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_claim_r" }
+#		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_val_claim_multi_r_value')|+=0]" }
+#		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_claim_r_clear')]"  tooltip = "tnt_btn_none" }
+#
+#		blockoverride "tnt_multi_available_empty"
+#		{
+#			text = "tnt_picker_empty"
+#			visible = "[IsDataModelEmpty( TntList('tnt_list_claim_r') )]"
+#		}
+#		blockoverride "tnt_multi_chosen_empty"
+#		{
+#			text = "tnt_picker_chosen_empty"
+#			visible = "[IsDataModelEmpty( TntList('tnt_sel_claim_r') )]"
+#		}
+#
+#		blockoverride "tnt_multi_available_list"
+#		{
+#			vbox = {
+#				name = "tnt_multi_rows_avail_claim_r"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 3
+#				datamodel = "[TntList('tnt_list_claim_r')]"
+#
+#				item = {
+#					tnt_multi_row_title = {
+#						name = "tnt_multi_avail_claim_r_row"
+#						datacontext = "[Scope.Title]"
+#						size = { 0 45 }
+#
+#						blockoverride "tnt_multi_row_click" { onclick = "[TntPickTitle('tnt_sel_claim_r_add')]" }
+#						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_add_term" }
+#					}
+#				}
+#			}
+#		}
+#
+#		blockoverride "tnt_multi_chosen_list"
+#		{
+#			vbox = {
+#				name = "tnt_multi_rows_chosen_claim_r"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 3
+#				datamodel = "[TntList('tnt_sel_claim_r')]"
+#
+#				item = {
+#					tnt_multi_row_title = {
+#						name = "tnt_multi_chosen_claim_r_row"
+#						datacontext = "[Scope.Title]"
+#						size = { 0 45 }
+#
+#						blockoverride "tnt_multi_row_click" { onclick = "[TntPickTitle('tnt_sel_claim_r_remove')]" }
+#						blockoverride "tnt_multi_row_tooltip" { tooltip = "tnt_btn_remove_term" }
+#						blockoverride "tnt_multi_row_glyph"
+#						{
+#							button_minus_small = {
+#								name = "tnt_multi_row_glyph_icon"
+#								parentanchor = center
+#								alwaystransparent = yes
+#							}
+#						}
+#					}
+#				}
+#			}
+#		}
+#	}
+
+
+	### 10 / side 0 - artifacts the PLAYER gives.
+	type tnt_panel_multi_artifact_p = tnt_panel_multi
+	{
+		name = "tnt_panel_multi_artifact_p"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)10' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+
+		blockoverride "tnt_multi_title" { text = "tnt_picker_title_artifact" }
+		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_artifact_p" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_shown_artifact_multi_p_value')|+=0]" }
+		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_artifact_p_clear')]"  tooltip = "tnt_btn_none" }
+
+		blockoverride "tnt_multi_available_empty"
+		{
+			text = "tnt_picker_empty_artifact"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_artifact_p') )]"
+		}
+		blockoverride "tnt_multi_chosen_empty"
+		{
+			text = "tnt_picker_chosen_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_sel_artifact_p') )]"
+		}
+
+		blockoverride "tnt_multi_available_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_avail_artifact_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_list_artifact_p')]"
+
+				item = {
+					tnt_multi_row_artifact = {
+						name = "tnt_multi_avail_artifact_p_row"
+						datacontext = "[Scope.Artifact]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click" { onclick = "[TntPickArtifact('tnt_sel_artifact_p_add')]" }
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_chosen_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_chosen_artifact_p"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_sel_artifact_p')]"
+
+				item = {
+					tnt_multi_row_artifact = {
+						name = "tnt_multi_chosen_artifact_p_row"
+						datacontext = "[Scope.Artifact]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click" { onclick = "[TntPickArtifact('tnt_sel_artifact_p_remove')]" }
+						blockoverride "tnt_multi_row_glyph"
+						{
+							button_minus_small = {
+								name = "tnt_multi_row_glyph_icon"
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	### 10 / side 1 - artifacts the PARTNER gives.
+	type tnt_panel_multi_artifact_r = tnt_panel_multi
+	{
+		name = "tnt_panel_multi_artifact_r"
+		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)10' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)1' ) )]"
+
+		blockoverride "tnt_multi_title" { text = "tnt_picker_title_artifact" }
+		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_artifact_r" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_val_artifact_multi_r_value')|+=0]" }
+		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_artifact_r_clear')]"  tooltip = "tnt_btn_none" }
+
+		blockoverride "tnt_multi_available_empty"
+		{
+			text = "tnt_picker_empty_artifact"
+			visible = "[IsDataModelEmpty( TntList('tnt_list_artifact_r') )]"
+		}
+		blockoverride "tnt_multi_chosen_empty"
+		{
+			text = "tnt_picker_chosen_empty"
+			visible = "[IsDataModelEmpty( TntList('tnt_sel_artifact_r') )]"
+		}
+
+		blockoverride "tnt_multi_available_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_avail_artifact_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_list_artifact_r')]"
+
+				item = {
+					tnt_multi_row_artifact = {
+						name = "tnt_multi_avail_artifact_r_row"
+						datacontext = "[Scope.Artifact]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click" { onclick = "[TntPickArtifact('tnt_sel_artifact_r_add')]" }
+					}
+				}
+			}
+		}
+
+		blockoverride "tnt_multi_chosen_list"
+		{
+			vbox = {
+				name = "tnt_multi_rows_chosen_artifact_r"
+				layoutpolicy_horizontal = expanding
+				spacing = 3
+				datamodel = "[TntList('tnt_sel_artifact_r')]"
+
+				item = {
+					tnt_multi_row_artifact = {
+						name = "tnt_multi_chosen_artifact_r_row"
+						datacontext = "[Scope.Artifact]"
+						size = { 0 45 }
+
+						blockoverride "tnt_multi_row_click" { onclick = "[TntPickArtifact('tnt_sel_artifact_r_remove')]" }
+						blockoverride "tnt_multi_row_glyph"
+						{
+							button_minus_small = {
+								name = "tnt_multi_row_glyph_icon"
+								parentanchor = center
+								alwaystransparent = yes
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 6. THE DEAL-SHEET GROUPS   (user item 3.4, "in the centre, in full")
+	###
+	### tnt_panels.gui's tnt_deal_sheet reserves two blocks for exactly
+	### this - `block "tnt_sheet_multi_p"` at :539 and
+	### `block "tnt_sheet_multi_r"` at :693, both commented "BUILD 2: the
+	### three multi-select datamodels ... go here". The gui owner fills them
+	### with three lines each:
+	###     blockoverride "tnt_sheet_multi_p"
+	###     {
+	###         tnt_sheet_sel_title_p = {}
+	###         tnt_sheet_sel_claim_p = {}      <- RETIRED, V13 user item 1
+	###         tnt_sheet_sel_artifact_p = {}
+	###     }
+	### TWO LINES EACH SINCE V13 USER ITEM 1: the claim group is commented out
+	### below and so is its instantiation in gui\tnt_panels.gui. A design refusal,
+	### not a bug fix - vanilla gates claim fabrication behind a LEARNING
+	### investment. See the tombstone on the two retired types.
+	###
+	### GEOMETRY IS COPIED FROM tnt_sheet_row (tnt_panels.gui) TO THE
+	### PIXEL: 26 px high, spacing 6, margin { 4 3 }, name column 118 px,
+	### a 24 px remove cell (V6, user item 7 - the same cell tnt_sheet_row
+	### grew in V5), points column 52 px, the middle column the only
+	### expanding one. The two row families are siblings in one scrollbox
+	### and must line up.
+	###
+	### WHY A GROUP HEAD PLUS A DATAMODEL, AND NOT ONE ROW PER OBJECT WITH
+	### ITS OWN POINTS. A script value sees ROOT ONLY
+	### (GetScriptValueBreakdown supplies root, 00-ARCHITECTURE section 2.7,
+	### and Law R9), so there is no way to ask "what is THIS row's title
+	### worth" - the value would need the row object as a scope. The head
+	### therefore prints the GROUP's points, which is the number that
+	### actually enters the balance (tnt_val_title_multi_p_value), and the
+	### per-object rows below it print names only. Nothing can disagree with
+	### anything, which is the property item 1.2 is about.
+	###
+	### The head is hidden when the list is empty (one script value per
+	### group), and the datamodel below it renders nothing when the list is
+	### empty, so an unused group costs one map lookup and no pixels -
+	### tnt_deal_sheet carries `ignoreinvisible = yes`.
+	####################################################################
+	type tnt_multi_sheet_row = hbox
+	{
+		name = "tnt_multi_sheet_row"
+		layoutpolicy_horizontal = expanding
+		size = { 0 26 }
+		maximumsize = { -1 26 }
+		spacing = 6
+		margin = { 4 3 }
+		### Default for the name-only per-object rows, which are pure
+		### read-outs. The six group HEAD instances override this to `no`
+		### because they carry the remove X below, and an alwaystransparent
+		### ANCESTOR makes its whole subtree click-through (the doctrine
+		### tnt_sheet_row cites at tnt_panels.gui, V5 note).
+		alwaystransparent = yes
+		ignoreinvisible = yes
+
+		block "tnt_multi_sheet_visible"
+		{
+			visible = no
+		}
+
+		widget = {
+			name = "tnt_multi_sheet_icon_holder"
+			size = { 20 100% }
+			alwaystransparent = yes
+
+			icon = {
+				name = "tnt_multi_sheet_icon"
+				size = { 18 18 }
+				parentanchor = center
+				alwaystransparent = yes
+
+				block "tnt_multi_sheet_icon"
+				{
+					texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds"
+				}
+			}
+		}
+
+		text_single = {
+			name = "tnt_multi_sheet_name"
+			min_width = 118
+			max_width = 118
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#medium"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_multi_sheet_name"
+			{
+				text = "tnt_item_title"
+			}
+		}
+
+		### The only expanding child, so it is overridden with `text = ""`
+		### and NEVER with `visible = no` - hiding it would collapse the
+		### slack and pull the points column ~200 px left, the failure mode
+		### tnt_panels.gui:325-334 documents. An empty string is
+		### vanilla-proven (GAME\gui\interaction_templates.gui:1321).
+		### THIS is the widget that prints GAME text, so R-SPILL applies in
+		### full: autoresize = no, elide inherited, fontsize_min 12.
+		text_single = {
+			name = "tnt_multi_sheet_detail"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#weak"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_multi_sheet_detail"
+			{
+				text = ""
+			}
+		}
+
+		### V6 (user item 7) - THE REMOVE SLOT: the same 24 px cell
+		### tnt_sheet_row grew in V5 (tnt_panels.gui), in the same place -
+		### BETWEEN detail and points. The cell is paid for by the expanding
+		### detail column and points stays the LAST child of BOTH families,
+		### so the to-the-pixel alignment promise in this type's header
+		### survives. Empty by default; only the six group HEAD instances
+		### fill it, wired to their gate-free tnt_sel_<item>_<side>_clear
+		### (tnt_22b_multiselect.txt) - a per-object X would need a
+		### per-object sgui that does not exist. Deliberately NOT
+		### alwaystransparent: a transparent ancestor kills the X's click.
+		widget = {
+			name = "tnt_multi_sheet_x_holder"
+			size = { 24 100% }
+
+			block "tnt_multi_sheet_remove" {}
+		}
+
+		text_single = {
+			name = "tnt_multi_sheet_points"
+			min_width = 52
+			max_width = 52
+			align = nobaseline|right
+			default_format = "#high"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_multi_sheet_points"
+			{
+				text = ""
+			}
+		}
+	}
+
+
+	### One group = a head row carrying the count and the group's points,
+	### then one name-only row per chosen object.
+	### The datamodel vbox is a plain child, not a block: these six types
+	### are the finished article and the gui owner only instantiates them.
+	type tnt_sheet_sel_title_p = vbox
+	{
+		name = "tnt_sheet_sel_title_p"
+		layoutpolicy_horizontal = expanding
+		spacing = 2
+		ignoreinvisible = yes
+
+		tnt_multi_sheet_row = {
+			name = "tnt_sheet_sel_title_p_head"
+			### V6 (user item 7): the head carries the X, so it must be opaque
+			### to the hit test - see the type's alwaystransparent note.
+			alwaystransparent = no
+			blockoverride "tnt_multi_sheet_visible" { visible = "[TntPos('tnt_count_sel_title_p_value')]" }
+			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds" }
+			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_title" }
+			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_title_p" }
+			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_shown_title_multi_p_value')|0]" }
+			### Gate-free whole-group clear (tnt_22b_multiselect.txt:580).
+			blockoverride "tnt_multi_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_sel_title_p_clear')]"
+				}
+			}
+		}
+
+		vbox = {
+			name = "tnt_sheet_sel_title_p_rows"
+			layoutpolicy_horizontal = expanding
+			spacing = 2
+			datamodel = "[TntList('tnt_sel_title_p')]"
+
+			item = {
+				tnt_multi_sheet_row = {
+					name = "tnt_sheet_sel_title_p_row"
+					datacontext = "[Scope.Title]"
+					size = { 0 26 }
+
+					### USER ITEM 2 - THE NAME IS A LIVE LINK. Title.GetName is the
+					### tooltipped twin of the GetNameNoTooltip this cell shipped
+					### with: the full form hangs the title's own hover tooltip on
+					### the name, and its call sites in ordinary text widgets are
+					### GAME\gui\window_epidemics.gui:553 ([Title.GetName] on a
+					### hoverable text_single) and GAME\gui\window_migration.gui:1656
+					### (the |U form). Two flips make the hover actually LAND: the
+					### row drops the type's default alwaystransparent = yes (a
+					### transparent ANCESTOR is hover-through - this mod's doctrine),
+					### and the detail cell does the same inside its override. Safe
+					### on a per-object row precisely because it hosts no control -
+					### its X holder is empty - so there is no click for the hover to
+					### steal. The PICKER rows deliberately keep NoTooltip: each sits
+					### on a button_standard_list that owns both the click and a
+					### row-level tooltipwidget, and a second tooltip inside it would
+					### fight the row's own. The five sibling groups below carry the
+					### same two flips and point here.
+					alwaystransparent = no
+
+					blockoverride "tnt_multi_sheet_visible" { visible = yes }
+					blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds" }
+					blockoverride "tnt_multi_sheet_name"    { text = "" }
+					blockoverride "tnt_multi_sheet_detail"  { text = "[Title.GetName|U]"  alwaystransparent = no }
+				}
+			}
+		}
+	}
+
+	type tnt_sheet_sel_title_r = vbox
+	{
+		name = "tnt_sheet_sel_title_r"
+		layoutpolicy_horizontal = expanding
+		spacing = 2
+		ignoreinvisible = yes
+
+		tnt_multi_sheet_row = {
+			name = "tnt_sheet_sel_title_r_head"
+			### V6 (user item 7): opaque head, X below - see the type's note.
+			alwaystransparent = no
+			blockoverride "tnt_multi_sheet_visible" { visible = "[TntPos('tnt_count_sel_title_r_value')]" }
+			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds" }
+			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_title" }
+			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_title_r" }
+			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_val_title_multi_r_value')|0]" }
+			### Gate-free whole-group clear (tnt_22b_multiselect.txt:593).
+			blockoverride "tnt_multi_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_sel_title_r_clear')]"
+				}
+			}
+		}
+
+		vbox = {
+			name = "tnt_sheet_sel_title_r_rows"
+			layoutpolicy_horizontal = expanding
+			spacing = 2
+			datamodel = "[TntList('tnt_sel_title_r')]"
+
+			item = {
+				tnt_multi_sheet_row = {
+					name = "tnt_sheet_sel_title_r_row"
+					datacontext = "[Scope.Title]"
+					size = { 0 26 }
+
+					### User item 2: linked name + hoverable row - the full note is
+					### on tnt_sheet_sel_title_p_row above.
+					alwaystransparent = no
+
+					blockoverride "tnt_multi_sheet_visible" { visible = yes }
+					blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds" }
+					blockoverride "tnt_multi_sheet_name"    { text = "" }
+					blockoverride "tnt_multi_sheet_detail"  { text = "[Title.GetName|U]"  alwaystransparent = no }
+				}
+			}
+		}
+	}
+
+	####################################################################
+	### RETIRED - THE GRANTED CLAIM'S TWO DEAL-SHEET GROUPS.  V13 USER ITEM 1.
+	###
+	### Six groups became four. These two are commented out with their
+	### instantiations in gui\tnt_panels.gui (tnt_sheet_group_claim_p / _r) - type
+	### and instantiation are one atomic pair, and an instantiation of an
+	### undefined type is an engine error.
+	###
+	### A DESIGN REFUSAL, NOT A BUG FIX. Vanilla gates the manufacture of claims
+	### behind a LEARNING investment: they are fabricated by the Court Chaplain's
+	### council task (task_fabricate_claim,
+	### GAME\common\council_tasks\00_court_chaplain_tasks.txt:1088) and the outcome
+	### is keyed to LEARNING (duchy tier only above mediocre_skill_rating at :1120;
+	### vassal opinion and piety penalties below high_skill_rating at :1126, :1132).
+	### Buying a finished claim across the table short-circuits that investment.
+	###
+	### THE TWO COUNT VALUES THE HEAD ROWS READ ARE THE ONE PART THAT SURVIVES, and
+	### it is not an oversight: tnt_count_sel_claim_p_value / _r_value stay DEFINED
+	### but gutted to a constant 0, because five localization keys resolve them by
+	### name and the key set is pinned at 553 - a loc key whose ScriptValue target
+	### does not exist prints raw. Nothing in this file reads them any more.
+	###
+	### NOTHING IS DELETED. DO NOT RE-ENABLE ONE HALF.
+	### Full tombstone: TOMBSTONE C in gui\tnt_diplomacy_window.gui and
+	### common\scripted_effects\tnt_32_apply.txt.
+	####################################################################
+#	type tnt_sheet_sel_claim_p = vbox
+#	{
+#		name = "tnt_sheet_sel_claim_p"
+#		layoutpolicy_horizontal = expanding
+#		spacing = 2
+#		ignoreinvisible = yes
+#
+#		tnt_multi_sheet_row = {
+#			name = "tnt_sheet_sel_claim_p_head"
+#			### V6 (user item 7): opaque head, X below - see the type's note.
+#			alwaystransparent = no
+#			blockoverride "tnt_multi_sheet_visible" { visible = "[TntPos('tnt_count_sel_claim_p_value')]" }
+#			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_claim_pressed.dds" }
+#			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_claim" }
+#			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_claim_p" }
+#			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_shown_claim_multi_p_value')|0]" }
+#			### Gate-free whole-group clear (retired sgui - the V25 sort round moved tnt_22b; number kept as history).
+#			blockoverride "tnt_multi_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_sel_claim_p_clear')]"
+#				}
+#			}
+#		}
+#
+#		vbox = {
+#			name = "tnt_sheet_sel_claim_p_rows"
+#			layoutpolicy_horizontal = expanding
+#			spacing = 2
+#			datamodel = "[TntList('tnt_sel_claim_p')]"
+#
+#			item = {
+#				tnt_multi_sheet_row = {
+#					name = "tnt_sheet_sel_claim_p_row"
+#					datacontext = "[Scope.Title]"
+#					size = { 0 26 }
+#
+#					### User item 2: linked name + hoverable row - the full note is
+#					### on tnt_sheet_sel_title_p_row above.
+#					alwaystransparent = no
+#
+#					blockoverride "tnt_multi_sheet_visible" { visible = yes }
+#					blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_claim_pressed.dds" }
+#					blockoverride "tnt_multi_sheet_name"    { text = "" }
+#					blockoverride "tnt_multi_sheet_detail"  { text = "[Title.GetName|U]"  alwaystransparent = no }
+#				}
+#			}
+#		}
+#	}
+#
+#	type tnt_sheet_sel_claim_r = vbox
+#	{
+#		name = "tnt_sheet_sel_claim_r"
+#		layoutpolicy_horizontal = expanding
+#		spacing = 2
+#		ignoreinvisible = yes
+#
+#		tnt_multi_sheet_row = {
+#			name = "tnt_sheet_sel_claim_r_head"
+#			### V6 (user item 7): opaque head, X below - see the type's note.
+#			alwaystransparent = no
+#			blockoverride "tnt_multi_sheet_visible" { visible = "[TntPos('tnt_count_sel_claim_r_value')]" }
+#			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_claim_pressed.dds" }
+#			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_claim" }
+#			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_claim_r" }
+#			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_val_claim_multi_r_value')|0]" }
+#			### Gate-free whole-group clear (retired sgui - the V25 sort round moved tnt_22b; number kept as history).
+#			blockoverride "tnt_multi_sheet_remove"
+#			{
+#				button_cancel_small = {
+#					size = { 20 20 }
+#					parentanchor = center
+#					tooltip = "tnt_sheet_remove_tip"
+#					onclick = "[TntExec('tnt_sel_claim_r_clear')]"
+#				}
+#			}
+#		}
+#
+#		vbox = {
+#			name = "tnt_sheet_sel_claim_r_rows"
+#			layoutpolicy_horizontal = expanding
+#			spacing = 2
+#			datamodel = "[TntList('tnt_sel_claim_r')]"
+#
+#			item = {
+#				tnt_multi_sheet_row = {
+#					name = "tnt_sheet_sel_claim_r_row"
+#					datacontext = "[Scope.Title]"
+#					size = { 0 26 }
+#
+#					### User item 2: linked name + hoverable row - the full note is
+#					### on tnt_sheet_sel_title_p_row above.
+#					alwaystransparent = no
+#
+#					blockoverride "tnt_multi_sheet_visible" { visible = yes }
+#					blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_claim_pressed.dds" }
+#					blockoverride "tnt_multi_sheet_name"    { text = "" }
+#					blockoverride "tnt_multi_sheet_detail"  { text = "[Title.GetName|U]"  alwaystransparent = no }
+#				}
+#			}
+#		}
+#	}
+
+	type tnt_sheet_sel_artifact_p = vbox
+	{
+		name = "tnt_sheet_sel_artifact_p"
+		layoutpolicy_horizontal = expanding
+		spacing = 2
+		ignoreinvisible = yes
+
+		tnt_multi_sheet_row = {
+			name = "tnt_sheet_sel_artifact_p_head"
+			### V6 (user item 7): opaque head, X below - see the type's note.
+			alwaystransparent = no
+			blockoverride "tnt_multi_sheet_visible" { visible = "[TntPos('tnt_count_sel_artifact_p_value')]" }
+			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/artifact.dds" }
+			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_artifact" }
+			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_artifact_p" }
+			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_shown_artifact_multi_p_value')|0]" }
+			### Gate-free whole-group clear (tnt_22b_multiselect.txt:634).
+			blockoverride "tnt_multi_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_sel_artifact_p_clear')]"
+				}
+			}
+		}
+
+		vbox = {
+			name = "tnt_sheet_sel_artifact_p_rows"
+			layoutpolicy_horizontal = expanding
+			spacing = 2
+			datamodel = "[TntList('tnt_sel_artifact_p')]"
+
+			item = {
+				tnt_multi_sheet_row = {
+					name = "tnt_sheet_sel_artifact_p_row"
+					datacontext = "[Scope.Artifact]"
+					size = { 0 26 }
+
+					### User item 2: linked name + hoverable row - full note on
+					### tnt_sheet_sel_title_p_row. The artifact form's own call site:
+					### [Artifact.GetName] at GAME\gui\interaction_confirmation.gui:110.
+					alwaystransparent = no
+
+					blockoverride "tnt_multi_sheet_visible" { visible = yes }
+					blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/artifact.dds" }
+					blockoverride "tnt_multi_sheet_name"    { text = "" }
+					blockoverride "tnt_multi_sheet_detail"  { text = "[Artifact.GetName]"  alwaystransparent = no }
+				}
+			}
+		}
+	}
+
+	type tnt_sheet_sel_artifact_r = vbox
+	{
+		name = "tnt_sheet_sel_artifact_r"
+		layoutpolicy_horizontal = expanding
+		spacing = 2
+		ignoreinvisible = yes
+
+		tnt_multi_sheet_row = {
+			name = "tnt_sheet_sel_artifact_r_head"
+			### V6 (user item 7): opaque head, X below - see the type's note.
+			alwaystransparent = no
+			blockoverride "tnt_multi_sheet_visible" { visible = "[TntPos('tnt_count_sel_artifact_r_value')]" }
+			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/artifact.dds" }
+			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_artifact" }
+			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_artifact_r" }
+			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_val_artifact_multi_r_value')|0]" }
+			### Gate-free whole-group clear (tnt_22b_multiselect.txt:644).
+			blockoverride "tnt_multi_sheet_remove"
+			{
+				button_cancel_small = {
+					size = { 20 20 }
+					parentanchor = center
+					tooltip = "tnt_sheet_remove_tip"
+					onclick = "[TntExec('tnt_sel_artifact_r_clear')]"
+				}
+			}
+		}
+
+		vbox = {
+			name = "tnt_sheet_sel_artifact_r_rows"
+			layoutpolicy_horizontal = expanding
+			spacing = 2
+			datamodel = "[TntList('tnt_sel_artifact_r')]"
+
+			item = {
+				tnt_multi_sheet_row = {
+					name = "tnt_sheet_sel_artifact_r_row"
+					datacontext = "[Scope.Artifact]"
+					size = { 0 26 }
+
+					### User item 2: linked name + hoverable row - full notes on
+					### tnt_sheet_sel_title_p_row and tnt_sheet_sel_artifact_p_row.
+					alwaystransparent = no
+
+					blockoverride "tnt_multi_sheet_visible" { visible = yes }
+					blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/artifact.dds" }
+					blockoverride "tnt_multi_sheet_name"    { text = "" }
+					blockoverride "tnt_multi_sheet_detail"  { text = "[Artifact.GetName]"  alwaystransparent = no }
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### THE CHARACTER ROW (V4 item A1; the captive panel it was written for is
+	### RETIRED - user item 7 - and commented out below).
+	###
+	### THIS TYPE IS SHARED AND STAYS LIVE. Its consumers today are the two courtier
+	### panels, gui\tnt_panel_people.gui. It was introduced for the captive picker,
+	### which is why the notes below still argue about captives; the argument holds
+	### unchanged for any list of people.
+	###
+	### A third row type was needed because the two that exist unwrap the wrong thing -
+	### tnt_multi_row_title reads Title, tnt_multi_row_artifact reads Artifact, and a
+	### courtier (like a captive before it) is a Character. Everything else is copied
+	### from the artifact row: same button_standard_list, same 45 px, same glyph block
+	### so the chosen column can swap the plus for a minus.
+	###
+	### THE PORTRAIT IS A portrait_head_tiny AND NOT AN ICON. It is the one widget that
+	### makes a list of people readable at a glance, and it is what vanilla's own
+	### character lists use. It carries alwaystransparent = yes, like every decorative
+	### widget in this mod - the mouse lesson of _docs/README.md item 4 cost a day and
+	### applies to portraits as much as to text.
+	###
+	### THE RIGHT-HAND COLUMN SHOWS THE RANK, because rank is what the price of a
+	### person is made of. The worked example was the captive ladder (10 base, +15 kin,
+	### +10 titled, +15/+25/+40/+60 by tier), retired with that term; the courtier
+	### panels keep the column for the same reason - a player choosing whom to hand
+	### over should see why one person is worth several times another.
+	####################################################################
+	type tnt_multi_row_char = button_standard_list
+	{
+		name = "tnt_multi_row_char"
+		layoutpolicy_horizontal = expanding
+		size = { 0 45 }
+		using = tooltip_es
+
+		tooltipwidget = {
+			# container_character_tooltip, NOT character_tooltip: the bare name has
+			# zero definitions in this install (whole-tree search). The container
+			# form is vanilla's real type (GAME\gui\cooltip.gui:1340), used exactly
+			# this way at GAME\gui\window_army.gui:2038.
+			container_character_tooltip = {}
+		}
+
+		block "tnt_multi_row_click" {}
+
+		block "tnt_multi_row_tooltip" {}
+
+		hbox = {
+			layoutpolicy_horizontal = expanding
+			margin = { 10 0 }
+			spacing = 10
+
+			widget = {
+				name = "tnt_multi_row_char_portrait_holder"
+				size = { 32 100% }
+				alwaystransparent = yes
+
+				### USER ITEM 4 (icon overlap): the explicit size is the fix, not
+				### decoration. type portrait_head_tiny ships size = { 64 64 }
+				### (GAME\gui\window_ledger.gui:6867-6869), and this instance used to
+				### carry no size of its own - so all 64 px rendered centred in this
+				### 32 x 45 holder: 16 px into the row's left margin, 6 px under the
+				### name text (spacing 10 minus the 16 px right overhang), and ~10 px
+				### into the rows above and below. The type's own scissor = yes clips
+				### ITS children to ITS frame, never the frame to the holder, so the
+				### bleed was real. Every other head in this mod already carried an
+				### explicit size (tnt_picker_row_char 38, tnt_prisoner_row 36 - that
+				### type is now RETIRED, user item 7, but it was measured at 36 and
+				### the survey stands, tnt_chosen_char 38); 32 matches this row
+				### family's own icon column - the artifact twin's 32 px cell.
+				portrait_head_tiny = {
+					name = "tnt_multi_row_char_portrait"
+					size = { 32 32 }
+					parentanchor = center
+					alwaystransparent = yes
+				}
+			}
+
+			text_single = {
+				name = "tnt_multi_row_text"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Character.GetUINameNoTooltip]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+
+			text_single = {
+				name = "tnt_multi_row_rank"
+				min_width = 120
+				max_width = 120
+				autoresize = no
+				### GetPrimaryTitle.GetNameNoTooltip and NOT a tier name: there is no
+				### GetHighestHeldTitleTierName, no GetTierName and no GetRankName in the
+				### game at all - all three return zero matches across the shipped
+				### interface. What vanilla actually prints for a character's standing is
+				### the primary title's name (5 sites), and that reads better anyway:
+				### "Duke of Bavaria" tells the player more than "Duke".
+				### A landless captive simply prints nothing here.
+				text = "[Character.GetPrimaryTitle.GetNameNoTooltip]"
+				align = nobaseline|right
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+
+			widget = {
+				name = "tnt_multi_row_glyph_holder"
+				size = { 26 100% }
+				alwaystransparent = yes
+
+				block "tnt_multi_row_glyph"
+				{
+					button_plus_small = {
+						name = "tnt_multi_row_glyph_icon"
+						parentanchor = center
+						alwaystransparent = yes
+					}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### RETIRED - THE CAPTIVE SELECTION PANEL (overlay index 13, side 0).
+	### USER ITEM 7.
+	###
+	### The mechanic was BUILT, SHIPPED AND PLAYED: a per-captive selection list
+	### on the player's side with a rank ladder for a price (10 base, +15 kin,
+	### +10 titled, +15/+25/+40/+60 by tier). It was CONSIDERED AND WITHDRAWN FOR
+	### AN INDEFINITE PERIOD on the user's ruling.
+	###
+	### A REVIVAL MUST LEAN ON THE VANILLA PRISONER SYSTEM rather than on this
+	### mod's own bookkeeping: vanilla owns ransom_cost_value, the ransom
+	### interactions, the release on_actions and the opinion and hook consequences
+	### each carries. The private rank ladder above is exactly the kind of parallel
+	### pricing that made the term stop reading as diplomacy.
+	###
+	### THE ROW TYPE ABOVE (tnt_multi_row_char) IS DELIBERATELY NOT RETIRED - it is
+	### SHARED with the two courtier panels in gui\tnt_panel_people.gui. Only this
+	### panel is commented out. Overlay index 13 is RETIRED, not free, and side 1's
+	### reservation for a partner-side twin is released with it.
+	### Nothing is deleted; do not re-enable one half.
+	### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+	####################################################################
+#	### THE PANEL. Index 13, side 0; one-sided, because choosing WHICH of the partner's
+#	### captives to demand would need his dungeon enumerated in our window.
+#	### No cap row: the selection has no limit (see tnt_val_prisoner_multi_p_value).
+#	type tnt_panel_multi_prisoner_p = tnt_panel_multi
+#	{
+#		name = "tnt_panel_multi_prisoner_p"
+#		visible = "[And( EqualTo_CFixedPoint( TntNum('tnt_picker'), '(CFixedPoint)13' ), EqualTo_CFixedPoint( TntNum('tnt_picker_side'), '(CFixedPoint)0' ) )]"
+#
+#		blockoverride "tnt_multi_title" { text = "tnt_picker_title_prisoner" }
+#		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_prisoner_p" }
+#		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_shown_prisoner_multi_p_value')|+=0]" }
+#		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_prisoner_p_clear')]"  tooltip = "tnt_btn_none" }
+#
+#		blockoverride "tnt_multi_available_empty"
+#		{
+#			text = "tnt_picker_empty"
+#			visible = "[IsDataModelEmpty( TntList('tnt_list_prisoner_p') )]"
+#		}
+#		blockoverride "tnt_multi_chosen_empty"
+#		{
+#			text = "tnt_picker_chosen_empty"
+#			visible = "[IsDataModelEmpty( TntList('tnt_sel_prisoner_p') )]"
+#		}
+#
+#		blockoverride "tnt_multi_available_list"
+#		{
+#			vbox = {
+#				name = "tnt_multi_rows_avail_prisoner_p"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 3
+#				datamodel = "[TntList('tnt_list_prisoner_p')]"
+#
+#				item = {
+#					tnt_multi_row_char = {
+#						name = "tnt_multi_avail_prisoner_p_row"
+#						datacontext = "[Scope.Char]"
+#						size = { 0 45 }
+#
+#						blockoverride "tnt_multi_row_click" { onclick = "[TntPickChar('tnt_sel_prisoner_p_add')]" }
+#					}
+#				}
+#			}
+#		}
+#
+#		blockoverride "tnt_multi_chosen_list"
+#		{
+#			vbox = {
+#				name = "tnt_multi_rows_chosen_prisoner_p"
+#				layoutpolicy_horizontal = expanding
+#				spacing = 3
+#				datamodel = "[TntList('tnt_sel_prisoner_p')]"
+#
+#				item = {
+#					tnt_multi_row_char = {
+#						name = "tnt_multi_chosen_prisoner_p_row"
+#						datacontext = "[Scope.Char]"
+#						size = { 0 45 }
+#
+#						blockoverride "tnt_multi_row_click" { onclick = "[TntPickChar('tnt_sel_prisoner_p_remove')]" }
+#						blockoverride "tnt_multi_row_glyph"
+#						{
+#							button_minus_small = {
+#								name = "tnt_multi_row_glyph_icon"
+#								parentanchor = center
+#								alwaystransparent = yes
+#							}
+#						}
+#					}
+#				}
+#			}
+#		}
+#	}
+}

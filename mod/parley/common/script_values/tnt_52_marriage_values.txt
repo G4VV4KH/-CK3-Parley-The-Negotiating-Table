@@ -1,0 +1,3187 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — script values, part 3 of 3: THE MARRIAGE PRICE
+#
+# USER ITEM 2.1. "предложение брака нужно сделать extended: нужно выбрать
+# супругов и определить линию, в зависимости от этого посчитаются очки."
+# This file is the last clause: the points.
+#
+# Owner: marriage (wave 3d). Companion files, same owner:
+#   common\scripted_effects\tnt_34_marriage.txt   list fills, sync, exec
+#   common\scripted_guis\tnt_22a_marriage.txt     openers, setters, line choice
+#   gui\tnt_panel_marriage.gui                    the editor panel (types only)
+#
+# ---------------------------------------------------------------------------
+# WHY THESE VALUES EXIST AT ALL — 30-V2-DESIGN §1 row 2.1b is a RED
+# ---------------------------------------------------------------------------
+# Vanilla's marriage acceptance maths is `marriage_ai_accept_modifier`
+# (GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:1-2809,
+# ~90 contributions). It CANNOT be called from here: a `scripted_modifier`
+# speaks `modifier = { <triggers> add = X desc = Y }` / `opinion_modifier` /
+# `compare_modifier` / `factor`, a `script_value` speaks
+# `value` / `add` / `if` / `multiply`. Different DSLs. 0 of 378 scripted
+# modifiers is invoked from GAME\common\script_values, and its own only two
+# invocation sites are both an `ai_accept`
+# (GAME\common\character_interactions\00_marriage_interactions.txt:755, :1609).
+#
+# Its BODY is copyable, its NAME is not. So the ~25 rows that matter for a
+# treaty are re-expressed below with VANILLA'S OWN NUMBERS, every one carrying
+# the line number it was read off.
+#
+# THE VANILLA SCRIPT VALUES THAT DO THE SAME JOB ARE PORTED TOO, BUT FOR TWO
+# DIFFERENT REASONS, AND V15 SPLITS THE SENTENCE THAT USED TO CONFLATE THEM.
+#   (a) A SCOPE THAT DOES NOT EXIST IN OUR WINDOW - not callable at any price:
+#         marriage_fertile_age_value  reads scope:secondary_recipient.age and
+#           scope:secondary_actor.age
+#           GAME\common\script_values\00_interaction_values.txt:675-681
+#         marry_close_family_tiers_acceptance_value  saves temporary scopes off
+#           BOTH secondaries, :924-958
+#         ep1_court_grandeur_marriage_acceptance_value and its _penalty twin read
+#           scope:actor and scope:recipient.faith
+#           GAME\common\script_values\00_ep1_script_values.txt:67-114
+#   (b) A DESIGN-NOTE BLACKLIST - callable, deliberately not called:
+#         marriage_female_fertility_cutoff_age_value reads NO named scope at all.
+#           Its whole body is `define:NChildbirth|MAX_FEMALE_REPRODUCTION_AGE`,
+#           `add = -3`, `has_trait = fecund` +5 and `dynasty ?= {
+#           has_dynasty_perk = blood_legacy_5 }` +5 - GAME\common\script_values\
+#           00_interaction_values.txt:691-710 - so it is evaluated in the
+#           candidate's own scope, exactly as this file's own note further down
+#           already observes. IT IS THE ONE PLACE IN THIS FILE WHERE THE CALL IS
+#           STRICTLY AVAILABLE. It is ported only because 42-marriage-extended.md
+#           §6 blacklists calling it, and because the file-wide rule below ("THIS
+#           FILE CALLS ZERO VANILLA MARRIAGE VALUES BY NAME") is worth more than
+#           the one call would save - the ported number is identical today.
+# Either way their names are never called.
+#
+# ===========================================================================
+# V15 - THE DECISION THE USER ASKED FOR, IN PLAIN WORDS. READ THIS FIRST.
+# ===========================================================================
+# HIS QUESTION, verbatim: "davai vse-taki razberemsya s ochkami braka: brak
+# cherez vanil +150 ochkov, tot zhe brak cherez sdelku +5 ochkov - nuzhno
+# reshit, my namerenno schitaem po-svoemu, ili vse-taki nuzhno vytyagivat
+# ochki iz vanilnogo rasscheta". He measured the same marriage twice: vanilla
+# scored it +150, this mod's deal scored it +5. A round earlier he measured the
+# other extreme, vanilla -150 against this mod's +1.
+#
+# THE ANSWER IS OPTION 3, AND IT IS NEITHER OF THE TWO HE OFFERED:
+#   PORT VANILLA'S BODIES, KEEP VANILLA'S NUMBERS, KEEP VANILLA'S SIGNS,
+#   DENOMINATE IN VANILLA'S UNITS - a raw acceptance point, exactly as vanilla
+#   counts one (the scale is stated once, tnt_50_values.txt:163-261).
+# So: we do NOT compute our own way, and we do NOT pull the number out of
+# vanilla's calculation. We RE-EXPRESS vanilla's calculation in the one
+# language a script value can speak, row by row, with a line number per row.
+#
+# WHY NOT "PULL THE NUMBER OUT OF VANILLA'S CALCULATION" - it does not exist as
+# an option, at any price. Two independent walls, both measured, both below.
+# WHY NOT A FULL IMPORT - marriage_ai_accept_modifier has 126 contribution
+# blocks (119 modifier + 4 opinion_modifier + 3 compare_modifier,
+# 00_marriage_scripted_modifiers.txt:1-2809). This file ports ~25. Of the ~101
+# left, roughly 35 are nomad/TGP/struggle/admin/diarchy/DLC-local, ~15 are the
+# -5000 player-recipient vetoes already covered by T47 and the pair gate, and
+# ~20 restate rows the deal-wide relationship layer already owns. The MAGNITUDE
+# never lived in the hundred small rows: it lived in TWO blocks.
+# WHY NOT AN OWN SCALE - the scale already IS vanilla's, and re-inventing it
+# would throw away 25 correct body ports and re-open the complaint iteration 2
+# closed (tnt_50_values.txt:166-168).
+#
+# SO THE +-150 GAP WAS ONE MISSING BLOCK, NOT AN ARCHITECTURE. Both of his
+# measurements are single rows of vanilla's DREAD ladder
+# (00_marriage_scripted_modifiers.txt:1690-1825, PDX's own "# DREAD" header at
+# :1690-1692), which this file priced at exactly 0 until V15:
+#   +150  :1706-1717  the partner is OUR VASSAL, COWED, and somebody else is
+#                     at the altar          == his "+150"
+#   -150  :1786-1798  WE are at the altar, he is too, we are NOT his liege and
+#                     he is COWED of us     == the previous round's "-150"
+# One mechanic, both signs, both exact magnitudes, and the discriminator is
+# WHO IS STANDING AT THE ALTAR - which is exactly what changed between his two
+# tests. He plays a hegemon, and a hegemon is at dread level 2 against his own
+# vassals as a matter of course (BOLD_LEVEL_COWED = 45,
+# BOLD_LEVEL_INTIMIDATED = 20, GAME\common\defines\00_defines.txt:123-124).
+# V15 ports the whole ten-rung ladder as tnt_marriage_dread_value below.
+#
+# WHAT HIS TWO MARRIAGES NOW SCORE HERE - stated so the next playtest can
+# FALSIFY this block instead of re-arguing it:
+#   his "+150" case (emperor, own cowed vassal, offering a relative):
+#       dread +150, tier edge +15, blood +5, lineality -20  ->  about +150
+#   his "-150" case (emperor marrying HIMSELF to a foreign ruler cowed by him):
+#       dread -150, lineality -100, attachment -15, tier edge +15 -> about -250
+#       against vanilla's about -265 for the same rows
+#   an ordinary equal-rank pair with no dread:  BIT-FOR-BIT UNCHANGED. The value
+#       returns 0 at dread level 0. Only a frightened partner moves.
+# If a future measurement disagrees with those three lines, this block is wrong
+# and should be corrected here rather than patched around somewhere else.
+#
+# THE MAINTENANCE CONSEQUENCE, OWNED RATHER THAN HIDDEN: every rung below is a
+# COPY of a vanilla number, so a PDX rebalance of the dread ladder silently
+# desyncs this file. That is the price of option 3 and it is the price of all
+# ~25 rows here, not a new debt. The mitigation is the one this file already
+# uses everywhere: each rung carries the vanilla file:line it was read off, so
+# re-checking the ladder is a ten-minute diff and not an investigation.
+#
+# THE STANDING RULE THAT FALLS OUT OF THIS, and it is the general lesson:
+#   A VANILLA ROW WORTH MORE THAN ABOUT 50 POINTS THAT DESCRIBES THE TWO
+#   RULERS MUST BE PORTED INTO THE TERM'S OWN PRICE, NEVER INTO A relmod ROW.
+# A relmod row is a PERCENTAGE of the offer since V4 (tnt_50_values.txt:3562-3584),
+# so on a treaty whose only term is one marriage it is multiplied to nothing.
+# The full argument is under tnt_gain_scale_unit_value, tnt_50_values.txt:2435-2513.
+#
+# ---------------------------------------------------------------------------
+# WALL 1 - THE NAME IS NOT CALLABLE, AND HERE IS THE CLASSIFICATION SO THE
+# QUESTION NEVER HAS TO BE RE-OPENED
+# ---------------------------------------------------------------------------
+# 378 scripted_modifier definitions exist under GAME\common\scripted_modifiers
+# and 0 of those 378 names appear anywhere in GAME\common\script_values (full
+# cross-scan, repeatable). marriage_ai_accept_modifier's own only two invocation
+# sites are both an ai_accept (00_marriage_interactions.txt:755, :1609). PDX
+# documents both grammars and they are disjoint: _scripted_modifiers.info's body
+# language is `modifier = { <triggers> add = X desc = Y }` / `opinion_modifier` /
+# `compare_modifier`, and _script_values.info enumerates the script-value
+# language exhaustively - add/subtract/multiply/divide/modulo/value/max/min/
+# round/ceiling/floor/if/else_if/else/fixed_range/integer_range plus scope
+# changes and iterators. `modifier = {` is not in it.
+#
+# CALLING VANILLA'S NAMED PIECES BUYS NOTHING THAT SWINGS. Of the 22 distinct
+# named script values reachable from marriage_ai_accept_modifier:
+#   12 are BARE STATIC NUMBERS worth 10..50 and callable from anywhere
+#      (promising_prospects_self/other_value 50/25, surveyor_marriage_perk_self/
+#      other_value 50/25, glory_legacy_1_marriage_acceptance 30,
+#      khvarenah_legacy_marriage_acceptance 10,
+#      ep2_activities_legacy_2_grand_weddings_acceptance_boost_value 15,
+#      house_relation_increased/decreased_marriage_acceptance +-25,
+#      increased_marriage_acceptance_1/2/3_value 10/20/40)
+#    1 is a scope-free FORMULA, callable in the right character scope
+#      (marriage_female_fertility_cutoff_age_value, ported as the helper below)
+#    6 read scope:actor inside their guile_legacy_5 doubling - the six DREAD
+#      numbers, ported by tnt_marriage_dread_value below
+#    5 read scope:actor / scope:recipient / scope:secondary_* IN THEIR BODIES and
+#      are therefore unusable BY NAME on this mod's GUI path
+#      (marry_close_family_tiers_acceptance_value, marriage_fertile_age_value,
+#      marriage_fertile_age_reverse_value,
+#      ep1_court_grandeur_marriage_acceptance_value and its _penalty)
+# NOT ONE of vanilla's large marriage rows is a callable name: every one is
+# either a bare literal inside a modifier block or a formula that would resolve
+# against the wrong characters here. Naming one of the last five on the GUI path
+# reproduces the exact failure recorded at :829-838 below ("Event target link
+# 'root' returned an unset scope", 2026-08-13 run). THIS FILE THEREFORE CALLS
+# ZERO VANILLA MARRIAGE VALUES BY NAME, deliberately, and every mention of one
+# in this file is a citation in a comment.
+#
+# ---------------------------------------------------------------------------
+# WALL 2 - AND THERE IS NO ENGINE QUERY EITHER. SEARCHED AND EMPTY.
+# ---------------------------------------------------------------------------
+# The only accessor for an interaction's acceptance is a GUI datafunction on the
+# live confirmation window -
+#   GAME\gui\interaction_templates.gui:3089, :3100
+#     CharacterInteractionConfirmationWindow.GetAcceptanceValue( CharacterListItem.Self )
+#   :3095, :3106  ...GetAcceptanceBreakdown( CharacterListItem.Self )
+# It needs that window to be OPEN and takes one of ITS OWN list rows as the
+# argument, so it is unreachable from a script value, a trigger, an effect or a
+# custom window. SEARCHED AND EMPTY: all of GAME\common\script_values (0 hits for
+# any of the 378 scripted-modifier names, 0 for any acceptance accessor); all 60+
+# *.info docs under GAME\common (every "accept" is about DECLARING acceptance -
+# ai_accept, auto_accept, on_accept, _character_interactions.info:414-457 - never
+# about reading it); all of GAME\gui (the four lines above and nothing else).
+# There is no ai_acceptance_of, no interaction_acceptance and no
+# would_accept_interaction trigger anywhere in vanilla script.
+# DO NOT RE-SEARCH THIS.
+#
+# ONE-HOVER DIAGNOSTIC, if a future measurement needs to name the row it saw:
+# open vanilla's own marriage interaction on the same pair and hover the check or
+# cross beside the partner (interaction_templates.gui:3095, GetAcceptanceBreakdown).
+# The breakdown names the row by its loc key -
+#   COWED_REASON       GAME\localization\english\specialinteractions_l_english.yml:28
+#   INTIMIDATED_REASON  :27
+# If either prints +-150 / +-75 the ladder below is the row he is looking at. If
+# instead it prints ABANDONED_SPOUSE_MODIFIER that is a DIFFERENT unported row
+# (00_marriage_scripted_modifiers.txt:2-7, -150, needs the abandoned_marriage_modifier
+# character modifier and the player at the altar) and it is not in scope here.
+#
+# WHAT VANILLA WEIGHS, AND WHERE EACH LANDS BELOW
+#   the candidates' worth to their owner  -> 5. attachment   (:87, :1574-1623, :1658-1688, :1829-1873, :1886-1901, :1927-1932)
+#   dynasty / blood quality               -> 2. blood        (:1000-1023)
+#   title tier of the two families        -> 3. tier edge    (:531-538 -> 00_interaction_values.txt:924-958)
+#   age, fertility, capability            -> 4. fertility    (:1347-1572)
+#   faith / culture / same-sex            -> NOT HERE, see the note under §0
+#   the matrilineal penalty               -> 1. lineality    (:1026-1174)
+#   opinion, lovers, soulmates            -> 6. affection    (:653-661, :671-767)
+#   liege / vassal and the clan contract  -> 7. liege        (:493-509, :1629-1653)
+#   the gulf between the two houses       -> 8. rank gulf    (:159-180, :217-222, :2364-2372)
+#   the alliance value of the match       -> NOWHERE, and that is now a stated fact rather
+#                                            than a forward. It used to be deferred to
+#                                            tnt_val_alliance_*_value; both were RETIRED in
+#                                            V13 and are hard zeros with no caller. See §0
+#                                            note 2, which was rewritten in V14 because the
+#                                            forward it described no longer lands anywhere.
+#   our own heir at the altar             -> 11. heir        (:92-133, ADDED V19 - it was in none of 1-10)
+# ---------------------------------------------------------------------------
+# §0 THREE THINGS THIS FILE DELIBERATELY DOES NOT PRICE
+# ---------------------------------------------------------------------------
+# 1. FAITH, CULTURE, KINSHIP and the same-sex rows (:1179-1343). They are
+#    already in the deal-wide relationship layer, tnt_51_relation_values.txt
+#    (opinion, faith, culture, kinship, relations, dread, war, allies), which
+#    tnt_ai_accept_value adds once for the WHOLE treaty. Pricing them again
+#    per item would count the same fact twice. The only faith row that has no
+#    twin there is the -1000 consanguinity veto (:1876-1884), and that one is
+#    UNREACHABLE for us: the pair gate is vanilla's own
+#    can_marry_character_trigger, so an incestuous pair can never be put on
+#    the table in the first place (tnt_34_marriage.txt, tnt_marriage_legal).
+# 2. THE ALLIANCE VALUE — HISTORICAL, AND THE FORWARD IS BROKEN. Rows :138-321
+#    used to be deferred to tnt_val_alliance_p_value / _r_value. Both were RETIRED
+#    in V13; _r_value stays a hard zero with no caller (tnt_50_values.txt:1375) and
+#    _p_value came back 2026-08-23 as the WEDDING alliance (:1330), not as this block.
+#    The part of it that matters to a marriage — the RANK GULF at :159-180 and the
+#    outright denial at :217-222 — is now priced by value 8 below.
+#
+#    THE +40 / +100 / -100 REALPOLITIK BONUS ITSELF STAYS UNPRICED, AND V15 GIVES
+#    THE MECHANICAL REASON SO THE NEXT ROUND STOPS TREATING IT AS AN OVERSIGHT.
+#    It is the second-largest missing swing in vanilla's marriage sum after DREAD
+#    (:138-253 +40 when the recipient's stance is neutral or threat and the match
+#    yields_alliance, :254-321 +100 at friend stance, :322-357 -100 at enemy), so
+#    "we simply never got round to it" would be the wrong story. The real reason:
+#      `yields_alliance` appears ZERO times in all of GAME\common\script_values,
+#      and `ai_diplomacy_stance` appears ZERO times there. Both live only in
+#      ai_accept / ai_will_do / scripted_modifier contexts.
+#    There is no PROVEN form for reading either from a script value, so importing
+#    the block would rest on an unproven shape - which the VANILLA EVIDENCE LAW
+#    forbids outright. Contrast tnt_marriage_dread_value below, where every single
+#    shape has two or three real script-value call sites; that is the difference
+#    between a port and a guess.
+#    THE MEASURED CONSEQUENCE, STATED RATHER THAN HIDDEN: on every pair where
+#    vanilla's row would fire at all, this mod sits about 40 points BELOW vanilla,
+#    because value 8 ports the SHRINK (-10 / -30 / -40) and not the BASE (+40).
+#    DO NOT "fix" that by adding a flat +40 - see value 8's own header for why.
+#    *** THE PARENTHETICAL BELOW IS RETIRED - READ THE AMENDMENT DIRECTLY UNDER IT
+#    *** BEFORE ACTING ON A WORD OF IT. Its first clause is now FALSE. ***
+#    (The design refusal is also this project's, independently: the treaty does not
+#    deal in alliances at all. Vanilla's row is not "selling an alliance", it is the
+#    AI's enthusiasm for a match that happens to make one - but that distinction
+#    cannot be implemented without the two unproven triggers, so it does not
+#    survive contact with the house laws either way.)
+#    WHAT SURVIVES OF IT, AND IT IS THE HALF THAT MATTERED: "vanilla's row is not
+#    selling an alliance, it is the AI's enthusiasm for a match that happens to make
+#    one." That sentence is exactly the distinction the round-11 ruling turns on -
+#    the alliance is a CONSEQUENCE the mod restores, never a term on the sheet - and
+#    it is now implementable after all, because the predicate is asked in an EFFECT
+#    and carried here as a plain number.
+#
+#    *** AMENDED 2026-08-23 - THE +40 BASE IS PRICED AGAIN, AND NOT IN THIS FILE.
+#    *** EVERYTHING ABOVE STAYS TRUE OF THIS FILE; ONLY THE LAST SENTENCE RETIRES.
+#    User ruling: a deal marriage must behave like a vanilla one, so the alliance a
+#    wedding brings is a CONSEQUENCE the mod restores rather than a term it sells.
+#    The measurement above is unchanged - yields_alliance and ai_diplomacy_stance
+#    still have ZERO call sites in all of GAME\common\script_values, so no script
+#    value may ask either of them and NOTHING IN THIS FILE MAY GROW A ROW FOR IT.
+#    What changed is that the predicate is now asked ONCE PER TABLE EDIT inside an
+#    effect, in vanilla's own arranger-scope shape
+#    (tnt_wed_reprice_all_effect, common\scripted_effects\tnt_34_marriage.txt;
+#    vanilla GAME\common\scripted_rules\00_rules.txt:804-811 and
+#    GAME\common\scripted_effects\00_marriage_interaction_effects.txt:1660-1669),
+#    and the verdict is carried to the price as the bridge variable
+#    var:tnt_wed_ally_any. The BASE is paid by tnt_val_alliance_p_value
+#    (tnt_50_values.txt), which is live in tnt_gain_total_value again.
+#    NO DOUBLE COUNT, AND THE SPLIT IS EXACT: value 8 below still ports vanilla's
+#    SHRINK (-10 / -30 / -40 at tier gaps 1 / 2 / 3+) and never the BASE, so
+#    base + shrink together are vanilla's own ladder for the first time. TWO HONEST
+#    RESIDUES: value 8 charges its shrink on EVERY pair while the base is paid only
+#    when the match really yields an alliance, and value 8 is PER PAIR while the
+#    base is PER DEAL (one flag, one price - the ADD-4 rule).
+#    The stance half (+100 friend / -100 enemy) is STILL unpriced and still
+#    unaskable: ai_diplomacy_stance has no script-value form, and vanilla itself
+#    distrusts it (GAME\common\scripted_modifiers\00_ai_value_modifiers.txt:265,
+#    "ai_diplomacy_stance is unreliable").
+# 3. THE DIFFICULTY ROWS :2714-2778 (-2000 / -100 / -150). Those gate on
+#    `scope:actor = { is_ai = no }` — a HUMAN spamming the vanilla interaction at
+#    an AI — plus a hard/very-hard game rule, and they stay out.
+#    :2346-2372 IS A DIFFERENT ANIMAL AND IS NOW PARTLY PORTED. All three of those
+#    rows gate on `scope:recipient = { is_ai = no }`: they stop the AI spamming the
+#    PLAYER, which is user item 2 verbatim. :2364-2372's trigger is a pure power +
+#    tier test and is ported at 75 by value 8 below (vanilla's -5000 rescaled to
+#    very_high_negative_ai_value, 00_ai_values.txt:33). :2346-2350 (the 5-year
+#    player_declined_marriage suppression) is finding M4-5 and belongs in the
+#    composer, not here. :2352-2362 (courtiers) is already satisfied: arch16 draws
+#    both sides from close family (tnt_37_ai_offer.txt:2255-2259, :2272-2280) — DO
+#    NOT WIDEN THAT POOL without porting the row.
+#
+# ---------------------------------------------------------------------------
+# LAW R9 — WHAT EVERY VALUE HERE MAY READ
+# ---------------------------------------------------------------------------
+# GetScriptValueBreakdown supplies ROOT ONLY (00-ARCHITECTURE §2.7), so every
+# value below reads exactly two things: `root` (the player) and `var:` on root.
+# The four actors of vanilla's modifier map onto them like this:
+#
+#   vanilla                      here                      via
+#   scope:actor               -> root
+#   scope:recipient           -> var:tnt_partner        -> scope:tnt_p
+#   scope:secondary_actor     -> THE PAIR's player side  -> scope:tnt_sp
+#   scope:secondary_recipient -> ITS var:tnt_wed_partner -> scope:tnt_sr
+#
+# Converting the variable to a scope FIRST is not cosmetic — it is what keeps
+# every read a TWO-link traversal (`scope:tnt_sp ?= { dynasty.dynasty_prestige_level }`)
+# instead of the three-link `var:tnt_spouse_p.dynasty.dynasty_prestige_level`
+# that 30-V2-DESIGN risk R-12 flags as unproven. Not one three-link read
+# survives in this file, so R-12 does not apply to it.
+#
+# ===========================================================================
+# v3 ITERATION 4 — WHO SAVES THE THREE SCOPES MOVED, AND THAT IS THE WHOLE
+# STRUCTURAL CHANGE TO VALUES 1-7.
+# ===========================================================================
+# The deal is now a LIST of pairs (tnt_wed_list, tnt_34_marriage.txt), so the
+# seven values below are evaluated ONCE PER PAIR instead of once. They therefore
+# no longer save their own scopes: THE CALLER DOES, and the caller is the
+# every_in_list loop inside tnt_marriage_offer_p_value / _r_value.
+#
+# WHY THE PROLOGUES HAD TO GO, and it is not tidiness — it is a silent-wrong-answer
+# bug that would never have shown up in a log. Inside `every_in_list` the CURRENT
+# SCOPE is the list member, i.e. a courtier. A nested script value that opens with
+#     var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+# resolves var:tnt_partner AGAINST THAT COURTIER, finds nothing, leaves scope:tnt_p
+# unset, and every row guarded by `exists = scope:tnt_p` quietly contributes 0.
+# The marriage would have priced at a plausible-looking number that was missing
+# attachment, affection and liege entirely. So the two player-level scopes
+# (tnt_p) and the two per-pair scopes (tnt_sp, tnt_sr) are all saved by the loop,
+# in the player's scope and in the member's scope respectively, and values 1-7
+# read scopes ONLY — not one `var:` off an ambient scope survives in them.
+#
+# THE ONE EXCEPTION IS THE LINE, and it is deliberate: the line is per-pair state
+# and lives ON the pair's player-side spouse as tnt_wed_matri, so value 1 reads it
+# as `scope:tnt_sp ?= { exists = var:tnt_wed_matri }` — explicitly through the
+# scope, never off the ambient current scope, so it cannot drift if the value is
+# ever called from somewhere else.
+#
+# LAW R7 STILL HOLDS. Every scope above is derived from root and root's own
+# variables by the aggregate at the bottom of this file; GetScriptValueBreakdown
+# still supplies nothing but root.
+#
+# THE SCOPE NAMES tnt_sp / tnt_sr / tnt_p ARE TEMPORARY, NEVER SAVED.
+# Defect D4 was a PERMANENT scope colliding with a temporary one of the same
+# name; the permanent partner scope is now tnt_deal_partner, and the permanent
+# spouse scopes used by the exec leg are tnt_wed_p / tnt_wed_r
+# (tnt_34_marriage.txt). No name is used in both roles.
+#
+# ---------------------------------------------------------------------------
+# THE FIVE SHAPES USED BELOW, EACH WITH A REAL CALL SITE
+# ---------------------------------------------------------------------------
+# a) `var:x ?= { save_temporary_scope_as = y }` at the top of a script value
+#    MOD\common\script_values\tnt_51_relation_values.txt:87 (shipped, running)
+# b) `scope:x ?= { … }` inside a script value
+#    GAME\common\script_values\00_scheme_values.txt:2436
+# c) A SCOPE BLOCK NESTED INSIDE A MATH BLOCK, contributing with `add =`
+#    (never `value =`) while the outer block opens `value = 0`:
+#    GAME\common\script_values\00_culture_values.txt:922-934,
+#    GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:452-459,
+#    and shipped at tnt_51_relation_values.txt:365-373.
+# d) `add = "opinion(<scope>)"` — the only way to read opinion as a NUMBER.
+#    GAME\common\script_values\07_ep3_values.txt:5716-5717 (`add = "opinion(root)"`),
+#    GAME\common\script_values\00_scheme_values.txt:2442 (`value = "opinion(scope:owner)"`)
+#    — note the argument is a SAVED SCOPE there, which is exactly why the
+#    prologue converts the variables first. `opinion(var:x)` and
+#    `opinion(root.var:x)` are written NOWHERE in vanilla and are not used here
+#    (30-V2-DESIGN risk R-11 retired).
+# e) ITERATORS + `save_temporary_scope_as` INSIDE a script value
+#    GAME\common\script_values\00_interaction_values.txt:924-958
+#    (marry_close_family_tiers_acceptance_value, ported verbatim as value 3).
+#
+# NO `desc =` ANYWHERE IN THIS FILE. Exactly two values in this mod carry desc,
+# tnt_balance_value and tnt_ai_accept_value (10-CONTRACT §4 rule 3), and the
+# marriage row's own desc keys tnt_bd_marriage_p / _r already exist.
+###############################################################################
+
+
+###############################################################################
+# HELPER — tnt_marriage_fertility_cutoff_value
+#
+# Body-for-body port of vanilla's marriage_female_fertility_cutoff_age_value,
+# GAME\common\script_values\00_interaction_values.txt:691-710. Vanilla's own
+# copy reads no named scope, but 42-marriage-extended.md §6 blacklists CALLING
+# it, so the body is copied instead of the name being used.
+#
+# EVALUATED IN THE CANDIDATE'S OWN SCOPE — it is only ever used as the
+# right-hand side of `effective_age >= …` inside a `scope:tnt_sp ?= { }` block,
+# which is precisely how vanilla uses it inside `scope:secondary_actor = { }`
+# (00_marriage_scripted_modifiers.txt:1441, :1489).
+#
+# define:NChildbirth|MAX_FEMALE_REPRODUCTION_AGE = 45,
+# GAME\common\defines\00_defines.txt:354, read from a script value verbatim at
+# 00_interaction_values.txt:693.
+###############################################################################
+tnt_marriage_fertility_cutoff_value = {
+	value = 0
+	add = define:NChildbirth|MAX_FEMALE_REPRODUCTION_AGE
+	add = -3
+	if = {
+		limit = { has_trait = fecund }
+		add = 5
+	}
+	if = {
+		limit = { dynasty ?= { has_dynasty_perk = blood_legacy_5 } }
+		add = 5
+	}
+}
+
+
+###############################################################################
+# 1. LINEALITY — the price of the line, and the ONE value the toggle moves
+#
+# Port of 00_marriage_scripted_modifiers.txt:1026-1174, PDX's own header:
+#   "PENALTIES FOR INCORRECT LINEALITY (matrilineal for men, patrilineal for
+#    women. Ignored entirely for same-sex marriage)"
+#
+# Returns a POSITIVE COST, added to tnt_marriage_offer_r_value: it is what the
+# PARTNER surrenders, because vanilla only ever charges the recipient's side.
+# The gate is vanilla's, condensed but complete (:1030-1081):
+#   * the partner's own candidate shares the partner's dynasty
+#   * the partner is a ruler
+#   * the pair is opposite-sex (lineality is inert otherwise)
+#   * and the line is "wrong" for that candidate — a woman in a patrilineal
+#     union, a man in a matrilineal one
+#
+# THE LADDER, vanilla's numbers and vanilla's comments:
+#   :1085-1119  1000  the partner or heir #0 AND a gender-dominated faith -> a veto
+#   :1120-1136   100  the partner or heir #0
+#   :1138-1149    60  heir #1   ("A bit more than a strong hook")
+#   :1151-1162    30  heir #2   ("A bit more than a weak hook")
+#   :1163-1168    10  anyone else under equal_law
+#   :1169-1171    20  any other dynasty member
+#
+# `player_heir_position = { value = N  target = <scope> }` is vanilla's own
+# form at :1092-1095 and :1142-1145 (35 real uses); the engine doc string uses
+# `position =` but the `value =` form is the one with the call sites (W-7).
+# `has_doctrine = doctrine_gender_male_dominated` off a faith link: :1101-1103.
+###############################################################################
+tnt_marriage_lineality_cost_value = {
+	# PER PAIR. scope:tnt_p / tnt_sp / tnt_sr are the CALLER's — see the
+	# iteration-4 block in the file header.
+	value = 0
+
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+			scope:tnt_p  ?= { is_ruler = yes }
+			scope:tnt_sr ?= { exists = dynasty }
+			scope:tnt_sr ?= { dynasty ?= scope:tnt_p.dynasty }
+			# opposite-sex only (:1041). sex_opposite_of — REAL: :1041
+			scope:tnt_sp ?= { sex_opposite_of = scope:tnt_sr }
+			# the line is wrong FOR THE PARTNER'S CANDIDATE (:1043-1052).
+			# ITERATION 4: the line is PER PAIR and lives on the pair's
+			# player-side spouse as tnt_wed_matri. V4 FIX 2: it is read
+			# through tnt_pair_is_matri_trigger, which takes that variable
+			# outside an interaction and the send_option flag
+			# scope:matrilineal inside the matchmaker window - so ticking
+			# "matrilineal" there moves this cost immediately, which is the
+			# whole of the complaint. Absent == patrilineal, the mod-wide
+			# convention, and the trigger preserves it.
+			OR = {
+				AND = {
+					NOT = { tnt_pair_is_matri_trigger = yes }
+					scope:tnt_sr ?= { is_female = yes }
+				}
+				AND = {
+					tnt_pair_is_matri_trigger = yes
+					scope:tnt_sr ?= { is_male = yes }
+				}
+			}
+		}
+
+		# --- the partner personally, or their first heir (:1085-1136) -------
+		if = {
+			limit = {
+				OR = {
+					scope:tnt_p ?= { this = scope:tnt_sr }
+					scope:tnt_p ?= {
+						exists = player_heir
+						player_heir_position = {
+							value = 0
+							target = scope:tnt_sr
+						}
+					}
+				}
+			}
+			# a gender-dominated faith turns the penalty into a veto (:1085-1119)
+			if = {
+				limit = {
+					OR = {
+						AND = {
+							scope:tnt_p  ?= { faith ?= { has_doctrine = doctrine_gender_male_dominated } }
+							scope:tnt_sr ?= { is_male = yes }
+						}
+						AND = {
+							scope:tnt_p  ?= { faith ?= { has_doctrine = doctrine_gender_female_dominated } }
+							scope:tnt_sr ?= { is_female = yes }
+						}
+					}
+				}
+				add = 1000
+			}
+			else = { add = 100 }
+		}
+		# --- heir #1 (:1138-1149) ------------------------------------------
+		else_if = {
+			limit = {
+				scope:tnt_p ?= {
+					exists = player_heir
+					player_heir_position = {
+						value = 1
+						target = scope:tnt_sr
+					}
+				}
+			}
+			add = 60
+		}
+		# --- heir #2 (:1151-1162) ------------------------------------------
+		else_if = {
+			limit = {
+				scope:tnt_p ?= {
+					exists = player_heir
+					player_heir_position = {
+						value = 2
+						target = scope:tnt_sr
+					}
+				}
+			}
+			add = 30
+		}
+		# --- anyone else, halved under equal succession (:1163-1168) -------
+		else_if = {
+			limit = { scope:tnt_p ?= { has_realm_law = equal_law } }
+			add = 10
+		}
+		# --- any other dynasty member (:1169-1171) -------------------------
+		else = { add = 20 }
+	}
+}
+
+
+###############################################################################
+# 2. BLOOD — is the family we are offering worth theirs?
+#
+# Port of :1000-1023. VANILLA'S SIGN IS PRESERVED: positive = the partner is
+# MORE willing, negative = less. It describes the candidate WE offer, so it is
+# added to tnt_marriage_offer_p_value ("what they receive").
+#
+#   :1000-1012   -20  our candidate is lowborn, and vanilla multiplies that by
+#                     6 (= -120) when THEIR candidate does have a dynasty.
+#                     Written here as -20 then a further -100, which is the
+#                     same total by a route that needs no nested multiply.
+#   :1013-1023   dynasty_prestige_level x 5 - 5, skipped at exactly level 1
+#                     because that would render as 0 (PDX's own comment).
+#
+# `add = dynasty.dynasty_prestige_level` inside a character scope is proven at
+# GAME\common\script_values\00_character_legacy_values.txt:7. Reading it inside
+# `scope:tnt_sp ?= { }` keeps it a two-link traversal (see the header, R-12).
+###############################################################################
+tnt_marriage_blood_value = {
+	# PER PAIR. Scopes are the caller's — see the file header.
+	value = 0
+
+	if = {
+		limit = {
+			exists = scope:tnt_sp
+			scope:tnt_sp ?= { has_dynasty = no }
+		}
+		add = -20
+		if = {
+			limit = { scope:tnt_sr ?= { has_dynasty = yes } }
+			add = -100
+		}
+	}
+	else_if = {
+		limit = {
+			exists = scope:tnt_sp
+			scope:tnt_sp ?= { has_dynasty = yes }
+			NOT = { scope:tnt_sp ?= { dynasty ?= { dynasty_prestige_level = 1 } } }
+		}
+		add = {
+			value = 0
+			scope:tnt_sp ?= { add = dynasty.dynasty_prestige_level }
+			multiply = 5
+			subtract = 5
+		}
+	}
+}
+
+
+###############################################################################
+# 3. TIER EDGE — whose family out-ranks whose
+#
+# VERBATIM PORT of marry_close_family_tiers_acceptance_value,
+# GAME\common\script_values\00_interaction_values.txt:924-958, which vanilla
+# invokes at 00_marriage_scripted_modifiers.txt:531-538
+# (desc = CLOSE_FAMILY_TIERS_REASON). The only edits are the scope names and
+# the `?=` guards; the algorithm, the iterator, the `even_if_dead = yes` and
+# the `multiply = 5` are unchanged.
+#
+# Take the highest highest_held_title_tier among each candidate's own
+# every_close_family_member (dead included — a dead emperor father still says
+# what house this is), subtract, multiply by 5.
+#   POSITIVE = the PLAYER's side out-ranks -> the partner is marrying UP and
+#              pays for the privilege     -> feeds offer_p
+#   NEGATIVE = the mirror                 -> feeds offer_r
+#
+# `highest_held_title_tier > scope:X.highest_held_title_tier` compares a field
+# against a dotted field on a saved scope. That is contract R0.3's forbidden
+# shape ONLY for two DIFFERENT characters' variables; here it is verbatim
+# vanilla inside a script value (:933, :947) and `add = scope:X.<field>` at
+# :955-956 is the same file's own read-back.
+###############################################################################
+tnt_marriage_tier_edge_value = {
+	# PER PAIR. Scopes are the caller's — see the file header. The two
+	# `var:tnt_spouse_*` re-scopes this value used to open with are now
+	# `scope:tnt_sp` / `scope:tnt_sr`; nothing else in the algorithm changed.
+	value = 0
+
+	if = {
+		limit = {
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+		}
+
+		scope:tnt_sp ?= {
+			save_temporary_scope_as = tnt_tier_first
+			every_close_family_member = {
+				even_if_dead = yes
+				if = {
+					limit = { highest_held_title_tier > scope:tnt_tier_first.highest_held_title_tier }
+					save_temporary_scope_as = tnt_tier_first
+				}
+			}
+		}
+
+		scope:tnt_sr ?= {
+			save_temporary_scope_as = tnt_tier_second
+			every_close_family_member = {
+				even_if_dead = yes
+				if = {
+					limit = { highest_held_title_tier > scope:tnt_tier_second.highest_held_title_tier }
+					save_temporary_scope_as = tnt_tier_second
+				}
+			}
+		}
+
+		if = {
+			limit = {
+				exists = scope:tnt_tier_first
+				exists = scope:tnt_tier_second
+			}
+			add = scope:tnt_tier_first.highest_held_title_tier
+			subtract = scope:tnt_tier_second.highest_held_title_tier
+			multiply = 5
+		}
+	}
+}
+
+
+###############################################################################
+# 4. PROCREATION — age, fertility, capability
+#
+# Port of :1347-1572, the block that makes most of the difference between a
+# good match and a bad one. Returns a POSITIVE COST which
+# tnt_marriage_offer_p_value SUBTRACTS: it is everything wrong with the person
+# we are offering.
+#
+#   :1347-1382   -5 per year our bride is over 29, when their candidate is an
+#                adult. compare_modifier with multiplier -5.0, step 1,
+#                offset -29 == (effective_age - 29) x 5 as a cost.
+#   :1384-1400   the same from age 20 when their candidate is a CHILD — vanilla
+#                is "VERY reluctant to betrothe old women to boys".
+#   :1402-1494   100 / 200 for trading an infertile adult for a fertile one;
+#                200 when their candidate has no children yet (:1479-1481).
+#   :1565-1572    50 our candidate is incapable.
+#
+# The two age rows are mutually exclusive in vanilla by their own triggers
+# (their candidate is an adult vs. is not), so `if` / `else_if` is exact, not
+# an approximation.
+#
+# `effective_age` — engine doc "is the character old/young enough? If immortal,
+# this uses the age they became immortal at" (EXE:280349); used as a TRIGGER at
+# :1350, :1387 and as a numeric operand by the compare_modifier at :1377, :1395.
+# It is read here only inside a character scope block, never as a dotted path.
+###############################################################################
+tnt_marriage_fertility_cost_value = {
+	# PER PAIR. Scopes are the caller's — see the file header.
+	value = 0
+
+	# --- the old bride, offered to an adult (:1347-1382) -------------------
+	if = {
+		limit = {
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+			scope:tnt_sp ?= {
+				is_female = yes
+				effective_age > 29
+			}
+			scope:tnt_sr ?= { is_adult = yes }
+		}
+		add = {
+			value = 0
+			scope:tnt_sp ?= { add = effective_age }
+			subtract = 29
+			multiply = 5
+			min = 0
+			max = 120
+		}
+	}
+	# --- the old bride, betrothed to a boy (:1384-1400) --------------------
+	else_if = {
+		limit = {
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+			scope:tnt_sp ?= {
+				is_female = yes
+				effective_age > 20
+			}
+			scope:tnt_sr ?= { is_adult = no }
+		}
+		add = {
+			value = 0
+			scope:tnt_sp ?= { add = effective_age }
+			subtract = 20
+			multiply = 5
+			min = 0
+			max = 120
+		}
+	}
+
+	# --- an infertile spouse for a fertile one (:1402-1494) ----------------
+	if = {
+		limit = {
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+			scope:tnt_sp ?= {
+				is_adult = yes
+				OR = {
+					fertility < 0.1
+					AND = {
+						is_female = yes
+						effective_age >= tnt_marriage_fertility_cutoff_value
+					}
+				}
+			}
+			scope:tnt_sr ?= {
+				OR = {
+					fertility > 0.1
+					is_adult = no
+				}
+			}
+		}
+		if = {
+			limit = { scope:tnt_sr ?= { any_child = { count < 1 } } }
+			add = 200
+		}
+		else = { add = 100 }
+	}
+
+	# --- incapable (:1565-1572) -------------------------------------------
+	if = {
+		limit = { scope:tnt_sp ?= { is_incapable = yes } }
+		add = 50
+	}
+}
+
+
+###############################################################################
+# 5. ATTACHMENT — how hard it is for the partner to part with THEIR candidate
+#
+# Port of :87-91, :1574-1623, :1658-1688, :1829-1873, :1886-1901, :1927-1932.
+#
+# *** SIGN: VANILLA'S, NOT THE ONE 42-marriage-extended.md §4.5 PRINTED. ***
+# Every row below keeps the sign vanilla gives it, i.e. POSITIVE = the partner
+# is MORE willing (this person is cheap to give away), NEGATIVE = less willing.
+# tnt_marriage_offer_r_value therefore SUBTRACTS this value, because offer_r
+# measures WHAT THEY GIVE UP: a reluctant partner (negative) must give up more,
+# not less. The research report wrote `add =` there against a stated convention
+# of "positive = glad to be rid of them", which inverts the whole block — a
+# beloved daughter would have come out CHEAPER than a nobody. Recorded in
+# NOTES3-marriage.md; do not "restore" the report's line.
+#
+#   :87-91       -15  they themselves are the one being married off
+#   :1574-1593   +10  an unimportant courtier — "Fair game, have them."
+#   :1595-1612   -10  a councillor / lover / soulmate / friend / knight
+#   :1829-1851   opinion x -0.15, floored at -60: reluctance to hand over a
+#                relative or lover they are fond of (vanilla gates on
+#                opinion > 10, which is kept)
+#   :1886-1901   +(effective_age - 20), capped here at +40: the older their
+#                unmarried relative gets, the keener they are (MARRIAGE_DESPERATION)
+#   :1658-1688   -50  a claimant is not a bargaining chip
+#   :1927-1932  -100  they are focused on an inspiration
+#
+# DROPPED from this block, each on purpose: the -25 "parent of my children"
+# row (:1614-1623) needs `any_child = { is_child_of = X }` on a var-derived
+# scope and buys almost nothing; the two -50 claimant rows are folded into one
+# because our per-pair gate makes their triggers overlap almost completely.
+###############################################################################
+tnt_marriage_partner_attachment_value = {
+	# PER PAIR. Scopes are the caller's — see the file header.
+	value = 0
+
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sr
+		}
+
+		# "you want ME, not my daughter" (:87-91)
+		if = {
+			limit = { scope:tnt_p ?= { this = scope:tnt_sr } }
+			add = -15
+		}
+
+		# an unimportant courtier is fair game (:1574-1593)
+		if = {
+			limit = {
+				scope:tnt_sr ?= {
+					is_adult = yes
+					NOR = {
+						dynasty ?= scope:tnt_p.dynasty
+						is_close_or_extended_family_of = scope:tnt_p
+						is_councillor_of = scope:tnt_p
+						has_relation_lover = scope:tnt_p
+						has_relation_soulmate = scope:tnt_p
+						has_relation_friend = scope:tnt_p
+						has_relation_best_friend = scope:tnt_p
+						is_knight_of = scope:tnt_p
+						exists = inspiration
+					}
+				}
+			}
+			add = 10
+		}
+		# ...or somebody they actually value (:1595-1612)
+		else_if = {
+			limit = {
+				scope:tnt_sr ?= {
+					is_adult = yes
+					OR = {
+						is_councillor_of = scope:tnt_p
+						has_relation_lover = scope:tnt_p
+						has_relation_soulmate = scope:tnt_p
+						has_relation_friend = scope:tnt_p
+						has_relation_best_friend = scope:tnt_p
+						is_knight_of = scope:tnt_p
+					}
+				}
+			}
+			add = -10
+		}
+
+		# fond of the relative in question (:1829-1851), opinion x -0.15
+		if = {
+			limit = {
+				NOT = { scope:tnt_p ?= { this = scope:tnt_sr } }
+				scope:tnt_sr ?= {
+					OR = {
+						is_close_or_extended_family_of = scope:tnt_p
+						has_relation_lover = scope:tnt_p
+					}
+				}
+				scope:tnt_p ?= {
+					opinion = {
+						target = scope:tnt_sr
+						value > 10
+					}
+				}
+			}
+			add = {
+				value = 0
+				scope:tnt_p ?= { add = "opinion(scope:tnt_sr)" }
+				multiply = -0.15
+				min = -60
+				max = 0
+			}
+		}
+
+		# an ageing unmarried relative makes them keener (:1886-1901)
+		if = {
+			limit = {
+				scope:tnt_sr ?= {
+					effective_age > 20
+					OR = {
+						dynasty ?= scope:tnt_p.dynasty
+						is_close_or_extended_family_of = scope:tnt_p
+					}
+				}
+			}
+			add = {
+				value = 0
+				scope:tnt_sr ?= { add = effective_age }
+				subtract = 20
+				min = 0
+				max = 40
+			}
+		}
+
+		# a claimant stays under lock and key (:1658-1688)
+		if = {
+			limit = { scope:tnt_sr ?= { is_claimant = yes } }
+			add = -50
+		}
+
+		# and an inspired person is not going anywhere (:1927-1932)
+		if = {
+			limit = { scope:tnt_sr ?= { exists = inspiration } }
+			add = -100
+		}
+	}
+}
+
+
+###############################################################################
+# 6. AFFECTION — how much the partner likes what is being offered
+#
+# Port of :653-661 and :671-767. Vanilla's sign kept (positive = more willing);
+# it describes OUR candidate, so it feeds tnt_marriage_offer_p_value.
+#
+#   :653-661     opinion of our candidate x 0.25 (AI_OPINION_REASON_SPOUSE).
+#                Vanilla's second opinion row (:662-670, opinion of the ACTOR
+#                x 0.75) is DELIBERATELY OMITTED — tnt_relmod_opinion_value
+#                already carries opinion-of-the-player for the whole treaty
+#                (tnt_51_relation_values.txt:85-90) and adding it again here
+#                would count it twice. See §0 note 1.
+#   :744-767   +100 the partner IS the candidate and their soulmate is ours
+#   :718-742    +25 the same for a lover
+#   :671-697    +15 the two candidates like each other (both opinions > 50) and
+#                the partner is neither sadistic, callous nor cynical and
+#                thinks well of both
+#
+# The two secret-relation `trigger_if` blocks vanilla wraps around the lover /
+# soulmate rows are dropped: they ask whether the ACTOR knows of a secret
+# relation, and a player composing a treaty is not being told secrets by this
+# window either way.
+###############################################################################
+tnt_marriage_affection_value = {
+	# PER PAIR. Scopes are the caller's — see the file header.
+	value = 0
+
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+		}
+
+		# what they think of the person we are offering (:653-661)
+		if = {
+			limit = { NOT = { scope:tnt_p ?= { this = scope:tnt_sp } } }
+			add = {
+				value = 0
+				scope:tnt_p ?= { add = "opinion(scope:tnt_sp)" }
+				multiply = 0.25
+			}
+		}
+
+		# they are marrying their own soulmate (:744-767)
+		if = {
+			limit = {
+				exists = scope:tnt_sr
+				scope:tnt_p  ?= { this = scope:tnt_sr }
+				scope:tnt_sr ?= { has_relation_soulmate = scope:tnt_sp }
+			}
+			add = 100
+		}
+		# ...or their own lover (:718-742)
+		else_if = {
+			limit = {
+				exists = scope:tnt_sr
+				scope:tnt_p  ?= { this = scope:tnt_sr }
+				scope:tnt_sr ?= { has_relation_lover = scope:tnt_sp }
+			}
+			add = 25
+		}
+
+		# the two of them are fond of each other (:671-697)
+		if = {
+			limit = {
+				exists = scope:tnt_sr
+				scope:tnt_sr ?= {
+					opinion = {
+						target = scope:tnt_sp
+						value > 50
+					}
+					reverse_opinion = {
+						target = scope:tnt_sp
+						value > 50
+					}
+				}
+				scope:tnt_p ?= {
+					NOR = {
+						has_trait = sadistic
+						has_trait = callous
+						has_trait = cynical
+					}
+					opinion = {
+						target = scope:tnt_sp
+						value > 0
+					}
+					opinion = {
+						target = scope:tnt_sr
+						value > 0
+					}
+				}
+			}
+			add = 15
+		}
+	}
+}
+
+
+###############################################################################
+# 7. LIEGE AND VASSAL — the value user item 1.1 finally makes reachable
+#
+# Port of :493-509 and :1629-1653. v1 could only negotiate with independent
+# rulers, so these three rows could never fire; item 1.1 dropped
+# is_independent_ruler from tnt_partner_valid_trigger and now they can.
+# Vanilla's sign kept (positive = more willing), so it feeds offer_p.
+#
+#   :1629-1644   +40  "more likely to agree to a marriage arranged by their
+#                     liege" — the partner is our vassal and the person we
+#                     offer is NOT also their liege
+#   :1646-1653   +60  "more likely to agree to a marriage WITH their liege" —
+#                     the person we offer IS their liege
+#   :493-509    +100  the clan contract flag vassal_contract_marriage_favor,
+#                     tested from both points of view exactly as vanilla does
+#
+# `target_is_liege_or_above` — REAL: :1633, :1650 (and 00_alliance.txt:1999).
+# `is_vassal_of` + `vassal_contract_has_flag` — REAL: :498-504.
+# tgp_is_ceremonial_liege_trigger (vanilla's extra guard at :1632) is dropped:
+# it is a TGP-DLC trigger and the row it guards is a bonus, so its absence can
+# only make us marginally more generous, never wrong.
+###############################################################################
+# =============================================================================
+# `root` IS NOT AVAILABLE HERE, AND THE RUN OF 2026-08-13 PROVED IT.
+#
+#     Error: Event target link 'root' returned an unset scope
+#       tnt_52_marriage_values.txt:824 (tnt_marriage_liege_value)
+#       <- tnt_wed_add_pair_effect <- tnt_stage_marriage_interaction:on_accept
+#
+# An interaction's on_accept has NO ROOT - the available scopes are scope:actor and
+# scope:recipient (_character_interactions.info:236-238). This mod's own
+# tnt_38_ai_world.txt header states it verbatim ("THERE IS NO ROOT TO SPEAK OF in an
+# interaction's on_accept") and this value was written against root anyway.
+#
+# THE DAMAGE WAS NOT COSMETIC. Every pair added through the vanilla matchmaker was
+# priced with these three rows silently failing, so a match with the partner's own
+# liege - worth 40, 60 or 100 - was priced as if the two houses were strangers. It
+# is also why the grand wedding never paid: tnt_grand_pair_half_trigger asks whether
+# the celebrated spouse is OUR family, through the same dead `root`.
+#
+# THE FIX IS ONE LINE AND IT WORKS IN EVERY CONTEXT. `save_temporary_scope_as`
+# INSIDE a script value is legal and is this mod's own idiom - tnt_51's opinion row
+# opens with `var:tnt_partner ?= { save_temporary_scope_as = tnt_p }` - so the value
+# names the scope it is being evaluated ON, which is the player in both paths: the
+# GUI reaches these values through GetPlayer.MakeScope, and the effects call them
+# while standing on the player. scope:tnt_me then replaces root.
+# =============================================================================
+tnt_marriage_liege_value = {
+	# TWO LINES, AND THE SECOND ONE MATTERS AS MUCH AS THE FIRST. The same run also
+	# logged `Wrong scope for trigger: none, expected character`, which says the
+	# evaluating scope is not always a character either - a tooltip can be expanded
+	# in a context that is neither the player nor anybody. So: take the current scope
+	# as a default, then OVERRIDE it with scope:actor whenever an interaction is what
+	# we are inside. scope:actor is the player on every path this value is reached by
+	# (the interaction's actor is the ruler who opened the matchmaker), and it does
+	# not exist at all in the GUI path, where the current scope is already right.
+	save_temporary_scope_as = tnt_me
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = { save_temporary_scope_as = tnt_me }
+	}
+	# *** V15: AND THE CALLER'S OWN NAME FOR THE PLAYER WINS OVER BOTH. ***
+	# This row is why the three rungs below were dead on the deal path, which is a
+	# large part of why the mod's marriage number read flat against vanilla's.
+	# The two lines above take "the current scope" as their default, and that is
+	# right for a tooltip but wrong for the pricing loop: tnt_wed_reprice_all_effect
+	# evaluates tnt_marriage_pair_gain_value INSIDE
+	# `every_in_list = { variable = tnt_wed_list }` (tnt_34_marriage.txt:902-928),
+	# where the ambient scope is the BRIDE, not the player. So scope:tnt_me became
+	# the bride and all three rows below - "arranged by their liege" +40, "marriage
+	# with their liege" +60, the clan marriage favour +100 - asked whether the
+	# PARTNER was liege of the BRIDE and answered no. The largest positive row in
+	# the commonest friendly marriage silently returned 0, and worse, it returned
+	# the CORRECT number when tnt_wed_add_pair_effect priced the pair (ambient =
+	# the player) and then had it overwritten with 0 by the sync pass in the same
+	# click. The caller already saves the player under its own name one line before
+	# the loop for exactly this class of problem (tnt_34_marriage.txt:900, and this
+	# file reads scope:tnt_gulf_me in 37 places), so preferring it is not a new
+	# convention - it is the one already in force. It is last so it wins, and it is
+	# guarded so a path that does not save it (a bare tooltip) keeps today's
+	# behaviour unchanged.
+	if = {
+		limit = { exists = scope:tnt_gulf_me }
+		scope:tnt_gulf_me = { save_temporary_scope_as = tnt_me }
+	}
+	# PER PAIR. Scopes are the caller's — see the file header.
+	value = 0
+
+	# arranged BY their liege (:1629-1644)
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			scope:tnt_p ?= { target_is_liege_or_above = scope:tnt_me }
+			NOT = {
+				AND = {
+					exists = scope:tnt_sp
+					scope:tnt_p ?= { target_is_liege_or_above = scope:tnt_sp }
+				}
+			}
+		}
+		add = 40
+	}
+
+	# marriage WITH their liege (:1646-1653)
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			scope:tnt_p ?= { target_is_liege_or_above = scope:tnt_sp }
+		}
+		add = 60
+	}
+
+	# the clan contract's marriage favour (:493-509)
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			OR = {
+				scope:tnt_p ?= {
+					is_vassal_of = scope:tnt_me
+					vassal_contract_has_flag = vassal_contract_marriage_favor
+				}
+				# THE SECOND HALF MUST NAME ITS SCOPE TOO. It used to ask
+				# `is_vassal_of` on whatever the current scope happened to be, which
+				# is the same bug as the dead `root` a few lines up and it survived
+				# that fix: the run logged 32x `is_vassal_of trigger [ Wrong scope
+				# for trigger: none, expected character ]` from this very value,
+				# because a tooltip can be built in a context that is not a
+				# character at all. scope:tnt_me is always somebody.
+				scope:tnt_me ?= {
+					is_vassal_of = scope:tnt_p
+					vassal_contract_has_flag = vassal_contract_marriage_favor
+				}
+			}
+		}
+		add = 100
+	}
+}
+
+
+###############################################################################
+# 8. THE RANK GULF BETWEEN THE TWO HOUSES          (V14, USER ITEMS 4 AND 2)
+#
+# WHY THIS EXISTS. The user priced the same marriage twice: vanilla's own
+# arrange_marriage_interaction scored it -150 and refused, this mod's deal
+# scored it +1 and shipped a letter. The gap is NOT in values 1-7 — every one
+# of those is a body-for-body port carrying vanilla's own number and sign. It
+# is that vanilla's WHOLE REALPOLITIK BLOCK,
+# GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:138-357,
+# was priced NOWHERE: §0 note 2 forwarded it to tnt_val_alliance_p_value /
+# _r_value; _r_value is still a hard zero with no caller (tnt_50_values.txt:1375),
+# and _p_value came back on 2026-08-23 as the WEDDING alliance (:1330), not as
+# this block. That block is the only place vanilla weighs the distance between the
+# two houses, so losing it is exactly why a petty count's proposal to a hegemon
+# prices at +1 here and refuses there.
+#
+# THE LADDER IS VANILLA'S, seen from the higher house:
+#   gap 1  -> 10    :159-169  `tier_difference = { target = scope:recipient
+#                              value = -1 }` then `subtract = 10`
+#   gap 2  -> 30    :170-180  the same at `value = -2`, `subtract = 30`
+#   gap 3+ -> 40    :217-222  the WHOLE +40 "desires alliance" is DENIED, and
+#                             PDX's own comment on that row is
+#                             "# Emperors do not care for Counts at all"
+#   plus 75         :2364-2372 "# Don't spam the player with weaker offers"
+#
+# THIS LADDER IS THE SHRINK WITHOUT THE BASE, AND THAT IS DELIBERATE (V15).
+# Vanilla's row is a BONUS THAT SHRINKS from +40: gap 0 nets +40, gap 1 nets +30,
+# gap 2 nets +10, gap 3+ nets 0. What is ported here is 0 / -10 / -30 / -40, i.e.
+# the DIFFERENCES, charged as a cost. So on every pair where vanilla's row fires
+# this mod sits about 40 points below vanilla, INCLUDING at gap 0 where vanilla
+# pays +40 and this file pays nothing.
+# DO NOT COMPENSATE. Adding a flat +40 gain would pay for an alliance-yielding
+# match that is not alliance-yielding: vanilla's +40 fires only when
+# `yields_alliance = yes` AND the recipient's ai_diplomacy_stance is neutral or
+# threat, and NEITHER trigger has a single call site in all of
+# GAME\common\script_values - so the two conditions cannot be tested from here at
+# all (§0 note 2 carries the measurement). Shrinking the 40/30/10 ladder to
+# compensate is equally wrong: those three numbers are vanilla's own figures and
+# the V14 round justified them one by one. The honest state is a documented
+# 40-point offset, not a made-up row.
+#
+# *** AMENDED 2026-08-23. "DO NOT COMPENSATE" STILL BINDS THIS VALUE AND THIS FILE;
+# *** THE OFFSET IS NOW ANSWERED FROM OUTSIDE, WHERE THE PREDICATE CAN BE ASKED.
+# The first sentence was exactly right and is the reason the fix looks the way it
+# does: the base may only be paid on a match that REALLY yields an alliance, and no
+# script value can establish that. So the base is not added here and never will be.
+# It is paid by tnt_val_alliance_p_value (tnt_50_values.txt), gated on the bridge
+# variable var:tnt_wed_ally_any that tnt_wed_reprice_all_effect
+# (common\scripted_effects\tnt_34_marriage.txt) writes from vanilla's own
+# `yields_alliance` in an EFFECT, which is the only legal place to ask it.
+# THIS VALUE IS UNCHANGED. The 40/30/10 ladder was not shrunk, no flat +40 was
+# added here, and the SPLIT is now exact: base outside, shrink here, together
+# vanilla's own row. Two residues that are NOT defects and must not be "fixed" by
+# moving anything into this file: the shrink is charged on every pair while the
+# base is paid only on an alliance-yielding one, and the shrink is PER PAIR while
+# the base is PER DEAL (v3 item ADD-4 - one mutual consequence, priced once).
+#
+# SYMMETRIC ON THE GAP, because a mismatch is a mismatch whoever proposes it
+# and this mod charges the pair price to the DEAL, not to a proposer. The 75
+# rung is ONE-DIRECTIONAL, exactly as vanilla's own row is: a small player
+# courting a hegemon should be EXPENSIVE (the 40-point ladder covers that),
+# not suppressed.
+#
+# 75 AND NOT VANILLA'S -5000. A veto magnitude is not portable into a general
+# treaty, and §0 note 3's instinct about that was right — only its reading of
+# WHOSE spam those rows stop was wrong (all three gate on
+# `scope:recipient = { is_ai = no }`, i.e. they stop the AI spamming the
+# PLAYER). 75 is very_high_negative_ai_value,
+# GAME\common\script_values\00_ai_values.txt:33 — the same ladder this mod
+# already buckets its scales on (tnt_50_values.txt:3632-3639 cites
+# 00_ai_values.txt:22-34 explicitly). It is the top of vanilla's "clear no"
+# band without being a veto, so a player who really wants the match can still
+# buy it with land, a hook or fealty.
+#
+# NO DOUBLE COUNT WITH VALUE 3. Value 3 compares the two CANDIDATES' best close
+# relatives at 5 points a step and pays whoever marries up; this compares the
+# two RULERS AT THE TABLE and charges the match for the distance between them.
+# Vanilla runs both on every proposal (:531-538 alongside :159-180 + :217-222),
+# and for a count against an emperor its own net is +15 (tiers) - 40 (denied
+# alliance) = -25 seen from the emperor's side.
+# NO DOUBLE COUNT WITH THE COMPOSER GATE either: tnt_ai_worth_hearing_trigger
+# (tnt_41_gates.txt) is a GATE on two archetypes, this is a PRICE on every
+# pair, and a gate and a price cannot charge the same points twice.
+#
+# THE NEW SCOPE IS tnt_gulf_me AND THE NAME IS DELIBERATE. It must not collide
+# with the two UNGUARDED `save_temporary_scope_as = tnt_me` calls inside
+# tnt_marriage_liege_value above and tnt_marriage_grand_value below, which
+# would error on a re-save. The three effects that price a pair alias it beside
+# the tnt_p they already save:
+#   tnt_34_marriage.txt   tnt_wed_reprice_all_effect, tnt_wed_add_pair_effect
+#   tnt_12_marriage_picker.txt   tnt_stage_marriage_interaction's on_accept
+# Both values are guarded by `exists = scope:tnt_gulf_me`, so a caller that
+# ever forgets the alias prices the pair exactly as it did before V14 rather
+# than erroring.
+#
+# WHAT IT MOVES, AND THE REGRESSION TEST IS THE FIRST LINE:
+#   equal rank, ordinary pair          ->  0, bit-for-bit unchanged
+#   duke <-> king, comparable armies   -> 10, a legible premium
+#   king asks an emperor, king weak    -> 40 (ladder only; the 75 rung is
+#                                        one-directional by design)
+#   count <-> count, one of them poor  ->  0. Poverty alone is never charged;
+#                                        vanilla's row needs the tier gap too.
+#   count (500 men) -> hegemon (30,000) -> 40 + 75 = 115 onto the pair's loss.
+#
+#   MEASURED AGAINST THE USER'S OWN TEST, 2026-08-17: for a HEGEMON in the MANUAL
+#   window this value contributes EXACTLY 0 in both directions - the ladder needs
+#   the partner to outrank the player and the 75 rung needs var:tnt_ai_offer_arch,
+#   and neither holds there. So V14 did not cause the flat +5 he reported and did
+#   not overshoot; had it overshot, the same pair would have priced 115 points
+#   lower before V14 and his previous measurement would have read about -110
+#   instead of +1. The flat number was the unported DREAD block
+#   (tnt_marriage_dread_value below, V15) plus V4's percentage refactor
+#   (tnt_50_values.txt:2435-2471). DO NOT "loosen" this value to chase it.
+#   Corroborating fact from the same run: arch16 composed ZERO letters, because
+#   T47 removes it from the draw at a rank gap of 2 or more, so his test was
+#   necessarily done in the manual window - where both rungs above are switched
+#   off by construction.
+###############################################################################
+tnt_marriage_rank_gap_value = {
+	# |player tier - partner tier|. There is no abs operator in a script value,
+	# so the two directions are two branches and each adds the larger first.
+	# EVERY LINE BELOW IS A SHAPE THIS FILE ALREADY SHIPS. The limit form
+	# `highest_held_title_tier > scope:X.highest_held_title_tier` and the body
+	# form `add = scope:X.highest_held_title_tier` / `subtract = scope:Y....`
+	# are verbatim vanilla, GAME\common\script_values\00_interaction_values.txt
+	# :933, :947 and :955-956, and value 3 above carries the identical four
+	# lines already.
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_gulf_me
+			scope:tnt_p ?= { highest_held_title_tier > scope:tnt_gulf_me.highest_held_title_tier }
+		}
+		add = scope:tnt_p.highest_held_title_tier
+		subtract = scope:tnt_gulf_me.highest_held_title_tier
+	}
+	else_if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_gulf_me
+			scope:tnt_gulf_me ?= { highest_held_title_tier > scope:tnt_p.highest_held_title_tier }
+		}
+		add = scope:tnt_gulf_me.highest_held_title_tier
+		subtract = scope:tnt_p.highest_held_title_tier
+	}
+	min = 0
+}
+
+tnt_marriage_rank_gulf_cost_value = {
+	# A POSITIVE COST, fed to tnt_marriage_pair_loss_value below. Named value
+	# against a LITERAL on every comparison (Law R7).
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_gulf_me
+			# ONE DIRECTION, BECAUSE VANILLA HAS ONLY ONE (V14 correction).
+			# tnt_marriage_rank_gap_value above is an ABSOLUTE gap, and charging it
+			# both ways was wrong: vanilla's realpolitik row
+			# (GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt
+			# :138-222) is a BONUS THAT SHRINKS - it opens at +40 and subtracts 10
+			# and 30 as the gap widens, then denies the whole +40 at a gap of three
+			# or more - and it is only ever asked of the party marrying UP. It
+			# never charges the higher party for marrying DOWN, because vanilla
+			# does not think a great house loses anything it must be paid for by
+			# taking a lesser man's daughter; the lesser man simply gains.
+			# Charging it symmetrically made "marry my daughter to my loyal count"
+			# cost the player about 1,500 gold in compensation the count could
+			# never raise - i.e. it broke the commonest friendly marriage in the
+			# game, in the MANUAL window, where no AI spam was ever the problem.
+			# So the ladder now fires only when the PARTNER outranks the player.
+			scope:tnt_p ?= { highest_held_title_tier > scope:tnt_gulf_me.highest_held_title_tier }
+		}
+		if = {
+			limit = { tnt_marriage_rank_gap_value >= 3 }
+			add = 40
+		}
+		else_if = {
+			limit = { tnt_marriage_rank_gap_value >= 2 }
+			add = 30
+		}
+		else_if = {
+			limit = { tnt_marriage_rank_gap_value >= 1 }
+			add = 10
+		}
+	}
+	# The power gulf keeps its own block because it fires in the OPPOSITE
+	# direction from the ladder above - see its note.
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_gulf_me
+		}
+		# THE POWER GULF, :2364-2372, and it is user item 2 verbatim: 500 troops
+		# against 30,000, a count against an emperor. ONE DIRECTION ONLY — the
+		# PARTNER must be both lower in tier AND militarily negligible beside
+		# the player. The strength row is written in VANILLA'S OWN OPERAND ORDER
+		# (:2368,
+		#   scope:recipient.eighty_percent_of_max_military_strength >
+		#   scope:actor.current_military_strength)
+		# with nothing changed but the two scope names, so no unproven operand
+		# order is introduced here. eighty_percent_of_max_military_strength is
+		# VANILLA'S OWN script value and needs no definition,
+		# GAME\common\script_values\00_interaction_values.txt:898-903. Reading it
+		# through a DOTTED SCOPE in a trigger is vanilla's own besides, and in a
+		# pure scripted_trigger at that:
+		#   max_military_strength < root.eighty_percent_of_max_military_strength
+		#   GAME\common\scripted_triggers\00_diarchy_scripted_triggers.txt:723
+		# The tier row is spelled as the else_if limit above rather than with
+		# `<`, so the two can never drift apart.
+		# Both scopes are guaranteed to exist here by the enclosing limit.
+		# AND IT FIRES ONLY ON THE LETTER PATH (V14 correction). This rung is the
+		# one the user asked for in item 2 - a 500-troop count writing to a 30,000
+		# man hegemon - and it works by making the count's own acceptance collapse,
+		# so the settle demands more than he can raise and the letter dies. But its
+		# condition is a property of the PAIR, not of who asked, so on the manual
+		# path it also fell on a player who WANTED to marry down, and there it was
+		# pure obstruction: the AI spam it exists to stop cannot occur in a window
+		# the player opened himself. var:tnt_ai_offer_arch exists only while a
+		# composed letter is live - the counter-offer effect removes it before the
+		# window opens - which is the same switch tnt_val_vassal_r_value and the
+		# generosity ceiling already use to separate the two paths.
+		# ACCEPTED CONSEQUENCE, stated rather than hidden: countering such a letter
+		# re-prices the pair 75 points cheaper than the letter said. T47 keeps that
+		# rare - it removes the marriage archetype from the draw entirely for a gap
+		# this wide - and a player who counters is renegotiating anyway.
+		if = {
+			limit = {
+				exists = var:tnt_ai_offer_arch
+				tnt_marriage_rank_gap_value >= 1
+				scope:tnt_gulf_me ?= { highest_held_title_tier > scope:tnt_p.highest_held_title_tier }
+				scope:tnt_gulf_me.eighty_percent_of_max_military_strength > scope:tnt_p.current_military_strength
+			}
+			add = 75
+		}
+	}
+}
+
+
+###############################################################################
+# 10. DREAD — tnt_marriage_dread_value.  ONCE PER TREATY, NEVER TAPERED.
+#
+# THE REGRESSION TEST IS THE FIRST LINE: at dread level 0 this returns 0, so the
+# ordinary equal-rank pair is BIT-FOR-BIT UNCHANGED. Only a frightened partner
+# moves. Nothing below can fire for the ~95% of partners who are not afraid,
+# because the whole body sits behind one `level >= 1` short-circuit.
+#
+# WHAT IT IS. A body-for-body port of vanilla's entire DREAD ladder,
+# GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:1690-1825
+# (PDX's own "# DREAD" header at :1690-1692). It is the block that produced BOTH
+# of the user's measurements - his +150 and, a round earlier, his -150 - and it
+# was priced at exactly 0 here until V15. The full decision is in this file's
+# header; this is the implementation of it.
+#
+# THE TEN RUNGS, EACH WITH ITS VANILLA LINE AND ITS VANILLA NAMED VALUE:
+#   :1694-1705  +75   our vassal, INTIMIDATED, somebody else at the altar
+#                     intimidated_marriage_reason_value = 75
+#                     GAME\common\script_values\00_basic_values.txt:902-915
+#   :1706-1717 +150   the same, COWED
+#                     cowed_marriage_reason_value = 150            :917-930
+#   :1719-1731  +10   outside our realm, intimidated
+#                     intimidated_marriage_external_reason_value = 10   :962-975
+#   :1732-1744  +20   the same, cowed
+#                     cowed_marriage_external_reason_value = 20        :977-990
+#   :1746-1758  -50   he would marry US and we are his liege, intimidated (literal)
+#   :1759-1771  -75   the same, cowed                                   (literal)
+#   :1773-1785  -75   he would marry US, we are NOT his liege, intimidated (literal)
+#   :1786-1798 -150   the same, cowed                                   (literal)
+#   :1800-1812  +25   he would marry somebody OF OURS, not us, intimidated
+#                     intimidated_marriage_not_secondary_reason_value = 25  :932-945
+#   :1813-1825  +50   the same, cowed
+#                     cowed_marriage_not_secondary_reason_value = 50       :947-960
+# All six NAMED values double themselves for guile_legacy_5 through
+# `scope:actor = { ... dynasty = { has_dynasty_perk = guile_legacy_5 } }`
+# (00_basic_values.txt:904-914). The four negative rungs are BARE LITERALS and
+# vanilla does NOT double them. That asymmetry is preserved below - branches A and
+# C carry the doubling, branch B deliberately does not.
+# guile_legacy_5 is a real vanilla perk,
+# GAME\common\dynasty_perks\00_dynasty_perks.txt:270.
+#
+# WHY THE NUMBERS ARE COPIED AND NOT CALLED. The six names are Class C: each one
+# reads scope:actor inside its own doubling `if`. That resolves on an interaction's
+# path and is an UNSET SCOPE on this mod's GUI path - the exact error recorded at
+# :829-838 for `root`. Copying the six literals and re-testing guile_legacy_5
+# against a scope this file owns is the only form that works in both places.
+#
+# ONCE PER TREATY AND NEVER PER PAIR, AND THAT IS THE ONE DESIGN DECISION HERE.
+# Dread is a fact about the two RULERS, and vanilla adds it once per proposal.
+# Per-pair it would pay 5 x 150 x 0.80 (the taper) = 600 points for five clicks -
+# FOUR TIMES the alliance ceiling of 150 and seven times the largest treaty run D
+# ever applied (gave 83), i.e. a player could buy any treaty by stacking onto one
+# frightened neighbour. So the rung is selected by questions about the WHOLE
+# tnt_wed_list rather than by the per-pair scopes, and the value is wired into the
+# two aggregate halves beside tnt_marriage_grand_value - the other once-per-treaty
+# row - and is NOT tapered, for the same reason the +40 is not.
+#
+# HOW THE RUNG IS SELECTED, and it is vanilla's own discriminator. Vanilla splits
+# its ladder on two booleans:
+#     is the RECIPIENT himself at the altar   `this = scope:secondary_recipient`
+#     are WE ourselves at the altar           `scope:actor = scope:secondary_actor`
+# Here the pair list IS the altar: a member of tnt_wed_list is the player-side
+# spouse and its var:tnt_wed_partner is the other side's spouse
+# (tnt_34_marriage.txt:72-75). Both rulers really are reachable as spouses -
+# tnt_fill_spouse_p_effect pass 1 offers the player himself
+# (tnt_34_marriage.txt:455-460, "--- 1. the ruler themselves") and
+# tnt_fill_spouse_r_effect pass 1 offers the partner himself (:520-525) - so all
+# three branches below are live code, not theory. (tnt_34_marriage.txt:828's aside
+# "a character who is NOT the player" describes the ordinary case, not a
+# guarantee; the player CAN be a list member, and branch B is precisely the case
+# where he is.)
+#
+# THE THREE BRANCHES ARE PAIR-MATCHED, WHICH IS A DELIBERATE IMPROVEMENT ON THE
+# TWO-INDEPENDENT-QUESTIONS FORM. Vanilla's two booleans describe ONE proposal, so
+# they must be true of the SAME couple. Asking them independently over a list would
+# select the negative rungs for a treaty where the player is at the altar in pair 1
+# and the partner is at the altar in pair 2 - a configuration vanilla would never
+# score that way. One `any_in_list` entry may hold several triggers, all of which
+# must hold for the same member, so the pair-match costs nothing:
+#   GAME\common\character_interactions\06_ep3_laamp_interactions.txt:7033-7036
+#   (`any_in_list = { variable = knights_to_train  is_alive = yes  is_knight = yes
+#     this = scope:recipient }`)
+#
+# EVERY SHAPE BELOW HAS A REAL CALL SITE:
+#   has_dread_level_towards = { target = <scope>  level = N } inside a script value
+#     GAME\common\script_values\02_vassal_values.txt:77-80 (level = 2),
+#     :120-123 (level = 1)
+#   the `level >= N` threshold form
+#     GAME\common\script_values\00_diarchy_values.txt:103-107, :115-118 - and that
+#     pair is ALSO the proof that `level = N` is an EQUALITY, because vanilla
+#     writes `>=` explicitly whenever it means a threshold. That is why the two
+#     rungs of each pair are mutually exclusive and the if/else_if chains are exact.
+#   target_is_liege_or_above = <scope> inside a script value
+#     GAME\common\script_values\00_lifestyle_values.txt:831-832, 07_ep3_values.txt:622
+#   exists = top_liege inside a script value
+#     GAME\common\script_values\10_tgp_dynastic_cycle_values.txt:441, :454, :467
+#   any_in_list = { variable = <name>  <triggers> } inside a script value
+#     GAME\common\script_values\00_scheme_values.txt:2289-2291, :2313-2315;
+#     02_religion_values.txt:3657-3659
+#   this = scope:X inside any_in_list
+#     GAME\common\character_interactions\00_diarch_interactions.txt:5072-5074
+#   var:x ?= { <triggers> } in a trigger
+#     GAME\common\character_interactions\00_marriage_interactions.txt:790
+#     (the same site the grand-wedding block above already cites)
+#   dynasty ?= { has_dynasty_perk = ... } - shipped in this file, the helper at :186
+#   min / max inside an `add = { }` block
+#     GAME\common\script_values\00_activity_values.txt:2439-2443 (max),
+#     :2815-2817 (min); and shipped at tnt_51_relation_values.txt:605-609
+#   the guarded two-step scope save - verbatim from tnt_51_relation_values.txt:583-595
+#
+# THE SCOPE NAMES ARE FRESH ON PURPOSE. tnt_marriage_liege_value (:862-866) and
+# tnt_marriage_grand_value (:1392-1396) both save tnt_me UNGUARDED, and the second
+# is called from the same aggregate this value is wired into; :974-983 records that
+# a collision "would error on a re-save". tnt_gulf_me is taken by value 8. So this
+# value owns tnt_dread_me / tnt_dread_p and nothing else may write them.
+#
+# SCOPE CONTRACT, AND IT IS THE ONE WAY TO MISUSE THIS VALUE: it must be evaluated
+# in the NEGOTIATOR'S OWN SCOPE, because `has_variable_list` and `any_in_list` read
+# the ambient scope and tnt_wed_list lives on the negotiator. Both wiring points
+# below satisfy that - they sit at the aggregate level, OUTSIDE the every_in_list,
+# exactly where tnt_marriage_taper_value and tnt_marriage_grand_value already read
+# the same list. NEVER call it from inside the pair loop.
+#
+# DIRECTION, CHECKED IN BOTH PATHS RATHER THAN ASSUMED. Vanilla asks whether the
+# RECIPIENT fears the ACTOR, i.e. whether the party being asked fears the party
+# asking. Here tnt_dread_me is the negotiator whose window or letter this is and
+# tnt_dread_p is var:tnt_partner, the party being asked - so "p fears me" maps onto
+# "recipient fears actor" in both directions:
+#   MANUAL WINDOW - me = the player, p = the AI partner. A hegemon asking his own
+#     cowed vassal for a relative hits branch A rung 1: +150. That is the user's
+#     measurement, reproduced.
+#   AI LETTER     - me = the AI proposer, p = the player. It asks whether the
+#     PLAYER fears the AI, which for a small vassal writing to a hegemon is no. So
+#     the letter path gets no windfall, and when it does fire it fires the way
+#     vanilla does: the frightened party's acceptance rises and the settle asks
+#     less of the other side. T47 (tnt_41_gates.txt) already removes arch16 from
+#     the draw at a rank gap of 2 or more, so this cannot resurrect the spam that
+#     gate exists to stop.
+#
+# PERFORMANCE. The list walk is behind the dread short-circuit, so a partner who is
+# not afraid costs two `exists` checks, one `has_variable_list` and one
+# `has_dread_level_towards` - no iteration at all. The `has_variable_list` guard is
+# not decoration: `variable_list_size` on a never-created list is an ENGINE ERROR
+# rather than a zero.
+###############################################################################
+tnt_marriage_dread_value = {
+	# THE TWO SCOPES, GUARDED - idiom verbatim from tnt_51_relation_values.txt:583-595.
+	# Guarded because a parent value or effect may already hold the name and
+	# re-saving is an error in itself. Current scope by default, scope:actor when we
+	# are inside an interaction (there is no root in an interaction's on_accept).
+	if = {
+		limit = { NOT = { exists = scope:tnt_dread_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_dread_me }
+		}
+		else = { save_temporary_scope_as = tnt_dread_me }
+	}
+	if = {
+		limit = { NOT = { exists = scope:tnt_dread_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_dread_p }
+	}
+
+	value = 0
+
+	if = {
+		# ONE SHORT-CIRCUIT FOR THE 95% CASE: nothing at all unless he is afraid.
+		# `level >= 1` is vanilla's "any dread" form (00_diarchy_values.txt:105);
+		# the rungs below use vanilla's own `level = N` equality.
+		limit = {
+			exists = scope:tnt_dread_me
+			exists = scope:tnt_dread_p
+			has_variable_list = tnt_wed_list
+			variable_list_size = { name = tnt_wed_list  value > 0 }
+			scope:tnt_dread_p ?= {
+				has_dread_level_towards = { target = scope:tnt_dread_me  level >= 1 }
+			}
+		}
+
+		# --- (A) THE PARTNER IS NOT AT THE ALTAR HIMSELF (:1694-1744) ----------
+		# vanilla: `scope:recipient = { this != scope:secondary_recipient }`
+		if = {
+			limit = {
+				NOT = {
+					any_in_list = {
+						variable = tnt_wed_list
+						var:tnt_wed_partner ?= { this = scope:tnt_dread_p }
+					}
+				}
+			}
+			if = {						# our vassal, COWED (:1706-1717)
+				limit = {
+					scope:tnt_dread_p ?= {
+						target_is_liege_or_above = scope:tnt_dread_me
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 2 }
+					}
+				}
+				add = 150
+			}
+			else_if = {					# our vassal, INTIMIDATED (:1694-1705)
+				limit = {
+					scope:tnt_dread_p ?= {
+						target_is_liege_or_above = scope:tnt_dread_me
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 1 }
+					}
+				}
+				add = 75
+			}
+			else_if = {					# outside our realm, COWED (:1732-1744)
+				limit = {
+					scope:tnt_dread_p ?= {
+						exists = top_liege
+						NOT = { target_is_liege_or_above = scope:tnt_dread_me }
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 2 }
+					}
+				}
+				add = 20
+			}
+			else_if = {					# outside our realm, INTIMIDATED (:1719-1731)
+				limit = {
+					scope:tnt_dread_p ?= {
+						exists = top_liege
+						NOT = { target_is_liege_or_above = scope:tnt_dread_me }
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 1 }
+					}
+				}
+				add = 10
+			}
+			# The NAMED rungs double for guile_legacy_5, 00_basic_values.txt:904-914.
+			# It multiplies the rung and nothing else: `value = 0` opens this value and
+			# no other row has added by the time this is reached.
+			if = {
+				limit = { scope:tnt_dread_me ?= { dynasty ?= { has_dynasty_perk = guile_legacy_5 } } }
+				multiply = 2
+			}
+		}
+
+		# --- (B) HE IS AT THE ALTAR AND SO ARE WE, IN THE SAME PAIR (:1746-1798)
+		# vanilla: `scope:actor = scope:secondary_actor` AND
+		#          `scope:recipient = { this = scope:secondary_recipient }`
+		# Both booleans describe ONE proposal, so both triggers sit in ONE
+		# any_in_list entry and must hold for the SAME list member.
+		# These four rungs are the only ones with no `exists = top_liege` row -
+		# vanilla omits it here (:1746-1798) and so do we.
+		# NO guile DOUBLING: vanilla's four negative rungs are bare literals.
+		else_if = {
+			limit = {
+				any_in_list = {
+					variable = tnt_wed_list
+					this = scope:tnt_dread_me
+					var:tnt_wed_partner ?= { this = scope:tnt_dread_p }
+				}
+			}
+			if = {						# we are his liege, COWED (:1759-1771)
+				limit = {
+					scope:tnt_dread_p ?= {
+						target_is_liege_or_above = scope:tnt_dread_me
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 2 }
+					}
+				}
+				add = -75
+			}
+			else_if = {					# we are his liege, INTIMIDATED (:1746-1758)
+				limit = {
+					scope:tnt_dread_p ?= {
+						target_is_liege_or_above = scope:tnt_dread_me
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 1 }
+					}
+				}
+				add = -50
+			}
+			else_if = {					# we are NOT his liege, COWED (:1786-1798)
+				limit = {
+					scope:tnt_dread_p ?= {
+						NOT = { target_is_liege_or_above = scope:tnt_dread_me }
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 2 }
+					}
+				}
+				add = -150
+			}
+			else_if = {					# we are NOT his liege, INTIMIDATED (:1773-1785)
+				limit = {
+					scope:tnt_dread_p ?= {
+						NOT = { target_is_liege_or_above = scope:tnt_dread_me }
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 1 }
+					}
+				}
+				add = -75
+			}
+		}
+
+		# --- (C) HE IS AT THE ALTAR AND WE ARE NOT (:1800-1825) ----------------
+		# vanilla: `scope:actor != scope:secondary_actor` AND
+		#          `scope:recipient = { this = scope:secondary_recipient
+		#                               exists = top_liege }`
+		# No liege test on these two rungs - vanilla has none.
+		else = {
+			if = {						# COWED (:1813-1825)
+				limit = {
+					scope:tnt_dread_p ?= {
+						exists = top_liege
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 2 }
+					}
+				}
+				add = 50
+			}
+			else_if = {					# INTIMIDATED (:1800-1812)
+				limit = {
+					scope:tnt_dread_p ?= {
+						exists = top_liege
+						has_dread_level_towards = { target = scope:tnt_dread_me  level = 1 }
+					}
+				}
+				add = 25
+			}
+			if = {
+				limit = { scope:tnt_dread_me ?= { dynasty ?= { has_dynasty_perk = guile_legacy_5 } } }
+				multiply = 2
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# 11. THE HEIR AT THE ALTAR - tnt_marriage_heir_value        (V19, USER ITEM I3)
+#
+# Port of 00_marriage_scripted_modifiers.txt:92-133, under PDX's own header
+# "# WHO IS GETTING MARRIED" (:84-86), desc = MARRYING_HEIR_REASON = "Your
+# Candidate is [actor.GetShortUINamePossessive] [heir|E]"
+# (GAME\localization\english\specialinteractions_l_english.yml:36):
+#   :117-133   +20  the person WE offer IS our own player_heir #0
+#   :92-115    +10  the same for heir positions 1..4 (PDX: "5 first player heirs")
+# Both rows carry one further condition and it is vanilla's, kept verbatim:
+#   scope:actor = { tier_difference = { target = scope:recipient  value > 0 } }
+# i.e. WE OUTRANK THE PARTNER. Vanilla pays nothing for an heir offered upward or
+# sideways, and neither does this.
+#
+# THE DIRECTION OF tier_difference WAS VERIFIED, NOT ASSUMED - the whole row hangs
+# on its sign and one PDX comment states it backwards. IT IS SELF MINUS TARGET.
+# Three independent proofs, in ascending order of strength:
+#   * GAME\common\character_interactions\00_tributary_interactions.txt:980-985,
+#     "# Generally don't try to tributarize those of higher rank than you" sitting
+#     over `"scope:recipient.tier_difference(scope:actor)" > 1`
+#   * the "# Emperors do not care for Counts at all" guard at :217-222 denies
+#     DESIRES_ALLIANCE at `value <= -3`, and that desc's subject is the RECIPIENT
+#     ("[recipient.GetShortUIName|U] desires an [alliance|E]"), so the emperor
+#     there is the recipient and the count is the actor
+#   * RENDERED PLAYER-FACING TEXT, which settles it outright:
+#     GAME\common\scripted_triggers\03_fp2_scripted_triggers.txt:574-580 wraps
+#     `tier_difference = { target = scope:actor  value <= 0 }` in the
+#     custom_tooltip fp2_enforce_truce_tier_difference_tt, whose string is "Both
+#     [war_leaders|E] must be of an equal or lower [rank|E] than you"
+#     (GAME\localization\english\dlc\fp2\dlc_fp2_character_interactions_l_english.yml:57)
+# The one wrong-way comment is 00_lifestyle_values.txt:850 ("# Only 1 tier below
+# us" over `target = root  value = 1`). It is a PDX comment error; do not let it
+# re-open this, and do not re-derive the sign from trigger_localization either
+# (TIER_DIFFERENCE_TRIGGER's wording is ambiguous and house law 1 bars it).
+#
+# WHY IT WAS MISSING RATHER THAN REFUSED, which is what makes this a defect and
+# not a design choice. Until V19 it was the one row of vanilla's marriage sum this
+# file neither ported nor argued against: the census at :198-214 did not list
+# :92-133 at all (its row is now :214), and unlike the realpolitik base (:234-256)
+# or the difficulty rows (:257-268) there was no written refusal anywhere.
+# _docs\42-marriage-extended.md:931-932 classified BOTH rows KEEP and neither ever
+# landed. That is why a king offering his own heir to a lesser ruler priced about
+# 20 points under vanilla with nothing here to explain the gap.
+#
+# THE REGRESSION TEST IS THE FIRST LINE: an equal-rank pair, and any candidate who
+# is not one of our first five heirs, is BIT-FOR-BIT unchanged, because vanilla's
+# own tier gate is kept. It can never stack with value 8's rank-gulf cost - that
+# ladder fires only when the PARTNER outranks us, the exact complement of this
+# gate. It DOES stack with value 3 (the close-family tier edge), exactly as
+# vanilla stacks :531-538 with :92-133 on every single proposal.
+#
+# SCOPES ARE THE CALLER'S, and the mapping is the file header's (:275-281):
+#   scope:tnt_gulf_me  = vanilla's scope:actor            (the player, both paths)
+#   scope:tnt_sp       = vanilla's scope:secondary_actor  (our side of the pair)
+#   scope:tnt_p        = vanilla's scope:recipient        (the partner ruler)
+# `root` is deliberately not read: it is unset in an interaction's on_accept and
+# that cost a whole round once - value 7's header at :1014-1038 has the error text.
+# A caller that forgets to alias tnt_gulf_me gets 0 here rather than an error, the
+# same fail-soft value 8 chose.
+#
+# BOTH SHAPES ARE ALREADY PROVEN INSIDE A SCRIPT VALUE:
+#   `player_heir_position = { value = N  target = <scope> }` - value 1 above,
+#     :457-463, plus vanilla's own 35 uses (see value 1's header at :411-413)
+#   `tier_difference` in a script value - GAME\common\script_values\
+#     00_lifestyle_values.txt:842, and shipped in this mod at tnt_50_values.txt:1034
+#
+# THE if/else_if IS EXACT, NOT A SHORTCUT. Vanilla's +10 row spells out
+# `value <= 4` AND `NOT = { value = 0 }`; an else_if that is only reached when the
+# +20 branch failed says the same thing with one fewer trigger. The tier gate is
+# written FIRST in each limit so it short-circuits the succession lookup behind it
+# - the same ordering argument as tnt_41_gates.txt:2797-2801.
+#
+# COST: at most two tier compares and two succession lookups PER PAIR, and never
+# per frame. Value 9 below is computed once at commit and frozen as tnt_wed_gain
+# (tnt_34_marriage.txt:1204-1235), re-derived only by tnt_wed_reprice_all_effect
+# at window open; nothing on a per-frame `.gui` path reads it. Value 1 above
+# already spends up to three of the same lookups on the partner.
+###############################################################################
+tnt_marriage_heir_value = {
+	# PER PAIR, and POSITIVE-ONLY by construction (20 / 10 / 0) - which is why
+	# value 9 adds it bare, exactly as it adds tnt_marriage_liege_value.
+	value = 0
+
+	# our own heir #0 at the altar (:117-133)
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			exists = scope:tnt_gulf_me
+			scope:tnt_gulf_me ?= { tier_difference = { target = scope:tnt_p  value > 0 } }
+			scope:tnt_gulf_me ?= {
+				exists = player_heir
+				player_heir_position = {
+					value = 0
+					target = scope:tnt_sp
+				}
+			}
+		}
+		add = 20
+	}
+	# a spare - heir #1..4 (:92-115)
+	else_if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			exists = scope:tnt_gulf_me
+			scope:tnt_gulf_me ?= { tier_difference = { target = scope:tnt_p  value > 0 } }
+			scope:tnt_gulf_me ?= {
+				exists = player_heir
+				player_heir_position = {
+					value <= 4
+					target = scope:tnt_sp
+				}
+			}
+		}
+		add = 10
+	}
+}
+
+
+###############################################################################
+# 9. THE TWO HALVES THE BALANCE READS
+#     (this section was numbered 8 before V14, when the rank gulf took that
+#      number; tnt_50_values.txt:1502 still cites the old "§8" by name)
+#
+# These REPLACE the bodies of tnt_val_marriage_p_value / _r_value in
+# tnt_50_values.txt (which is NOT this author's file — see the integration
+# lines in NOTES3-marriage.md: each of those two entries becomes a one-line
+# delegation to the value below, and their `exists = var:tnt_marriage_child_*`
+# selection rows become `exists = var:tnt_spouse_*`).
+#
+# BOTH RETURN >= 0 — 10-CONTRACT §4 rule 5. tnt_balance_value applies the sign
+# (`multiply = -1` on the _r row, tnt_50_values.txt:3080).
+#
+# THE ASYMMETRY IS THE POINT (42-marriage-extended.md W-10). _p prices the
+# blood, the affection and the fertility of the person WE offer; _r prices the
+# lineality and the attachment the PARTNER surrenders. That is what makes the
+# scales move when nothing changes but the line toggle — which is exactly what
+# user item 2.1 asked for. Do not collapse them into one value.
+#
+# SELECTION TEST, changed from v1: the old rows required the auto-picked
+# tnt_marriage_child_*. Now they require BOTH player-chosen spouses AND
+# tnt_marriage_legal, the 0/1 mirror that tnt_marriage_sync_effect writes after
+# running vanilla's own can_marry_character_trigger over the pair
+# (tnt_34_marriage.txt). A pair that is not legal prices at 0 and cannot be
+# switched on, so the "priced no-op" class of bug is closed on both sides.
+#
+# THE _r CAP IS 1200, NOT 400. Value 1 can return 1000, which is vanilla's
+# gender-dominated-faith VETO (:1085-1119). A smaller cap would let a player buy
+# through that veto; at 1200 the veto survives as a veto while every ordinary
+# lineality penalty (10..100) is unaffected.
+#
+# ===========================================================================
+# v3 ITERATION 2 — THIS IS THE ACCEPTANCE TEST OF THE WHOLE RECALIBRATION, AND
+# THE CHANGE HERE IS THE BASE, NOT THE ROWS.
+# ===========================================================================
+# The user measured +12 for a vanilla marriage and a negative number for the same
+# marriage in our window. THE SEVEN VALUES ABOVE WERE NEVER THE PROBLEM: every one
+# of them is a body-for-body port of a row of vanilla's own
+# marriage_ai_accept_modifier, with vanilla's own number and vanilla's own sign, so
+# they were already denominated in raw acceptance points. What was wrong was the
+# frame around them:
+#
+#   (a) A FLAT 45 ON EACH SIDE. `arrange_marriage_interaction`'s ai_accept is
+#       literally `base = 0` — GAME\common\character_interactions\00_marriage_interactions.txt:752-756
+#           ai_accept = { base = 0    marriage_ai_accept_modifier = yes }
+#       There is no offset, no threshold and nothing to cancel. Our 45 was v1's own
+#       invention. It netted to zero ONLY while both tnt_marriage_p and
+#       tnt_marriage_r were set, and they are independent toggles
+#       (tnt_20_scripted_guis.txt tnt_marriage_p_toggle / tnt_marriage_r_toggle), so
+#       a one-sided marriage handed the partner a phantom 45.
+#
+#   (b) THE `min = 0` CLAMPS ATE VANILLA'S POSITIVE ROWS. With the 45 removed the
+#       old shape would have been strictly worse, not better: tnt_marriage_partner_
+#       attachment_value legitimately reaches +50 (an unimportant courtier +10 plus
+#       an ageing unmarried relative +40), and `45 - 50` clamped at 0 threw 5 points
+#       away while `0 - 50` would have thrown all 50 away. Vanilla's "+10, fair game,
+#       have them" row (:1574-1593) would simply have vanished.
+#
+# THE FIX: base 0, and EVERY SIGNED TERM IS SPLIT BY ITS SIGN across the two halves
+# instead of being subtracted inside one of them. A positive row lands in _p (what
+# the partner gains), the same row when negative lands in _r (what he gives up),
+# and `add = { value = X  multiply = -1  min = 0 }` is the idiom for the second
+# half — already used by this file for the tier edge, and sanctioned vanilla at
+# GAME\common\script_values\00_activity_values.txt:286-290.
+#
+# THE IDENTITY THAT MATTERS, and it is exact:
+#       _p - _r  ==  blood + affection + liege + tier_edge + attachment
+#                    - lineality - fertility
+# which is PRECISELY vanilla's marriage_ai_accept_modifier sum with every row
+# carrying vanilla's own sign — nothing added, nothing clamped away, no base. The
+# headline reads (gain - loss), so the marriage contributes exactly that sum, and
+# the window's opinion row (tnt_relmod_opinion_value, x0.75) supplies the term this
+# file deliberately omits (see §6's note on :662-670).
+#
+# WHAT AN ORDINARY MARRIAGE READS, AND THE SPLIT THAT EXPLAINS EVERY MEASUREMENT
+# THE USER HAS EVER TAKEN AGAINST THIS FILE (rewritten V15).
+#
+# THE SPLIT, and once it is seen the whole +-150-versus-+-5 gap is obvious:
+#   THIS FILE PRICES THE TWO CANDIDATES. Lineality, lowborn and dynasty prestige,
+#   the close-family tiers, age and fertility and incapability, courtier
+#   attachment, affection, the liege and clan contract, the grand wedding - every
+#   single one of the ~25 ported rows is a property of the two PEOPLE at the altar.
+#   EVERYTHING ABOUT THE TWO RULERS IS SOMEWHERE ELSE. Opinion of the actor
+#   (vanilla x0.75, +-75), faith, culture, kinship, being at war, allies and the
+#   greed threshold all live in the deal-wide relationship layer,
+#   tnt_51_relation_values.txt, which tnt_ai_accept_value adds once for the whole
+#   treaty. And vanilla keeps ALL of its +-100-and-up rows on the RULERS.
+#
+# WHY THAT MATTERS: V4 made every relationship row a PERCENTAGE of the offer
+# (tnt_50_values.txt:3562-3584, tnt_51_relation_values.txt:211-222), so a row's
+# contribution is `row_number x (offer / 100)`. On a treaty whose only term is one
+# marriage, the marriage IS the offer. Small x small = 0. An unremarkable pair
+# therefore priced at about 0 and dragged opinion, faith, culture and the threshold
+# down to about 0 with it - which is the "+5" the user measured. The old +13
+# arithmetic that used to be printed here was pre-V4 and summed those rows as FLAT
+# points; it has not been true since V4 and is deleted rather than corrected.
+#
+# V15 MAKES EXACTLY ONE EXCEPTION, AND STATES THE RULE THAT LICENSES IT.
+#   THE EXCEPTION: DREAD, value 10 below. Vanilla puts it on the marriage, it is
+#   worth +-150, and it was priced at 0 here. It is now ported into the TERM's own
+#   price rather than into a relmod row.
+#   THE RULE: a vanilla row worth more than about 50 points that describes the two
+#   RULERS must be ported into the TERM's price, never into a relmod row, or the
+#   percentage will multiply it to nothing.
+# AND THE FIX IS SELF-REINFORCING, which is why no tnt_51 edit was needed: the
+# multiplier is a percentage OF the pair price, so an honest pair price restores the
+# whole modifier stack for free. With dread in, a cowed vassal's pair gain is about
+# 150, tnt_gain_scale_unit_value becomes about 1.5, and opinion +50 now contributes
+# about +75 where it contributed about +2 - which is vanilla's own +-75 opinion row
+# reproduced BY THE ARCHITECTURE instead of by a new row. (This mod runs opinion at
+# x1.00 against vanilla's x0.75, tnt_51_relation_values.txt:181-185, so on a
+# marriage-only treaty it is 4/3 of vanilla's rate. That is a documented own-scale
+# choice, not a defect, and not something to chase.)
+#
+# THE HONEST READINGS, ALL THREE FALSIFIABLE AT THE NEXT PLAYTEST:
+#   an ordinary equal-rank pair, no dread, nothing else on the table -> about 0,
+#       BIT-FOR-BIT what it was before V15
+#   an emperor asking his own COWED vassal for a relative              -> about +150
+#   an emperor marrying HIMSELF to a foreign ruler cowed by him        -> about -250
+# Do not re-derive a headline figure from this value alone; price a pair, then read
+# tnt_ai_accept_value. This is also why the AI's substance floor has to name a
+# committed pair explicitly (events\tnt_ai_events.txt:685-688).
+#
+# WHAT IS STILL UNPRICED AND DELIBERATELY SO: the realpolitik block
+# (+40 / +100 / -100) - §0 note 2 carries the measured reason, and it is that
+# `yields_alliance` and `ai_diplomacy_stance` have zero script-value call sites.
+# Everything else in vanilla's remaining ~100 rows is worth 50 or less and is
+# either DLC-local or already owned by the relationship layer.
+#
+# V14 CROSS-CHECK: value 8 (the rank gulf) returns 0 at rank gap 0, so the ordinary
+# equal-rank pair above is bit-for-bit unchanged by it. Only mismatched pairs move.
+###############################################################################
+# ===========================================================================
+# v3 ITERATION 4 — THE SEVEN ROWS BECAME PER-PAIR AND THE TWO HALVES SUM THEM.
+# ===========================================================================
+# THE ONE-PAIR ANSWER IS BIT-FOR-BIT UNCHANGED, and that is the acceptance test
+# of this iteration exactly as +13 was of the last. With one committed pair the
+# loop below runs once, tnt_marriage_taper_value returns 1 and the grand-wedding
+# row returns 0, so the arithmetic is the same five `add`s in the same order on
+# the same seven values: the ordinary pair still reads +13 against vanilla's +12.
+# Nothing about the recalibration was thrown away — it was hoisted one level and
+# now applies PER PAIR.
+#
+# TWO NAMED HALVES PER PAIR (tnt_marriage_pair_gain_value / _loss_value) rather
+# than seven `add`s inside the loop, for two reasons. First, the sign split IS
+# the calibration — a positive row lands in _p, the same row when negative lands
+# in _r — and it must stay written down in one place. Second, the loop then
+# contains one `add` per side, so the taper and the grand wedding attach to the
+# aggregate where they belong instead of being smeared across seven rows.
+#
+# THE IDENTITY THAT MATTERED IN ITERATION 2 STILL HOLDS, PER PAIR:
+#     gain - loss == blood + affection + liege + tier_edge + attachment
+#                    - lineality - fertility
+# which is vanilla's marriage_ai_accept_modifier sum with every row carrying
+# vanilla's own sign, no base and nothing clamped away.
+###############################################################################
+tnt_marriage_pair_gain_value = {
+	value = 0								# vanilla's own base: 00_marriage_interactions.txt:752-756
+	add = { value = tnt_marriage_blood_value      min = 0 }			# only the good half
+	add = { value = tnt_marriage_affection_value  min = 0 }			# only the good half
+	add = tnt_marriage_liege_value						# positive-only by construction (40/60/100)
+	add = { value = tnt_marriage_tier_edge_value  min = 0 }			# only when THEY marry up
+	add = { value = tnt_marriage_partner_attachment_value  min = 0 }		# "fair game, have them" (:1574-1593)
+	add = tnt_marriage_heir_value						# positive-only by construction (20/10) - value 11 above, vanilla :92-133
+	min = 0
+}
+
+tnt_marriage_pair_loss_value = {
+	value = 0								# vanilla's own base: 00_marriage_interactions.txt:752-756
+	add = tnt_marriage_lineality_cost_value					# positive cost: their line (:1085-1171)
+	add = tnt_marriage_fertility_cost_value					# positive cost: our candidate (:1347-1572)
+	add = tnt_marriage_rank_gulf_cost_value					# positive cost: the gulf between the two houses (:159-180, :217-222, :2364-2372)
+	add = { value = tnt_marriage_blood_value      multiply = -1  min = 0 }	# lowborn / weak dynasty (:1000-1023)
+	add = { value = tnt_marriage_affection_value  multiply = -1  min = 0 }	# he dislikes who we offer (:653-661)
+	add = { value = tnt_marriage_tier_edge_value  multiply = -1  min = 0 }	# only when WE marry up
+	add = { value = tnt_marriage_partner_attachment_value  multiply = -1  min = 0 }	# see value 5's sign note
+	min = 0
+}
+
+
+###############################################################################
+# THE TAPER — tnt_marriage_taper_value
+#
+# DIMINISHING RETURNS, AND THE NUMBERS ARE A DESIGN CHOICE, NOT A PORT. There is
+# no vanilla row to copy here because vanilla never offers two marriages at once;
+# what vanilla does say is that stacking is not free — it refuses a second
+# parallel grand wedding outright (-5000,
+# GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:2326-2333) and
+# allows one outstanding promise per host. So a taper is in keeping, and its size
+# is ours to justify.
+#
+# THE LADDER, applied to the SUM OF GAINS only:
+#   1 pair   x1.00     2 pairs  x0.95     3 pairs  x0.90
+#   4 pairs  x0.85     5+       x0.80  (floor)
+#
+# WHAT THAT MEANS AT THE MARGIN, which is the only number that matters for the
+# design question. In units of "one ordinary pair":
+#   the 1st marriage is worth 1.00
+#   the 2nd adds 2x0.95 - 1.00 = 0.90
+#   the 3rd adds 3x0.90 - 1.90 = 0.80
+#   the 4th adds 4x0.85 - 2.70 = 0.70
+#   the 5th adds 5x0.80 - 3.40 = 0.60
+# Three marriages are worth 2.70 — "about three marriages", which is what was
+# asked for — while the fourth dynastic match is plainly worth less than the
+# first. It is a MILD taper on purpose: the point of the feature is that a
+# multi-marriage treaty is a real instrument, not a trick that collapses under
+# its own weight at pair three.
+#
+# THE COSTS ARE NOT TAPERED, and that is the important half of the choice. If
+# losses shrank with volume, a player could dilute a lineality VETO (1000 points,
+# :1085-1119) by padding the deal with four throwaway matches. Gains taper,
+# costs sum linearly, so volume can never buy through a refusal.
+#
+# ONLY `>=` COMPARISONS ARE USED. `variable_list_size` as a trigger — REAL:
+# GAME\common\casus_belli_types\07_ep3_wars.txt:5916 (`value > 0`) and :5959
+# (`value <= 0`); the `>=` form at
+# GAME\common\achievements\ep2_achievements.txt:271-275 (`value >= 17`) and
+# GAME\common\character_interactions\06_ep3_laamp_interactions.txt:1367-1369.
+# The branches are ordered high-to-low so each `else_if` needs one bound and no
+# exact equality is written.
+# (V15 CORRECTION: the folder above read `script_values` until now. The file lives
+# in casus_belli_types; the two LINE numbers were right. And no script-value call
+# site can be cited for the bare trigger, because `variable_list_size` appears ZERO
+# times anywhere under GAME\common\script_values — the only hit there is
+# `global_variable_list_size` at 06_ce1_legends_values.txt:1126. The shape is used
+# inside script values throughout THIS file and ships error-clean, so this was a
+# citation defect, never a runtime one. For the neighbouring `any_in_list` shape,
+# which IS provable in script-value context: GAME\common\script_values\
+# 00_scheme_values.txt:2289-2291 and :2313-2315, and
+# GAME\common\script_values\02_religion_values.txt:3657-3659.)
+#
+# `multiply = <named script value>` at the call site below — REAL:
+# GAME\common\script_values\04_ep2_wedding_values.txt:1017-1020, vanilla's own
+# real_wedding_cost_actor_scope multiplying by activity_cost_scale_by_era.
+###############################################################################
+tnt_marriage_taper_value = {
+	value = 1
+	# THE GUARD BELONGS INSIDE `limit`, AND PUTTING IT OUTSIDE COST FOUR ENGINE ERRORS
+	# PER LAUNCH. In a script value an if/else_if takes `limit` plus math and nothing
+	# else, so a bare trigger sitting beside `limit` is rejected outright
+	# ("Unexpected token: has_variable_list"). Worse than noise: with the branch
+	# damaged the whole 5/4/3/2-wedding taper flattened to its base 1.0, i.e. the
+	# volume discount silently stopped existing.
+	if = {
+		limit = {
+			has_variable_list = tnt_wed_list
+			variable_list_size = { name = tnt_wed_list  value >= 5 }
+		}
+		add = -0.20
+	}
+	else_if = {
+		limit = {
+			has_variable_list = tnt_wed_list
+			variable_list_size = { name = tnt_wed_list  value >= 4 }
+		}
+		add = -0.15
+	}
+	else_if = {
+		limit = {
+			has_variable_list = tnt_wed_list
+			variable_list_size = { name = tnt_wed_list  value >= 3 }
+		}
+		add = -0.10
+	}
+	else_if = {
+		limit = {
+			has_variable_list = tnt_wed_list
+			variable_list_size = { name = tnt_wed_list  value >= 2 }
+		}
+		add = -0.05
+	}
+}
+
+
+###############################################################################
+# THE GRAND WEDDING — tnt_marriage_grand_value
+#
+# +40, AND THE NUMBER IS VANILLA'S OWN, NOT TASTE. It is the exact row vanilla
+# adds to marriage acceptance when a grand wedding is promised —
+# GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:2315-2321:
+#       modifier = {
+#           # Being offered a Grand Wedding increases acceptance
+#           add = 40
+#           scope:grand_wedding_promise = yes
+#           desc = GRAND_WEDDING_PROMISE_REASON_1
+#       }
+# For scale, the same file gives +25 for having previously hosted a magnificent
+# one (:2322-2325). It lands in the GAIN half because that is what it is: the
+# partner's house gets the prestige of a celebrated match and pays nothing, while
+# the HOST pays for the activity — base_wedding_cost scaled by era
+# (GAME\common\script_values\04_ep2_wedding_values.txt:857-892, and vanilla's
+# real_wedding_cost_actor_scope at :1013). One wedding, one +40: it is NOT
+# tapered and it is NOT per pair.
+#
+# THIS IS COPY 3 OF 3 OF THE HOST GATE. The gate (tnt_wed_grand_toggle's
+# is_valid), the price (here) and the execution (tnt_exec_marriage_pair_effect)
+# must agree, or the partner is charged for a wedding that never happens. Every
+# row's line number is in the HOST GATE block of tnt_34_marriage.txt. The two
+# pair-half rows are :819-824 (our candidate must be family) and :799-818 (our
+# candidate must be the DOMINANT partner, so the line matters), and both are read
+# off var:tnt_wed_principal — `var:x ?= { … }` inside a trigger is vanilla's own
+# shape at 00_marriage_interactions.txt:790.
+#
+# R7 holds: every row here reads root or a var: on root, and nothing else.
+###############################################################################
+#
+# V4 FIX 2 REWROTE THE GATE INTO THREE CALLS AND CHANGED NO NUMBER. The value used
+# to inline all three halves and read the promise only from var:tnt_wed_grand,
+# which is why ticking vanilla's own grand-wedding box in the matchmaker window
+# priced nothing: inside that window the variable does not exist yet.
+#   tnt_grand_promised_trigger    is it promised - flag in the window, variable in
+#                                 the deal (tnt_41_gates.txt)
+#   tnt_wed_host_gate_trigger     can this ruler host at all - this was COPY 3 OF 3
+#                                 of the host gate, written out by hand; it is now
+#                                 the same single copy the toggle and the executor
+#                                 already call, so the three can no longer drift
+#   tnt_grand_pair_half_trigger   is the celebrated spouse ours, and on the winning
+#                                 side of the line
+tnt_marriage_grand_value = {
+	# THE SAME ROOT TRAP AS tnt_marriage_liege_value, and it is why the grand wedding
+	# never paid: tnt_grand_pair_half_trigger asks whether the celebrated spouse is
+	# OUR close or extended family, and inside an interaction's on_accept there is no
+	# root to be family OF. A trigger cannot save a scope, so the value saves it here
+	# and the trigger reads scope:tnt_me. Same two-step as there: current scope by
+	# default, scope:actor when we are inside an interaction.
+	save_temporary_scope_as = tnt_me
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		# ALL THREE ARE ASKED ON scope:tnt_me, NOT ON WHATEVER SCOPE WE HAPPEN TO BE
+		# STANDING IN. Every one of them reads the negotiator as the CURRENT scope -
+		# tnt_grand_promised_trigger reads var:tnt_wed_grand and the pair list,
+		# tnt_wed_host_gate_trigger reads titles and gold, tnt_grand_pair_half_trigger
+		# reads var:tnt_wed_principal - and the run proved that scope is sometimes
+		# nobody: 4x `highest_held_title_tier trigger [ Wrong scope for trigger:
+		# none, expected character ]` from the host gate. A failing trigger reads as
+		# `no`, so the grand wedding silently stopped paying its 40 in exactly the
+		# contexts where the player was looking at a tooltip.
+		# The scopes the three compare AGAINST are unaffected: saved scopes are
+		# visible inside a transition, so scope:tnt_me still resolves in there.
+		limit = {
+			scope:tnt_me ?= {
+				tnt_grand_promised_trigger = yes
+				tnt_wed_host_gate_trigger = yes
+				tnt_grand_pair_half_trigger = yes
+			}
+		}
+		add = 40
+	}
+}
+
+
+###############################################################################
+# THE TWO HALVES THE BALANCE READS — now sums over tnt_wed_list
+#
+# THE SELECTION TEST CHANGED AND THIS IS THE ONE INTEGRATION FACT TO KNOW.
+# It was "both staged spouses exist and the pair is legal"; it is now "the term
+# is switched on AND THE LIST IS NOT EMPTY". The staging cursor tnt_spouse_p /
+# tnt_spouse_r is NOT priced any more — an uncommitted pick is worth nothing,
+# which is the honest reading and also closes the "priced no-op" hole from the
+# other side: the exec loop reads the same list, so anything priced is executed
+# and anything executed was priced.
+# tnt_marriage_p / _r keep their old meaning and their old writers stay valid,
+# so tnt_50_values.txt, tnt_panels.gui and tnt_diplomacy_window.gui need NO edit
+# for this iteration. See the handoff for the two foreign is_valid gates whose
+# WORDING is now stale (they still say "no spouse chosen").
+#
+# THE LOOP, and every shape in it has a call site:
+#   * an iterator inside a script value, over a VARIABLE list, contributing with
+#     `add`: GAME\common\script_values\00_diarchy_values.txt:3746-3756
+#     (pv_overthrow_tally_value — `value = 0`, `every_in_list = { variable = …
+#     limit = { … } add = 1 }`), and this file's own value 3 for the
+#     save_temporary_scope_as-inside-an-iterator half
+#     (GAME\common\script_values\00_interaction_values.txt:924-958).
+#   * THE `limit` IS THE WRAP, not a nicety: a member whose partner variable is
+#     gone, or whose spouse died since the pick, is SKIPPED and the remaining
+#     pairs still price. It also guarantees scope:tnt_sr is written on every
+#     iteration that reaches the `add`, so no iteration can be priced against
+#     the PREVIOUS pair's groom — which is the one way this loop could have gone
+#     quietly wrong.
+#
+# THE CAPS ROSE WITH THE LIST. _p was 500 and is 2000; _r was 1200 and is 6000.
+# The reasoning behind 1200 is unchanged and is why _r's cap is the larger:
+# value 1 can return 1000 for a single pair, which is vanilla's gender-dominated
+# faith VETO (:1085-1119), and a cap low enough to clip it would let a player buy
+# through a refusal. Six vetoed pairs still clamp to an absolute refusal because
+# nothing in this mod can produce 6000 points of gain.
+###############################################################################
+tnt_marriage_offer_p_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_marriage_p
+			var:tnt_marriage_p > 0
+			has_variable_list = tnt_wed_list			# guard: variable_list_size on a never-created list is an ENGINE ERROR, not a zero
+			variable_list_size = { name = tnt_wed_list  value > 0 }
+		}
+
+		# the partner, once, in the PLAYER's scope — never inside the loop
+		### V3: SUMS STORED PRICES INSTEAD OF RE-DERIVING THEM.
+		### tnt_wed_add_pair_effect prices each pair once, at the moment both spouses
+		### are known, and writes tnt_wed_gain onto the bride. So this no longer
+		### aliases three scopes and evaluates five sub-values per pair per frame - it
+		### adds one number per pair. One computation per pair means a pair's price
+		### shown anywhere is the price used everywhere.
+		### The `exists` guard is what makes a pair added by an older save, which
+		### carries no stored price, contribute nothing rather than break the sum;
+		### tnt_wed_reprice_all_effect fills those in at window open.
+		add = {
+			value = 0
+			add = {
+				value = 0
+				every_in_list = {
+					variable = tnt_wed_list
+					limit = {
+						is_alive = yes
+						exists = var:tnt_wed_partner
+						var:tnt_wed_partner ?= { is_alive = yes }
+						exists = var:tnt_wed_gain
+					}
+					add = var:tnt_wed_gain
+				}
+				multiply = tnt_marriage_taper_value
+			}
+			add = tnt_marriage_grand_value			# one wedding, never tapered
+			# V15, USER ITEM 1 - DREAD, THE POSITIVE RUNGS ONLY.
+			# ONCE PER TREATY and OUTSIDE the taper, beside the grand wedding and for
+			# the same reason: it is a fact about the two RULERS, not about a couple.
+			# `min = 0` takes only vanilla's positive rungs (+150/+75/+50/+25/+20/+10);
+			# the negative ones are the partner's cost and land in _r below. The split
+			# by sign across the two halves is this file's own calibration - see the
+			# ITERATION 2 note above and the idiom at :1249-1252.
+			# It sits HERE, at the aggregate level and not inside the every_in_list,
+			# because it reads tnt_wed_list off the ambient scope and that scope must be
+			# the negotiator - exactly like tnt_marriage_taper_value two lines up.
+			add = { value = tnt_marriage_dread_value  min = 0 }
+			min = 0
+			max = 2000
+		}
+	}
+}
+
+tnt_marriage_offer_r_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_marriage_r
+			var:tnt_marriage_r > 0
+			has_variable_list = tnt_wed_list			# guard: variable_list_size on a never-created list is an ENGINE ERROR, not a zero
+			variable_list_size = { name = tnt_wed_list  value > 0 }
+		}
+
+		### V3: the mirror of the gain side above - one stored number per pair.
+		### The cost side is deliberately NOT tapered: a fourth match is worth less to
+		### the partner than the first, but it costs him just as much. That asymmetry
+		### was already here and is preserved.
+		add = {
+			value = 0
+			every_in_list = {
+				variable = tnt_wed_list
+				limit = {
+					is_alive = yes
+					exists = var:tnt_wed_partner
+					var:tnt_wed_partner ?= { is_alive = yes }
+					exists = var:tnt_wed_loss
+				}
+				add = var:tnt_wed_loss
+			}
+			# V15, USER ITEM 1 - DREAD, THE NEGATIVE RUNGS ONLY, AS A POSITIVE COST.
+			# The mirror of the row in _p above: `multiply = -1  min = 0` keeps
+			# vanilla's four negative rungs (-150/-75/-75/-50) and zeroes the positive
+			# ones, which is this file's own idiom for the second half of a signed row
+			# (:1249-1252, sanctioned vanilla at
+			# GAME\common\script_values\00_activity_values.txt:286-290).
+			# ONCE PER TREATY, and inside the clamp on purpose: at 6000 the cap still
+			# lets six lineality vetoes read as an absolute refusal.
+			add = { value = tnt_marriage_dread_value  multiply = -1  min = 0 }
+			# NOT tapered — see tnt_marriage_taper_value's header. Volume must
+			# never dilute a veto.
+			min = 0
+			max = 6000
+		}
+	}
+}
+
+
+###############################################################################
+# THE PROPOSER'S OWN NET — V24, LEDGER OPTION B.
+#
+# offer_p − offer_r is, by this file's own identity (see the § above the
+# aggregates), vanilla's `marriage_ai_accept_modifier` sum for the partner
+# plus the mod's rank-gulf cost and taper — and vanilla's own
+# arrange-marriage interaction has `base = 0` and accepts only ABOVE it
+# (GAME\common\character_interactions\00_marriage_interactions.txt:752-756).
+# So a pair whose net is NEGATIVE is a match vanilla's own AI would REFUSE —
+# and until V24 the composer composed it anyway and billed the PLAYER to
+# cover the gap: measured on the 08-21 run, 21 of 23 A16 letters carried a
+# negative pair net (mean cost to the proposer 51 points against a gain of
+# 10-15), which is where every "marry my kinsman AND pay me 478 gold"
+# letter came from. The two positive-net letters are exactly the two where
+# the AI PAID the player instead.
+#
+# READ BY ONE CALLER: the go/no-go of tnt_ai_offer.0001
+# (events\tnt_ai_events.txt, the arch=16 row beside `tnt_balance_value < 60`).
+# SCOPE-SAFE THERE BY CONSTRUCTION: the same limit already evaluates
+# tnt_ai_accept_value, which reads both offer aggregates through the
+# marriage forwards on the same path, in the same scope, every letter.
+# R7: the caller compares this value against the literal 0.
+###############################################################################
+tnt_marriage_net_r_value = {
+	value = tnt_marriage_offer_p_value
+	subtract = tnt_marriage_offer_r_value
+	round = yes
+}
+
+
+###############################################################################
+# THE PREVIEW TRIO — tnt_stage_pair_net / _gain / _loss_value
+#
+# THEY EXIST FOR ONE CALLER: the loc key tnt_stage_pair_points_line, printed by
+# the custom_tooltip in tnt_stage_marriage_interaction's on_accept and rendered
+# by vanilla's matchmaker window the moment both spouses are picked
+# (GAME\gui\interaction_marriage.gui:182, :197, :216). The full reasoning, with
+# the vanilla proofs for scope-visible tooltips and for [SCOPE.ScriptValue(…)],
+# is in that interaction's on_accept header — read it there, not here.
+#
+# THEY RECOMPUTE NOTHING - AND THAT IS NOT THE SAME CLAIM AS "THEY EQUAL THE
+# NUMBER tnt_wed_add_pair_effect STORES AS tnt_wed_net". The older sentence said
+# the second thing and it is FALSE since V4 FIX 2, V15 and the multiplier. Each
+# still delegates to the deal's own tnt_marriage_pair_gain_value / _loss_value,
+# so no formula is duplicated here; but see the asymmetries block below.
+#
+# V4 FIX 2 ADDED tnt_marriage_grand_value TO THE GAIN SIDE, and that is what makes
+# vanilla's own grand-wedding checkbox in that window move the number. It reads the
+# send_option flag through tnt_grand_promised_trigger, so it also reports 0 for a
+# second couple once the treaty's single promise is spoken for. The LINE needed no
+# addition here at all: tnt_marriage_lineality_cost_value now reads
+# tnt_pair_is_matri_trigger, so the matrilineal checkbox moves the loss side by
+# itself, through the formula the deal shares.
+#
+# TWO ASYMMETRIES WORTH KNOWING. (1) The deal adds the +40 ONCE, in
+# tnt_marriage_offer_p_value, because a treaty holds one promise; the preview adds
+# it to the couple being looked at. (2) THE DEAL SHEET'S PER-COUPLE COLUMN IS NOT
+# THIS NUMBER - tnt_panels.gui:908 prints the RAW stored tnt_wed_net, gain - loss,
+# with no grand, no dread and no multiplier. THAT is the number the HEADLINE now
+# prints, as tnt_stage_pair_raw_net_value; this trio moved down one labelled line.
+#
+# THE GUARD IS NOT DECORATION. These are evaluated from a TOOLTIP, which the
+# engine may build at moments the mod does not choose - and a marriage sub-value
+# that dereferences a missing scope:tnt_sp writes an error line every time it is
+# asked. During an unattended half-year AI run that is the difference between a
+# readable error.log and 200 MB of noise. All three aliases are required
+# together because the sub-values use all three (scope:tnt_p is the partner
+# ruler, and several rows price the match from his side).
+#
+# WHY THREE VALUES AND NOT ONE, AND WHY A FOURTH JOINED THEM. The trio is now
+# the SECOND line of the tooltip: net first, then the two halves, so a player
+# who reads "-7" also reads "offered 33 / asked 40" and learns WHY. The halves
+# are the two numbers the balance itself sums, so the arithmetic closes by eye.
+# The fourth value, tnt_stage_pair_raw_net_value, is the HEADLINE and belongs to
+# the deal sheet's currency instead; its own header carries the whole argument.
+###############################################################################
+###############################################################################
+# THE PREVIEW TWIN OF DREAD — tnt_stage_dread_offer_value
+#
+# WHY A TWIN AND NOT A CALL, and it is a hard mechanical reason rather than a
+# preference. tnt_marriage_dread_value selects its rung by asking the COMMITTED
+# pair list two questions, and at tooltip time the staged pair IS NOT IN THAT LIST
+# YET: tnt_12_marriage_picker.txt prints `custom_tooltip = tnt_stage_pair_points_line`
+# at :763 and only calls tnt_wed_stage_pair_effect at :918. So the deal value asked
+# from the preview would answer about the ALREADY-COMMITTED couples and quietly
+# print the wrong rung for the couple the player is looking at. This twin asks the
+# same questions of the STAGED pair instead, and the two agree by construction the
+# moment the pair is committed.
+#
+# THE RUNG LADDERS ARE IDENTICAL, LINE FOR LINE, to value 10's. Only the three
+# branch selectors differ, and each is the staged-pair spelling of the same
+# vanilla boolean:
+#   value 10 (deal)                               this twin (staged pair)
+#   any_in_list ... var:tnt_wed_partner = p   ->  scope:tnt_p = scope:tnt_sr
+#   any_in_list ... this = me AND partner = p ->  scope:tnt_gulf_me = scope:tnt_sp
+# vanilla's originals being `scope:recipient = { this = scope:secondary_recipient }`
+# and `scope:actor = scope:secondary_actor`
+# (00_marriage_scripted_modifiers.txt:1697, :1748, :1802).
+#
+# THIS DUPLICATION IS THE ONE THIS FILE ALREADY ACCEPTS TWICE, for exactly this
+# reason: tnt_marriage_grand_value has its twin tnt_stage_grand_offer_value, and
+# tnt_marriage_taper_cut_value writes its sum out twice because "there is no local
+# variable in a script value". If a rung number is ever changed, BOTH ladders must
+# change - that is the standing cost and it is accepted knowingly.
+#
+# THE SCOPES ARE THE PICKER'S OWN FOUR, all aliased in one place,
+# tnt_12_marriage_picker.txt:742-752:
+#   scope:tnt_gulf_me  the player          (:750, a bare save - scope:actor is him)
+#   scope:tnt_p        the partner ruler   (:742, from var:tnt_partner)
+#   scope:tnt_sp       our staged spouse   (:751, scope:secondary_actor)
+#   scope:tnt_sr       their staged spouse (:752, scope:secondary_recipient)
+# ALL FOUR ARE REQUIRED TOGETHER and the guard is not decoration: this is
+# evaluated from a TOOLTIP the engine may build at moments the mod does not
+# choose, and a missing scope would write an error line every time it is asked
+# (the argument in full at the preview trio's header below). A caller that ever
+# forgets to alias tnt_gulf_me gets 0 here, i.e. the pre-V15 price, rather than an
+# error - the same fail-soft value 8 chose at :981-983.
+#
+# IT IS DELIBERATELY NOT SCALED HERE. Its callers scale the positive half by
+# tnt_deal_mult_value along with the rest of the offer and leave the negative half
+# at full weight, which is the same split the deal uses (offer_p is scaled by the
+# headline, offer_r is not). Scaling inside this value would double-apply it.
+###############################################################################
+tnt_stage_dread_offer_value = {
+	value = 0
+	if = {
+		# The same short-circuit as value 10: nothing at all unless he is afraid.
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_gulf_me
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+			scope:tnt_p ?= {
+				has_dread_level_towards = { target = scope:tnt_gulf_me  level >= 1 }
+			}
+		}
+
+		# --- (A) THE PARTNER IS NOT AT THE ALTAR HIMSELF (:1694-1744) ----------
+		if = {
+			limit = { NOT = { scope:tnt_p ?= { this = scope:tnt_sr } } }
+			if = {						# our vassal, COWED (:1706-1717)
+				limit = {
+					scope:tnt_p ?= {
+						target_is_liege_or_above = scope:tnt_gulf_me
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 2 }
+					}
+				}
+				add = 150
+			}
+			else_if = {					# our vassal, INTIMIDATED (:1694-1705)
+				limit = {
+					scope:tnt_p ?= {
+						target_is_liege_or_above = scope:tnt_gulf_me
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 1 }
+					}
+				}
+				add = 75
+			}
+			else_if = {					# outside our realm, COWED (:1732-1744)
+				limit = {
+					scope:tnt_p ?= {
+						exists = top_liege
+						NOT = { target_is_liege_or_above = scope:tnt_gulf_me }
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 2 }
+					}
+				}
+				add = 20
+			}
+			else_if = {					# outside our realm, INTIMIDATED (:1719-1731)
+				limit = {
+					scope:tnt_p ?= {
+						exists = top_liege
+						NOT = { target_is_liege_or_above = scope:tnt_gulf_me }
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 1 }
+					}
+				}
+				add = 10
+			}
+			if = {						# named rungs only, 00_basic_values.txt:904-914
+				limit = { scope:tnt_gulf_me ?= { dynasty ?= { has_dynasty_perk = guile_legacy_5 } } }
+				multiply = 2
+			}
+		}
+
+		# --- (B) HE IS AT THE ALTAR AND SO ARE WE (:1746-1798) ----------------
+		# The partner is at the altar (branch A failed), so only the player's own
+		# presence is left to test. NO guile doubling - bare literals in vanilla.
+		else_if = {
+			limit = { scope:tnt_gulf_me ?= { this = scope:tnt_sp } }
+			if = {						# we are his liege, COWED (:1759-1771)
+				limit = {
+					scope:tnt_p ?= {
+						target_is_liege_or_above = scope:tnt_gulf_me
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 2 }
+					}
+				}
+				add = -75
+			}
+			else_if = {					# we are his liege, INTIMIDATED (:1746-1758)
+				limit = {
+					scope:tnt_p ?= {
+						target_is_liege_or_above = scope:tnt_gulf_me
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 1 }
+					}
+				}
+				add = -50
+			}
+			else_if = {					# we are NOT his liege, COWED (:1786-1798)
+				limit = {
+					scope:tnt_p ?= {
+						NOT = { target_is_liege_or_above = scope:tnt_gulf_me }
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 2 }
+					}
+				}
+				add = -150
+			}
+			else_if = {					# we are NOT his liege, INTIMIDATED (:1773-1785)
+				limit = {
+					scope:tnt_p ?= {
+						NOT = { target_is_liege_or_above = scope:tnt_gulf_me }
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 1 }
+					}
+				}
+				add = -75
+			}
+		}
+
+		# --- (C) HE IS AT THE ALTAR AND WE ARE NOT (:1800-1825) --------------
+		else = {
+			if = {						# COWED (:1813-1825)
+				limit = {
+					scope:tnt_p ?= {
+						exists = top_liege
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 2 }
+					}
+				}
+				add = 50
+			}
+			else_if = {					# INTIMIDATED (:1800-1812)
+				limit = {
+					scope:tnt_p ?= {
+						exists = top_liege
+						has_dread_level_towards = { target = scope:tnt_gulf_me  level = 1 }
+					}
+				}
+				add = 25
+			}
+			if = {
+				limit = { scope:tnt_gulf_me ?= { dynasty ?= { has_dynasty_perk = guile_legacy_5 } } }
+				multiply = 2
+			}
+		}
+	}
+}
+
+
+tnt_stage_pair_net_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+		}
+		# THE OFFER HALF IS SCALED BY THE SAME MULTIPLIER THE TREATY USES, and this is
+		# the user's requirement in full: "the pair screen must show the same number
+		# of points that will enter the treaty". What enters the treaty is this pair's
+		# worth AFTER the modifier stack, because tnt_val_marriage_p_value is a member
+		# of tnt_gain_total_value and the headline scales that whole total.
+		#
+		# ONLY THE OFFER HALF. The loss side is what the partner gives up and it keeps
+		# full weight in the headline, so it keeps full weight here - otherwise the
+		# preview would flatter a match that the treaty then prices lower.
+		add = {
+			value = tnt_marriage_pair_gain_value
+			add = tnt_marriage_grand_value
+			# V15: dread's POSITIVE rungs, scaled with the rest of the offer. It sits
+			# before the multiply so the multiply reaches it, like the +40 above.
+			add = { value = tnt_stage_dread_offer_value  min = 0 }
+			multiply = tnt_deal_mult_value
+		}
+		subtract = tnt_marriage_pair_loss_value
+		# V15: dread's NEGATIVE rungs, UNSCALED, because the loss half is unscaled
+		# both here and in the deal (see the note above and tnt_marriage_offer_r_value).
+		# `max = 0` keeps a negative and zeroes a positive, so this row and the one
+		# inside the scaled block above can never count the same rung twice.
+		add = { value = tnt_stage_dread_offer_value  max = 0 }
+	}
+}
+
+tnt_stage_pair_gain_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+		}
+		# Scaled like the net above, and for the same reason: this is the "offered to
+		# them" half of the same sentence, so the two figures must be in the same
+		# units or the parenthetical would contradict the headline.
+		add = {
+			value = tnt_marriage_pair_gain_value
+			add = tnt_marriage_grand_value
+			# V15: dread's POSITIVE rungs — the same row the net above carries, so the
+			# parenthetical "offered / asked" still sums to the net it is printed beside.
+			add = { value = tnt_stage_dread_offer_value  min = 0 }
+			multiply = tnt_deal_mult_value
+		}
+	}
+}
+
+tnt_stage_pair_loss_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+		}
+		add = tnt_marriage_pair_loss_value
+		# V15: dread's NEGATIVE rungs, as a positive cost and unscaled — the mirror of
+		# the `max = 0` row in tnt_stage_pair_net_value, so net == gain - loss holds.
+		add = { value = tnt_stage_dread_offer_value  multiply = -1  min = 0 }
+	}
+}
+
+
+###############################################################################
+# WHAT THE GRAND WEDDING WOULD ADD — and why it ignores the checkbox on purpose
+#
+# THE REPORT: "ticking the grand-wedding box does not increase the displayed
+# points." Everything about that promise was verified first and is NOT the cause -
+# the flag is cleared on window open (tnt_reset_marriage_effect), base_wedding_cost
+# is 25 so the gold gate passes, and the promise really does apply when the couple
+# is committed. What is left is the preview path itself: the engine builds an
+# interaction's EFFECT DESCRIPTION, and there is no promise anywhere that it
+# rebuilds that text when a send_option is toggled, nor that the option flags are
+# populated while it is being built.
+#
+# SO THIS VALUE DOES NOT ASK WHETHER THE BOX IS TICKED. It answers the question the
+# player actually has in front of him - "what is a grand wedding worth here?" - and
+# it is true whether the flag is readable or not:
+#     40 if this couple COULD carry the promise, 0 if it could not.
+# tnt_stage_pair_net_value still includes tnt_marriage_grand_value, which does read
+# the flag, so if the engine does rebuild the text the headline moves too. Belt and
+# braces, and neither one can print a wrong number.
+#
+# IT NAMES scope:actor EXPLICITLY AND NEVER root. This value is printed from an
+# interaction's description, where the reliable scopes are the engine's own
+# (scope:actor, scope:secondary_actor); what `root` is in that context is not
+# something to guess at. That is also why the host gate is wrapped in
+# `scope:actor = { … }` - it is written to be evaluated on the ruler, not on
+# whatever the description's ambient scope happens to be.
+#
+# THE LINE IS DELIBERATELY NOT TESTED. Vanilla's full gate also requires the
+# honoured spouse to be on the winning side of the line (:799-824), and that
+# depends on a DIFFERENT checkbox whose flag has the same readability problem. So
+# the loc says "if the line of descent suits" and the number states the ceiling.
+# Overstating by 40 in a corner case would be a lie; saying "up to" is not.
+###############################################################################
+# SCALED, AND THIS WAS A REPORTED DEFECT: "the pair screen says +50 for the match and
+# +40 for the grand wedding, and it actually gives +110". Both halves of that were
+# right and the sum was not: the match figure went through tnt_deal_mult_value while
+# this one did not, so a partner whose modifiers came to x1.22 turned an advertised
+# 40 into 49 in the treaty. The promise enters the deal inside tnt_marriage_grand_value,
+# which is a member of the gain side, and the gain side is what the headline scales -
+# so this figure has to be scaled too or it is quoting a different currency.
+tnt_stage_grand_offer_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:secondary_actor
+			scope:actor ?= { tnt_wed_host_gate_trigger = yes }
+			scope:secondary_actor ?= { is_close_or_extended_family_of = scope:actor }
+		}
+		add = {
+			value = 40
+			multiply = tnt_deal_mult_value
+		}
+	}
+}
+
+
+###############################################################################
+# THE PREVIEW TWIN OF THE ALLIANCE — tnt_stage_alliance_offer_value
+#
+# THE DEFECT IT CLOSES, IN THE USER'S OWN WORDS: the pair preview never showed
+# the alliance points. It never could: the price tnt_val_alliance_p_value is
+# gated on var:tnt_wed_ally_any, a DEAL-LEVEL flag written by
+# tnt_wed_reprice_all_effect only for couples ALREADY in tnt_wed_list, and at
+# preview time the staged pair is not in that list yet — the picker prints
+# custom_tooltip = tnt_stage_pair_points_line at tnt_12_marriage_picker.txt:763
+# and only calls tnt_wed_stage_pair_effect at :918. A preview that read the deal
+# gate would have answered about the OTHER, already-committed couples. This is
+# the third time this file has needed that twin (grand wedding, dread, now the
+# alliance) and it is the same idiom every time.
+#
+# THIS IS A REPORTING FIX, NOT A PRICING ONE. Nothing here is added to any total.
+# The alliance is charged once, correctly, by tnt_val_alliance_p_value; this
+# value only NAMES that charge on the one screen where the player decides.
+#
+# *** IT DOES NOT CALL yields_alliance AND IT MAY NOT. *** The predicate has ZERO
+# call sites in all of GAME\common\script_values (the refusal at :240-247 of this
+# file, restated as requirement (b) in CLAUDE.md), so this value carries no T54
+# call and no engine alliance test of any kind. Its ONE printing site is inside
+# the `if` at tnt_12_marriage_picker.txt:829-851, whose `limit` has ALREADY run
+# T54 — a `limit` body is never described, which is law 10c's whole point. A
+# future round must not read this value as the refused import coming back.
+#
+# THE GATE ROWS, EACH ONE SOMEBODY ELSE'S RULE SPOKEN HERE (a FOURTH joined them below):
+#   the four aliases exist        the same guard the preview trio and the dread
+#                                 twin carry — this is built from a TOOLTIP the
+#                                 engine may raise at moments we do not choose,
+#                                 and a missing scope writes an error line every
+#                                 time it is asked.
+#   NO var:tnt_wed_ally_any yet   ONE PROMISE PER TREATY, said for the alliance.
+#                                 It is the grand wedding's own test
+#                                 (tnt_grand_promised_trigger) spoken for this
+#                                 consequence: the treaty pays the alliance once,
+#                                 so the SECOND qualifying pair honestly reads 0.
+#                                 Read on scope:tnt_gulf_me and never bare — the
+#                                 flag lives on the player and there is no root
+#                                 inside an interaction's on_accept (:1055-1071).
+#   NOT is_allied_to              the mirror of the bridge's own guard
+#                                 (tnt_34_marriage.txt:943), so the figure and the
+#                                 charge die together. Vanilla puts the same row on
+#                                 all three stance rows of
+#                                 00_marriage_scripted_modifiers.txt (:216, :309,
+#                                 :345). is_allied_to inside a script value is
+#                                 REAL and has SIX vanilla call sites:
+#                                 04_ep2_wedding_values.txt:327,
+#                                 03_dlc_fp2_script_values.txt:917,
+#                                 09_mpo_values.txt:908 / :1318 / :2268,
+#                                 10_tgp_japan_values.txt:456 — and :1318 uses an
+#                                 absolute scope as the target, exactly as here.
+#
+# *** THE STANDING RULE, WRITTEN AS A RULE BECAUSE THIS FIGURE HAS NOW FLIPPED TWICE
+# *** AND WILL FLIP AGAIN IF ANYBODY DECIDES IT AFRESH: IT IS ALWAYS IN THE SAME
+# *** CURRENCY AS THE HEADLINE IT SITS UNDER. *** That is a fact about the sentence,
+# not about the alliance. 2026-08-24 made it RAW because the headline was then
+# tnt_stage_pair_raw_net_value. The headline is now tnt_stage_pair_deal_delta_value -
+# the balance's own arithmetic - and in the balance the alliance reaches the deal
+# inside tnt_gain_total_value, which the headline multiplies by the partner's regard.
+# So the multiply is BACK, and tnt_stage_pair_deal_delta_value adds this value with no
+# multiply of its own: one scaling, in one place, and the two surfaces print the same
+# number. The :2701-2707 back-reference is this same rule read on the GRAND-WEDDING
+# twin, which has been scaled throughout for exactly this reason.
+###############################################################################
+tnt_stage_alliance_offer_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_gulf_me
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+			scope:tnt_gulf_me ?= { NOT = { exists = var:tnt_wed_ally_any } }
+			scope:tnt_p ?= { NOT = { is_allied_to = scope:tnt_gulf_me } }
+			exists = scope:tnt_stage_ally_ok		# THE FOURTH GATE ROW: the ENGINE's verdict on THIS pair, carried across from tnt_12_marriage_picker.txt:756-762, because a script value may never ask yields_alliance. Without it this figure would enter a headline printed on EVERY pair and pay for an alliance that is not created.
+		}
+		add = {
+			value = tnt_alliance_worth_value
+			multiply = tnt_deal_mult_value		# SAME CURRENCY AS THE HEADLINE - the standing rule is in the header above.
+		}
+	}
+}
+
+
+###############################################################################
+# tnt_stage_pair_raw_net_value - THE COUPLE IN THE DEAL SHEET'S OWN CURRENCY.
+#
+# THE REPORT THIS CLOSES, FILED TWICE, THE SECOND TIME VERBATIM: "still a
+# discrepancy: 'points for this match -7' and +21 in the deal itself". Both
+# numbers were right and both were THE SAME COUPLE PRICED IN TWO CURRENCIES.
+# The picker's headline printed tnt_stage_pair_net_value, which multiplies the
+# OFFERED half by tnt_deal_mult_value - the partner's regard for us - while the
+# deal sheet's row for that same couple prints the RAW stored tnt_wed_net, which
+# does not. Measured on the user's own run: the APPLY row of y=1179 carries
+# gave=83, took=44 and accept=1, and tnt_ai_accept_value is gain x M - loss on a
+# deal with no threat and no use-a-hook, so 83M - 44 = 1 and M = 45/83 = 0.542
+# that year. Below M = 1 EVERY couple whose asked half is between M and 1 times
+# its offered half previews NEGATIVE and sheets POSITIVE: at M = 0.542 a couple
+# worth 61 offered against 40 asked prints exactly -7 here and +21 there. No
+# feast, no dread, no alliance and no second couple are needed to produce the
+# pair of numbers he reported - an ordinary match does it.
+#
+# ROUND ONE REWORDED THE PROMISE. ROUND TWO MADE THIS VALUE THE HEADLINE. THE
+# THIRD REPORT CAME ANYWAY AND IT NAMED THE CAUSE BOTH ROUNDS HAD MISSED: "the
+# pair preview says -9 and the deal shows +106, I think it is the alliance." He
+# was right to the point. This value is the couple ALONE - no grand, no dread, no
+# multiplier, no taper AND NO ALLIANCE - while the treaty charges the partner for
+# the pact the match creates, up to 150 points before his regard. Two rewordings
+# and one swap of the number could not close a gap that was a MISSING TERM. So
+# the headline is now tnt_stage_pair_deal_delta_value, which carries every term
+# the balance carries, and THIS value keeps a named line of its own as what the
+# couple's OWN ROW in the sheet will read. Two named quantities, both labelled.
+#
+# *** THE SENTENCE THAT STOOD HERE - "IT CANNOT DISAGREE WITH THE SHEET BY
+# *** CONSTRUCTION" - IS TRUE OF THE SHEET ROW AND WAS NEVER TRUE OF THE BALANCE,
+# *** AND READING IT AS THE SECOND IS HOW THE ALLIANCE WENT UNSEEN FOR A ROUND.
+# It agrees with the pair ROW, and with nothing else: tnt_wed_reprice_all_effect
+# stores tnt_wed_net = tnt_marriage_pair_gain_value - tnt_marriage_pair_loss_value
+# at common\scripted_effects\tnt_34_marriage.txt:886-892, tnt_wed_add_pair_effect
+# writes the same subtraction at :1284-1290, and gui\tnt_panels.gui prints that
+# stored variable and nothing else in a pair row's points column.
+#
+# ONE MORE SEAM IN THAT ROW IDENTITY, WRITTEN DOWN RATHER THAN HIDDEN, because it
+# is a second way these two figures can part company and it was found while
+# hunting the first: tnt_pair_is_matri_trigger (common\scripted_triggers\
+# tnt_41_gates.txt) branches on `exists = scope:secondary_actor` - in the picker
+# it reads the send_option scope:matrilineal, in tnt_wed_reprice_all_effect it
+# reads var:tnt_wed_matri - and tnt_marriage_lineality_cost_value's gate turns on
+# exactly that boolean, paying 10/20/30/60/100/1000 inside pair_loss and therefore
+# inside BOTH this value and the stored tnt_wed_net. No lineality rung is 115, so
+# this is NOT the reported gap; it is the next one if nobody looks.
+# `subtract = <a named value>` is vanilla's own form:
+# GAME\common\script_values\00_basic_values.txt:1010, :1014, :1018, :1022.
+#
+# THE TWO DELEGATES ARE BIT-IDENTICAL ON BOTH PATHS, PROVEN RATHER THAN ASSUMED.
+# The one sub-value that could have diverged is tnt_marriage_liege_value, which
+# ends by taking its tnt_me from scope:tnt_gulf_me (:1107-1110) - and all three
+# pricing paths save that alias: the picker at tnt_12_marriage_picker.txt:750,
+# tnt_wed_reprice_all_effect at tnt_34_marriage.txt:865 and
+# tnt_wed_add_pair_effect at :1256.
+#
+# THE GUARD IS THE TRIO'S AND IS NOT DECORATION. The argument is written out at
+# the head of tnt_stage_pair_net_value above: this is evaluated from a TOOLTIP
+# the engine may build at moments the mod does not choose, and a marriage
+# sub-value that dereferences a missing scope:tnt_sp writes an error line every
+# time it is asked.
+#
+# THE NAME IS tnt_stage_*, NEVER tnt_val_*, and that is the rule
+# tnt_stage_grand_offer_value, tnt_stage_dread_offer_value and
+# tnt_stage_alliance_offer_value already carry: this is not a price and not a
+# summand of either column total, so the 54 / 40 price census does not move.
+#
+# WHY IT SITS HERE AND NOT UNDER tnt_stage_pair_loss_value, WHERE IT BELONGS.
+# One mechanical reason, and it is house law 7: CLAUDE.md:1479 anchors
+# tnt_stage_alliance_offer_value (tnt_52_marriage_values.txt:2789) - this line read 2782
+# until 2026-08-25 - this lane may not edit CLAUDE.md, so a line inserted above rots it. This
+# is the nearest slot that moves no line above it. If a later round is free to
+# re-anchor CLAUDE.md, move this block up beside the trio and take this
+# paragraph with it.
+###############################################################################
+tnt_stage_pair_raw_net_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+		}
+		add      = tnt_marriage_pair_gain_value
+		subtract = tnt_marriage_pair_loss_value
+	}
+}
+
+
+###############################################################################
+# tnt_marriage_taper_cut_value — DISPLAY ONLY. NEVER ADD THIS TO THE BALANCE.
+#
+# WHAT IT IS. The deal sheet now prints one row per couple carrying that
+# couple's OWN stored net (tnt_wed_net = tnt_wed_gain − tnt_wed_loss), which is
+# what the match is worth on its own. The SUM of those gains is then multiplied by
+# the taper inside tnt_marriage_offer_p_value (tnt_52_marriage_values.txt:2276). From the second
+# couple onwards those two facts disagree by exactly one number, and this is
+# that number, so the sheet can name it as a term instead of leaving a silent
+# gap between itself and the scale:
+#
+#     Σ tnt_wed_net  +  this  +  tnt_marriage_grand_value
+#                    +  tnt_marriage_dread_sheet_value               <-- V15
+#         ==  tnt_marriage_offer_p_value − tnt_marriage_offer_r_value
+#
+# *** THE DREAD TERM IS NEW IN V15 AND THE SHEET MUST PRINT IT OR THE IDENTITY
+# *** ABOVE IS FALSE BY UP TO 150 POINTS. Vanilla's DREAD ladder is now priced
+# *** (value 10, tnt_marriage_dread_value) and it is a ONCE-PER-TREATY row, so it is
+# *** not inside any tnt_wed_net and the per-couple rows cannot account for it -
+# *** exactly like the grand wedding, which is why it needs its own row beside
+# *** tnt_sheet_wed_grand in gui\tnt_panels.gui.
+# *** THE ROW MUST READ tnt_marriage_dread_sheet_value AND NOT THE RAW VALUE. The
+# *** raw value is ungated on purpose and would print +150 on a treaty whose gain
+# *** side is switched off; the sheet twin at the foot of this file applies the two
+# *** call sites' gates. Its own header carries the argument.
+# *** It is signed: positive when the partner fears us and somebody else is at the
+# *** altar, negative when WE are the one being married to a man who fears us. Both
+# *** signs are correct and both must be shown as they are, not clamped.
+#
+# It is ≤ 0 because the taper is ≤ 1: tapered − untapered.
+#
+# WHY IT CANNOT BE ADDED TO THE BALANCE. The taper is ALREADY inside
+# tnt_marriage_offer_p_value. Adding this as well would apply it twice. It has
+# exactly one caller — the tnt_sheet_wed_taper row in gui\tnt_panels.gui — and
+# the name deliberately does NOT follow the tnt_val_<item>_<side>_value pattern
+# that tnt_gain_total_value / tnt_loss_total_value sum, so it cannot be mistaken
+# for a term of the offer.
+#
+# WHY THE SUM IS WRITTEN TWICE. There is no local variable in a script value, so
+# the same iteration appears once tapered and once negated. Both copies restate
+# tnt_marriage_offer_p_value's `limit` rows verbatim (tnt_52_marriage_values.txt:2245-2250) — if
+# they ever drift apart, this row starts explaining a gap that is not the one that exists.
+# The nested `add = { value = 0  every_in_list = { … }  multiply = … }` shape is
+# this file's own, inside tnt_marriage_offer_p_value (tnt_52_marriage_values.txt:2262-2277).
+#
+# The `>= 2` guard makes it return a flat 0 at one couple, where the taper is
+# x1.00 — the row hides itself there for the same reason.
+###############################################################################
+tnt_marriage_taper_cut_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_marriage_p
+			var:tnt_marriage_p > 0
+			has_variable_list = tnt_wed_list			# guard: variable_list_size on a never-created list is an ENGINE ERROR, not a zero
+			variable_list_size = { name = tnt_wed_list  value >= 2 }
+		}
+
+		# --- the tapered sum, i.e. what the balance really counts ------
+		add = {
+			value = 0
+			every_in_list = {
+				variable = tnt_wed_list
+				limit = {
+					is_alive = yes
+					exists = var:tnt_wed_partner
+					var:tnt_wed_partner ?= { is_alive = yes }
+					exists = var:tnt_wed_gain
+				}
+				add = var:tnt_wed_gain
+			}
+			multiply = tnt_marriage_taper_value
+		}
+
+		# --- minus the raw sum, i.e. what the rows above add up to -----
+		add = {
+			value = 0
+			every_in_list = {
+				variable = tnt_wed_list
+				limit = {
+					is_alive = yes
+					exists = var:tnt_wed_partner
+					var:tnt_wed_partner ?= { is_alive = yes }
+					exists = var:tnt_wed_gain
+				}
+				add = var:tnt_wed_gain
+			}
+			multiply = -1
+		}
+	}
+}
+
+
+###############################################################################
+# tnt_marriage_dread_sheet_value — DISPLAY ONLY. NEVER ADD THIS TO THE BALANCE.
+#
+# THE SAME ANIMAL AS tnt_marriage_taper_cut_value ABOVE, and it exists for the same
+# reason: the deal sheet needs a row whose printed number is EXACTLY what the
+# balance moved by, and the raw value cannot supply that.
+#
+# WHY THE RAW VALUE WOULD LIE. tnt_marriage_dread_value (value 10) is deliberately
+# UNGATED - it returns its rung whenever the pair list is non-empty and the partner
+# is afraid. The gating lives at its two CALL SITES: the positive rungs are added by
+# tnt_marriage_offer_p_value, whose limit requires var:tnt_marriage_p > 0, and the
+# negative rungs by tnt_marriage_offer_r_value, whose limit requires
+# var:tnt_marriage_r > 0. THOSE TWO TOGGLES ARE INDEPENDENT: tnt_marriage_p_toggle (tnt_20_scripted_guis.txt:825)
+# and tnt_marriage_r_toggle (tnt_20_scripted_guis.txt:862) are separate widgets, so a sheet row printing the raw value would show "+150" on a treaty
+# where the gain side is switched off and the balance never received it. That is the
+# "two numbers that must agree" defect class this sheet keeps being told not to ship.
+#
+# SO THIS VALUE APPLIES THE TWO GATES ITSELF, RESTATING EACH CALL SITE'S OWN limit
+# ROWS VERBATIM - the same discipline tnt_marriage_taper_cut_value follows for
+# tnt_marriage_offer_p_value's limit. If either call site's gate is ever changed,
+# CHANGE IT HERE TOO or the row starts explaining a number that is not the one the
+# balance holds.
+#
+# IT IS SIGNED, AND BOTH SIGNS MUST BE PRINTED AS THEY ARE. Positive when the
+# partner fears us and somebody else stands at the altar; negative when WE are the
+# one being married to a man who fears us. `min = 0` picks the first half and
+# `max = 0` the second, exactly as the two call sites do, and only one of the two can
+# be non-zero for a given rung - so nothing is counted twice.
+#
+# WHAT IT MAKES TRUE: with both toggles on, the sheet identity closes exactly -
+#     Σ tnt_wed_net + tnt_marriage_taper_cut_value + tnt_marriage_grand_value
+#         + this  ==  tnt_marriage_offer_p_value − tnt_marriage_offer_r_value
+#
+# ONE CALLER ONLY: the tnt_sheet_wed_dread row in gui\tnt_panels.gui. Like
+# tnt_marriage_taper_cut_value the name deliberately does NOT follow the
+# tnt_val_<item>_<side>_value pattern that tnt_gain_total_value / tnt_loss_total_value
+# sum, so it cannot be mistaken for a term of the offer and added a second time.
+# It returns 0 whenever the partner is not afraid, which is also the condition on
+# which the sheet row should hide itself.
+###############################################################################
+tnt_marriage_dread_sheet_value = {
+	value = 0
+
+	# --- the POSITIVE rungs, and only if the gain side is switched on ------
+	# tnt_marriage_offer_p_value's own limit rows, verbatim.
+	if = {
+		limit = {
+			exists = var:tnt_marriage_p
+			var:tnt_marriage_p > 0
+			has_variable_list = tnt_wed_list			# guard: variable_list_size on a never-created list is an ENGINE ERROR, not a zero
+			variable_list_size = { name = tnt_wed_list  value > 0 }
+		}
+		add = { value = tnt_marriage_dread_value  min = 0 }
+	}
+
+	# --- the NEGATIVE rungs, and only if the loss side is switched on ------
+	# tnt_marriage_offer_r_value's own limit rows, verbatim. Kept NEGATIVE here
+	# (`max = 0`, not `multiply = -1`) because the sheet prints the effect on the
+	# BALANCE, and a cost moves the balance down.
+	if = {
+		limit = {
+			exists = var:tnt_marriage_r
+			var:tnt_marriage_r > 0
+			has_variable_list = tnt_wed_list			# guard: variable_list_size on a never-created list is an ENGINE ERROR, not a zero
+			variable_list_size = { name = tnt_wed_list  value > 0 }
+		}
+		add = { value = tnt_marriage_dread_value  max = 0 }
+	}
+}
+
+
+###############################################################################
+# tnt_stage_pair_deal_delta_value - WHAT THE BALANCE WILL ACTUALLY MOVE BY.
+#
+# THE REPORT, VERBATIM AND FOR THE THIRD TIME: the pair preview says "points for
+# this match -9", the couple goes on the table and the deal shows +106, "and I
+# think it is because of the strength of the alliance". He was right about the
+# CAUSE - the two figures were never the same quantity, so no rewording could ever
+# join them, and two rounds of rewording is exactly what was tried. BUT 115 IS A
+# RESIDUAL, NOT A MEASUREMENT: it is only 106 - (-9), nothing weighed
+# tnt_alliance_worth_value on that pair, and grand, dread, taper and the raw-vs-scaled currency gap of tnt_stage_pair_raw_net_value (tnt_52_marriage_values.txt:2812-2825) sit inside it too.
+#
+# WHAT THE PANEL'S HEADLINE IS. gui\tnt_types.gui binds tnt_ai_accept_value to a
+# `text`, and that value is, for a table with no threat and no use-a-hook,
+#     tnt_gain_total_value x M  -  tnt_loss_total_value
+# where M is the whole modifier stack (tnt_ai_accept_value decomposes it into
+# named rows and tnt_deal_floor_value restores the `min = 0` that
+# tnt_deal_mult_value carries). For ONE couple on an otherwise empty table
+# tnt_gain_total_value is tnt_val_marriage_p_value + tnt_val_alliance_p_value and
+# tnt_loss_total_value is tnt_val_marriage_r_value, so the headline collapses to
+#     (pair gain + grand + dread+ + ALLIANCE) x M  -  (pair loss + dread-)
+# The picker's old headline carried the first three terms and never the fourth.
+#
+# THIS VALUE IS THAT LINE, TERM FOR TERM, ASSEMBLED OUT OF THE VERY VALUES THE
+# OTHER PREVIEW LINES ALREADY PRINT - it re-derives nothing:
+#     tnt_stage_pair_gain_value       (pair gain + grand + dread+) x M
+#     tnt_stage_alliance_offer_value  ALLIANCE x M, gated on the ENGINE's verdict
+#     tnt_stage_pair_loss_value       pair loss + dread-, unscaled as in the deal
+# so `gain + alliance - loss` IS the headline for a first couple, to the digit,
+# and the three sub-terms printed beside it visibly add up to it on screen.
+# `round = yes` is not decoration: tnt_ai_accept_value ends with the same row, so
+# the two integers the player is asked to compare are rounded by one rule. The
+# shape - `if` blocks and then a trailing `round = yes` - is vanilla's own,
+# GAME\common\script_values\05_bp2_hostage_values.txt:738-758.
+#
+# THE ALLIANCE TERM IS GATED ON A SCOPE AND THAT IS THE ONLY LEGAL BRIDGE. A
+# script value may never ask yields_alliance (ZERO call sites in all of
+# GAME\common\script_values), so the picker asks T54 inside a `limit` and saves
+# the answer as scope:tnt_stage_ally_ok one statement above the tooltip; this
+# value reads it through tnt_stage_alliance_offer_value's own gate and never
+# calls the predicate itself. Vanilla saves a scope inside an `if` in a block it
+# only DESCRIBES and reads it downstream in that same block -
+# GAME\common\character_interactions\00_courtier_and_guest_interactions.txt:506-548,
+# the show_as_tooltip twin of that interaction's on_accept.
+#
+# *** THE STALE-SCOPE QUESTION, ASKED 2026-08-25 AND CLOSED FROM VANILLA RATHER
+# *** THAN FROM ARGUMENT. *** The save at tnt_12_marriage_picker.txt:756-762 is
+# CONDITIONAL, carries no `else`, writes no default and cannot be cleared - CK3
+# has no clear_saved_scope - and this whole surface is rebuilt on every portrait
+# change. If a temporary scope could outlive the evaluation that created it, then
+# a QUALIFYING pair followed by a non-qualifying pick would print an
+# alliance-inclusive headline beside a "does NOT create an alliance" verdict: the
+# verdict re-runs T54 live on every build, but a stale scope:tnt_stage_ally_ok
+# would simply never be unset, because the `if` that writes it does nothing when
+# it fails. That is exactly the number-versus-verdict class this file has already
+# shipped three times, so it was checked rather than assumed.
+#
+# IT CANNOT HAPPEN, AND THE PROOF IS A VANILLA CALL SITE THAT DEPENDS ON IT.
+# house_relation_is_valid_to_start_trigger
+# (GAME\common\scripted_triggers\10_tgp_house_relation_triggers.txt:3-66) writes
+# the identical shape: `$HOUSE$ ?= { save_temporary_scope_as = house_1_temp }` at
+# :4-5 with no else and no default, guarded downstream by `exists =
+# scope:house_1_temp` at :8-9 - and it closes on `# SCOPES ARE INVALID` /
+# `trigger_else = { always = no }` at :64-65. THAT ELSE BRANCH IS REACHABLE ONLY
+# IF THE TEMPORARIES ARE GONE BY THE NEXT CALL. Were they to survive a call
+# boundary, vanilla's own house-relation sweep would silently re-judge every
+# invalid pair against the previously valid one, and the `?=` would be pointless.
+# The same shape recurs at GAME\common\scripted_triggers\05_bp2_scripted_triggers.txt:11-26
+# and GAME\common\scripted_triggers\10_tgp_house_bloc_triggers.txt:16-19.
+#
+# SO THE SHIPPED SHAPE IS CORRECT AND MUST NOT BE "HARDENED". The obvious
+# defensive rewrite - save_temporary_scope_value_as with an `else` writing 0, read
+# as `scope:tnt_stage_ally_ok = 1` - would move NO number in any case the engine
+# can produce, and it costs an inserted line in the picker, which rots every
+# citation naming a line below it: CLAUDE.md:1465, :1488, :1678 and :1814,
+# tnt_52_marriage_values.txt:2732 and :2746, and tnt_l_english.yml:2203 all name
+# picker :763 / :829 / :833, and this lane may not edit CLAUDE.md. The forms it
+# would use are nonetheless both proven vanilla, so a future round that measures a
+# real leak has them ready: the value-scope save at
+# GAME\common\character_interactions\00_modifiy_vassal_contract.txt:62-65 and the
+# literal comparison `scope:local_guild_scope = 1` at
+# GAME\common\customizable_localization\00_bp3_wanderer_loc.txt:6.
+#
+# THE THREE THINGS IT CANNOT KNOW, AND THE LOC NOW SAYS ALL THREE IN ALL NINE
+# LANGUAGES. From the SECOND couple in a treaty onwards this figure is an ESTIMATE,
+# and the taper is only the smallest of the three reasons. (1) THE TAPER:
+# tnt_marriage_taper_value discounts the SUM of the pair gains, so the true marginal
+# contribution is t(n+1) x (sum + g) - t(n) x sum while this value prints g; being
+# exact needs the ladder at n+1, a SECOND COPY of the 5/4/3/2 rungs that house law 9
+# forbids. About 5% of the marriage pile at two couples, up to 20% at five.
+# (2) THE GRAND WEDDING, a flat 40, is ONCE PER TREATY inside tnt_marriage_offer_p_value (tnt_52_marriage_values.txt:2278) yet tnt_stage_pair_gain_value re-adds it (tnt_52_marriage_values.txt:2643).
+# (3) DREAD, up to 150 and a fact about the two RULERS rather than about a couple, is likewise once per treaty in tnt_marriage_offer_p_value (tnt_52_marriage_values.txt:2289) yet tnt_stage_pair_gain_value re-adds its positive half (tnt_52_marriage_values.txt:2646) and tnt_stage_pair_loss_value its negative half (tnt_52_marriage_values.txt:2663).
+# So the error is NOT "a few points": it is up to 40 + 150 before the taper gap, high
+# when he fears us and low when we fear him. At ONE couple all three are exactly zero.
+#
+# THE GUARD IS THE PREVIEW TRIO'S, VERBATIM, AND IS NOT DECORATION: this is
+# evaluated from a TOOLTIP the engine may build at moments the mod does not
+# choose, and a marriage sub-value that dereferences a missing scope:tnt_sp
+# writes an error line every time it is asked.
+#
+# THE NAME IS tnt_stage_*, NEVER tnt_val_*: this is not a price and not a summand
+# of either column total, so the 54 / 40 price census does not move.
+#
+# ORPHANED BY THIS ROUND AND KEPT ON PURPOSE (R15): tnt_stage_pair_net_value now
+# has no caller. It is this value MINUS the alliance - the figure that answered
+# the first two reports - and a future round that has to print the two apart
+# would otherwise have to write it again. It sits immediately above
+# tnt_stage_pair_gain_value, with its own header.
+###############################################################################
+tnt_stage_pair_deal_delta_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:tnt_p
+			exists = scope:tnt_sp
+			exists = scope:tnt_sr
+		}
+		add      = tnt_stage_pair_gain_value
+		# ALREADY MULTIPLIED BY tnt_deal_mult_value AT ITS OWN DEFINITION - the
+		# standing rule is in that value's header. A multiply here would apply
+		# the partner's regard to the alliance twice.
+		add      = tnt_stage_alliance_offer_value
+		subtract = tnt_stage_pair_loss_value
+	}
+	round = yes
+}

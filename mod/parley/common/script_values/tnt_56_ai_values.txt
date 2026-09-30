@@ -1,0 +1,2497 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — THE PARALLEL AI VALUE FAMILY
+# USER ITEM 4, PHASES B / C-1 / C-2   (30-V2-DESIGN §6.3 phases AI-2 and AI-3)
+#
+# Owner: ai-sandbox. NEW FILE. Nothing outside this file, tnt_11_ai_interactions.txt,
+# tnt_38_ai_world.txt and tnt_72_ai_world.txt reads anything defined here, and this
+# file reads NOTHING the rest of the mod owns.
+#
+# ===========================================================================
+# *** NAME COLLISION WARNING — tnt_ai_accept_value IS NOT PART OF THIS FAMILY ***
+# ===========================================================================
+# The mod already ships ONE value whose name begins tnt_ai_:
+#       tnt_ai_accept_value      MOD\common\script_values\tnt_50_values.txt
+# It is the WINDOW's verdict — the single number user item 1.2 made the headline —
+# and it is the opposite kind of thing from everything below it:
+#       tnt_ai_accept_value      reads `root` (the player) and `var:tnt_partner`.
+#                                Rendered by OUR breakdown tooltip, so R9's
+#                                root-only rule binds it absolutely.
+#       tnt_ai_<anything>_value  reads `scope:actor` and `scope:recipient` and NEVER
+#       (this file)              root. Rendered by the ENGINE's acceptance breakdown,
+#                                so R9 does not apply at all.
+# THEY MUST NEVER BE MIXED. Adding `add = tnt_ai_accept_value` to anything in this
+# file would drag the player's own offer variables into an AI-to-AI evaluation;
+# adding one of these to tnt_ai_accept_value would break R9 and blank the tooltip.
+# The prefix is unfortunate and it is too late to change either side: tnt_ai_accept_value
+# is quoted by the GUI, the loc and the event options. Read the SECOND word of the
+# name, not the first two.
+#
+# ===========================================================================
+# WHY THIS FILE HAS TO EXIST AT ALL — THE 55 SHIPPED VALUES CANNOT BE REUSED
+# ===========================================================================
+# TWO INDEPENDENT, PROVEN BLOCKERS. Neither has a workaround.
+#
+# BLOCKER 1 — INSIDE ai_accept THE IMPLICIT SCOPE IS THE **RECIPIENT**, NOT root.
+# Proven by an A/B pair inside ONE vanilla interaction (demand_tributary_interaction),
+# the same condition with the same desc key written two different ways:
+#
+#   GAME\common\character_interactions\00_tributary_interactions.txt:974-978
+#       (inside ai_will_do — the recipient must be named EXPLICITLY)
+#           modifier = {
+#               scope:recipient = { is_obedient_to = scope:actor }
+#               add = 40
+#               desc = obedient_interaction_reason
+#           }
+#
+#   GAME\common\character_interactions\00_tributary_interactions.txt:1097-1101
+#       (inside ai_accept — the identical test written BARE)
+#           modifier = {
+#               is_obedient_to = scope:actor
+#               add = 40
+#               desc = obedient_interaction_reason
+#           }
+#
+# Corroborated in the same block at :1039 (`government_has_flag = government_is_meritocratic`
+# whose loc key is …_recipient_confucian_government_tt), :1078-1083 (`ai_boldness`,
+# described as "the bolder THEY are") and :1088 (`ai_greed`).
+# ⇒ Our 55 values read `root` = the OFFERER. Dropped into ai_accept unchanged, root
+# becomes the DECIDER and every opinion / faith / kin / dread term is measured from
+# the wrong side. There is no sign flip that repairs it.
+#
+# BLOCKER 2 — ai_accept IS EVALUATED **BEFORE** on_send, SO NO EFFECT CAN PRE-SET
+# var:tnt_partner. Verbatim, the engine's own Can-Send order,
+# GAME\common\character_interactions\_character_interactions.info:679-692:
+#       Can Send: If an interaction can be sent is tested like this:
+#           - check if set up for sending …
+#           - check diplomatic range …
+#           - Trigger: is_shown
+#           - … is_valid_showing_failures_only / has_valid_target… / can_send / is_valid …
+#           If it passes all the above, then we check if the interaction needs to be
+#           accepted … interactions that need acceptance cannot be sent to the ai
+#           unless it will accept.
+# and on_send is "Executes directly the interaction is sent" (.info:360-361), i.e.
+# strictly afterwards. EVERY ONE of our 55 values opens with contract R0.4's prologue
+#       var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+# so without tnt_partner they all silently evaluate against nothing.
+#
+# THIRD, SOFTER REASON — COST. GAME\common\script_values\_script_values.info:13-14:
+#   "Be careful with these, as they have to be calculated every single time they're
+#    evaluated. Complex formulas can be performance intensive."
+# A 55-value chain per candidate per AI tick window is the wrong shape for ai_accept.
+# The family below is 33 values and the deepest chain any single consumer pulls is 9.
+#
+# ===========================================================================
+# THE ONE RULE EVERY VALUE IN THIS FILE OBEYS
+# ===========================================================================
+# *** NEVER WRITE `root` IN THIS FILE. ***
+# RULING D-1 (43-ai-participation.md §3.D, W-1 RESOLVED): a value intended for
+# dotted or foreign-scope invocation must be written with bare fields and `scope:`
+# only. `<scope>.<named_value>` re-roots `this`, NOT `root` —
+# GAME\common\script_values\_script_values.info:84-92 (Chaining) + :114-115
+# ("You can change scope within script values just as you can in regular script").
+# Everything here reads exactly two saved scopes, `scope:actor` and `scope:recipient`,
+# and nothing else.
+#
+# THE PROVEN TEMPLATE for a value family consumed from ai_accept is BP2's hostage
+# exchange, GAME\common\script_values\05_bp2_hostage_values.txt:622-647:
+#       interaction_actor_hostage_value = {
+#           value = 0
+#           if = {
+#               limit = { exists = scope:secondary_actor }
+#               scope:actor = { save_temporary_scope_as = home_court }
+#               …
+#               add = scope:hostage.hostage_value
+#               ceiling = yes
+#           }
+#       }
+# consumed at GAME\common\character_interactions\05_bp2_interactions.txt:356-361 and
+# compared against literals inside a trigger at GAME\common\character_interactions\00_war.txt:1431-1435.
+# Note the shape: `if = { limit = { exists = scope:… } … }`, NOT `scope:x ?= { }`.
+# THAT IS WHY THE FIVE BASE VALUES BELOW USE THE `if`+`exists` FORM. `scope:x ?= { }`
+# IS proven for a TRIGGER body (GAME\common\script_values\00_activity_values.txt:3067,
+# `scope:province ?= { has_building_or_higher = citadel_of_aleppo_01 }`) but NOT for an
+# arithmetic body on a SAVED SCOPE, and there is no reason to be first.
+# Every derived value then chains named values only and touches no scope at all.
+#
+# R9 DOES NOT APPLY HERE, and that is explicit in the brief and in the design:
+# 30-V2-DESIGN §6.2 and 43-…md §3.D — the root-only restriction belongs to ONE GUI
+# datafunction, GuiScope.SetRoot(X).GetScriptValueBreakdown('n'), which supplies root
+# and nothing else. Nothing in this file is ever rendered by our breakdown tooltip.
+# The breakdown these values DO get rendered into is the ENGINE's own acceptance
+# breakdown (CharacterInteractionConfirmationWindow.GetAcceptanceBreakdown,
+# GAME\gui\interaction_templates.gui:3095, :3106), which is fed from ai_accept and
+# happily carries multi-scope values plus their `desc` rows.
+#
+# ===========================================================================
+# CALIBRATION — IDENTICAL CURRENCY TO THE WINDOW, MIRRORED ONTO THE OTHER SCOPES
+# ===========================================================================
+# *** v3 ITERATION 2 REWROTE THIS WHOLE SECTION. THE OLD CURRENCY IS GONE. ***
+#
+# THE UNIT IS A RAW VANILLA ACCEPTANCE POINT, exactly as the window's is now. It is
+# NOT "100 points == a year of the decider's income" any more; that convention drifted
+# with income and could never line up with vanilla, and the argument is written out
+# once in the CALIBRATION block at the top of tnt_50_values.txt. The decider is still
+# the RECIPIENT (blocker 1), and every constant below is still copied from its window
+# twin so that an AI-brokered deal and a player-brokered deal price the same terms the
+# same way.
+#
+# WHAT ITERATION 2 FOUND WRONG HERE, and it was two separate kinds of drift:
+#   (a) SCALE. Every points value in part 4 was `amount / recipient income x 100`.
+#       They are now `amount / <that resource's vanilla unit price>`, which is what
+#       the window does. See parts 3b and 4.
+#   (b) STRUCTURE, and this is the one the brief calls out by name. Iteration 1 turned
+#       the alliance and the non-aggression pact into SINGLE MUTUAL TERMS in the
+#       window, priced once from the partner's point of view (tnt_50_values.txt §4.C
+#       items 3 and 4, "v3 item ADD-4"). This file was left with the old _gain / _cost
+#       PAIR, so the AI still valued a pact as a gain minus a cost while the window
+#       valued it once — the two could disagree by 50-100 points on the same pact.
+#       Both _cost values are now HARD ZEROS, exactly as tnt_val_alliance_r_value and
+#       tnt_val_truce_r_value are in the window, and the _gain value carries the whole
+#       mutual price. See part 5.
+#
+# THE TWINS, for anyone retuning either side:
+#
+#   this file                        window twin (file:value)
+#   ------------------------------   ---------------------------------------------
+#   gold / tnt_ai_gold_per_point_value
+#                                    tnt_50_values.txt tnt_gold_per_point_value
+#                                    (10 below duke, 15 duke+; SSM:552-566 + SV:51-90)
+#   prestige / tnt_ai_prestige_per_point_value
+#                                    tnt_53_currency_values.txt tnt_prestige_per_point_value
+#                                    (7.5 + 1.25 x (both tiers); SSM:647-666 + SV:151-164)
+#   alliance, 40 x ratio x glut, 0..150        *** BOTH SIDES RETIRED, V13 ***
+#                                    tnt_50_values.txt tnt_val_alliance_p_value
+#                                    (v4 item 22. The window twin ALSO added
+#                                     tnt_alliance_bias_value; this file had no bias
+#                                     twin — see the divergence note in part 5.)
+#   non-aggression, 10 + 15 x (ratio-1), -20..50  *** BOTH SIDES RETIRED, V13 ***
+#                                    tnt_50_values.txt tnt_val_truce_p_value
+#   V13, USER ITEM 1: the alliance and the non-aggression pact are RETIRED
+#   MOD-WIDE as a design refusal - vanilla gates both behind a Diplomacy lifestyle
+#   investment. The two window twins are gutted to a hard 0 and the values on THIS
+#   side are orphaned but left defined (see the tombstone headers in part 5).
+#   These two rows stay in the twin table because a revival must re-pair them.
+#   weak hook, 20                    tnt_55_hc_values.txt tnt_val_hook_tier_p_value
+#                                    (tier 1 of 20 / 50 / 100, vanilla verbatim at
+#                                     GAME\common\scripted_modifiers\00_scheme_scripted_modifiers.txt:615-628)
+#   opinion x0.75                    tnt_51_relation_values.txt tnt_relmod_opinion_value
+#   faith 0 / -10 / -35              tnt_51_relation_values.txt tnt_relmod_faith_value
+#   culture +5 / -10                 tnt_51_relation_values.txt tnt_relmod_culture_value
+#   kin +10                          tnt_51_relation_values.txt tnt_relmod_kin_value
+#   ally +10                         tnt_51_relation_values.txt tnt_relmod_ally_value
+#   threshold 0 + .1g + .05b - .05r  tnt_50_values.txt tnt_threshold_value
+#     min 0, max 40, pride +10/+20   (base 0 is vanilla's stated default,
+#                                     00_prison_interactions.txt:758)
+#
+# ===========================================================================
+# WHAT IS **NOT** HERE, DELIBERATELY
+# ===========================================================================
+# * No dread, no scripted-relation and no active-war relation term. Their window
+#   twins are worth 8 lines each and the engine gives two of the three away for
+#   free inside ai_accept: `ai_value_modifier` covers personality and
+#   `opinion_modifier` already folds in most of what dread and relations move.
+#   43-…md §1.11 rules exactly this trade.
+# * No obligation, marriage, claim, artifact or prisoner value. Phase B prices
+#   four items (gold, prestige, alliance, truce) plus hook coercion. Phase C-2
+#   was restricted by 30-V2-DESIGN §6.3 to items 1/2/3/4/9 and NEVER 6/11/12;
+#   the user's later ruling — the AI must use the full range of deal terms —
+#   SUPERSEDES that ban for exactly two tightly-gated legs, so this file now
+#   also carries a TITLE family and a FEALTY family (see the two sections at
+#   the foot of the file, S-TITLE and S-FEALTY, with their gates). (Item 2,
+#   the yearly tribute, is retired mod-wide and is priced nowhere any more.)
+# * No `desc` on any value defined here. `desc` rows are written at the point of
+#   use, inside each interaction's ai_accept, so the engine's acceptance breakdown
+#   names the reason in the player's own language. Contract §4 rule 3 ("exactly two
+#   values carry desc") therefore still holds for the mod as a whole: this file adds
+#   zero desc-bearing values.
+#
+# ENCODING: UTF-8 WITH BOM (R16). NEW .txt — reported in new_txt_files_needing_bom.
+###############################################################################
+
+
+###############################################################################
+# PART 1 — THE FIVE BASE VALUES
+#
+# The ONLY five values in this file that touch a scope. Everything below chains
+# these by name. Each is guarded with `if = { limit = { exists = scope:… } … }`, the
+# BP2 template's own shape, so a stray evaluation outside an interaction returns the
+# floor instead of an error line.
+###############################################################################
+
+# --- yearly income, floored at 12 so a pauper's ratio never explodes ----------
+# yearly_character_income as a script-value field: REAL,
+# GAME\common\script_values\01_dynamic_values.txt:316
+#   gift_interaction_cutoff = { value = yearly_character_income  multiply = 3  min = 10  max = 300 }
+# Floor of 12 copied from tnt_actor_year_income_value (tnt_50_values.txt:281-285).
+tnt_ai_actor_income_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = { add = yearly_character_income }
+	}
+	min = 12
+}
+
+tnt_ai_recipient_income_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:recipient }
+		scope:recipient = { add = yearly_character_income }
+	}
+	min = 12
+}
+
+# --- military strength, floored at 1 -----------------------------------------
+# current_military_strength as a script-value field: REAL,
+# GAME\common\script_values\00_interaction_values.txt:824;
+# also GAME\common\character_interactions\00_alliance.txt:2009 inside ai_accept.
+tnt_ai_actor_strength_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = { add = current_military_strength }
+	}
+	min = 1
+}
+
+tnt_ai_recipient_strength_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:recipient }
+		scope:recipient = { add = current_military_strength }
+	}
+	min = 1
+}
+
+# --- signed tier edge: > 0 means the ACTOR outranks the recipient -------------
+# Exists so that nothing anywhere compares two characters' fields directly
+# (contract R0.3 / Law 4, and R7 of the build brief). Sign convention deliberately
+# matches tnt_tier_edge_value (tnt_50_values.txt:400-404) with root -> scope:actor
+# and var:tnt_partner -> scope:recipient, so "< 0 means the decider is the higher
+# tier" reads the same in both families.
+# highest_held_title_tier as a script-value field: REAL,
+# GAME\common\script_values\00_title_tiers_values.txt:10.
+tnt_ai_tier_edge_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = { add = highest_held_title_tier }
+	}
+	if = {
+		limit = { exists = scope:recipient }
+		scope:recipient = { subtract = highest_held_title_tier }
+	}
+}
+
+
+# Telemetry-only twin for the strategic submission lane. It intentionally reads
+# the lane's private target scope, so a failed coercion search can never seed the
+# generic sandbox's scope:recipient.
+tnt_ai_submission_tier_edge_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = { add = highest_held_title_tier }
+	}
+	if = {
+		limit = { exists = scope:tnt_submission_target }
+		scope:tnt_submission_target = { subtract = highest_held_title_tier }
+	}
+}
+
+
+###############################################################################
+# PART 2 — THE TWO POWER RATIOS
+#
+# Shape copied from vanilla's own military-balance modifier,
+# GAME\common\character_interactions\00_alliance.txt:2005-2014, and from the window's
+# tnt_power_ratio_value / tnt_power_ratio_inv_value (tnt_50_values.txt:372-385).
+# Clamped 0.2..5 so one enormous or one empty realm cannot dominate a price.
+###############################################################################
+
+# How strong the ACTOR is relative to the recipient. Used where the recipient is
+# valuing something the ACTOR brings (an alliance with him, a truce with him).
+tnt_ai_power_ratio_value = {
+	value = tnt_ai_actor_strength_value
+	divide = { value = tnt_ai_recipient_strength_value  min = 1 }
+	min = 0.2
+	max = 5
+}
+
+# The mirror. Used where the recipient is valuing something HE gives up (his own
+# freedom to attack, his own obligation to march).
+tnt_ai_power_ratio_inv_value = {
+	value = tnt_ai_recipient_strength_value
+	divide = { value = tnt_ai_actor_strength_value  min = 1 }
+	min = 0.2
+	max = 5
+}
+
+
+###############################################################################
+# PART 3 — THE AMOUNTS, IN RAW RESOURCE
+#
+# These are what the effects actually hand over: gold and prestige.
+# Every one is scaled off the RECIPIENT'S income, so a duke does not try to buy a
+# king's alliance with 30 gold and an emperor does not overpay a count by 4000.
+# `round = yes` on all three: an interaction that pays 47.3184 gold looks broken in
+# the tooltip even when the arithmetic is right.
+#
+# TWO TIERS PER RESOURCE, AND THAT IS THE WHOLE "ONE CORRECTIVE STEP" MECHANISM.
+# 30-V2-DESIGN §6.4.3 forbids a convergence loop ("One archetype + at most one
+# corrective step; if the package is still negative, abort"). In the INTERACTIONS
+# the two tiers are two non-exclusive send_options, so the engine itself searches
+# the combinations and — because ai_will_do subtracts for each sweetener — lands on
+# the CHEAPEST combination the recipient will accept. In the C-2 PULSE the low tier
+# is tried first and the high tier is the single corrective step. Same numbers, same
+# fairness, no loop anywhere.
+###############################################################################
+
+# --- one-time gold ----------------------------------------------------------
+# Low ~= 0.6 of a year of the recipient's income; high ~= 1.8 years.
+# Caps: 400 / 1200 gold. The window's own gold stepper runs 0..5000
+# (30-V2-DESIGN §3.2), so both tiers sit comfortably inside the range a player can
+# offer by hand — an AI must never be able to bid something a player cannot match.
+tnt_ai_gold_low_value = {
+	value = tnt_ai_recipient_income_value
+	multiply = 0.6
+	min = 25
+	max = 400
+	round = yes
+}
+
+tnt_ai_gold_high_value = {
+	value = tnt_ai_recipient_income_value
+	multiply = 1.8
+	min = 75
+	max = 1200
+	round = yes
+}
+
+# --- one-time prestige ------------------------------------------------------
+# A quarter of what the ACTOR is sitting on, because prestige is his to spend and
+# unlike gold it has no income proxy. Clamped 150..2500; the window's prestige
+# stepper runs 0..10000 in steps of 50 (30-V2-DESIGN §3.2), so this is a modest
+# offer by player standards, which is correct — the AI is not meant to outbid the
+# player, only to make a credible one.
+# `value = prestige` as a script-value field: REAL,
+# GAME\common\script_values\09_mpo_values.txt:2330.
+# NOTE the affordability guard is NOT here. It lives on the send_option's is_valid
+# and on the apply effect's own limit, because prestige goes NEGATIVE silently
+# (30-V2-DESIGN §1 row 2.4) and a value cannot refuse anything.
+tnt_ai_prestige_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = {
+			add = { value = prestige  multiply = 0.25 }
+		}
+	}
+	min = 150
+	max = 2500
+	round = yes
+}
+
+
+###############################################################################
+# PART 3b — THE TWO UNIT PRICES  (2 values, NEW in v3 iteration 2)
+#
+# The AI-side twins of tnt_gold_per_point_value (tnt_50_values.txt §4.A) and
+# tnt_prestige_per_point_value (tnt_53_currency_values.txt §1b), with
+# `var:tnt_partner` replaced by `scope:recipient` and `root` by `scope:actor`.
+# The full derivation is written out once, in tnt_gold_per_point_value's header;
+# the short form is that vanilla's invite-agent bribe menu is the only place in the
+# game that states an exchange rate between a resource and an acceptance point:
+#     bribe_value gold     -> +10   SSM:552-566   SV:51-90
+#     prestige_bribe_value -> +20   SSM:647-666   SV:151-164
+#   SSM = GAME\common\scripted_modifiers\00_scheme_scripted_modifiers.txt
+#   SV  = GAME\common\script_values\00_scheme_values.txt
+#
+# NOTE THAT VANILLA'S OWN TWO VALUES READ EXACTLY THESE TWO SCOPES: `bribe_value`
+# tests `scope:recipient.primary_title.tier` (SV:63-75) and `prestige_bribe_value`
+# adds 25 x `scope:actor.highest_held_title_tier` + 25 x
+# `scope:recipient.highest_held_title_tier` (SV:157, :162). So this file's rule —
+# never write `root`, read only scope:actor and scope:recipient — is not a
+# workaround here, it is the shape vanilla itself uses for the same arithmetic.
+#
+# There is no piety or influence twin: phase B and phase C-2 price gold, prestige,
+# alliance, truce and hook coercion, and nothing else (30-V2-DESIGN §6.3).
+###############################################################################
+
+tnt_ai_gold_per_point_value = {
+	value = 10
+	if = {
+		limit = { exists = scope:recipient }
+		scope:recipient = {
+			if = {
+				limit = { highest_held_title_tier >= tier_duchy }
+				add = 5
+			}
+		}
+	}
+	min = 1
+}
+
+tnt_ai_prestige_per_point_value = {
+	value = 7.5
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = {
+			add = {
+				value = highest_held_title_tier
+				multiply = 1.25
+			}
+		}
+	}
+	if = {
+		limit = { exists = scope:recipient }
+		scope:recipient = {
+			add = {
+				value = highest_held_title_tier
+				multiply = 1.25
+			}
+		}
+	}
+	min = 10
+}
+
+
+###############################################################################
+# PART 4 — THE SAME AMOUNTS, IN ACCEPTANCE POINTS
+#
+# v3 ITERATION 2 — THE DIVISOR CHANGED, AND IT IS THE SAME CHANGE THE WINDOW MADE.
+# These three were `amount / recipient's yearly income x 100`. They are now
+# `amount / <that resource's vanilla unit price>` (part 3b), i.e. identical
+# arithmetic to tnt_val_gold_p_value and tnt_val_prestige_p_value after their own
+# recalibration. The `min = 1` on every divisor is kept: it is what stops a division
+# by zero for a landless or freshly-dispossessed recipient.
+#
+# These are the values the ai_accept `modifier` rows add. They are separate from
+# part 3 on purpose: part 3 is what changes hands, part 4 is what it is WORTH, and
+# conflating the two is how a mod ends up paying 400 gold for 400 points.
+#
+# WHAT THE TWO GOLD TIERS NOW BUY, so the archetypes stay legible: gold_low is about
+# 0.6 of a year of the recipient's income and gold_high about 1.8, so against a duke
+# on 250 gold a year they are 150 and 450 gold, reading +10 and +30. That is a
+# credible sweetener and a strong one, on vanilla's own ladder — and it is bounded by
+# part 3's caps (400 / 1200 gold, i.e. at most +27 / +80).
+###############################################################################
+
+tnt_ai_gold_low_points_value = {
+	value = tnt_ai_gold_low_value
+	divide = { value = tnt_ai_gold_per_point_value  min = 1 }
+}
+
+tnt_ai_gold_high_points_value = {
+	value = tnt_ai_gold_high_value
+	divide = { value = tnt_ai_gold_per_point_value  min = 1 }
+}
+
+# amount / tnt_ai_prestige_per_point_value (part 3b), the same rate the window uses.
+#
+# THE OLD 0.6 FUDGE IS GONE. It was a hand-averaged stand-in for the window's
+# arrogant / humble riders, applied because the gold-relative "1 prestige == 1 gold"
+# rate had no tier term of its own. The real rate has one — prestige costs 12.5 per
+# point between counts and 20 between emperors — so the fudge is now double
+# discounting and it is removed. Personality is still not re-applied here: ai_accept
+# carries its own `ai_value_modifier`, and stacking both would price one trait twice.
+#
+# THE CAP IS NEW AND IT IS LOAD-BEARING. tnt_ai_prestige_value is a quarter of the
+# ACTOR'S prestige stock, clamped 150..2500 — a figure with no relation to the
+# recipient's tier — so at the top of that range an AI could offer 2500 prestige to a
+# poor duke and score +167, deep into vanilla's "forced yes" band (+100..+1000) on a
+# single sweetener. Capped at 75, `very_high` on the ladder
+# (GAME\common\script_values\00_ai_values.txt:22-34), which is the largest a single
+# non-veto row gets anywhere in vanilla's own bribe menu.
+tnt_ai_prestige_points_value = {
+	value = tnt_ai_prestige_value
+	divide = { value = tnt_ai_prestige_per_point_value  min = 1 }
+	max = 75
+}
+
+
+###############################################################################
+# PART 5 — WHAT THE MUTUAL TERMS ARE WORTH TO THE RECIPIENT
+#
+# ===========================================================================
+# *** v3 ITERATION 2 — THIS IS THE DRIFT THE BRIEF NAMED. READ IT BEFORE EDITING. ***
+# ===========================================================================
+# WHAT THIS SECTION USED TO SAY, and it is now wrong:
+#   "An alliance and a non-aggression pact are MUTUAL: the recipient both gains
+#    something and gives something up … So each has a _gain and a _cost, and the deal
+#    balances in part 7 add the one and subtract the other. That is the same structure
+#    the window uses when the player ticks both alliance columns."
+# The window STOPPED doing that in v3 iteration 1 (item ADD-4). Ticking "both alliance
+# columns" is no longer possible: there is ONE variable, ONE price, asked once from the
+# partner's point of view, and tnt_val_alliance_r_value / tnt_val_truce_r_value are
+# HARD ZEROS kept only so the GUI rows that still print them do not error
+# (tnt_50_values.txt §4.C items 3 and 4). The user's own bug report is the reason —
+# a mutual pact modelled as an independent gain AND an independent loss was
+# double-counted with opposite signs, so "choosing them on even a weak partner's side
+# subtracts points instead of adding".
+#
+# This file was left on the old structure, so the AI valued a pact as
+# (gain - cost) while the window valued it once. On an even matchup that is a 40-100
+# point disagreement about the same pact — the AI would demand gold for something the
+# window said it wanted, or accept for free something the window priced.
+#
+# THE RE-SYNC, mirroring the window exactly:
+#   * tnt_ai_alliance_gain_value / tnt_ai_truce_gain_value now carry the WHOLE mutual
+#     price, with the window's numbers and the window's riders.
+#   * tnt_ai_alliance_cost_value / tnt_ai_truce_cost_value are HARD ZEROS — dead by
+#     design, exactly like their window twins, and for the same reason: three
+#     `modifier` rows in tnt_11_ai_interactions.txt still read them (:644, :1058,
+#     :1451) and R15 forbids deleting a name another author reads. A zero prints a
+#     zero; a missing script value prints an error every frame.
+#   * the eight deal balances in part 7 no longer subtract them.
+#   * tnt_ai_power_ratio_inv_value now has no reader in this file. It is KEPT: it is
+#     the mirror of a value that does have readers, it costs nothing, and it is the
+#     thing a future author will need the moment a term is priced from the recipient's
+#     side rather than the actor's.
+# HANDOFF: the three `modifier` rows above should be dropped by whoever owns
+# tnt_11_ai_interactions.txt. Until they are, they contribute exactly 0.
+###############################################################################
+
+# --- ALLIANCE — ONE MUTUAL TERM, PRICED ONCE --------------------------------
+# 40 x ratio, clamped 0..150 after v4 item 22 — tnt_val_alliance_p_value's own numbers
+# and its own clamp.
+# *** CITATION NOTE, 2026-08-23. THE WINDOW-SIDE VALUE'S CLAMP IS NOW 0..100. ***
+# The alliance round revived tnt_val_alliance_p_value (tnt_50_values.txt) as the price
+# of the alliance a deal WEDDING brings - a consequence, not a term - and moved its
+# ceiling 150 -> 100, vanilla's own top figure for that consequence (MSM:256). The
+# subtree below is STILL ORPHANED: the AI-to-AI sandbox commits its weddings through
+# tnt_wed_plain_pair_effect and never touches tnt_wed_list, so the bridge variable
+# var:tnt_wed_ally_any is never written there and nothing in this file reads it.
+# EXTENDING THE ALLIANCE TO THE SANDBOX IS AN OPEN SCOPE QUESTION FOR THE USER, not a
+# tidy-up: it would need a second yields_alliance site in tnt_38_ai_world.txt's wedding
+# leg plus a revival of the values below. Do not re-tune 150 here to "match" until that
+# is ruled on - a number nobody reads is not a divergence, and an edit that pretends
+# otherwise hides the real question. Vanilla's DESIRES_ALLIANCE row is +40 when the recipient's stance
+# is neutral or threatened and +100 when it is friendly:
+#   GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:139-140 (`value = 40`)
+#   GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:255-256 (`value = 100`)
+# so even strength reads exactly +40 and a 2.5x stronger actor exactly +100.
+# The riders are the window's, one for one:
+#   x1.5  the recipient is at war        OURS — a man being invaded wants an ally now
+#   x0.5  the ACTOR is at war            VANILLA, MSM:205-212
+#   xGLUT both sides' existing allies    VANILLA, MSM:181-204 (actor) and
+#                                        00_alliance.txt:2148-2169 (recipient)
+#
+# V4 ITEM 22 — TWO CORRECTIONS AND ONE IMPORT, AND ONE OF THE CORRECTIONS IS TO THIS
+# COMMENT ITSELF.
+#
+# 1. THE FLAT `x0.5 the recipient has 2+ allies` ROW IS REPLACED by the two glut
+#    ladders below. The old row was also MIS-CITED here: MSM:181-204 halves per ally
+#    of THE ACTOR, not of the recipient, and it halves ONCE PER ALLY rather than once.
+#    The recipient's ally count is charged by a different vanilla row entirely, the
+#    -15 each of 00_alliance.txt:2148-2169. Both directions are now priced, in
+#    vanilla's multiplicative shape: 0-1 ally x1, 2 x0.25, 3 x0.125, 4+ x0.0625.
+#
+# 2. THE OLD CLAIM THAT "IT BELONGS TO THE STANDING TERM, AND tnt_ai_relation_value IS
+#    WHERE STANDING LIVES" WAS FALSE. tnt_ai_relation_value carries opinion, faith,
+#    culture, kin and the already-allied +10 (part 6) — it never carried an ally-count
+#    penalty, in this file or in its window twin tnt_relmod_ally_value. The window's
+#    version of that penalty did exist, in tnt_51_relation_values.txt §8, and v4 item
+#    22 DELETED it there because its gate broke I4. Nothing of it lands in part 6.
+#
+# 3. THE CLAMP MOVES 10..100 -> 0..150, mirroring the window. The floor had to go or
+#    the glut would be invisible (40 x 1 x 0.0625 = 2.5 clamps back up to 10, and a
+#    man with four allies would still be paid a quarter price for a worthless
+#    promise). The ceiling is raised to keep the mirror at the window's clamp; see the
+#    divergence note below for why this file cannot currently reach it.
+#
+# *** KNOWN, DELIBERATE DIVERGENCE FROM THE WINDOW, RECORDED SO NOBODY "FIXES" IT BY
+# HALF. *** The window's alliance term also carries tnt_alliance_bias_value — the
+# trait, claim and standing rows imported from negotiate_alliance's ai_accept
+# (tnt_50_values.txt §3). Contract v1 §1.A assigns this file exactly two new values,
+# the two glut ladders, and no bias twin. So an AI-to-AI pact is priced WITHOUT the
+# bias, and the two families can disagree about the same alliance by roughly -110 to
+# +210 points where a partner's personality is extreme. That gap is bounded, it never
+# touches a window invariant (nothing in this file enters tnt_ai_accept_value), and
+# closing it is a whole pass of its own because every bias row would need the
+# actor/recipient scope vocabulary instead of tnt_me/tnt_p. HANDOFF, not a TODO in
+# code: mirror tnt_alliance_bias_value here the day the bias has run in game.
+# `is_at_war` as a trigger inside a value: REAL,
+# GAME\common\script_values\00_artifact_values.txt:96.
+# `any_ally` inside a value: REAL, GAME\common\script_values\00_war_values.txt:854.
+# target_is_liege_or_above / target_is_vassal_or_below inside a value: REAL,
+#   GAME\common\script_values\00_lifestyle_values.txt:831, 07_ep3_values.txt:622.
+# ===========================================================================
+# ORPHANED BY THE ALLIANCE/TRUCE RETIREMENT (V13, user item 1). This value and
+# the five that follow it - tnt_ai_ally_glut_actor_value,
+# tnt_ai_ally_glut_recipient_value, tnt_ai_alliance_cost_value,
+# tnt_ai_truce_gain_value and tnt_ai_truce_cost_value - have ZERO readers now
+# that the four A1/A2 balance values at the foot of part 5 are themselves
+# orphaned. (The two _cost_ values already had zero readers before this round.)
+# Full tombstone: the block above E3 in
+# common\scripted_effects\tnt_38_ai_world.txt.
+# LEFT DEFINED per the ruling at tnt_41_gates.txt - an unreferenced script value
+# is never evaluated and costs nothing, none of them reads a tnt_ variable, and
+# the ally-glut ladders are calibration a revival would otherwise have to
+# re-derive from scratch.
+# ===========================================================================
+tnt_ai_alliance_gain_value = {
+	value = 40
+	multiply = tnt_ai_power_ratio_value
+	if = {
+		limit = { scope:recipient ?= { is_at_war = yes } }
+		multiply = 1.5
+	}
+	if = {
+		limit = { scope:actor ?= { is_at_war = yes } }
+		multiply = 0.5
+	}
+	multiply = tnt_ai_ally_glut_actor_value
+	multiply = tnt_ai_ally_glut_recipient_value
+	min = 0
+	max = 150
+}
+
+# --- THE TWO GLUT LADDERS ----------------------------------------------------
+# The window twins are tnt_ally_glut_self_value (the player, i.e. the actor) and
+# tnt_ally_glut_partner_value (the partner, i.e. the recipient), tnt_50_values.txt §3.
+# The names differ on purpose: `self` / `partner` there, `actor` / `recipient` here,
+# because those are the scope vocabularies the two families actually stand in — this
+# file speaks scope:actor / scope:recipient throughout. Contract v1 §1.A
+# rules the naming and forbids `_p` / `_r` for either pair — in this mod `_p` / `_r`
+# name a COLUMN of the ledger, and these two multiply the same single mutual value.
+#
+# THE LADDER IS VANILLA'S x0.5-PER-ALLY (MSM:181-204) WRITTEN AS COUNT RUNGS, because
+# contract v1 R11 forbids `every_ally = { limit = {…} multiply = 0.5 }` inside a
+# script value this pass — that form is unproven in this mod. The rungs reproduce it
+# exactly wherever it can be reached: 2 allies 0.25, 3 allies 0.125, 4 allies 0.0625.
+# The 0.0625 floor is REASONED, not imported: it is the fourth rung as a clamp, so a
+# man with nine allies is charged 6.25% and not 0.2%, which would round to nothing.
+# The NOR is vanilla's: your own vassals and your own liege are not spare friends.
+tnt_ai_ally_glut_actor_value = {
+	value = 1
+	if = {
+		limit = {
+			scope:actor ?= {
+				any_ally = {
+					NOR = {
+						target_is_liege_or_above = scope:actor
+						target_is_vassal_or_below = scope:actor
+					}
+					count >= 2
+				}
+			}
+		}
+		multiply = 0.25
+	}
+	if = {
+		limit = {
+			scope:actor ?= {
+				any_ally = {
+					NOR = {
+						target_is_liege_or_above = scope:actor
+						target_is_vassal_or_below = scope:actor
+					}
+					count >= 3
+				}
+			}
+		}
+		multiply = 0.5
+	}
+	if = {
+		limit = {
+			scope:actor ?= {
+				any_ally = {
+					NOR = {
+						target_is_liege_or_above = scope:actor
+						target_is_vassal_or_below = scope:actor
+					}
+					count >= 4
+				}
+			}
+		}
+		multiply = 0.5
+	}
+	min = 0.0625
+}
+
+# The recipient's side. Vanilla charges it too — 00_alliance.txt:2148-2169, -15 per
+# recipient ally once he has two — and this is that row on the multiplicative scale.
+tnt_ai_ally_glut_recipient_value = {
+	value = 1
+	if = {
+		limit = {
+			scope:recipient ?= {
+				any_ally = {
+					NOR = {
+						target_is_liege_or_above = scope:recipient
+						target_is_vassal_or_below = scope:recipient
+					}
+					count >= 2
+				}
+			}
+		}
+		multiply = 0.25
+	}
+	if = {
+		limit = {
+			scope:recipient ?= {
+				any_ally = {
+					NOR = {
+						target_is_liege_or_above = scope:recipient
+						target_is_vassal_or_below = scope:recipient
+					}
+					count >= 3
+				}
+			}
+		}
+		multiply = 0.5
+	}
+	if = {
+		limit = {
+			scope:recipient ?= {
+				any_ally = {
+					NOR = {
+						target_is_liege_or_above = scope:recipient
+						target_is_vassal_or_below = scope:recipient
+					}
+					count >= 4
+				}
+			}
+		}
+		multiply = 0.5
+	}
+	min = 0.0625
+}
+
+# DEAD BY DESIGN (v3 iteration 2). See the box at the head of part 5. ORPHAN as of
+# 08-24: tnt_11_ai_interactions.txt no longer exists and this value has zero readers.
+tnt_ai_alliance_cost_value = {
+	value = 0
+}
+
+# --- NON-AGGRESSION PACT, TEN YEARS — ONE MUTUAL TERM, PRICED ONCE ----------
+# v3 ITERATION 2 — 10 flat plus 15 x (ratio - 1), clamped -20..50, which is
+# tnt_val_truce_p_value's numbers after iteration 2 (tnt_50_values.txt §4.C item 4).
+# It was 35 + 55 x ratio, clamped 25..160.
+#
+# WHY IT SHRANK SO FAR: vanilla prices the pact ITSELF at zero. Its own truce action,
+# `purchase_truce_interaction`
+# (GAME\common\character_interactions\03_fp2_interactions.txt:2016), has
+# `ai_accept base = 0` (:2241) and NOTHING but gold bands moves the number — -10 for a
+# small sum (:2292), +25 medium (:2298), +75 large (:2304). A ten-year truce is a
+# formality that the payment buys, not a gift with a price of its own.
+#
+# The riders are the window's, mirrored:
+#   * halved if the two realms do not even touch — nothing to fear.
+#     `character_is_land_realm_neighbor` inside a script value: REAL,
+#     GAME\common\script_values\05_bp2_hostage_values.txt:603,
+#     GAME\common\script_values\04_ep2_wedding_values.txt:367; and as an
+#     interaction trigger at GAME\common\character_interactions\00_character_interactions.txt:638.
+#   * x1.4 if the other side is sitting on a claim against him.
+#     `any_claim = { holder = … }`: REAL,
+#     GAME\common\character_interactions\00_alliance.txt:2020-2022. `holder ?=` and
+#     not `holder =` because a claimed title can be unheld — the optional-equality
+#     form is proven at GAME\common\script_values\00_interaction_values.txt:81.
+#   * +20 on the GAIN only if they are ALREADY SHOOTING AT EACH OTHER (additive
+#     since the note inside the value below; the old x1.6 amplified the wrong way).
+#     This one is OURS and has no window twin, because the window's truce item is
+#     priced for a peacetime pact. Its old justification — T13's praise of the
+#     mid-war truce — is REVERSED by USER ITEM 26: an at-war pair can no longer
+#     OPEN a negotiation (tnt_10_interaction.txt is_valid) and both AI paths
+#     filter belligerents out, so the rider's ONE remaining live case is a war
+#     declared while the window is already open — the send button stays usable
+#     by ruling (tnt_20_scripted_guis.txt), and this is the number that prices
+#     that late-war truce. Kept for exactly that seam.
+#     `is_at_war_with`: REAL, GAME\common\character_interactions\00_alliance.txt:976, :1164.
+tnt_ai_truce_gain_value = {
+	value = 10
+	add = {
+		value = 15
+		multiply = tnt_ai_power_ratio_value
+	}
+	subtract = 15
+	if = {
+		limit = {
+			scope:actor ?= { any_claim = { holder ?= scope:recipient } }
+		}
+		add = 10
+	}
+	if = {
+		limit = {
+			scope:recipient ?= { any_claim = { holder ?= scope:actor } }
+		}
+		subtract = 10
+	}
+	if = {
+		limit = {
+			scope:recipient ?= { NOT = { character_is_land_realm_neighbor = scope:actor } }
+		}
+		multiply = 0.5
+	}
+	# ADDITIVE, NOT THE OLD x1.6, AND THAT IS DELIBERATE. The term can now be
+	# negative (a strong recipient gains little by promising not to hit a weakling),
+	# and a multiplier applied to a negative number amplifies the wrong way — it
+	# would make a belligerent LESS willing to stop fighting. +20 is `low` on
+	# vanilla's ladder (00_ai_values.txt:22-34) and lands after the neighbour
+	# halving, because two men already shooting at each other are neighbours by
+	# definition and the bonus should not be halved on a technicality.
+	if = {
+		limit = {
+			scope:recipient ?= { is_at_war_with = scope:actor }
+		}
+		add = 20
+	}
+	min = -20
+	max = 50
+}
+
+# DEAD BY DESIGN (v3 iteration 2). See the box at the head of part 5. ORPHAN as of
+# 08-24: tnt_11_ai_interactions.txt no longer exists and this value has zero readers.
+tnt_ai_truce_cost_value = {
+	value = 0
+}
+
+# --- A FAVOUR OWED ----------------------------------------------------------
+# What it costs the recipient to owe the actor one weak, ten-year, single-use
+# favour — tnt_deal_favor_hook (tnt_90_hook_types.txt:116-118).
+# v3 ITERATION 2: 30 -> 20. It is tier 1 of the mod's ladder, which became
+# 20 / 50 / 100 (tnt_55_hc_values.txt tnt_val_hook_tier_*_value) — i.e. VANILLA'S OWN
+# TWO FIGURES VERBATIM, +20 weak / +50 strong, now that the ten-times income scaling
+# is gone: GAME\common\scripted_modifiers\00_scheme_scripted_modifiers.txt:615-628.
+# It is NOT anchored on the +100/+200 for SPENDING a hook you already hold
+# (00_marriage_scripted_modifiers.txt:11-22) — that is the other mechanic, and it is
+# priced separately, inline, in each interaction's ai_accept. 30-V2-DESIGN §2 C-1
+# settles that contradiction explicitly; the 85/210/300 table of report 41 §1.9 must
+# never be used.
+# A flat constant and not a ratio: the value of a favour is the favour, not the
+# realm behind it.
+tnt_ai_hook_cost_value = {
+	value = 20
+}
+
+
+###############################################################################
+# PART 6 — STANDING AND THE THRESHOLD
+###############################################################################
+
+# --- how the recipient feels about the actor ---------------------------------
+# ONE aggregate, used ONLY by the C-2 pulse (tnt_38_ai_world.txt), which needs a
+# single number because it has no ai_accept to hang rows off.
+#
+# *** DO NOT ALSO ADD THIS INSIDE AN ai_accept. *** The three interactions in
+# tnt_11_ai_interactions.txt express the same five terms as their own
+# `opinion_modifier` + `modifier` rows, so that the engine's acceptance breakdown
+# names each reason in the player's language. Using both would double-count
+# standing. The two are alternatives, never companions — this is the single easiest
+# mistake to make in this file and it would silently halve every threshold.
+#
+# The five terms and their window twins (all in tnt_51_relation_values.txt), AS
+# RESCALED BY v3 ITERATION 2. The old figures are shown beside each so the size of
+# the change is visible:
+#   opinion x0.75            was x1.1        tnt_relmod_opinion_value
+#   faith   0 / -10 / -35    was +30 / -45   tnt_relmod_faith_value
+#   culture +5 / -10         was +20 / -15   tnt_relmod_culture_value (post-D1 form, below)
+#   kin     +10              was +20         tnt_relmod_kin_value
+#   ally    +10              was +15         tnt_relmod_ally_value
+#     (+10 = "he is already allied to us". NEITHER side of this pair has ever carried
+#      an ally-COUNT penalty; the window's used to, and v4 item 22 deleted it. If you
+#      are looking for where a serial allier is charged, it is the glut multiplier
+#      inside the alliance term, part 5 above — not here.)
+#
+# THE x0.75 IS THE ONE THAT MATTERS, and it is not a taste: it is vanilla's own
+# opinion-to-acceptance conversion for a marriage,
+# GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:662-670
+# (`opinion_modifier = { who = scope:recipient  target = scope:actor
+#                        multiplier = 0.75 }`).
+# Vanilla uses 1.0 for alliances (00_alliance.txt:626) and vassal contracts, and an
+# asymmetric 0.25-up / 1.0-down for negotiate_alliance (00_alliance.txt:1762-1775).
+# THE SHARED-FAITH BONUS IS GONE ENTIRELY: vanilla has no such row, only penalties
+# for difference (MSM:1179-1261, -10 different / -25 astray / -1000 hostile). The +5
+# same-culture row IS vanilla's speaks_same_language row (MSM:779-787).
+#
+# The three flats below therefore have the same relationship to opinion that
+# vanilla's do: opinion dominates, and everything else is garnish worth 5..35.
+#
+# `"opinion(scope:actor)"` — the QUOTED dotted-call form, mandatory for a
+# parenthesised call. REAL: GAME\common\script_values\00_scheme_values.txt:4933
+# (`scope:target = { value = "opinion(scope:owner)" }` — entering a scope, then
+# reading opinion of another scope, which is exactly the shape below).
+# And the NESTED-BLOCK-WITH-A-MULTIPLY form used below is verbatim vanilla,
+# GAME\common\script_values\00_scheme_values.txt:2383-2386:
+#       add = {
+#           value = "opinion(scope:target)"
+#           # To bring us roughly in line with skill scaling.
+#           multiply = 0.25
+#       }
+# so the quoted call is legal in a `value =` position inside an arithmetic block,
+# not only at the top level of a value. (The mod's own tnt_relmod_opinion_value
+# applies its x1.1 at the outer level instead; both forms are proven, and the nested
+# one is used here because five further terms follow it in the same value.)
+#
+# *** THE CULTURE ROW IS THE POST-DEFECT-D1 FORM. *** `has_same_culture_group_as`
+# DOES NOT EXIST in 1.19. It is present in
+# GAME\common\trigger_localization\00_character_triggers.txt:716 and that file is
+# NOT a registry of existing triggers — it retains entries the engine has removed.
+# That is how D1 shipped and cost 92 341 error lines in one session
+# (50-RUNTIME-LOG-FINDINGS.md §D1, 30-V2-DESIGN §8 R-6, and the mod's own fixed
+# copy at tnt_51_relation_values.txt). The two REAL triggers are
+#   has_same_culture_as = <char>
+#       GAME\common\character_interactions\00_character_interactions.txt:233
+#   culture = { has_same_culture_heritage = X.culture }
+#       GAME\common\character_interactions\00_education_interactions.txt:1425
+#       (negated at :1436) — note the `culture = { }` wrapper: the trigger runs in a
+#       CULTURE scope and takes a culture argument.
+#
+# faith equality is the sanctioned form; `has_same_faith` is blacklisted and does
+# not exist. REAL: GAME\common\character_interactions\00_character_interactions.txt:269
+# (`faith = scope:actor.faith`).
+# faith_hostility_level inside a script value: REAL,
+# GAME\common\script_values\00_ep1_script_values.txt:74-80; the constant
+# faith_hostile_level = 2 at GAME\common\script_values\02_religion_values.txt:5-12.
+# is_close_or_extended_family_of: REAL,
+# GAME\common\character_interactions\00_alliance.txt:508, :521.
+tnt_ai_relation_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:actor
+			exists = scope:recipient
+		}
+		scope:recipient = {
+			add = { value = "opinion(scope:actor)"  multiply = 0.75 }
+
+			# No branch for a shared faith: it scores 0, exactly as in vanilla.
+			if = {
+				limit = {
+					faith ?= {
+						faith_hostility_level = {
+							target = scope:actor.faith
+							value >= faith_hostile_level
+						}
+					}
+				}
+				add = -35
+			}
+			else_if = {
+				limit = { NOT = { faith = scope:actor.faith } }
+				add = -10
+			}
+
+			if = {
+				limit = { has_same_culture_as = scope:actor }
+				add = 5
+			}
+			else_if = {
+				limit = {
+					culture ?= {
+						NOT = { has_same_culture_heritage = scope:actor.culture }
+					}
+				}
+				add = -10
+			}
+
+			if = {
+				limit = { is_close_or_extended_family_of = scope:actor }
+				add = 10
+			}
+
+			if = {
+				limit = { is_allied_to = scope:actor }
+				add = 10
+			}
+		}
+	}
+	round = yes
+}
+
+# --- the greed / pride floor ---------------------------------------------------
+# What the recipient demands ON TOP of a merely fair trade before he signs, and it
+# is subtracted so that "> 0" means "he agrees" and nothing else — the same
+# single-test discipline user item 1.2 forced on the window (Law 7, contract §4.E),
+# applied to the AI family so the two cannot drift apart.
+#
+# v3 ITERATION 2 — MIRRORS THE WINDOW'S NEW THRESHOLD LINE FOR LINE. It was
+# `value = 15 … min = 5` with 0.35 / 0.2 / 0.1 coefficients and a flat +40 pride
+# term, so it never returned less than 5 and typically returned 20-60. On the raw
+# acceptance scale that is a constant tax bigger than most of the terms it taxes,
+# and it is precisely the defect the user reported in the window ("the same marriage
+# is counted with negative points"): a threshold that is never zero subtracts the
+# same amount from every deal.
+# It is now VANILLA'S `base`: zero by default —
+#   GAME\common\character_interactions\00_prison_interactions.txt:758
+#     `base = 0 # Try to make it 0 for most interactions`
+# — with personality worth about -15..+20 and a two-rung pride term. Full reasoning
+# in tnt_threshold_value's own header (tnt_50_values.txt).
+#
+# ai_greed / ai_boldness / ai_rationality as script-value fields: REAL,
+# GAME\common\script_values\00_activity_values.txt:11, :81, :87; and inside a live
+# ai_accept at GAME\common\character_interactions\00_alliance.txt:2034
+# (`add = ai_greed`).
+# < 0 on the tier edge means the RECIPIENT is the higher tier: a king does not
+# haggle with a count, and an emperor still less — hence the two rungs.
+# min = 0, not min = 5, and not min = -15: the three AI axes run negative as well as
+# positive, but a recipient may not PAY the actor for the privilege of being asked.
+tnt_ai_threshold_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:recipient }
+		scope:recipient = {
+			add = {
+				value = ai_greed
+				multiply = 0.1
+			}
+			add = {
+				value = ai_boldness
+				multiply = 0.05
+			}
+			subtract = {
+				value = ai_rationality
+				multiply = 0.05
+			}
+		}
+	}
+	if = {
+		limit = { tnt_ai_tier_edge_value <= -2 }
+		add = 20
+	}
+	else_if = {
+		limit = { tnt_ai_tier_edge_value < 0 }
+		add = 10
+	}
+	min = 0
+	max = 40
+	round = yes
+}
+
+
+###############################################################################
+# PART 7 — THE EIGHT DEAL BALANCES  (PHASE C-2 ONLY)
+#
+# ONE number per (archetype, price tier), answering exactly one question:
+#     "would this recipient sign this package?"   > 0 == yes.
+#
+# THE PHASE-B INTERACTIONS DO NOT USE THESE AT ALL. There, the engine composes the
+# package out of send_options and sums ai_accept's rows itself; a pre-summed balance
+# would be both redundant and wrong, because it cannot know which options the engine
+# selected. These eight exist because the C-2 pulse has no interaction, no options
+# and no engine sum — it has to decide with one comparison.
+#
+# EVERY BALANCE HAS THE SAME PARTS, in the same order as the window's
+# tnt_ai_accept_value, which is what makes an AI-brokered deal and a player-brokered
+# deal comparable:
+#       + what the recipient receives
+#       - what the recipient hands over
+#       + the standing between the two rulers
+#       - what he wants on top of a merely fair trade
+# `add = { value = X  multiply = -1 }` is the sanctioned negative row; verbatim
+# vanilla at GAME\common\script_values\00_activity_values.txt:286-290.
+#
+# v3 ITERATION 2 — THE `- <term>_cost` ROWS ARE GONE FROM SIX OF THE EIGHT. The
+# alliance and the non-aggression pact are single mutual terms now, priced once by
+# their _gain value, so subtracting a _cost as well was the double count described at
+# the head of part 5. The hook balances keep their `- tnt_ai_hook_cost_value`: a
+# favour owed genuinely is a one-directional cost to the recipient, not a mutual pact.
+# The "four parts" shape therefore still holds for A4 and reads as three parts for
+# A1-A2, which is the honest arithmetic rather than a cosmetic symmetry.
+#
+# THE ARCHETYPES PRICED IN THIS PART, AND WHY EXACTLY THESE
+#   truce    actor pays one-time gold, both get a ten-year non-aggression pact
+#   ally     actor pays one-time gold, both get an alliance
+#   hook     actor pays one-time gold, recipient owes him one weak favour
+# That is items 1, 3, 4 and 9 of contract R0.1. 30-V2-DESIGN §6.3 phase AI-3
+# forbade 6/11/12 ("those mutate the realm graph silently"); the user's later
+# full-range-of-terms ruling supersedes that ban for two tightly-gated legs,
+# priced NOT here but in their own sections at the foot of this file (S-TITLE,
+# S-FEALTY) so this part's three-item statement stays checkable. Item 2
+# (tribute) is retired mod-wide. Marriage stays excluded.
+#
+# `round = yes` on all eight, so the > 0 test is decided on an integer and can never
+# turn on a hidden 0.4.
+###############################################################################
+
+# ===========================================================================
+# ORPHANED BY THE ALLIANCE/TRUCE RETIREMENT (V13, user item 1). The four balance
+# values below have ZERO readers: their only callers were E13
+# tnt_ai_world_do_truce_effect and E14 tnt_ai_world_do_ally_effect, plus the four
+# WDONE telemetry helpers - all commented out. The full tombstone is the block
+# above E3 in common\scripted_effects\tnt_38_ai_world.txt.
+# LEFT DEFINED per the ruling at tnt_41_gates.txt: "Leave them defined. An
+# unreferenced scripted trigger costs nothing." The same holds for a script
+# value: it is never evaluated unless something asks for it, and NONE of these
+# reads a tnt_ variable, so no "is used but is never set" hazard exists here.
+# Deleting them would also destroy the calibration a revival needs.
+# ===========================================================================
+# --- A1: gold for a ten-year non-aggression pact ----------------------------
+tnt_ai_deal_truce_low_value = {
+	value = 0
+	add = tnt_ai_gold_low_points_value
+	add = tnt_ai_truce_gain_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+tnt_ai_deal_truce_high_value = {
+	value = 0
+	add = tnt_ai_gold_high_points_value
+	add = tnt_ai_truce_gain_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+# --- A2: gold for an alliance -----------------------------------------------
+tnt_ai_deal_ally_low_value = {
+	value = 0
+	add = tnt_ai_gold_low_points_value
+	add = tnt_ai_alliance_gain_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+tnt_ai_deal_ally_high_value = {
+	value = 0
+	add = tnt_ai_gold_high_points_value
+	add = tnt_ai_alliance_gain_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+# --- A4: gold for a favour owed ---------------------------------------------
+# No _gain term beyond the gold: the recipient gets nothing back but coin, and
+# gives up one favour. This is the archetype that most often fails its > 0 test,
+# which is correct — nobody sells a hook on themselves cheaply.
+tnt_ai_deal_hook_low_value = {
+	value = 0
+	add = tnt_ai_gold_low_points_value
+	add = { value = tnt_ai_hook_cost_value  multiply = -1 }
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+tnt_ai_deal_hook_high_value = {
+	value = 0
+	add = tnt_ai_gold_high_points_value
+	add = { value = tnt_ai_hook_cost_value  multiply = -1 }
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+
+###############################################################################
+# PART 8 — THE PULSE'S OWN THROTTLE  (PHASE C-2 ONLY)
+#
+# The per-pulse percentage chance that an AI ruler even LOOKS for a treaty partner
+# this year. This one value is the single knob that decides the whole world rate,
+# and the full arithmetic is in tnt_72_ai_world.txt's header.
+#
+# WHY A TIER LADDER. Vanilla's own AI-tier throttle on a yearly pulse,
+# GAME\common\on_action\yearly_on_actions.txt:2529-2551 (random_yearly_playable_pulse's
+# chance_of_no_event), reads: 30 % skipped for AI kings+, 70 % for AI dukes, 95 %
+# for AI counts, with PDX's comments "No need to waste performance here" and "AI
+# counts aren't particularly important". The ladder below is that judgement
+# inverted into a positive chance: a count is a tenth as likely to broker a treaty
+# as a king, which is both cheaper and truer to the period.
+#
+# WHY has_game_rule LIVES INSIDE A SCRIPT VALUE. Because vanilla does exactly this
+# for exactly this purpose. GAME\common\script_values\00_culture_values.txt:448-460
+# switches an AI FREQUENCY on
+#   has_game_rule = less_common_divergent_culture_ai_frequency / relaxed_… / none_…
+# — the direct analogue of our three settings. Also 00_culture_values.txt:255-290,
+# 00_character_values.txt:150-162 (random_nickname_frequency_*),
+# 06_ce1_epidemics_values.txt:119-143 (epidemic_frequency_*). It is one of the most
+# heavily exercised triggers in the whole script_values directory.
+#
+# THE `off` ROW IS BELT AND BRACES. tnt_72_ai_world.txt's trigger already refuses
+# the pulse outright when the rule is off, so this multiply can never be reached in
+# practice. It is here so that the value is safe on its own terms: if a future
+# author calls it from somewhere new and forgets the gate, the answer is still zero.
+#
+# THE LADDER WAS DOUBLED 2026-08 (3/7/14 -> 6/14/28), IN THE SAME COMMIT THAT
+# DELETED THE PULSE'S SECOND HOST. The old numbers were calibrated for TWO
+# evaluations a year (effective chance 1-(1-p)^2, tnt_72_ai_world.txt header
+# section 2.4); with one host the per-pulse number IS the annual rate, so the
+# rungs double to keep the world rate the ladder was tuned to. That was the old
+# header's own standing instruction ("if host 2 is ever deleted ... the ladder
+# should be doubled to compensate").
+#
+# max = 58 caps the whole thing whatever anyone does to the numbers above it.
+# 58 and not the old 40: the cap now also does the large-p correction the
+# linear doubling cannot. A `common`-rule king lands at 28 x 2.5 = 70, but the
+# two-host era's measured effective rate for him was 1-(1-0.35)^2 = 57.75% -
+# the cap pins the doubled ladder to THAT ceiling instead of granting a rate
+# the mod never actually ran at.
+###############################################################################
+tnt_ai_world_chance_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = {
+			if = {
+				limit = { highest_held_title_tier >= tier_kingdom }
+				add = 28
+			}
+			else_if = {
+				limit = { highest_held_title_tier >= tier_duchy }
+				add = 14
+			}
+			else_if = {
+				limit = { highest_held_title_tier >= tier_county }
+				add = 6
+			}
+		}
+	}
+	if = {
+		limit = { has_game_rule = tnt_ai_treaties_common }
+		multiply = 2.5
+	}
+	if = {
+		limit = { has_game_rule = tnt_ai_treaties_off }
+		multiply = 0
+	}
+	min = 0
+	max = 58
+}
+
+
+###############################################################################
+# THE ULTIMATUM — the AI's half of V4 expansion 1  (archetype A5)
+#
+# THE USER'S RULING, and it settles a question I had got wrong: "the threat is
+# simply an option that gives points, it does not create a roll of 'give in or
+# not'. The AI may use this option against another AI, but never against the
+# player - or else make a special event when it is used against the player."
+#
+# So this is the AI<->AI half, and it is a straight application of the same
+# instrument the player has: fear is worth points, and points buy a treaty that
+# would otherwise be refused. Nothing here rolls dice against a character's will;
+# the recipient's own balance decides, exactly as in the other four archetypes.
+#
+# WHAT THE ARCHETYPE IS. The actor demands GOLD and pays nothing. That is the one
+# shape in which "the threat gives points" is visible in the world: an unequal
+# transfer that only balances because the weaker side is afraid. Gold and not land
+# or vassalage - this file's forbidden list (tnt_38_ai_world.txt header) exists
+# because those mutate the realm graph silently, and a threat is no reason to
+# suspend that rule.
+#
+# THE FACTORS WERE THE PLAYER'S OWN, RE-EXPRESSED - AND SINCE THE RATIO RULING OF
+# 2026-08-24 THEY ARE NOT RE-EXPRESSED, THEY ARE THE SAME THREE VALUES:
+#   power     (max_military_strength ratio - 1) x N, actor over recipient, which
+#             is the direction a threat runs. N is the game rule tnt_threat_scale.
+#   name      (actor prestige_level - recipient prestige_level) + 1.
+#   fear      1 + (actor dread - recipient dread) x 0.01.
+# and the price IS the player's own number, tnt_threat_points_value
+# (common\script_values\tnt_57_threat_values.txt), reached through the one-line
+# alias below. ONE calibration, ONE definition, no second copy anywhere.
+#
+# THE DEMAND IS A FRACTION OF THE PRESSURE, converted to coin through this file's
+# own tnt_ai_gold_per_point_value. *** THE FRACTION WAS 0.6 AND IS 0.15 SINCE
+# 2026-08-25 - see the recalibration box at tnt_ai_ultimatum_gold_value itself. ***
+# The RATIO ruling multiplied the points scale by about ten, and 0.6 on the new
+# scale made the ceiling fire on every qualifying pair, which turned the ask into
+# a constant. *** THE FRACTION IS THE KNOB IN ONE CASE ONLY: the ask OFF BOTH
+# BOUNDS (clamp: g > raw/0.8; ceiling: pts <= 80N/rate), where bal = 0.85 x pts
+# + rel - thr. ABOVE 80N/rate it PINS at 12 x tnt_threat_scale_value, charge
+# 12N/rate, fraction-blind. *** WHERE THE CLAMP BINDS - most victims, median
+# purse 73 - the charge rides the CLAMPED ask, bal ~pts, `gold >= 13`, bite 80%.
+#
+# WHY NOT AGAINST THE PLAYER. Two reasons, and the second is the honest one.
+# The pulse that runs this file is AI<->AI by construction (`is_ai = yes` on the
+# candidate, tnt_38_ai_world.txt:773), so no code change was needed to keep the
+# player out. And mechanically an ultimatum aimed at the player would be an empty
+# gesture: the player is not a balance to be tipped, he simply clicks yes or no, so
+# the AI would only be inflating its demands and getting refused. The player-facing
+# half of the user's ruling - "or make a special event" - is where that flavour
+# belongs, and it is noted as such in tnt_11_ai_interactions.txt.
+#
+# *** 2026-08-23, B2: THE SECOND BRANCH OF THE USER'S OWN RULING IS NOW TAKEN,
+# *** AND THE PARAGRAPH ABOVE IS KEPT AS HISTORY RATHER THAN CORRECTED. ***
+# Nothing above is wrong. "The player is not a balance to be tipped" is exactly
+# why archetype A21 (the demand) delivers its coercion AS A CHOICE and never as
+# points: the AI still gets its number, and the player gets two priced buttons.
+# So this ULTIMATUM is still AI<->AI only, tnt_threat_r still does not exist and
+# never will, and no row of the arithmetic below changed. What retired is only
+# the clause "and never at the player at all".
+# WHAT A21 REUSES FROM THIS BLOCK, VERBATIM AND WITH NO SECOND COPY OF THE
+# FORMULA: tnt_ai_threat_points_value (a one-line alias since the ratio ruling)
+# and tnt_ai_ultimatum_gold_value, evaluated inside the LETTER composer after it
+# saves scope:actor = the AI proposer and scope:recipient = the player
+# (common\scripted_effects\tnt_37_ai_offer.txt, archetype A21). The direction is
+# already right: the sandbox's recipient is the PAYER, which is the player here,
+# and tnt_ai_gold_per_point_value reads the payer's tier, which is the correct
+# knob. The three factor values that used to live here are TOMBSTONED below; a
+# hand-copied ladder of any kind is exactly what
+# tnt_57_threat_values.txt:14-23 and tnt_41_gates.txt forbid.
+# THE ONE THING A21 ADDS IS A PURSE CLAMP, AND IT IS BELOW, NOT INSIDE THE
+# LADDER: an ultimatum between two AIs is refused by the victim's balance when he
+# cannot pay, and a player has no balance to refuse with.
+###############################################################################
+
+###############################################################################
+# TOMBSTONES - THE AI'S THREE THREAT FACTORS, RETIRED 2026-08-24 BY THE RATIO
+# RULING. Kept readable so a revival needs no archaeology; never re-used.
+#
+# THE WHOLE OF THIS BLOCK WAS A SECOND COPY OF THE PLAYER'S LADDER - "one
+# calibration, two callers", which is one calibration too many the moment the two
+# can drift. The user's ruling made the player's threat and the AI's THE SAME
+# NUMBER, so the copy is gone and tnt_ai_threat_points_value below is a ONE-LINE
+# ALIAS onto tnt_threat_points_value
+# (common\script_values\tnt_57_threat_values.txt). House law 9, obeyed here at
+# last: ONE definition, and every consumer calls it.
+#
+# *** ATOMIC WITH ONE OTHER FILE, AND IT MUST TRAVEL IN THE SAME COMMIT. ***
+# A live read of a commented-out value is a hard script error. The three names
+# below had exactly one reader outside this file - L16 DEMAND in
+# common\scripted_effects\tnt_3b_log.txt, three set_variable rows - and that
+# emitter is repointed onto tnt_threat_ratio_value / tnt_threat_rep_term_value /
+# tnt_threat_dread_term_value in the same round. If those three rows still name
+# the old values, THIS BLOCK IS WHAT BROKE.
+#
+#   tnt_ai_threat_edge_value      -> tnt_threat_ratio_value, then
+#                                    tnt_threat_power_term_value for the (r-1)*N
+#   tnt_ai_threat_dread_value     -> tnt_threat_dread_term_value
+#   tnt_ai_threat_prestige_value  -> tnt_threat_rep_term_value, a DIFFERENCE now
+#
+# THE SCOPE DIRECTION IS UNCHANGED, AND THAT IS WHY THE ALIAS IS SAFE: the new
+# values resolve "me" from scope:actor and "him" from scope:recipient, which is
+# exactly the pair the sandbox saves before an ultimatum and the pair archetype
+# A21 saves before a demand. Nothing on either path needed a new save.
+###############################################################################
+# tnt_ai_threat_edge_value = {
+# 	value = tnt_ai_power_ratio_value
+# 	subtract = 1
+# 	min = 0
+# 	max = 2
+# }
+#
+# tnt_ai_threat_dread_value's 51-line body is deliberately NOT reproduced here.
+# Every branch of it was the engine's has_dread_level_towards ladder plus the
+# mod's own three fear rungs, and that ladder survives verbatim - with the header
+# that argues why the engine's dread LEVEL is an instrument of INTERNAL rule - as
+# tnt_threat_feared_trigger in common\scripted_triggers\tnt_41_gates.txt, kept
+# defined with zero callers for exactly this reason. One tombstone for one
+# ladder. The rung added on 2026-08-24 to keep this ladder the gate's mirror
+# (`dread >= 20` against a man who has the actor as liege-or-above) goes with it.
+#
+# tnt_ai_threat_prestige_value = {
+# 	value = 0
+# 	if = {
+# 		limit = { exists = scope:actor }
+# 		scope:actor = { add = prestige_level }
+# 	}
+# 	min = 0
+# 	max = 5
+# }
+###############################################################################
+
+
+###############################################################################
+# THE AI'S PRESSURE - ONE LINE, BECAUSE IT IS THE PLAYER'S OWN NUMBER
+#
+# LAW 9: ONE CALIBRATION, ONE DEFINITION. The body moved to
+# tnt_threat_points_value (common\script_values\tnt_57_threat_values.txt) when
+# the user's ratio ruling made the player's threat and the AI's the same number.
+# THE NAME SURVIVES so its seven readers do not move and seven citations do not
+# rot: tnt_ai_ultimatum_gold_value and tnt_ai_deal_ultimatum_value below,
+# archetype A21's entry in common\scripted_effects\tnt_37_ai_offer.txt, and four
+# telemetry rows in tnt_3b_log.txt (L16 DEMAND, WARCH, WDONE, WSKIP).
+# The scope prologue inside tnt_threat_points_value resolves scope:actor and
+# scope:recipient natively - exactly the pair both the sandbox and A21 already
+# save - so the direction is right without one new save anywhere.
+# Precedent for a one-line alias across value families: tnt_stress_gave_value
+# (common\script_values\tnt_5a_stress_values.txt).
+#
+# *** THE OLD max = 150 IS GONE AND IS NOT REPLACED. *** By the user's order the
+# product is uncapped. On THIS side that is contained by TWO clamps on COIN, and
+# both must be named or the next reader will re-derive the wrong one:
+#   1. tnt_ai_ultimatum_gold_value's min = 10 and its ceiling of 12 x the scale
+#      value just below - the PRICE clamp. *** IT WAS NOT "UNTOUCHED": it said
+#      max = 400 until 2026-08-25, when the new points scale made it fire on 100%
+#      of qualifying pairs and pinned every extortion in the game to the same
+#      number. It now moves with the game rule.
+#   2. tnt_ai_demand_gold_value's max = tnt_ai_demand_purse_cap_value - the PURSE
+#      clamp, 80% of whatever the payer actually holds. Added for the letter in
+#      B2 and extended to the SANDBOX on 2026-08-25, because withholding it there
+#      was measured to refuse 49 of 53 extortions, 48 of them from victims who
+#      were WILLING and simply had no money. This is the clamp that binds in
+#      practice: at a median AI purse of 73 gold it beats the 1800-gold ceiling
+#      by more than an order of magnitude.
+# *** THE PLAYER'S SIDE HAS NO DOWNSTREAM CAP AT ALL, and that asymmetry is
+# stated rather than hidden.
+###############################################################################
+tnt_ai_threat_points_value = {
+	value = tnt_threat_points_value
+}
+
+# The coin demanded. `round = yes` because it is handed to E1, which pays a whole
+# number of gold, and `min = 10` so a threat worth pennies is not sent at all - the
+# balance test below will refuse it anyway, but a demand of 2 gold in the log reads
+# like a bug rather than a design.
+#
+# RECALIBRATED TWICE. On 2026-08-25 the fixed 400-gold ceiling was replaced by
+# 12 x the threat-scale value, because the fixed ceiling erased the gradient
+# between a marginal bully and an overwhelming one. On 2026-08-28 the user's
+# playtest divided threat points and their access bar by ten. The coin ask follows
+# that same public score: the live BAR (10 points, a twofold army at parity) asks
+# 15 gold, while a 50-point threat asks 75 before the purse clamp. The moving
+# ceiling is now 120 gold at default N=10. This keeps the AI's demand proportional
+# to the actual deal weight and lets the game rule move both together.
+tnt_ai_ultimatum_gold_value = {
+	value = tnt_ai_threat_points_value
+	multiply = 0.15
+	multiply = tnt_ai_gold_per_point_value
+	min = 10
+	max = { value = tnt_threat_scale_value  multiply = 12 }
+	round = yes
+}
+
+# What that demand costs the recipient IN POINTS - negative, because he is the one
+# paying. Converted back through the same rate, so the round-trip cannot introduce
+# a discrepancy the recipient would be charged for.
+#
+# *** REPOINTED AT THE PURSE-CLAMPED ASK, 2026-08-25 (lane 3). *** This row read
+# `value = tnt_ai_ultimatum_gold_value` - the RAW ask - until this round, and that
+# is one half of a single measured defect: the victim was CHARGED in points for
+# coin the clamp below does not let him pay. The charge must move with the
+# PAYMENT or the round-trip breaks in the wrong direction, which is precisely the
+# promise the three lines above make. This row and E17's AMOUNT in
+# common\scripted_effects\tnt_38_ai_world.txt are ONE ATOM: if either is ever
+# reverted, revert both, or the sandbox charges one number and pays another.
+#
+# THE FORWARD REFERENCE IS SAFE, AND IT IS MEASURED RATHER THAN ASSUMED.
+# tnt_ai_demand_gold_value is defined BELOW this row. Script values resolve by
+# name out of one global table, not textually, and this file already depends on
+# that across a HARDER boundary: tnt_ai_ultimatum_gold_value just above reads
+# tnt_threat_scale_value out of common\script_values\tnt_57_threat_values.txt,
+# a file the loader reaches AFTER this one. The 2026-08-25 run proves it
+# resolves - three asks pinned at exactly 1800 = 12 x 150, i.e. the ceiling read
+# N off a value defined in a later file. A same-file forward reference is the
+# strictly easier case of the same mechanism.
+tnt_ai_ultimatum_gold_points_value = {
+	value = tnt_ai_demand_gold_value
+	divide = { value = tnt_ai_gold_per_point_value  min = 1 }
+	multiply = -1
+}
+
+# A6 in the deal family, and deliberately the same four rows as its siblings: what
+# he receives (here: nothing but the absence of trouble - the pressure itself),
+# what he pays, the standing between them, minus what he wants on top.
+tnt_ai_deal_ultimatum_value = {
+	value = 0
+	add = tnt_ai_threat_points_value
+	add = tnt_ai_ultimatum_gold_points_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+
+###############################################################################
+# THE EXTORTION PURSE CLAMP - B2, 2026-08-23. TWO VALUES, ZERO NEW ARITHMETIC.
+# *** IT SERVES BOTH EXTORTION PATHS SINCE 2026-08-25, NOT ONLY THE LETTER. ***
+#
+# A21 (the AI's demand letter to the player) and E17 (the AI-to-AI ultimatum,
+# common\scripted_effects\tnt_38_ai_world.txt) ask for the SAME coin -
+# tnt_ai_ultimatum_gold_value above - and BOTH now clamp it to what the man can
+# actually count out. One definition, two consumers (house law 9).
+#
+# *** THE PARAGRAPH THAT STOOD HERE WAS FALSE, AND ITS FALSENESS IS WHY THE
+# *** SANDBOX'S EXTORTION HALF DID NOT WORK FOR FOUR ROUNDS. *** It said the
+# clamp was deliberately withheld from the ladder because "the sandbox does not
+# need it: between two AIs the recipient's own balance refuses a demand he cannot
+# pay (tnt_ai_deal_ultimatum_value goes negative and the archetype logs WSKIP
+# why=fear_too_small_or_broke)". MEASURED FALSE on the 2026-08-25 run: of the 49
+# refused ultimatums, 48 carried a POSITIVE balance (median +197) and exactly ONE
+# was negative (-15). The balance never refused them - E17's own hard
+# `gold >= <the ask>` row did, and `why=fear_too_small_or_broke` was ONE LABEL
+# OVER TWO CAUSES, which is why four rounds of reading that label could not
+# separate "unafraid" from "willing and broke". The label is split at the
+# emitter this round for exactly that reason.
+# THE SCALE OF THE MISMATCH, so nobody re-argues it from taste: mean ask 557
+# gold against a MEASURED MEDIAN AI PURSE OF 73 (310 direct gold_have readings
+# across every broke bucket in the run; 291 of 310 under 300). The run drew the
+# payable boundary itself - largest ultimatum ever PAID 257, smallest ever
+# REFUSED 174, and not one of the 49 refused asks was under 174.
+#
+# 0.8 IS THE MOD'S OWN NUMBER, AND SINCE 2026-08-25 IT IS LITERALLY THE SAME ONE.
+# It was NINE hand-written numerals - this clamp, the four tnt_ai_pay_cap_* and
+# the four tnt_player_pay_cap_* - under a header asserting a sharing that did not
+# exist. All nine now read tnt_reserve_fraction_value at the foot of this file
+# (house law 9). Reading it off the PAYER is the whole difference.
+#
+# CONSEQUENCE, STATED SO NOBODY REPORTS IT AS A BUG: A MAN WITH AN EMPTY
+# TREASURY IS UN-EXTORTABLE, ON BOTH PATHS AND BY THE SAME NUMBER.
+# tnt_ai_ultimatum_gold_value floors at 10, so a purse under 13 gold clamps below
+# 10. On the LETTER path the dispatch gate in tnt_ai_offer.0001
+# (var:tnt_gold_p >= 10) throws it away and A21's entry trigger carries the same
+# test as a `root = { gold >= 13 }` row so the draw drops the entry instead of
+# burning a lock. On the SANDBOX path E17's affordability row is now that same
+# literal 13 on scope:recipient. That is correct - there is nothing to demand.
+#
+# SECOND CONSEQUENCE, AND IT WILL LOOK LIKE A BUG IN THE LOG THE FIRST TIME IT
+# IS SEEN. The points value is UNCAPPED by the user's order, so a crushing
+# mismatch produces enormous pressure against a near-empty victim: the run
+# carried pts=35,816 and pts=63,030, both asks pinned at the 1800 ceiling. Once
+# the clamp binds, those two victims pay 0.8 of whatever they hold and the WDONE
+# line reads pts=63030 ask=17. THAT IS THE DESIGN, not a defect - the coin
+# ceiling contains the points value and the purse contains the coin. A telemetry
+# reader who wants to know whether the clamp bit compares the raw ask against the
+# paid one on the same line (`gold=` vs `ask=`, the vocabulary the DEMAND probe
+# in tnt_3b_log.txt already uses for this exact mechanic).
+#
+# SCOPE: scope:recipient is THE PAYER on both paths - the player for A21, the
+# victim for E17 - saved by A21's entry body exactly as the sandbox saves it.
+# `scope:recipient = { add = { value = gold ... } }` is this file's own shipped
+# shape (see tnt_ai_prestige_value above), and the sandbox leg of it is MEASURED:
+# tnt_ai_gold_per_point_value reads the recipient's own tier out of that same
+# scope block and reproduced all 53 logged asks at its two rates, 10 below duchy
+# tier and 15 at duke and above. Reading `gold` there rather than
+# `highest_held_title_tier` is the same construct with a different field, and
+# `value = gold` plus a multiply inside a script value is vanilla's own
+# fifty_percent_of_current_gold (GAME\common\script_values\
+# 00_interaction_values.txt:1030-1033) and current_gold_value
+# (GAME\common\script_values\00_basic_values.txt:458-461).
+###############################################################################
+tnt_ai_demand_purse_cap_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:recipient }
+		scope:recipient = {
+			add = { value = gold  multiply = tnt_reserve_fraction_value }
+		}
+	}
+	min = 0
+}
+
+# `max = <named value>` is vanilla's own shape - GAME\common\script_values\
+# 00_interaction_values.txt:291 (`max = ransom_cost_value`) and :23. `round = yes`
+# for the same reason the ultimatum rounds: this is handed to E1, which pays a
+# whole number of gold.
+#
+# THE NAME IS THE LETTER'S WORD AND THE VALUE IS NOW SHARED - read it as "the
+# coin an extortion actually collects". It was NOT renamed to something neutral
+# on purpose: the name is read at three shipped sites in two other files and a
+# rename buys a word at the price of a citation sweep. What matters is that
+# there is ONE of it.
+#
+# THE PAYMENT GUARD CANNOT REFUSE WHAT THIS HANDS IT, AND THAT PROOF IS OWED
+# HERE because E1 (tnt_ai_send_gold_effect) is an `if` with NO `else`: a caller
+# whose gate disagrees with E1's guard logs WDONE, moves the goods and pays
+# nothing. E1's own header makes "the two guards must name the identical field" a
+# rule, and E17's caller gate is now a DIFFERENT ROW from E1's guard - a literal
+# 13 against `gold >= tnt_ai_demand_gold_value` - so the rule is satisfied by
+# arithmetic instead of by sameness, and here it is:
+#   let g = the payer's gold, and the caller has already proved g >= 13.
+#   the cap is 0.8g, so this value is round( min(raw, 0.8g) ), raw an integer.
+#   if raw <= 0.8g the result is raw, and raw <= 0.8g < g.
+#   else the result is round(0.8g) <= 0.8g + 0.5, and 0.8g + 0.5 <= g for every
+#   g >= 2.5, which g >= 13 gives with room to spare.
+# So the demanded coin is strictly less than the purse for every purse the
+# caller lets through, and E1's guard passes by construction. A RAISED BITE b IS
+# BOUNDED: bg+0.5 <= g needs g >= 0.5/(1-b), so at the floor 13 b <= 0.96, not 1.
+tnt_ai_demand_gold_value = {
+	value = tnt_ai_ultimatum_gold_value
+	max = tnt_ai_demand_purse_cap_value
+	min = 0
+	round = yes
+}
+
+###############################################################################
+# CALLING IN A HOOK — the AI's half of V4 item 2   (archetype A6)
+#
+# The player can spend leverage he already holds (tnt_59_usehook_values.txt); this is
+# the same instrument in the sandbox. An AI that holds a hook on a neighbour demands
+# gold and pays nothing, and the transfer balances because the debt is real.
+#
+# THE PRICES ARE THE PLAYER'S OWN, so one calibration serves both: 45 for a favour
+# called in, 120 for blackmail-grade leverage. Vanilla's own use_hook decides what
+# survives being spent - a weak hook is consumed, a strong one is not - so the archetype
+# does not have to model that difference, only price it.
+#
+# THE DEMAND IS 60% OF THE LEVERAGE, converted at this file's own gold rate, exactly as
+# the ultimatum takes 60% of its pressure. Same reason: at 100% the recipient's balance
+# lands on zero and every call would hinge on rounding, while 40% of slack pays the
+# threshold and any bad blood.
+#
+# WHY THERE IS NO OPINION PENALTY HERE, unlike the ultimatum. A hook is a debt being
+# collected, not a threat being made - vanilla itself charges no opinion for using one,
+# and the cost is already paid in the hook: a weak one is gone. Adding a grievance on
+# top would make leverage strictly worse than extortion, which is backwards.
+###############################################################################
+tnt_ai_hookcall_points_value = {
+	value = 0
+	if = {
+		limit = { scope:actor ?= { has_strong_hook = scope:recipient } }
+		add = 120
+	}
+	else_if = {
+		limit = { scope:actor ?= { has_weak_hook = scope:recipient } }
+		add = 45
+	}
+}
+
+tnt_ai_hookcall_gold_value = {
+	value = tnt_ai_hookcall_points_value
+	multiply = 0.6
+	multiply = tnt_ai_gold_per_point_value
+	min = 10
+	max = 400
+	round = yes
+}
+
+tnt_ai_hookcall_gold_points_value = {
+	value = tnt_ai_hookcall_gold_value
+	divide = { value = tnt_ai_gold_per_point_value  min = 1 }
+	multiply = -1
+}
+
+tnt_ai_deal_hookcall_value = {
+	value = 0
+	add = tnt_ai_hookcall_points_value
+	add = tnt_ai_hookcall_gold_points_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+
+###############################################################################
+# S-TITLE — TITLES FOR GOLD  (archetype S-TITLE, tnt_38_ai_world.txt E20)
+#
+# THE RULING THIS RUNS UNDER: the user's "full range of deal terms" ruling
+# supersedes the old 6/11/12 ban for this one leg (see the amended forbidden
+# list in tnt_38_ai_world.txt's header). The gates that keep it from being the
+# "broke my game" shape are in the DO effect, not here: county tier only, T3
+# (which itself refuses the seller's capital and primary title), and the reach
+# gate — the county is de jure under the buyer's primary title OR borders the
+# buyer's own realm (item 7b widened the de jure-only form, which the playtest
+# measured killing 68/68 draws) — a border adjustment, never a random
+# land-grab, and never an exclave.
+#
+# *** THE ONE EXCEPTION TO THIS FILE'S TWO-SCOPE RULE, DECLARED. ***
+# tnt_ai_title_points_value reads a THIRD scope, scope:tnt_deal_title — the
+# candidate county E20 saves with save_temporary_scope_as immediately before
+# evaluating anything here. Temporary scopes are visible to values evaluated in
+# the same chain (the file's own actor/recipient work the same way). Guarded on
+# `exists`, so a stray evaluation outside E20 returns 0 and the deal balance
+# then refuses on the missing gold points.
+#
+# THE LADDER IS THE WINDOW'S OWN, so sandbox and window agree about what a tier
+# is worth: 15 / 30 / 45 / 60 / 75 per barony/county/duchy/kingdom/empire —
+# tnt_54_multiselect_values.txt's per-title body (tnt_val_title_multi_p_value,
+# same constants inlined there for the same no-per-element-value-name reason).
+# Only the county rung is reachable today (E20 limits to tier_county); the full
+# ladder is written so the two files cannot drift if the gate is ever widened.
+#
+# THE PRICE IS FULL VALUE, NOT THE ULTIMATUM'S 60%. The buyer pays
+# points x tnt_ai_gold_per_point_value, which round-trips to exactly the points
+# the seller gives up — so the deal balance below reduces to
+# relation - threshold > 0, i.e. LAND CHANGES HANDS ONLY BETWEEN FRIENDLY
+# REALMS, and a hostile pair can never trade territory silently. That is the
+# tight gate in number form, and it is deliberate.
+# max = 1200 mirrors tnt_ai_gold_high_value's cap — a county at 30 points costs
+# 300-450 gold de jure and 420-630 with the out-of-de-jure rider, both under it;
+# the cap only bites if the ladder is ever widened past kingdom tier, where it
+# turns the trade unfavourable and the balance refuses, which is the right
+# failure for an emperor-tier fire sale.
+###############################################################################
+tnt_ai_title_points_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:tnt_deal_title }
+		scope:tnt_deal_title = {
+			if = {
+				limit = { tier = tier_barony }
+				add = 15
+			}
+			else_if = {
+				limit = { tier = tier_county }
+				add = 30
+			}
+			else_if = {
+				limit = { tier = tier_duchy }
+				add = 45
+			}
+			else_if = {
+				limit = { tier = tier_kingdom }
+				add = 60
+			}
+			else_if = {
+				limit = { tier = tier_empire }
+				add = 75
+			}
+			# THE OUT-OF-DE-JURE RIDER (user item 7b). E20's reach gate now also
+			# admits a county that merely BORDERS the buyer's realm; land the
+			# buyer holds no de jure claim over is dearer to pry away, and x1.4
+			# is the window family's own de jure premium magnitude
+			# (tnt_54_multiselect_values.txt, the x1.4 rider on
+			# tnt_val_title_multi_r_value) applied in the direction this trade
+			# runs. THE RIDER SITS IN THIS VALUE ON PURPOSE: it feeds BOTH the
+			# gold price (tnt_ai_title_gold_value) and the seller's loss row
+			# (tnt_ai_deal_title_value), so the round-trip stays exact and the
+			# balance still reduces to relation - threshold > 0 - the "land
+			# moves only between friendly realms" gate is not loosened by one
+			# point. Worst case gold: 30 x 1.4 x 15 = 630, under the 1200 cap.
+			# The exists guards keep the two-scope-rule exception declared in
+			# this section's header honest: outside E20's chain the whole
+			# value is already 0. `exists` on a dotted scope chain: REAL,
+			# GAME\common\character_interactions\00_diarch_interactions.txt:417
+			# (`exists = scope:actor.primary_title.title_capital_county`).
+			if = {
+				limit = {
+					exists = scope:actor
+					exists = scope:actor.primary_title
+					NOT = { target_is_de_jure_liege_or_above = scope:actor.primary_title }
+				}
+				multiply = 1.4
+			}
+		}
+	}
+}
+
+###############################################################################
+# THE PURSE CLAMP — V16, USER ITEM 2, FINDING Q2-F5. Applied identically to all
+# THREE sandbox bills: this one, tnt_ai_artifact_gold_value and
+# tnt_ai_wed_gold_value. Read this block once; the other two point back at it.
+#
+# THE DEFECT, MEASURED (error.log 2026-08-17, 757 pair-ups, 20 treaties = 2.6%):
+# three of the sandbox's six live archetypes were priced for a population that
+# does not exist, so the whole world's silent diplomacy moved 3,054 gold in half
+# a game year and 14 of the 20 treaties were the same thing, an AI buying a hook,
+# 11 of those at the 25-gold floor.
+#   arch=title    227 drawn / 1 done (0.4%). WSKIP buyer_broke 91 lines:
+#                 gold_have median 115 (min -99, max 623) against gold_need
+#                 median 630 (min 420, max 630).
+#   arch=wed      158 drawn / 4 done (2.5%). WSKIP payer_broke 64 lines:
+#                 gold_have median 92 (max 295) against gold_need 200-300.
+#   arch=artifact 6 drawn / 0 done. ALL SIX died on money, and the buyers were
+#                 k_norway 918, k_leon 394, k_scotland 376, e_goryeo 224,
+#                 c_sobrarbe 121, k_france 470 against 1000-1200 asked.
+# A bill that no plausible buyer can pay is not a hard bargain; it is an
+# archetype that never happens.
+#
+# WHAT THE CLAMP DOES, AND WHY IT IS NOT A DISCOUNT. The bill can no longer
+# exceed the PAYER'S PURSE. It does not lower the price for anyone who could
+# already pay - `max` never raises a value - it converts a HARD "buyer_broke"
+# refusal into a JUDGEMENT: the seller now sees a price that was actually
+# offered, and tnt_ai_deal_*_value decides. Because the *_gold_points_value
+# round-trip reads THIS value, a part-payment arrives at the seller's balance as
+# fewer points, so a poor buyer only closes when the relation row genuinely
+# covers the shortfall. Land, treasure and marriage therefore still move mainly
+# between friendly realms - the property every silent archetype in this file
+# rests on - and nothing was taken off the *_points_value side, which
+# tnt_38_ai_world.txt:1389-1394 forbids for exactly that reason. That same
+# comment PRESCRIBES this fix in these words: "clamp tnt_ai_artifact_gold_value
+# to the payer's capacity instead of lowering the points ladder."
+#
+# ORDER OF OPERATIONS IS LOAD-BEARING, AND IT IS WHY min = 25 MOVED TO LAST.
+# A sandbox AI can hold NEGATIVE gold (the measured minimum was -99). Capping at
+# the purse before the floor would hand the send-gold effect a negative AMOUNT,
+# which would PAY THE BUYER. With `min = 25` applied after the cap the bill can
+# never fall below 25, so a bankrupt buyer simply fails his own
+# `gold >= tnt_ai_*_gold_value` row (tnt_38_ai_world.txt:2212, :2471, :2682) and
+# the pulse skips exactly as it does today. `max = 1200` is unchanged in meaning:
+# 25 < 1200, so for every solvent buyer the two clamps are independent and the
+# reordering is a no-op.
+#
+# VANILLA FORMS USED, ALL FROM common\script_values:
+#   block-form max inside a script value -
+#     GAME\common\script_values\01_dlc_fp1_script_values.txt:779,
+#     GAME\common\script_values\05_bp2_hostage_values.txt:749
+#   a bare min/max as a direct child of an `if` in a script value -
+#     GAME\common\script_values\00_culture_values.txt:662-666
+#     (`if = { limit = { … }  subtract = …  min = 1 }`)
+#   `add = scope:<x>.gold` -
+#     GAME\common\script_values\00_activity_values.txt:863
+#     (`add = scope:petition_vassal.gold`),
+#     GAME\common\script_values\07_ep3_values.txt:1079
+#   AND THE WHOLE IDEA, verbatim: GAME\common\script_values\
+#     03_dlc_fp2_script_values.txt:61-66 clamps a price to the payer's purse with
+#     `else = { add = scope:actor.gold }`.
+# The `exists = scope:actor` guard is this section's own two-scope discipline,
+# the same one tnt_ai_title_points_value uses above (:1522-1527).
+#
+# ACCEPTANCE TEST FOR THE NEXT RUN: WSKIP buyer_broke / payer_broke must
+# effectively vanish for solvent buyers, and any remaining refusal must read
+# unbalanced (the seller judged the offer) rather than broke.
+###############################################################################
+tnt_ai_title_gold_value = {
+	value = tnt_ai_title_points_value
+	multiply = tnt_ai_gold_per_point_value
+	max = 1200
+	# THE PURSE CLAMP. See the block above.
+	if = {
+		limit = { exists = scope:actor }
+		max = {
+			value = 0
+			add = scope:actor.gold
+		}
+	}
+	min = 25
+	round = yes
+}
+
+# What the coin is worth back in points — same rate, so the round-trip cannot
+# charge the seller for a conversion artefact (the ultimatum pair's own shape).
+tnt_ai_title_gold_points_value = {
+	value = tnt_ai_title_gold_value
+	divide = { value = tnt_ai_gold_per_point_value  min = 1 }
+}
+
+# The SELLER's view (the recipient gives up the county): coin in, land out,
+# standing, minus the greed floor. One tier, > 0 to proceed — E17's shape.
+tnt_ai_deal_title_value = {
+	value = 0
+	add = tnt_ai_title_gold_points_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_title_points_value  multiply = -1 }
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+
+###############################################################################
+# S-FEALTY — SILENT VASSALIZATION  (archetype S-FEALTY, tnt_38_ai_world.txt E21)
+#
+# Runs under the same ruling supersession as S-TITLE. The legality gates are
+# vanilla's own offer_vassalization rows, copied into E12's entry trigger
+# (citations there); this section only prices the deal.
+#
+# THE ANCHOR IS VANILLA'S OWN: offer_vassalization_interaction's ai_accept
+# opens with `base = -50` (GAME\common\character_interactions\
+# 00_character_interactions.txt:144) — becoming someone's vassal starts 50
+# points against, before opinion and the engine's other rows pull it around.
+# So the cost constant is 50, the actor pays 50 x tnt_ai_gold_per_point_value
+# in coin, and the would-be vassal's balance reduces — by the same round-trip
+# arithmetic as S-TITLE — to relation - threshold > 0: AN AI KNEELS TO A
+# LIEGE IT ALREADY LIKES, and never to a stranger with a purse. The engine's
+# realm mutation itself is vanilla's own on_accept body
+# (offer_vassalization_interaction_effect, :1326-1327), called by E21.
+###############################################################################
+tnt_ai_vassal_cost_value = {
+	value = 50
+}
+
+tnt_ai_vassal_gold_value = {
+	value = tnt_ai_vassal_cost_value
+	multiply = tnt_ai_gold_per_point_value
+	min = 25
+	max = 1200
+	round = yes
+}
+
+tnt_ai_vassal_gold_points_value = {
+	value = tnt_ai_vassal_gold_value
+	divide = { value = tnt_ai_gold_per_point_value  min = 1 }
+}
+
+# The WOULD-BE VASSAL's view (the recipient kneels): coin in, independence out,
+# standing, minus the greed floor. One tier, > 0 to proceed.
+#
+# *** MEASURED 2026-08-25, AND WRITTEN DOWN BECAUSE THE ARITHMETIC IS INVISIBLE
+# *** UNTIL SOMEONE DOES IT. THE GOLD ROW BUYS EXACTLY ZERO ACCEPTANCE POINTS. ***
+# tnt_ai_vassal_gold_value is 50 x tnt_ai_gold_per_point_value and
+# tnt_ai_vassal_gold_points_value divides by the SAME rate, so the first `add` is
+# identically 50 at both rates (rate 10 -> 500 gold -> 50 points; rate 15 -> 750
+# gold -> 50 points; the min 25 / max 1200 clamps do not bind at either), and the
+# third `add` subtracts the same 50. They cancel, and the balance reduces to
+#     tnt_ai_relation_value - tnt_ai_threshold_value
+# for every pair in the game. The header above already states the INTENT of that
+# ("an AI kneels to a liege it already likes, and never to a stranger with a
+# purse") and the intent stands - what was never stated is that the 500 or 750
+# gold is therefore a PURE TOLL ON THE ACTOR'S PURSE that moves the victim not
+# one point. It is the whole reason the archetype looks broken from outside:
+# 6 draws in 1,596 pulses, 1 concluded, and ALL FIVE refusals were
+# why=liege_broke with actor purses of 90, 53, -19, 90 and 280 against needs of
+# 500/500/500/500/750. ZERO were why=vassal_refused - the would-be vassal's
+# willingness was never even asked. The one success was an emperor paying 750 at
+# bal = 3.
+#
+# CONSEQUENCE THE USER IS FEELING, and it is a DESIGN finding rather than a dial:
+# military strength, dread and threat points appear NOWHERE in this balance, so a
+# mighty conqueror is no better placed to vassalise a neighbour than a weak man
+# is. Worse, the two halves of "collapse your neighbours" fight each other - a
+# successful extortion applies tnt_threat_opinion (-100, decaying over 15 years)
+# and 0.75 x opinion is the dominant term of tnt_ai_relation_value, so extorting
+# a neighbour makes him measurably LESS likely to kneel. Vassalisation as shipped
+# is structurally ANTI-correlated with conquest.
+#
+# *** HISTORICAL RULING, 2026-08-25: THE ROW BELOW WAS REFUSED. SUPERSEDED IN
+# *** SCOPE, NOT ERASED, BY THE USER'S FRESH 2026-08-28 ORDER. ***
+# HIS REASON, IN HIS OWN WORDS: "to chto vymogatelstvo zakryvaet vassalitet i
+# naoborot - eto pravilno, chtoby ne bylo eksployta cherez cheyn ugroz" - that
+# extortion closes vassalage and vice versa is CORRECT, so that there is no
+# exploit through a CHAIN OF THREATS.
+# WHAT HE IS PROTECTING, SPELLED OUT SO NOBODY "FIXES" IT AS A DEFECT: a
+# successful extortion writes tnt_threat_opinion (-100, 15 decaying years,
+# common\opinion_modifiers\tnt_61_opinions.txt) from the victim toward the
+# actor, and opinion is nearly the whole of tnt_ai_deal_vassal_value through
+# tnt_ai_relation_value. So squeezing a neighbour makes him HARDER to vassalise
+# for fifteen years. That is not an unwanted interaction - it is the price of
+# coercion, and it is what stops a conqueror stacking threat after threat and
+# then collecting the realm for free. THE TWO INSTRUMENTS ARE MEANT TO COMPETE.
+# The row that would reverse it, kept only so the trail reads:
+#     add = { value = tnt_ai_threat_points_value  multiply = 0.25 }
+# The mod already owns that number (a one-line alias onto
+# tnt_threat_points_value, defined above in this file), it resolves scope:actor
+# and scope:recipient natively - the exact pair E11 already saves - it scales
+# with N, the user's own knob, and tnt_can_threat_trigger already floors it at
+# 100, so it contributes +25 at the access bar and +125 at a crushing 500 points.
+# It is ALSO why it must not ride along with the purse clamp in one commit: the
+# clamp multiplies tnt_threat_opinion applications by roughly twelve, and opinion
+# is the entire fealty balance today, so shipping both blind makes the next run
+# unreadable. Controlled slice, one lever at a time.
+#
+# THE FRESH RULING DOES NOT ADD THAT ROW. S-FEALTY remains a consensual purchase
+# whose acceptance is relation-based, and a prior cash extortion still poisons it.
+# Instead tnt_ai_world_submission_pulse_effect owns a direct, one-step coercive
+# fealty lane: no prior extortion, no gold, a 15-point threat floor, lower-tier
+# independent neighbour only, and one common three-year cooldown. Thus there is no
+# extortion-then-purchase chain to exploit, while overwhelming AI realms can use
+# threat for the territorial result the user now explicitly requested.
+tnt_ai_deal_vassal_value = {
+	value = 0
+	add = tnt_ai_vassal_gold_points_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_vassal_cost_value  multiply = -1 }
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+
+###############################################################################
+# S-ARTIFACT — TREASURES FOR GOLD  (archetype S-ARTIFACT, tnt_38_ai_world.txt E23)
+# V13, USER ITEM 2 — the user's second named replacement for the retired pacts.
+#
+# THE RULING THIS RUNS UNDER is the same "full range of deal terms" supersession
+# that already freed titles (S-TITLE) and fealty (S-FEALTY), and it has less to
+# overcome: an artifact is a POSSESSION, not a piece of the realm graph. Nothing
+# in this section or in E23 creates, destroys or re-parents a title.
+#
+# *** THE SECOND DECLARED EXCEPTION TO THIS FILE'S TWO-SCOPE RULE. ***
+# tnt_ai_artifact_points_value reads a THIRD scope, scope:tnt_deal_artifact — the
+# candidate piece E23 saves with save_temporary_scope_as immediately before
+# evaluating anything here, exactly as E20 saves scope:tnt_deal_title for
+# S-TITLE. Temporary scopes are visible to values evaluated in the same chain.
+# Guarded on `exists`, so a stray evaluation outside E23 returns 0 and the deal
+# balance then refuses on the missing gold points.
+#
+# THE LADDER IS THE WINDOW'S OWN, so sandbox and window agree about what a piece
+# is worth - and since V19 that is enforced by construction instead of by a
+# copied block: the value below reads tnt_artifact_piece_value
+# (tnt_54_multiselect_values.txt section 10), the same direction-neutral core
+# the four window copies and A13's affordability gate read - vanilla's
+# gift_artifact_opinion rarity ladder 10/25/50/100 plus its two durability
+# divisors (GAME\common\script_values\00_basic_values.txt:1654-1684). This
+# header's previous claim ("35/75/100/150, inlined because there is no
+# per-element value name to share") described the RETIRED ladder and had been
+# false since the four-copy fix: the twin was the FIFTH copy and had already
+# drifted, which is exactly the defect the shared core retires.
+#
+# THE PRICE IS FULL VALUE, NOT THE ULTIMATUM'S 60%. The buyer pays
+# points x tnt_ai_gold_per_point_value, which round-trips to exactly the points
+# the seller gives up — so tnt_ai_deal_artifact_value reduces to
+# relation - threshold > 0, i.e. TREASURE MOVES ONLY BETWEEN FRIENDLY REALMS,
+# which is the same tight gate S-TITLE has, in number form.
+#
+# max = 1200 IS LOAD-BEARING, not tidiness. It mirrors tnt_ai_gold_high_value's
+# cap. UNDER THE V19 LADDER IT BITES LATER, AND THAT IS A LIBERALISATION THE
+# USER HAS NOT YET RULED ON, said plainly: a famed piece (50) now moves freely
+# at 500-750 gold, and an illustrious one (100) can move BETWEEN COUNT-TIER
+# REALMS at 1000 - only the duke-and-up rate (1500, capped to 1200) still turns
+# the round trip unfavourable to the seller and refuses. The old prediction
+# ("a pts=100 or pts=150 line means this arithmetic broke") is retired with the
+# old ladder. The V19 read: WDONE pts= should be 10/25/50 - 100 possible from
+# count-tier sellers, and divided forms (17, 8, 6, 3, 1...) from damaged
+# pieces - and a 35/75/150 line means the twin drifted again. Affordability
+# stays on the GOLD side, never the points side: tnt_38_ai_world.txt's own rule
+# at the S-ARTIFACT entry trigger, kept.
+###############################################################################
+tnt_ai_artifact_points_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:tnt_deal_artifact }
+		scope:tnt_deal_artifact = {
+			add = tnt_artifact_piece_value
+		}
+		round = yes
+	}
+}
+
+tnt_ai_artifact_gold_value = {
+	value = tnt_ai_artifact_points_value
+	multiply = tnt_ai_gold_per_point_value
+	max = 1200
+	# THE PURSE CLAMP - V16, Q2-F5. Full argument, vanilla citations and the
+	# reason `min = 25` now comes LAST: the block above tnt_ai_title_gold_value.
+	# THIS is the bill the mod's own note at tnt_38_ai_world.txt:1389-1394 named:
+	# all 6 artifact draws of the 2026-08-17 run died on money, four of them held
+	# by kings and one by an emperor, against 1,000-1,200 asked.
+	if = {
+		limit = { exists = scope:actor }
+		max = {
+			value = 0
+			add = scope:actor.gold
+		}
+	}
+	min = 25
+	round = yes
+}
+
+# What the coin is worth back in points — same rate, so the round trip cannot
+# charge the seller for a conversion artefact (the S-TITLE pair's own shape).
+tnt_ai_artifact_gold_points_value = {
+	value = tnt_ai_artifact_gold_value
+	divide = { value = tnt_ai_gold_per_point_value  min = 1 }
+}
+
+# The SELLER's view (the recipient gives up the piece): coin in, treasure out,
+# standing, minus the greed floor. One tier, > 0 to proceed — S-TITLE's shape.
+tnt_ai_deal_artifact_value = {
+	value = 0
+	add = tnt_ai_artifact_gold_points_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_artifact_points_value  multiply = -1 }
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+
+###############################################################################
+# S-WED — A MATCH BETWEEN TWO AI HOUSES  (archetype S-WED, tnt_38_ai_world.txt E24)
+# V13, USER ITEM 2 — the user's third named replacement.
+#
+# WHAT IS BEING PRICED, AND WHY IT IS A CONSTANT. Vanilla prices an arranged
+# marriage at an ai_accept base of ZERO — this mod's own calibration note says so
+# (tnt_52_marriage_values.txt) and the letter path had to add a special disjunct
+# to its substance floor precisely because an unremarkable pair legitimately
+# reads 0 on both halves. So there is no ladder to import here: what an AI
+# actually weighs is the STANDING between the two houses, which
+# tnt_ai_relation_value already carries. The constant below is the DOWRY, not the
+# bride: 20 points, i.e. 200-300 gold at the shipped rate, which is the same
+# order as the hookcall's favour price and deliberately far under S-FEALTY's 50.
+#
+# THE ARITHMETIC THEN REDUCES, exactly as S-TITLE's and S-FEALTY's do, to
+# relation - threshold > 0: TWO HOUSES MARRY ONLY WHEN THEY ALREADY LIKE EACH
+# OTHER, never because one of them has a purse. That is the property that makes
+# every silent archetype in this file safe, and it is why the dowry is a full
+# round trip rather than a bribe on top.
+#
+# THIS SECTION PRICES NOTHING ABOUT THE PAIR ITSELF - not age, not rank, not the
+# heir. Deliberate: the letter path's marriage family (tnt_52_marriage_values.txt)
+# does all of that, and it does it by reading FROZEN per-pair variables that a
+# staging door writes. The sandbox has no staging door and must leave no
+# variables behind, so importing that family would mean reimplementing it against
+# scopes instead of variables - a second pricing surface that would drift from
+# the first. A flat dowry that both sides round-trip cannot drift from anything.
+###############################################################################
+tnt_ai_wed_cost_value = {
+	value = 20
+}
+
+tnt_ai_wed_gold_value = {
+	value = tnt_ai_wed_cost_value
+	multiply = tnt_ai_gold_per_point_value
+	max = 1200
+	# THE PURSE CLAMP - V16, Q2-F5. Full argument, vanilla citations and the
+	# reason `min = 25` now comes LAST: the block above tnt_ai_title_gold_value.
+	# Measured here: 64 payer_broke lines with gold_have median 92 (max 295)
+	# against a 200-300 dowry. The dowry is a full round trip, so a part dowry
+	# reaches the other house's balance as fewer points and only a match they
+	# already wanted still closes - which is this section's stated design
+	# ("two houses marry only when they already like each other").
+	if = {
+		limit = { exists = scope:actor }
+		max = {
+			value = 0
+			add = scope:actor.gold
+		}
+	}
+	min = 25
+	round = yes
+}
+
+tnt_ai_wed_gold_points_value = {
+	value = tnt_ai_wed_gold_value
+	divide = { value = tnt_ai_gold_per_point_value  min = 1 }
+}
+
+# The RECEIVING house's view (the recipient gives a kinsman into the actor's
+# house and takes the dowry): coin in, match out, standing, minus the greed
+# floor. One tier, > 0 to proceed.
+tnt_ai_deal_wed_value = {
+	value = 0
+	add = tnt_ai_wed_gold_points_value
+	add = tnt_ai_relation_value
+	add = { value = tnt_ai_wed_cost_value  multiply = -1 }
+	add = { value = tnt_ai_threshold_value  multiply = -1 }
+	round = yes
+}
+
+
+###############################################################################
+# A16 SUPPORT — HOW MANY COUPLES ARE ON THE TABLE (telemetry bridge)
+#
+# Read by the three TERM sweeps in tnt_3b_log.txt (L8/L10/L19) through the
+# tnt_log_n1 variable bridge, exactly as the title/claim/artifact counts are;
+# tnt_wed_list holds one member per agreed couple (tnt_34_marriage.txt, THE
+# STORAGE MODEL), so the count of members IS the count of couples.
+#
+# SCOPE: THE PLAYER — the list lives on him; the sweeps run with root = the
+# player, which is also `this` there, so the unqualified reads below are right.
+#
+# Shape is tnt_count_sel_title_p_value's verbatim (tnt_54_multiselect_values.txt
+# :161-170): has_variable_list guards the iteration because variable_list_size /
+# every_in_list on a never-created list is an ENGINE ERROR, not a zero — the
+# same guard every tnt_wed_list reader carries (tnt_52_marriage_values.txt:1247).
+###############################################################################
+tnt_count_wed_pairs_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_wed_list }
+		every_in_list = {
+			variable = tnt_wed_list
+			add = 1
+		}
+	}
+}
+
+
+###############################################################################
+# THE GOAL SYSTEM'S TWO MONEY LINES (V10, "иммерсивная система сделок")
+#
+# Both are evaluated ON THE CHARACTER BEING JUDGED (bare monthly_character_income,
+# no scope preamble), because their one call shape is
+#     scope:tnt_ai = { gold >= tnt_ai_wealth_line_value }
+# inside a random_list weight modifier - the named value resolves on `this`,
+# which is the AI by construction there. A field against a named value is
+# vanilla's own comparison form (piety >= medium_piety_value class, everywhere).
+#
+# WEALTH = two years of income idle in the chest with no war to spend it on:
+# the surplus the user asked the AI to "слить". POVERTY = less than half a year
+# in hand: the state in which a ruler sells paper, land and heirlooms.
+# monthly_character_income as a script-value field: REAL,
+# GAME\common\script_values\01_dynamic_values.txt:13-15 (tiny_gold_value) and
+# :53-55 (minor_gold_value) - both bare, in exactly this value/multiply/min shape.
+# The comparison form is vanilla's too: GAME\common\character_interactions\
+# 00_modifiy_vassal_contract.txt:2247 (gold >= major_gold_value).
+#
+# BOTH ENDS ARE CLAMPED, and the max matters more than the min. Without it the
+# lines scale with the realm forever: an emperor on 200 a month would need 4,800
+# in the chest to read as "rich" (unreachable, so the signal dies at the top of
+# the map) while anything under 1,200 reads as "destitute" - and the letter would
+# tell the player that a ruler sitting on 900 gold has an empty treasury, which
+# is a visible lie. Every vanilla income-multiple gold value carries the same
+# pair of clamps (00_basic_values.txt, the tiny/minor/medium/major ladder).
+###############################################################################
+tnt_ai_wealth_line_value = {
+	value = monthly_character_income
+	multiply = 24
+	min = 200
+	# 24 months sits between vanilla's massive (18 mo, max 750) and monumental
+	# (36 mo, max 1500) rungs, so 1000 is that ladder interpolated.
+	max = 1000
+}
+
+tnt_ai_poverty_line_value = {
+	value = monthly_character_income
+	multiply = 6
+	min = 25
+	# 6 months IS vanilla's medium_gold_value multiplier; 300 is its own ceiling.
+	max = 300
+}
+
+
+###############################################################################
+# THE PAY CAP - HOW DEEP THE AI IS ALLOWED TO REACH INTO ITS OWN PURSE
+# V14, USER ITEM 3 (finding F2). Four values, one per currency.
+#
+# THE PROBLEM THEY SOLVE. The composer's wallet clamps used to read
+# `max = scope:tnt_cap_giver.<currency>` - the partner's ENTIRE stock - so every
+# letter was priced at the exact edge of the AI's treasury and then, 0 to 200 days
+# later, re-validated on that same edge. Two things went wrong at once:
+#   1. THE BUG. The Accept option carried `tnt_partner_gold_shortfall_value <= 0`,
+#      so the smallest AI outlay between composition and the click flipped the row
+#      false and the option refused itself, silently and invisibly - user item 3.
+#      That row is now gone and the letter repairs itself instead
+#      (tnt_ai_letter_reclamp_effect, tnt_37_ai_offer.txt E-AI-7), but a promise
+#      sized at 100% of a purse is a bad promise even when it can be repaired.
+#   2. THE IMMERSION. A ruler emptying his treasury to the last coin to buy one
+#      courtier reads as absurd. The 2026-08-16 run has a letter offering 22 gold
+#      AND 87.36773 prestige - the fraction is the partner's exact stock, i.e.
+#      both purses drained to zero, which is how you can spot a bound clamp in
+#      the telemetry: an integer amount means the clamp did not bind.
+#
+# THE FRACTION IS 0.8 AND IT WAS 0.9 FOR ONE COMMIT. V14 user item 3 (F2) set it
+# at 0.9 to absorb ordinary AI spending across the letter's life. V14 USER ITEM 2
+# (finding I2-B) deepened it to 0.8, and the reconciliation is recorded here
+# because this is the only place either number ever appeared:
+#   * IT IS VANILLA'S OWN RESERVE FRACTION. eighty_percent_of_max_military_strength,
+#     GAME\common\script_values\00_interaction_values.txt:898-903, is the same
+#     "keep a fifth back" idea, and it is the value vanilla itself uses to decide
+#     whether a proposer is worth listening to (00_marriage_scripted_modifiers.txt
+#     :2368). Using the same fifth here means the mod reserves what vanilla
+#     reserves.
+#   * IT IS WHAT MAKES THE NEW GO/NO-GO ROW BITE. events\tnt_ai_events.txt now
+#     refuses a letter unless the proposer gives at least as much as it takes OR
+#     the settle actually landed in its band (`tnt_ai_accept_value <= 3`). An AI
+#     that can only reach +1 by emptying its treasury now gets 80% of the way
+#     instead of 90%, its headline stays further above the ceiling, and the letter
+#     is refused instead of shipped. At 0.9 the same letter could still squeak in.
+#   * THE COST IS ONE FIFTH OF WHAT A POOR AI CAN OFFER, which is the point: the
+#     user's complaint is a count buying a hegemon's daughter with his entire
+#     fortune, and that letter should not exist at any rounding.
+#
+# NAMED VALUES, NOT AN INLINE `max = { value = ... multiply = 0.8 }`: a named
+# value keeps Law R7's named-value discipline, matches the shape the rest of this
+# file uses, and puts the reserve fraction in ONE place - which is exactly why
+# retuning it is ONE number now: tnt_reserve_fraction_value, at the file's foot.
+#
+# NO `round = yes` ANYWHERE BELOW, DELIBERATELY. The pay step that feeds these
+# clamps rounds; these do not, so a FRACTIONAL `_r` amount in the telemetry is the
+# signature of a clamp that bound. That is the tell for whether the reserve is
+# holding, and rounding here would destroy it. Baseline to compare against: 4 of
+# the 20 letters of the 2026-08-16 run carried a fractional _r gold amount
+# (34.743 / 114.57876 / 127.47671 / 41.01157) under the old 100% clamp.
+#
+# THE `var:tnt_partner ?= { add = <field> }` SHAPE IS THIS MOD'S OWN, shipped at
+# tnt_50_values.txt:289 (`add = yearly_character_income`) and :365
+# (`add = current_military_strength`), with the vanilla proof for a scope block
+# inside a script value cited there at :104-114
+# (GAME\common\script_values\10_ach_values.txt:1414-1428; see also
+# GAME\common\script_values\00_activity_values.txt:1123,
+# `scope:petition_liege = { add = max_military_strength }`).
+# `min = 0` sits LAST so a partner in debt yields a cap of 0 rather than a
+# negative ceiling - gold really can go negative in CK3
+# (GAME\common\character_interactions\00_gift.txt:537 tests `gold < 0`).
+#
+# EVALUATED ON THE PLAYER. All five call sites are inside set_variable blocks in
+# tnt_39_autobalance.txt, which run with root = the player, so var:tnt_partner
+# resolves to the AI exactly as it does everywhere else in the balance chain.
+#
+# NOT USED BY THE PLAYER'S OWN STEPPERS. tnt_cur_step_r_effect (:141) and
+# tnt_cur_frac_r_effect (:272) keep the full-purse clamp on purpose: the player is
+# editing in the open window and sees the result immediately, so there is no drift
+# window to reserve against and no reason to hide the last tenth from him.
+###############################################################################
+tnt_ai_pay_cap_value = {
+	value = 0
+	var:tnt_partner ?= { add = gold }
+	multiply = tnt_reserve_fraction_value
+	min = 0
+}
+
+tnt_ai_pay_cap_prestige_value = {
+	value = 0
+	var:tnt_partner ?= { add = prestige }
+	multiply = tnt_reserve_fraction_value
+	min = 0
+}
+
+tnt_ai_pay_cap_piety_value = {
+	value = 0
+	var:tnt_partner ?= { add = piety }
+	multiply = tnt_reserve_fraction_value
+	min = 0
+}
+
+tnt_ai_pay_cap_influence_value = {
+	value = 0
+	var:tnt_partner ?= { add = influence }
+	multiply = tnt_reserve_fraction_value
+	min = 0
+}
+
+###############################################################################
+# THE PLAYER-SIDE MIRROR - V24, LEDGER OPTION A ("the player keeps a fifth").
+#
+# The four values above cap what a composed letter may PROMISE out of the
+# AI's purse. Until V24 the PLAYER'S side had no mirror at all: the sweeten
+# ladder's clamps in tnt_ab_sweeten_effect read `max = gold` (:1735 pre-V24)
+# and its three siblings - the WHOLE purse - and the measured 08-21 run
+# showed 12 of 121 player-side demands pinned at exactly 100% of stock
+# (six pairs of consecutive letters sharing an amount to five decimals,
+# which only a wallet clamp can produce). "Hand me everything you own" is
+# not a letter, it is an insult; such letters now abort instead.
+#
+# MEASURED COST, from the same run: about one delivered letter in twelve.
+# None of the four letters the player actually ACCEPTED is touched - their
+# asks sat at 264 gold / 1672 prestige / 65+397+633 / 128+952, none at
+# 100% of stock.
+#
+# EVALUATED ON THE PLAYER: all call sites are set_variable blocks in
+# tnt_ab_sweeten_effect, which runs with root = the player, so the bare
+# resource reads are the player's own. Same reserve, same shape, same file -
+# and since 2026-08-25 the SAME NAMED VALUE the AI family and the extortion
+# clamp read, tnt_reserve_fraction_value. The player's steppers deliberately
+# keep the full-purse clamp (see the note above tnt_ai_pay_cap_value):
+# he edits in the open and hides nothing from himself.
+###############################################################################
+tnt_player_pay_cap_value = {
+	value = gold
+	multiply = tnt_reserve_fraction_value
+	min = 0
+}
+
+tnt_player_pay_cap_prestige_value = {
+	value = prestige
+	multiply = tnt_reserve_fraction_value
+	min = 0
+}
+
+tnt_player_pay_cap_piety_value = {
+	value = piety
+	multiply = tnt_reserve_fraction_value
+	min = 0
+}
+
+tnt_player_pay_cap_influence_value = {
+	value = influence
+	multiply = tnt_reserve_fraction_value
+	min = 0
+}
+
+
+###############################################################################
+# CAN THIS PROPOSER PAY FOR LAND AT ALL?  (V15, USER ITEM 2)
+#
+# Read ONCE, by arch 8's ENTRY TRIGGER in
+# common\scripted_effects\tnt_37_ai_offer.txt, where root is the player and
+# var:tnt_partner is the proposer - the state every value on the letter path
+# stands in (tnt_ai_offer.0001 writes tnt_partner in its immediate, BEFORE it
+# composes; the same fact tnt_53_currency_values.txt:975-983 relies on).
+#
+# IT IS THE MIRROR of tnt_val_title_multi_r_gold_value
+# (tnt_53_currency_values.txt:1006), which does this job for arch 10 - and it is
+# a FLAT FLOOR rather than the live price because an entry trigger runs BEFORE
+# the pick, when tnt_sel_title_p is still empty and the live price is 0.
+#
+# THE FLOOR IS THE CHEAPEST THING ARCH 8 CAN ASK FOR. Since V16/F2 T3 admits
+# tier_county ONLY (tnt_40_triggers.txt:404), a county's base is 30 points
+# (tnt_54_multiselect_values.txt:456-457), and one point costs 10 gold, or 15
+# from a duke upward (tnt_50_values.txt:339-352). Against it stands the deepest
+# the pay ladder is allowed to reach: 80% of the proposer's purse, the same clamp
+# the ladder itself uses (tnt_39_autobalance.txt:1940).
+#
+# DELIBERATELY CONSERVATIVE, exactly like arch 10's value and for the opposite
+# reason: the ladder may also spend prestige, piety and influence, so an AI that
+# fails this row could sometimes have closed the gap in standing rather than in
+# coin. That is the point. The user's report is a petty ruler buying a county for
+# pocket change plus a heap of prestige a hegemon does not need, so the rule is
+# "put real coin on the table or do not ask for land".
+#
+# MEASURED 2026-08-17: 11 of the 12 arch=8 proposers held 36 to 151 gold against
+# a 300-450 gold floor and would not have drawn the archetype at all; the twelfth
+# (Rodrik Arryn of e_the_vale, purse >= 469) would, and his letter still aborted
+# on the generosity cap - which is the other half of this fix.
+#
+# EXPECTED EFFECT ON THE NEXT RUN, so it can be checked and not argued: arch=8
+# compositions fall sharply from 12 (the draw redistributes to the other eleven
+# entries, which is why this row lives in the ENTRY TRIGGER and not in the pick),
+# and every arch=8 letter that still composes comes from a proposer who could
+# actually pay. OUTCOME what=aborted_below_threshold should vanish for arch=8. If
+# an abort survives with bal > 3 and gifthead = 0, THIS FLOOR IS TOO LOW and
+# should be raised toward the observed price, not deleted.
+#
+# COST PER DRAW: one var:tnt_partner read, one highest_held_title_tier test, one
+# gold read, two arithmetic steps - about six operations, once per composition
+# attempt (61 attempts in the whole three-year run). Not a GUI path, so the
+# PERFORMANCE law is untouched.
+#
+# NAMED VALUE AGAINST A LITERAL at the call site (Law R7), which is why the
+# subtraction is pre-computed here - the reason tnt_ab_gift_excess_value lives
+# in tnt_53_currency_values.txt (that file's section 4b, :844-847).
+###############################################################################
+tnt_ai_land_afford_gap_value = {
+	value = 30
+	multiply = tnt_gold_per_point_value
+	subtract = tnt_ai_pay_cap_value
+}
+
+
+###############################################################################
+# CAN THE PLAYER PAY FOR THIS PIECE AT ALL?  (V19 - A13's affordability gate)
+#
+# Read TWICE, by arch 13's ENTRY TRIGGER and, verbatim, by its pick in
+# common\scripted_effects\tnt_37_ai_offer.txt - inside any_character_artifact /
+# random_character_artifact on the proposer, so THIS IS AN ARTIFACT-SCOPE VALUE
+# (the piece is `this`; nothing else here is). It stands in the same letter-path
+# state as A8's value above: root is the player, var:tnt_partner the proposer -
+# tnt_ai_offer.0001 writes tnt_partner in its immediate, BEFORE it composes.
+#
+# IT REPLACES V18'S FOUR GOLD LITERALS (1500/1000/750/350 by rarity), which
+# were points x 10 of a ladder retired in the same round they shipped - the
+# stale-literal failure class. Here the points are the ONE live ladder
+# (tnt_artifact_piece_value, tnt_54_multiselect_values.txt section 10 - rarity
+# 10/25/50/100 plus vanilla's durability divisors) and the rate is the ONE
+# live base rate (tnt_gold_base_rate_value, tnt_50_values.txt section 4.A, the
+# row tnt_gold_per_point_value itself opens with), so a change to either moves
+# this gate by itself and the literals cannot rot again.
+#
+# BASE RATE, NOT tnt_gold_per_point_value's live 15-for-duke+: V18's recorded
+# charter, kept on purpose - the gate refuses only the letters that could not
+# have closed under ANY currency, since the settle may bill prestige and piety
+# too. The same "deliberately conservative" argument as A8's header above.
+#
+# EFFECTIVE GATES ON HEALTHY PIECES: illustrious 1000 gold, famed 500,
+# masterwork 250, common 100 - and a damaged famed piece gates at ~167, not
+# 500, because the gap reads the PIECE's value, divisors included, not its
+# rarity rung.
+#
+# `add = root.gold` inside a script value: REAL,
+# GAME\common\script_values\00_activity_values.txt:867-871
+# (petitioner_debt_positivization_root_value); `subtract` is the same field
+# access. The subtraction is pre-computed here so the call site is a NAMED
+# VALUE AGAINST A LITERAL (Law R7) - A8's shape, one block up.
+###############################################################################
+tnt_ai_art_afford_gap_value = {
+	value = tnt_artifact_piece_value
+	multiply = tnt_gold_base_rate_value
+	subtract = root.gold
+}
+
+
+###############################################################################
+# THE RESERVE FRACTION - ONE NUMBER, NINE READERS.  2026-08-25, house law 9.
+#
+# "KEEP A FIFTH BACK" WAS NINE HAND-WRITTEN NUMERALS UNTIL AN AUDIT COUNTED THEM,
+# and TWO headers in this file asserted the opposite in so many words: the
+# extortion clamp's "it is the same fifth-in-reserve tnt_ai_pay_cap_value keeps"
+# and the player mirror's "the fraction lives HERE and nowhere else". Both are
+# corrected above. The nine readers are tnt_ai_demand_purse_cap_value, the four
+# tnt_ai_pay_cap_* and the four tnt_player_pay_cap_*.
+#
+# THE DRIFT WAS LOAD-BEARING, NOT COSMETIC, AND THAT IS WHY IT IS REPAIRED RATHER
+# THAN ANNOTATED. Since 2026-08-25 tnt_ai_demand_purse_cap_value is the binding
+# clamp on BOTH extortion paths - the sandbox ultimatum and the letter. Retuning
+# the reserve by the pay-cap header's own old instruction ("four numbers here")
+# would have moved eight and left the ninth, so extortion would take a larger
+# share of a purse than the mod reserves anywhere else, with no log line and no
+# gate red.
+#
+# WHY 0.8 AT ALL is argued once, at tnt_ai_pay_cap_value above (vanilla's own
+# eighty_percent_of_max_military_strength, GAME\common\script_values\
+# 00_interaction_values.txt:898-903, plus the 0.9 -> 0.8 history). Not repeated.
+#
+# BOTH SHAPES ARE VANILLA'S, cited because house law 1 asks for a call site and
+# not a doc:
+#   * a block-form CONSTANT script value - been_there_done_that_multiplier_value,
+#     GAME\common\script_values\00_lifestyle_values.txt:960-962 (`value = 1.3`).
+#   * a NAMED VALUE as a `multiply` operand at a value's top level -
+#     roaming_reward_fame_very_small, GAME\common\script_values\
+#     00_activity_values.txt:2047-2051; and INSIDE a nested block over a
+#     character field, which is tnt_ai_demand_purse_cap_value's exact row -
+#     GAME\common\script_values\00_scheme_values.txt:1013-1015,
+#     `add = { value = learning  multiply = agent_3to1_3_skill_mult_value }`.
+#
+# IT SITS AT THE FOOT OF THE FILE ON PURPOSE, not at the top where it would read
+# better. Three CLAUDE.md citations and three in-code ones anchor into this file
+# BY LINE, the last of them tnt_ai_art_afford_gap_value just above, so every edit
+# of this round was held N-for-N and the one addition went below all six. Script
+# values resolve by name out of one global table rather than textually - the same
+# fact tnt_ai_ultimatum_gold_points_value's forward reference already leans on
+# and which the 2026-08-25 run measured - so position costs nothing.
+###############################################################################
+tnt_reserve_fraction_value = {
+	value = 0.8
+}

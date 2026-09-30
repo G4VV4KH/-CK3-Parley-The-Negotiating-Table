@@ -1,0 +1,95 @@
+﻿########################################################################
+# PARLEY - THE GAME-START HOOK (USER ITEM 23)
+#
+# Fires the one-shot intro letter (events/tnt_intro_events.txt) at every
+# human player once the lobby closes. Fourth on_action file of the mod; the
+# topology box in tnt_70_on_actions.txt lists all four.
+#
+# WHY on_game_start_after_lobby AND NOT on_game_start. Vanilla's own comment,
+# GAME\common\on_action\game_start.txt:2590: "called once the host (or
+# player, in single player) exits the lobby. Good for anything where you need
+# to know who the players are, or what the game rules are" - and this event
+# needs both: it fires at every_player and its desc branches on the two AI
+# rules. on_game_start is "# Empty scope" (game_start.txt:1) and runs before
+# players and rules are settled. Inside after_lobby vanilla itself tests
+# has_game_rule (:4665, :4668), iterates every_player (:4669, :4710) and
+# fires visible character events - character:1700 ?= { trigger_event =
+# bookmark.0211 } at :4653, the Matilda pair at :6187-6197 - so a visible
+# trigger_event onto players from here is proven practice.
+#
+# THE ADDITIVE SHAPE. The vanilla on_action already owns an `effect` block,
+# and _on_actions.info:104 forbids a second one anywhere in the load order;
+# :106-115 prescribes exactly this workaround - point the vanilla name at a
+# mod on_action through `on_actions` (lists merge) and keep the effect in the
+# mod one. The mod already exploits the same merge for ai_character_pulse
+# (tnt_71_ai.txt:89-93), and tnt_71_ai.txt's pulse box records WGoA2 shipping
+# FIVE files that do it to this very on_action.
+#
+# THE ONCE-GUARD, AND ITS HONEST LIMITS. after_lobby does NOT fire when a
+# single-player save is loaded - no lobby is exited - so a campaign that adds
+# the mod mid-save never sees this letter (accepted; reported in the wave
+# handoff). Whether it RE-fires when a multiplayer host re-lobbies a save is
+# unverified either way, so the effect carries a global once-guard: vanilla
+# sets globals in these same hooks (game_start.txt:13) and has_global_variable
+# is an ordinary trigger
+# (GAME\common\scripted_triggers\00_scripted_triggers.txt:604,
+# `has_global_variable = is_game_start_date`). The global is UNTIMED and
+# never removed - one letter per campaign IS the feature, and a global flag
+# is the cheapest possible save entry.
+#
+# every_player: GAME\common\confederation_types\00_confederation_types.txt:47
+# (the citation tnt_70_on_actions.txt already carries). The is_ai limit is
+# belt-and-braces for a dropped seat in multiplayer; the event's own trigger
+# repeats it.
+#
+# NOT AN OVERRIDE: vanilla common/on_action has no file of this name, and
+# this file puts no trigger and no effect on the vanilla name - only the
+# mergeable `on_actions` list.
+# ENCODING: UTF-8 WITH BOM (new .txt, re-written per the BOM recipe).
+#
+# THE ONE error.log ENTRY NAMING THIS FILE IS NOT OURS - VERIFIED, DO NOT
+# RE-INVESTIGATE. The fresh playtest log's single stack mentioning
+# "tnt_73_intro.txt line: 51" (log line ~664) reads, innermost out:
+#   appoint_court_position effect [ Employee has already hired max amount ]
+#     common/scripted_effects/00_court_position_effects.txt:633
+#     events/dlc/tgp/tgp_genpei_character_events.txt:754 (tgp_genpei_character.2000:option)
+#     common/on_action/game_start.txt:7599 (on_game_start_after_lobby)
+#     common/on_action/tnt_73_intro.txt:51 (on_game_start_after_lobby)
+# i.e. VANILLA's own Genpei game-start event tried to appoint a court
+# position onto a character whose court had already hired the maximum. The
+# failing effect is fired by vanilla's game_start.txt:7599 - a file this mod
+# never touches - and this file's line 51 appears in the stack only because
+# jomini prints one location line PER FILE that contributes to a merged
+# on_action definition, and line 51 is this file's mergeable `on_actions`
+# block on the same name. Nothing in tnt_intro_hook ran, failed, or altered
+# vanilla's effect (a merged on_actions list adds an entry; it does not
+# re-run or reorder the vanilla `effect` block). Nothing to fix here.
+########################################################################
+
+on_game_start_after_lobby = {
+	on_actions = {
+		tnt_intro_hook
+	}
+}
+
+########################################################################
+# Root: whatever the code hands after_lobby (unused - every_player builds
+# its own list, exactly as tnt_partner_death_cleanup already does).
+# *** THE ONLY `effect` BLOCK ON THIS NAME, and it must stay the only one
+# (_on_actions.info:104). ***
+########################################################################
+tnt_intro_hook = {
+	effect = {
+		if = {
+			limit = { NOT = { has_global_variable = tnt_intro_shown } }
+			set_global_variable = {
+				name = tnt_intro_shown
+				value = 1
+			}
+			every_player = {
+				limit = { is_ai = no }
+				trigger_event = tnt_intro.0001
+			}
+		}
+	}
+}

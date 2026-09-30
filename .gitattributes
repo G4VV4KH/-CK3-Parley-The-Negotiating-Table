@@ -1,0 +1,4 @@
+# Preserve audited byte hashes on every platform, including UTF-8 BOMs.
+* -text
+# Unified-diff context prefixes and captured upstream whitespace are data.
+tools/family/*.patch whitespace=-blank-at-eol,-space-before-tab

@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "created_date": "2026-09-30",
+  "status": "scenarios_prepared_capture_pending",
+  "workflow": {
+    "assistant": "Defines the feature and visible evidence for each scene, then gives one manual capture step at a time.",
+    "user": "Chooses characters, framing, visual mood and final attractive shots within the scene requirements.",
+    "capture_build": "Use the final projected game package once its focused smoke is prepared. Identify the exact package and UI scale in the capture record.",
+    "scope": "Publication captures are not a repeat of the closed development test suite. A screenshot proves only what is visible in that shot.",
+    "language": "English UI and English captions for all three publication pages and GitHub. Use a temporary test session and restore the preferred UI language afterwards.",
+    "presentation": "Prefer a readable full-resolution screenshot with the relevant UI unobscured. Crop only for composition; do not invent game outcomes or alter displayed scores.",
+    "manual_steps": "Request and complete one user action at a time. Do not launch or modify the active campaign merely to manufacture a shot."
+  },
+  "excluded_existing_material": [
+    {
+      "path": "C:/Users/Pavel/Documents/Paradox Interactive/Crusader Kings III/mod/parley/temp/screen1.png",
+      "reason": "Existing project documentation identifies retired rows and obsolete wording."
+    },
+    {
+      "path": "C:/Users/Pavel/Documents/Paradox Interactive/Crusader Kings III/mod/parley/temp/screen2.png",
+      "reason": "Existing project documentation identifies retired rows and obsolete wording."
+    }
+  ],
+  "scenes": [
+    {
+      "id": "parley-negotiation",
+      "mod": "parley",
+      "priority": "essential",
+      "purpose": "Show the main promise: several negotiated terms on two sides of one readable deal.",
+      "visible_requirements": [
+        "Both participants",
+        "Both term columns",
+        "Partner response or valuation",
+        "At least two meaningful terms that are actually supported in this session"
+      ],
+      "framing_choice": "The user chooses a compelling pair of rulers and terms; keep the main window readable.",
+      "caption_brief_en": "Build a complete agreement and see it from your counterpart's side of the table."
+    },
+    {
+      "id": "parley-ai-letter",
+      "mod": "parley",
+      "priority": "essential",
+      "purpose": "Show that other rulers can initiate offers.",
+      "visible_requirements": [
+        "Incoming sender",
+        "Actual offered and requested terms",
+        "Available response actions"
+      ],
+      "reference": "The completed development smoke produced Jeyne Arryn's 165-gold courtier offer. That observation is a scene reference, not a requirement to replay the old test.",
+      "framing_choice": "Use a naturally available incoming letter from the package capture session; the user chooses the strongest narrative image.",
+      "caption_brief_en": "Other rulers take the initiative with offers of their own."
+    },
+    {
+      "id": "parley-marriage-diplomacy",
+      "mod": "parley",
+      "priority": "optional",
+      "purpose": "Support a marriage-diplomacy theme without claiming an unobserved title transfer or conquest.",
+      "visible_requirements": [
+        "An actual valid marriage-related negotiation",
+        "The real displayed terms and expected outcome"
+      ],
+      "framing_choice": "The user chooses an evocative dynasty or AGOT setting if desired. Confirm the current mechanic before staging the scene.",
+      "caption_brief_en": "Bring dynastic politics to the negotiating table."
+    },
+    {
+      "id": "mca-picker-overview",
+      "mod": "marriage_calc_assistant",
+      "priority": "essential",
+      "purpose": "Show a normal candidate list with the added live MCA numbers integrated into the native row.",
+      "visible_requirements": [
+        "Several candidate names and scores",
+        "Native marriage context",
+        "Scores clear of the scrollbar and other row contents"
+      ],
+      "framing_choice": "The user chooses recognizable candidates and a clean view without a large tooltip covering the list.",
+      "caption_brief_en": "Compare candidate potential directly in the marriage picker."
+    },
+    {
+      "id": "mca-breakdown",
+      "mod": "marriage_calc_assistant",
+      "priority": "essential",
+      "purpose": "Make the score understandable through its real native component tooltip.",
+      "visible_requirements": [
+        "Candidate identity",
+        "Displayed MCA total",
+        "Readable native breakdown with components adding to that total"
+      ],
+      "framing_choice": "Choose a candidate with a useful mix of components and position the tooltip so the score remains identifiable.",
+      "caption_brief_en": "See the components behind the score: a comparison aid, not a chance of marriage acceptance."
+    },
+    {
+      "id": "mca-sorted-list",
+      "mod": "marriage_calc_assistant",
+      "priority": "recommended",
+      "purpose": "Show the optional MCA score ordering and the control for returning to the default list.",
+      "visible_requirements": [
+        "MCA sorting mode/control",
+        "Several visibly descending scores",
+        "Candidate names and unobscured native rows"
+      ],
+      "framing_choice": "Use the same list as the overview when convenient; favor a clear score spread.",
+      "caption_brief_en": "Sort by MCA score to compare the most promising candidates first."
+    },
+    {
+      "id": "agot-mca-rider-breakdown",
+      "mod": "agot_marriage_calc_assistant",
+      "priority": "essential",
+      "purpose": "Show the adapter's specific contribution in an AGOT marriage picker.",
+      "visible_requirements": [
+        "A naturally qualifying current dragonrider",
+        "Native +30 rider-potential row",
+        "Candidate identity and full MCA total"
+      ],
+      "reference": "Rhaenyra's recorded development result was 95 = dynasty 35 + inheritable qualities 30 + rider potential 30. Use a current naturally available qualifying candidate, not a manufactured score.",
+      "framing_choice": "The user chooses the rider and composition. The screenshot must not suggest a guaranteed transfer of the dragon.",
+      "caption_brief_en": "AGOT:MCA includes current-dragonrider potential in the candidate score."
+    },
+    {
+      "id": "agot-mca-context",
+      "mod": "agot_marriage_calc_assistant",
+      "priority": "recommended",
+      "purpose": "Show the adapter naturally integrated with AGOT and MCA, with a distinct recognizable setting.",
+      "visible_requirements": [
+        "AGOT characters or setting",
+        "Native marriage picker",
+        "Readable MCA scores"
+      ],
+      "framing_choice": "The user chooses the strongest recognizable houses and portrait composition; an uncluttered wide view complements the detailed tooltip shot.",
+      "caption_brief_en": "The familiar MCA interface, with candidate potential tailored to AGOT."
+    }
+  ],
+  "capture_record_fields": [
+    "scene_id",
+    "file",
+    "game_package_manifest",
+    "game_version",
+    "agot_version_if_used",
+    "playset",
+    "language",
+    "resolution",
+    "ui_scale",
+    "observed_caption_facts"
+  ],
+  "completed_captures": []
+}

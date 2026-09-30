@@ -1,0 +1,3341 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — THE AI SANDBOX'S EXECUTION LAYER
+# USER ITEM 4, PHASES B / C-1 / C-2   (30-V2-DESIGN §6.3 phases AI-2 and AI-3)
+#
+# Owner: ai-sandbox. NEW FILE.
+#
+# ===========================================================================
+# WHY THIS FILE DOES NOT REUSE tnt_32_apply.txt's tnt_exec_* LEGS
+# ===========================================================================
+# It cannot, and the reason is structural rather than stylistic. Every one of the
+# twelve tnt_exec_*_effect legs reads the offer out of a CHARACTER VARIABLE ON ROOT:
+#       tnt_32_apply.txt:242-248   `exists = var:tnt_gold_$SIDE$`
+#                                  `gold = root.var:tnt_gold_$SIDE$`
+# and its own header states the contract, verbatim (tnt_32_apply.txt:8-10):
+#       "Root is always THE PLAYER. All 24 offer variables live on the player…"
+# Two consequences:
+#   1. THERE IS NO ROOT TO SPEAK OF in an interaction's on_accept. The available
+#      scopes are scope:actor and scope:recipient (.info:236-238); every vanilla
+#      on_accept body opens by naming one of them explicitly. A leg that reads
+#      `root.var:` there is reading whatever the engine happened to leave in root.
+#   2. THE PACKAGE MUST BE A PURE FUNCTION OF GAMESTATE. ai_accept is consumed
+#      during Can-Send, BEFORE on_send exists (.info:679-692 + :360-361), so no
+#      effect can pre-write a variable for it to read. 43-…md §3.B.3 states the rule:
+#      "The AI's package must be a pure function of gamestate — never of stored
+#       variables. on_send / on_accept must then recompute the same values to apply
+#       them. Vanilla does exactly this: ransom_cost_value appears in
+#       localization_values, in ai_accept, and in the applying effect."
+# So every leg below takes its amount as a NAMED SCRIPT VALUE PARAMETER and its two
+# characters as SCOPE PARAMETERS, reads no variable anywhere, and is therefore usable
+# identically from an interaction's on_accept and from the C-2 pulse. That symmetry
+# is the whole point: the two paths cannot drift, because they are the same code.
+#
+# THE TWO FILES USED TO TOUCH IN ONE PLACE ONLY, the tribute modifier pair written
+# by the old E7. The yearly tribute is retired and that leg is gone; the modifier
+# definitions in MOD\common\modifiers\tnt_60_modifiers.txt survive only as a
+# savegame shim (see that file's header). Nothing in this file writes them any
+# more, and nothing here may start writing them again.
+#
+# ===========================================================================
+# WHAT ROOT IS, PER EFFECT — read this before adding anything
+# ===========================================================================
+#   E1..E6   NO root requirement whatsoever. Pure parameter machines.
+#   E9       tnt_ai_world_notify_effect     — no root requirement.
+#   E10      tnt_ai_world_cooldown_effect   — no root requirement.
+#   E10b/c   submission pulse/apply         — root MUST be the proposing AI ruler.
+#   E11      tnt_ai_world_pulse_effect      — root MUST be the proposing AI ruler.
+# These are the three root-sensitive effects in the file; both pulse lanes are
+# called synchronously from tnt_72_ai_world.txt's one tnt_ai_world_pulse host.
+#   E16..E18 the surviving draw archetypes  — no root requirement; they read
+#                                            scope:actor / scope:recipient, which E11
+#                                            has already saved. (It read E13..E18
+#                                            until V13 user item 1 retired E13 and
+#                                            E14 with the truce and the alliance;
+#                                            both are commented out, not deleted.)
+#   E19      tnt_ai_transfer_title_effect   — pure parameter machine, like E1..E6.
+#   E22      tnt_ai_transfer_artifact_effect — pure parameter machine, like E19.
+#   E20/E21  the title and fealty archetypes — no root requirement; scope:actor /
+#                                            scope:recipient as above, and E20 also
+#                                            saves scope:tnt_deal_title for the
+#                                            S-TITLE value family.
+#   E23/E24  the artifact and marriage archetypes (V13, user item 2) — no root
+#                                            requirement either; E23 saves
+#                                            scope:tnt_deal_artifact and E24 saves
+#                                            scope:tnt_wed_p / scope:tnt_wed_r,
+#                                            each for its own value family or for
+#                                            the shared marriage leg it calls.
+#
+# ===========================================================================
+# THE ITEMS THIS FILE IS ALLOWED TO MOVE, AND THE ONES IT IS NOT
+# (six allowed since V13 user item 2 - see below)
+# ===========================================================================
+# ALLOWED:
+#   1  gold      9  hook                                    (30-V2-DESIGN §6.3)
+#   6  cede title (E20, county tier, de-jure-tidying only)   (new ruling, below)
+#   12 swear fealty (friendly E21 or coercive E10c; one mutation seam)
+# Items 3 (alliance) and 4 (truce) were ALLOWED until V13 user item 1. They are now
+# FORBIDDEN MOD-WIDE as a DESIGN REFUSAL - vanilla gates both behind a Diplomacy
+# lifestyle investment - and the retirement is recorded in the tombstone above E3.
+# Do not re-add either to this list without reading that tombstone first.
+# The last two were FORBIDDEN by §6.3's "Never 6/11/12 (title, vassalage) — those
+# mutate the realm graph silently" and by 43-…md §3.C.4. THAT BAN IS SUPERSEDED,
+# for these two legs only, by the user's later ruling that the AI must use the
+# FULL RANGE of deal terms ("nuzhno ispol'zovat' ves' masshtab optsiy"); every
+# realm-graph leg still carries tight gates. E20/E21 and the S-TITLE/S-FEALTY
+# values remain friendly by construction. E10c is deliberately different: it is
+# the explicit threat lane, requiring peace, a playable lower-tier independent
+# neighbour, a raw 4:1 military edge, 15 threat points and the shared relation /
+# fifteen-year threat-memory gates.
+# *** V13, USER ITEM 2 ADDS TWO MORE, AND FOR THE SAME REASON. ***
+#   5  marriage between two AI houses (E24)                 (see below)
+#   10 cede one artifact (E22/E23)                          (see below)
+# The user's ruling when item 1 retired the alliance and the truce was that the
+# sandbox must NOT be allowed to go quiet, and he named the replacements himself:
+# gold-for-a-title (already here), ARTIFACTS and MARRIAGES between AI rulers. So
+# these two come off the forbidden list under exactly the ruling that already
+# freed titles and fealty, and with a weaker objection to overcome: an artifact
+# is a possession, not a piece of the realm graph, and a wedding is kinship,
+# which vanilla hands out free. *** CORRECTED V32: the clause that used to sit
+# here - "and which creates NO ALLIANCE" - was FALSE about vanilla. A vanilla
+# arrange-marriage DOES create an alliance, in C++, whenever the two spouses'
+# family distances to their arrangers sum to 4 or less
+# (GAME\common\defines\00_defines.txt:436). What is true, and all this sentence
+# ever needed, is that NO ALLIANCE IS CREATED ON THIS PATH: the sandbox calls
+# tnt_wed_plain_pair_effect directly and never reaches the grant the player's
+# own deal now carries. That exclusion is deliberate and is a BALANCE decision
+# awaiting a user ruling - wiring it in would add tens of alliances a run to
+# the world graph. Full account: the S-WED entry in E12 below.
+# STILL FORBIDDEN AND ABSENT: 7 grant claim · the nine obligations · hostages ·
+#   courtier transfer · independence. The last three are USER ITEM 2's
+#   business and they belong on the LETTER path, in tnt_37_ai_offer.txt - see the
+#   scope note in the Part C banner before adding one here.
+# (8 prisoners and 11 promise-not-to-attack were on that list too, and WARDS were
+#  the fourth of the people terms. All three are now RETIRED mod-wide, so there is
+#  nothing left to forbid; this sandbox never composed any of them in any case, and
+#  the ward retirement needed NO code change here - its own random_list has eight
+#  entries summing to 100 and never contained a ward. Tombstones: E22 and E25, and
+#  TOMBSTONE W, in common\scripted_effects\tnt_32_apply.txt.)
+# The old header pledge here — "grep this file for create_title_and_vassal_change,
+# change_liege, change_title_holder …: zero hits, and it must stay zero" — is
+# REPEALED by the same ruling for EXACTLY TWO named legs:
+#   create_title_and_vassal_change / change_title_holder appear only inside
+#     tnt_ai_transfer_title_effect (E19), whose body is the window's own
+#     tnt_exec_title_multi_effect per-title transfer with parameters for the
+#     variable reads, so the two paths cannot drift;
+#   change_liege never appears literally — E21 calls vanilla's own on_accept
+#     body offer_vassalization_interaction_effect, which owns that mutation.
+# *** V13, USER ITEM 2: set_owner IS NOW A THIRD NAMED EXCEPTION. *** It appears
+#   only inside tnt_ai_transfer_artifact_effect (E22), whose body is the window's
+#   own per-artifact payload from tnt_exec_artifact_multi_effect (M8) with the
+#   variable-list read replaced by a parameter — same mechanism, so the two paths
+#   cannot drift, which is exactly the argument E19 was admitted on.
+#   M8 ITSELF MAY NOT BE CALLED FROM HERE, and this is the single biggest hazard
+#   in the file: M8 reads `has_variable_list = tnt_sel_artifact_$SIDE$` and
+#   iterates it UNQUALIFIED, i.e. off the caller's scope, which the window
+#   guarantees is the player and this pulse does not. E22 exists precisely so
+#   nobody reaches for M8.
+# create_betrothal and marry STILL DO NOT APPEAR IN THIS FILE and must not: E24
+#   hands the pair to tnt_wed_plain_pair_effect (tnt_34_marriage.txt), the
+#   marriage author's own non-grand leg, so lineality and the adult/minor
+#   dispatch stay in one place. Its two siblings are NOT usable from here —
+#   tnt_wed_add_pair_effect is a STAGING door that writes five permanent
+#   variables and freezes a price against var:tnt_partner, and
+#   tnt_wed_one_pair_effect demands those staged variables. The sandbox has no
+#   table, so it re-validates the pair itself and calls the plain leg directly.
+# add_unpressed_claim and release_from_prison are still zero hits and must stay
+#   zero.
+#
+# ===========================================================================
+# THE VARIABLES THIS FILE WRITES, AND WHY NONE OF THEM NEEDS A RESET ENTRY
+# ===========================================================================
+# ONE, and it is TIMED, and it expires on its own:
+#   tnt_ai_world_cd    years = 3   E10, on both parties of a C-2 deal
+# (There used to be two more, tnt_tribute_out / tnt_tribute_in at years = 10, written
+# by the retired tribute leg E7. Both the leg and its archetype are deleted.)
+# This is not a convenience, it is the only correct answer. 30-V2-DESIGN §3.5(b)
+# rules it and gives vanilla's own pairing — a timed variable whose lifetime EQUALS
+# the modifier's:
+#   GAME\events\dlc\tgp\tgp_tribute_mission_events.txt:504-556 (set_variable … years = 10)
+#   GAME\events\dlc\tgp\tgp_tribute_mission_events.txt:671-678 (add_character_modifier … years = 10)
+# and §3.5(f)'s reasoning applies with full force here: NOTHING calls
+# tnt_close_window_effect or tnt_reset_offer_effect for an AI character, there is no
+# on_action that fires when a treaty "ends", and a GC would have to iterate the world.
+# An untimed variable written on an AI in this file would be permanent save pollution
+# with no removal path. R-CLEAN's "for every write, name the removal" is satisfied
+# by the duration itself.
+#
+# *** INTEGRATOR: DO **NOT** ADD IT TO tnt_reset_offer_effect. ***
+# tnt_ai_world_cd is never written on a player at all.
+#
+# R-CLEAN-2 IS RESPECTED: every set_variable below is lexically inside a character
+# scope ($PAYER$, $RECEIVER$, $A$, $B$). Nothing in this file writes a variable onto
+# a title, an artifact, a culture, a faith or any other non-character object.
+#
+# ENCODING: UTF-8 WITH BOM (R16). NEW .txt — reported in new_txt_files_needing_bom.
+###############################################################################
+
+
+###############################################################################
+###############################################################################
+##
+##  PART A — THE SIX SHARED APPLY LEGS (FOUR OF THEM LIVE)
+##
+##  Called from the C-2 archetypes in part C. Every one guards itself, so no
+##  caller needs a per-item `if`.
+##  *** COUNT THEM HONESTLY BEFORE YOU PLAN AGAINST THEM. *** E2 (prestige) and
+##  E6 (spend a hook) have ZERO CALLERS anywhere in the mod and always did — both
+##  were written for Phase B's interaction file, which was never shipped. E3 and
+##  E4 (truce, alliance) are RETIRED and commented out under V13 user item 1. So
+##  the live shared legs are E1 (gold), E5 (grant a hook), plus E19 (transfer a
+##  title) and E22 (transfer an artifact) further down. Both dead legs stay
+##  defined; see their own headers for why.
+##  (The old line here said "Called from BOTH tnt_11_ai_interactions.txt's
+##  on_accept blocks and from the C-2 archetypes". THAT WAS STALE AND FALSE: the
+##  Phase-B interaction file tnt_11_ai_interactions.txt was never shipped and does
+##  not exist - common\character_interactions holds only tnt_10_interaction.txt
+##  and tnt_12_marriage_picker.txt. Do not cite it.)
+##
+##  $PARAM$ substitution is textual, which is why `$AMOUNT$` works both as the
+##  right-hand side of a comparison and as an effect argument.
+##
+###############################################################################
+###############################################################################
+
+
+###############################################################################
+# E1 — tnt_ai_send_gold_effect      params: PAYER, RECEIVER, AMOUNT
+#
+# pay_short_term_gold in the PAYER's scope with target = the receiver. Atomic,
+# correctly tooltipped in both directions, and it respects the short-term income
+# budget the AI itself uses — which is why it is the ONLY gold-moving effect this
+# mod is allowed to use. The two blacklisted alternatives (00-ARCHITECTURE §4.6)
+# must never appear.
+# Verbatim call site with a NAMED SCRIPT VALUE as the amount, from a working 1.19
+# mod's on_accept:
+#   MODS\2712590542\common\character_interactions\interactive_bribe_to_leave_war.txt:139-149
+#       scope:actor = {
+#           if = {
+#               limit = { scope:gold = yes  gold > major_gold_value }
+#               pay_short_term_gold = { target = scope:recipient  gold = major_gold_value }
+#           }
+#       }
+# and vanilla's own at GAME\common\character_interactions\00_gift.txt:144-147.
+#
+# THE AFFORDABILITY GUARD IS NOT OPTIONAL AND IT IS NOT DECORATIVE.
+# Without it a broke AI hands over nothing and still collects the truce, i.e. the
+# recipient signs a package that was never delivered — the exact opposite of the
+# "value-fair deals" the user asked for.
+#
+# *** V15: THE FIELD IS `gold`, NOT `short_term_gold`. THIS WAS THE SANDBOX'S
+# *** LARGEST SINGLE DEFECT AND IT COST ~238 OF 583 LOST DRAWS IN ONE RUN. ***
+# short_term_gold is a BUDGET CATEGORY, not a purse: the war chest is taken off
+# the top and only the remainder is split 20/80 between LongTerm and ShortTerm.
+#   BUDGET_CATEGORY = { 0.0 Reserved | 0.0 "War chest; has its own logic" |
+#                       0.20 LongTerm | 0.80 ShortTerm }
+#   GAME\common\defines\ai\00_ai.txt:100-105
+#   MIN_WAR_CHEST = { 25 25 50 100 200 300 400 }   :139-147
+#   MONTHS_OF_MAINTENANCE_IN_WAR_CHEST = 18        :154
+#   PERCENTAGE_INTO_WAR_CHEST = 0.6                :161
+# So for the county/duchy tier this pulse actually draws from, short_term_gold is
+# very much smaller than gold. MEASURED 2026-08-17: 16 telemetry lines where the
+# payer's DISPLAYED gold already exceeded the price and the gate still refused -
+# WSTOP why=actor_broke at have/need 38/25, 36/25, 53/25, 34/25, 52/25, 51/25,
+# 35/25, 153/25, 63/62, 243/224, 333/218, 232/216, and WSKIP arch=wed
+# why=payer_broke at 329/300, 340/300, 327/300, 226/200. Nine of those need
+# exactly 25 against 34-53 gold in hand.
+#
+# THE OLD CITATION WAS THE WRONG KIND OF ROW, and that is how the mistake was
+# made. GAME\common\character_interactions\00_gift.txt:486
+# (`short_term_gold >= gift_interaction_cutoff`) sits inside **ai_potential**
+# (:483-492), between `ai_greed < medium_positive_ai_value` and
+# `NOT = { has_trait = greedy }` - it is a WILLINGNESS row, "is the AI in the mood
+# to be generous", not an affordability row. Vanilla's AFFORDABILITY rows use
+# plain `gold`, in **is_valid**:
+#   GAME\common\character_interactions\00_marriage_interactions.txt:783-786
+#     is_valid = { scope:actor = { gold >= real_wedding_cost_actor_scope ... } }
+#   (vanilla's own wedding-cost gate, directly on point for S-WED); also
+#   GAME\common\character_interactions\00_prison_interactions.txt:1930, :1968,
+#   :2800 (ransoms) and 00_courtier_and_guest_interactions.txt:36, :55.
+# Census over GAME\common: plain `gold >=/>` 336 sites vs `short_term_gold >=/>`
+# 82.
+#
+# AND pay_short_term_gold NEEDS NO SUCH GUARD AT ALL: vanilla's own
+# pay_short_term_gold_reparations_effect passes arbitrary reparation sums with no
+# short_term_gold row anywhere - GAME\common\scripted_effects\00_war_effects.txt
+# :2326 (the pay call at :2334). The EFFECT below is left exactly as it is; only
+# the TRIGGER field changed.
+#
+# THE TWO GUARDS MUST NAME THE IDENTICAL FIELD, AND THAT IS NOW A RULE RATHER THAN
+# A COINCIDENCE. The callers also test affordability before choosing a price tier,
+# so this is the second of two independent guards - but the `if` below has NO
+# `else`, so if the two ever diverge the payment becomes a silent no-op while the
+# caller has already logged WDONE and moved the goods. Concrete failure if only
+# the caller rows had been changed: a buyer with gold = 1200 and
+# short_term_gold = 300 against tnt_ai_artifact_gold_value = 1125 passes the
+# caller's `gold >= 1125` and fails this `short_term_gold >= 1125` - WDONE is
+# logged, no gold moves, and the artifact transfers on the next line
+# (S-ARTIFACT's leg calls the log, then this, then the transfer). A free
+# masterwork. Both rows are `gold` and both must stay `gold`.
+###############################################################################
+tnt_ai_send_gold_effect = {
+	$PAYER$ = {
+		if = {
+			limit = { gold >= $AMOUNT$ }
+			pay_short_term_gold = {
+				target = $RECEIVER$
+				gold = $AMOUNT$
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# E2 — tnt_ai_send_prestige_effect  params: GIVER, RECEIVER, AMOUNT
+#
+# THERE IS NO PRESTIGE TRANSFER EFFECT IN 1.19. 30-V2-DESIGN §1 row 2.4 is explicit:
+# the only route is two independent calls, one negative on the giver and one positive
+# on the receiver, and the blacklist names every plausible-looking alternative
+# (transfer_prestige, pay_prestige, remove_prestige — none exists).
+#
+# Shape copied verbatim from the mod's own tnt_exec_prestige_effect
+# (tnt_33_currency_apply.txt), with the variable read replaced by the parameter:
+#       $GIVER$    = { add_prestige = { value = …  multiply = -1 } }
+#       $RECEIVER$ = { add_prestige = …  }
+# The block-with-multiply form is vanilla —
+# GAME\common\character_interactions\00_invite_agent_to_scheme.txt:166-174.
+#
+# *** THE GUARD IS MANDATORY HERE FOR A DIFFERENT REASON THAN E1's. ***
+# Prestige GOES NEGATIVE SILENTLY. There is no bankruptcy event, no warning and no
+# engine refusal: an AI that pays 2000 prestige it does not have simply ends up at
+# -1400 and starts failing every prestige-gated decision it owns for a decade.
+# 30-V2-DESIGN §1 row 2.4 requires the affordability test to be an explicit gate
+# ("must be gated … because prestige goes negative silently"), and this is that gate
+# for the AI path. `prestige >= <named value>` mirrors vanilla's own currency gate
+# `influence >= major_influence_value`
+# (GAME\common\character_interactions\00_alliance.txt:1320).
+#
+# The receiver's leg is nested INSIDE the giver's `if`, so the two halves can never
+# separate: either both run or neither does. A prestige gift that credits the
+# receiver without debiting the giver is free money and it would be invisible.
+#
+# *** ZERO CALLERS AS OF THE V13 USER ITEM 1/2 WAVE. *** Written for the Phase-B
+# interaction file tnt_11_ai_interactions.txt, which was never shipped and does
+# not exist. Kept DEFINED, not deleted: it is a correct parameter machine, and
+# the next path that needs to move prestige between two AI rulers should call it
+# rather than write a third one. A reader of the Part A banner would otherwise
+# assume six live shared legs where there are four (E1, E5, E19 and E9/E10).
+###############################################################################
+tnt_ai_send_prestige_effect = {
+	$GIVER$ = {
+		if = {
+			limit = { prestige >= $AMOUNT$ }
+			add_prestige = {
+				value = $AMOUNT$
+				multiply = -1
+			}
+			$RECEIVER$ = {
+				add_prestige = $AMOUNT$
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# RETIRED - THE ALLIANCE AND THE TEN-YEAR NON-AGGRESSION PACT, AND WITH THEM
+# SANDBOX ARCHETYPES A1 (truce) AND A2 (alliance). V13, USER ITEM 1.
+#
+# THIS IS A DESIGN REFUSAL, NOT A BUG FIX. Vanilla deliberately gates alliance
+# management and truce-making behind investing a lifestyle focus in Diplomacy;
+# a ruler who wants those tools has to spend his life becoming the kind of ruler
+# who has them. Letting either be BOUGHT at a negotiating table short-circuits
+# that investment: the player skips the focus and gets the payoff. The mod
+# refuses them on purpose. The user's words: they "rushat vanil'nye mekhaniki
+# neobkhodimosti fokusa na diplomatii\uchyonosti chtoby obespechivat'
+# vozmozhnost' ikh menedzhmenta".
+#
+# THE SAME REFUSAL APPLIES BETWEEN TWO AI RULERS, and that is why the sandbox
+# loses the two archetypes as well as the window losing the two rows. A world in
+# which AIs buy pacts they never invested a lifestyle in devalues the player's
+# own investment identically: he would still be watching neighbours acquire, for
+# coin, the reach he is expected to spend a Diplomacy tree on.
+#
+# THE MECHANIC WAS BUILT, SHIPPED AND PLAYED on both paths: a mutual pact with
+# vanilla's own add_truce_both_ways / create_alliance, a two-tier price ladder,
+# a full deal-balance family, and two of the eight archetypes of the silent
+# AI-to-AI pulse. It is WITHDRAWN FOR AN INDEFINITE PERIOD.
+#
+# WHAT A REVIVAL MUST DO DIFFERENTLY: not price the pact at all. If alliances
+# ever return, they must return as something the table can only ARRANGE for a
+# ruler who already has the lifestyle standing to hold one - i.e. a gate on the
+# focus, not a price in gold.
+#
+# NOTHING IS DELETED. DO NOT RE-ENABLE ONE HALF.
+# SANDBOX ARCHETYPE LABELS A1 AND A2 ARE RETIRED AND MUST NEVER BE REUSED, the
+# same standing rule that keeps A3 (tribute) dead below. This is separate from
+# the letter path's burnt tnt_ai_offer_arch indices (1, 2, 4, 5, 6, 7, 11, 12).
+#
+# FOUR NAMED OBJECTS GO WITH THEM, all commented out and none deleted:
+#   E3  tnt_ai_apply_truce_effect      (immediately below)
+#   E4  tnt_ai_apply_alliance_effect   (immediately below)
+#   E13 tnt_ai_world_do_truce_effect   (part C)
+#   E14 tnt_ai_world_do_ally_effect    (part C)
+# plus the two E12 strike entries. The window-path tombstones are TOMBSTONE A
+# and TOMBSTONE B in common\scripted_effects\tnt_32_apply.txt.
+#
+# TEN SCRIPT VALUES AND TWO SCRIPTED TRIGGERS LOSE THEIR LAST READERS. They are
+# handled by the OTHER standing ruling, quoted verbatim from
+# tnt_41_gates.txt:309-316: "Leave them defined. An unreferenced scripted
+# trigger costs nothing ... an unreferenced key costs nothing, an undefined one
+# prints raw on screen." So tnt_56_ai_values.txt's ten values and T12/T13 in
+# tnt_40_triggers.txt keep their bodies and gain a tombstone header; the six
+# orphaned telemetry EFFECTS in tnt_3b_log.txt are commented out, because an
+# effect is the object kind the first ruling covers.
+###############################################################################
+# ###############################################################################
+# # E3 — tnt_ai_apply_truce_effect   params: A, B
+# #
+# A ten-year MUTUAL non-aggression pact. add_truce_both_ways accepts only
+# character / days / years / name / result / war / override — seven keys, and there
+# is NO war-reason parameter (the key implementers reach for has zero occurrences
+# anywhere in 1.19; it is blacklisted).
+# Verbatim shape: GAME\common\character_interactions\00_tributary_interactions.txt:2003-2008.
+#
+# `years` is the LITERAL 10. `years = var:x` has zero vanilla hits and is forbidden
+# (00-ARCHITECTURE §6 item 3); ten years is also exactly what the player's own truce
+# item grants (tnt_32_apply.txt:509-514), so an AI-brokered pact and a
+# player-brokered pact have identical terms and the AI cannot undercut the player on
+# duration.
+#
+# `name = tnt_truce_negotiated` REUSES THE MOD'S EXISTING LOC KEY — the same one
+# tnt_exec_truce_effect passes. Deliberate: the truce panel should not distinguish
+# "the treaty you signed" from "the treaty they signed", and it saves a loc key.
+#
+# TWO GUARDS, and note that both are the PURE triggers:
+#   * `NOT = { has_truce = $B$ }` — a truce is symmetric, so one side's test is
+#     enough; a second would double the cost for no information. REAL:
+#     GAME\common\character_interactions\00_tributary_interactions.txt:857
+#     (`NOT = { has_truce = scope:actor }`), 00_fp3_interactions.txt:408.
+#   * T13 tnt_can_truce_trigger, re-validated at apply time exactly as
+#     tnt_exec_truce_effect does it (tnt_32_apply.txt:504-507). T13 carries NO
+#     custom_description (tnt_40_triggers.txt design rule 1), which is why it is safe
+#     here: this effect IS rendered in tooltip mode by the interaction confirmation
+#     window, and a custom_description evaluated during tooltip generation prints
+#     itself into the tooltip — that is the D5 class of bug. NEVER call T16
+#     (tnt_truce_available_trigger) from this file.
+###############################################################################
+# tnt_ai_apply_truce_effect = {
+# 	$A$ = {
+# 		if = {
+# 			limit = {
+# 				NOT = { has_truce = $B$ }
+# 				tnt_can_truce_trigger = {
+# 					A = $A$
+# 					B = $B$
+# 				}
+# 			}
+# 			add_truce_both_ways = {
+# 				character = $B$
+# 				years = 10
+# 				name = tnt_truce_negotiated
+# 			}
+# 		}
+# 	}
+# }
+
+
+# RETIRED with the alliance - see the tombstone above E3.
+# ###############################################################################
+# # E4 — tnt_ai_apply_alliance_effect   params: A, B
+# #
+# create_alliance takes `target` (NOT `with`) and `allied_through_target` — the
+# plausible "…_recipient" spelling of that second key does not exist and is
+# blacklisted. Verbatim call site
+# GAME\common\character_interactions\00_alliance.txt:1380-1386.
+#
+# A negotiated alliance has no marriage behind it, so both allied_through_* point at
+# the two rulers themselves — vanilla's own shape for a "pure" alliance, the
+# defensive_negotiations_perk branch at 00_alliance.txt:1510-1527. Identical to
+# tnt_exec_alliance_effect (tnt_32_apply.txt:464-468), again so that the AI cannot
+# create a kind of alliance the player cannot.
+#
+# WE GET THE PLAYER NOTIFICATION FOR FREE, AND THAT IS WORTH KNOWING BEFORE YOU ADD
+# ONE. GAME\common\on_action\alliance_on_actions.txt:4-27 defines on_alliance_added,
+# which fires for ANY create_alliance — including one between two AIs — and already
+# calls send_new_alliance_message for both sides. So a C-2 alliance announces itself
+# through vanilla's own channel; E9's message is the SECOND notification and is
+# therefore deliberately restricted to players who actually border or fight one of
+# the parties (see E9).
+#
+# GUARDS: the same two-part shape as E3, and T12 is likewise the PURE trigger.
+# `NOT = { is_allied_to = $B$ }` is subsumed by T12 but stated at the point of use
+# because it is the single most important guard — creating a second alliance where
+# one exists is the one input create_alliance has no defence against.
+###############################################################################
+# tnt_ai_apply_alliance_effect = {
+# 	$A$ = {
+# 		if = {
+# 			limit = {
+# 				NOT = { is_allied_to = $B$ }
+# 				tnt_can_ally_trigger = {
+# 					A = $A$
+# 					B = $B$
+# 				}
+# 			}
+# 			create_alliance = {
+# 				target = $B$
+# 				allied_through_owner = $A$
+# 				allied_through_target = $B$
+# 			}
+# 		}
+# 	}
+# }
+
+
+###############################################################################
+# E5 — tnt_ai_grant_hook_effect    params: GIVER, RECEIVER
+#
+# The GIVER ends up OWING the RECEIVER one weak, ten-year, single-use favour.
+#
+# *** THE PARAMETERS LOOK SWAPPED. THEY ARE NOT. DO NOT "FIX" THIS. ***
+# add_hook run in scope Y with target = X means "Y gains a hook OVER X" — proven at
+# GAME\common\character_interactions\00_grant_titles_interaction.txt:1065-1077, where
+# scope:actor (who granted the title, i.e. did the favour) gains the hook on
+# scope:recipient. The deal term reads "owe the other party a favour they may call
+# in", so the side that GIVES the term must end up hooked: the RECEIVER gains, the
+# GIVER is bound. tnt_32_apply.txt:715-722 and tnt_36_hooks_contracts.txt carry the
+# identical note for the identical reason; all three must stay consistent.
+#
+# Vanilla's ready-made wrapper rather than a bare add_hook, so the can_add_hook
+# check can never be forgotten:
+#   GAME\common\scripted_effects\00_hook_effects.txt:28-41
+#       add_hook_if_possible_default_length_effect = {
+#           if = { limit = { can_add_hook = { target = $TARGET$  type = $TYPE$ } }
+#                  add_hook = { target = $TARGET$  type = $TYPE$ } }
+#       }
+# It is the only wrapper that is BOTH can_add_hook-guarded AND duration-preserving;
+# the YEARS-taking sibling at :12-26 would override the type's own expiry.
+#
+# tnt_deal_favor_hook = { expiration_days = 3650 } — the mod's own tier-1 type,
+# MOD\common\hook_types\tnt_90_hook_types.txt:116-118, itself a verbatim copy of
+# vanilla favor_hook (GAME\common\hook_types\00_hook_types.txt:16-18).
+# TIER 1 ONLY, ON PURPOSE: an AI granting itself away in perpetuity behind the
+# player's back is exactly the class of silent, irreversible change phase C-2 is
+# supposed to avoid. tnt_deal_strong_hook and tnt_deal_eternal_hook are reachable
+# only from the player's own window.
+###############################################################################
+tnt_ai_grant_hook_effect = {
+	$RECEIVER$ = {
+		add_hook_if_possible_default_length_effect = {
+			TARGET = $GIVER$
+			TYPE = tnt_deal_favor_hook
+		}
+	}
+}
+
+
+###############################################################################
+# E6 — tnt_ai_spend_hook_effect    params: ACTOR, RECIPIENT
+#
+# The OTHER hook mechanic, and it is not the same one as E5. Here the actor SPENDS
+# a hook he already holds on the recipient, as coercion, to force through a deal the
+# recipient would otherwise refuse. This is what vanilla's own
+# `GENERIC_SPEND_A_HOOK` send_option does on negotiate_alliance_interaction:
+#   GAME\common\character_interactions\00_alliance.txt:1292-1301 (the send_option)
+#   GAME\common\character_interactions\00_alliance.txt:1341-1347 (the on_accept leg)
+#       if = { limit = { scope:hook = yes  has_usable_hook = scope:recipient }
+#              use_hook = scope:recipient }
+# copied verbatim by the in-install 1.19 mod precedent at
+#   MODS\2712590542\common\character_interactions\interactive_bribe_to_leave_war.txt:150-156
+#
+# `has_usable_hook` re-checked at apply time and not merely in the send_option's
+# is_valid, because a weak hook can be spent elsewhere between Can-Send and accept.
+# REAL: GAME\common\character_interactions\00_alliance.txt:1296, :1303, :1344.
+# `use_hook` consumes a weak hook and puts a strong one on its 5-year cooldown
+# (HOOK_COOLDOWN_DURATION_YEARS, GAME\common\defines\00_defines.txt:270) — the
+# engine handles the distinction, we must not.
+#
+# USED ONLY BY PHASE B (the interactions). The C-2 pulse never spends hooks: a
+# coerced treaty with no consent beat at all is a step too far for a silent path,
+# and the archetype set in part C deliberately omits it.
+#
+# *** ZERO CALLERS AS OF THE V13 USER ITEM 1/2 WAVE, and the header line above
+# *** already admitted it. *** Phase B's file tnt_11_ai_interactions.txt was
+# never shipped and does not exist; common\character_interactions holds only
+# tnt_10_interaction.txt and tnt_12_marriage_picker.txt. Kept DEFINED, not
+# deleted, on the standing ruling for a caller-less definition (an unreferenced
+# definition costs nothing, tnt_41_gates.txt): it is a correct parameter machine
+# and the next path that needs it should call it rather than write a third one.
+###############################################################################
+tnt_ai_spend_hook_effect = {
+	$ACTOR$ = {
+		if = {
+			limit = { has_usable_hook = $RECIPIENT$ }
+			use_hook = $RECIPIENT$
+		}
+	}
+}
+
+
+###############################################################################
+###############################################################################
+##
+##  PART B — NOTIFICATION AND THROTTLE
+##
+###############################################################################
+###############################################################################
+
+
+###############################################################################
+# E9 — tnt_ai_world_notify_effect   params: A, B, TT
+#
+# "Tell the player what happened when it matters. Do not spam."
+#
+# THE ANTI-SPAM RULE IS THE `limit`, NOT THE MESSAGE TYPE. A player is told about a
+# treaty between two AIs only if he is ALLIED TO, AT WAR WITH, or A LAND-REALM
+# NEIGHBOUR OF one of the two parties. Everybody else hears nothing, because for
+# everybody else nothing has changed that they could act on. That predicate is
+# copied straight from vanilla's own reasoning about AI-to-AI notifications,
+# GAME\common\scripted_effects\00_war_effects.txt:1774-1782:
+#       # As a pure notification thing, we only care about players. No need to waste
+#       # CPU cycles for AI-only wars.
+#
+# `every_player` IS THE RIGHT ITERATOR AND IT IS CHEAP: 271 uses across
+# GAME\common + GAME\events (measured in this session), and in single player it is
+# ONE entry. The mod already uses it on the much hotter on_death
+# (tnt_70_on_actions.txt:73). The three OR rows are two relation lookups and one
+# neighbour test per player per concluded treaty, and a concluded treaty happens a
+# handful of times a year (see tnt_72_ai_world.txt's budget).
+# `character_is_land_realm_neighbor`: REAL,
+#   GAME\common\character_interactions\00_character_interactions.txt:638,
+#   GAME\common\character_interactions\05_bp2_interactions.txt:558.
+#
+# THE TWO `NOT = { this = … }` ROWS look redundant — the C-2 pulse only ever pairs
+# two AI characters, so a player can never be $A$ or $B$. They are here because this
+# effect is a general-purpose leg and the day somebody calls it from the Phase-B
+# on_accept path (where the player CAN be a party) a self-addressed "two rulers you
+# know have signed a treaty" message would be absurd.
+#
+# WHY send_interface_message AND NOT send_interface_toast: a toast is a transient
+# corner pop for something the player just did; this is somebody else's news and
+# belongs in the message feed, which is what `display = feed` types are for
+# (GAME\common\messages\_messages.info:7-65). `event_generic_neutral` is a real
+# vanilla type — GAME\common\messages\00_messages.txt:67 — used with
+# send_interface_message at GAME\common\on_action\title_on_actions.txt:2979-2984,
+# which is also the site that proves the four-key
+# type/title/left_icon/right_icon + custom_tooltip shape.
+# 10-CONTRACT §1 forbids this mod from creating common/messages/, and we do not
+# need to.
+#
+# THE TWO PORTRAITS CARRY THE IDENTITY, THE TOOLTIP CARRIES THE TERMS. left_icon and
+# right_icon render the two rulers, so the title and the tooltip can be generic
+# prose and need no character reference — which matters, because a message is
+# rendered later, from the feed, and whether a temporary saved scope is still
+# addressable from its loc at that point is not something to bet a feature on.
+# That is the same conclusion the mod already reached for its own toasts
+# (tnt_32_apply.txt:919-921).
+#
+# THE EFFECT IS **NOT** NESTED INSIDE THE MESSAGE. Vanilla's mpo_tributary_check_pulse
+# (GAME\common\on_action\dlc\mpo\mpo_on_actions_2.txt:543-573) nests the mutation
+# inside send_interface_message so the two cannot diverge, and that is the better
+# pattern when the mutation is unconditional. Ours is not: the apply legs are each
+# individually guarded and one of them can legally decline to fire, so a nested form
+# would sometimes announce a treaty that did not happen. Announcing afterwards with
+# a custom_tooltip is what tnt_notify_accepted_effect already does, for the same
+# reason (tnt_32_apply.txt:918-921).
+###############################################################################
+tnt_ai_world_notify_effect = {
+	every_player = {
+		limit = {
+			is_ai = no
+			NOT = { this = $A$ }
+			NOT = { this = $B$ }
+			OR = {
+				is_allied_to = $A$
+				is_allied_to = $B$
+				is_at_war_with = $A$
+				is_at_war_with = $B$
+				character_is_land_realm_neighbor = $A$
+				character_is_land_realm_neighbor = $B$
+			}
+		}
+		send_interface_message = {
+			type = event_generic_neutral
+			title = tnt_ai_msg_treaty
+			left_icon = $A$
+			right_icon = $B$
+			custom_tooltip = $TT$
+		}
+	}
+}
+
+
+###############################################################################
+# E10 — tnt_ai_world_cooldown_effect   params: A, B
+#
+# A three-year lock on BOTH parties. This single effect is what bounds the world
+# rate of phase C-2, and it does two jobs at once:
+#
+#   1. RATE LIMIT — AND SINCE V15 THIS IS THE ONLY JOB. No AI can broker more than
+#      one silent treaty every three years, in either role. With ~500-900 landed AI
+#      rulers and the tier-scaled per-pulse chance of tnt_ai_world_chance_value,
+#      that caps the world at roughly 5-15 concluded treaties a year at the `rare`
+#      setting on the SINGLE host - the range tnt_72_ai_world.txt's own header
+#      predicts for `rare`. The old 3-8 figure quoted here was calibrated for two
+#      hosts and is superseded. Arithmetic in tnt_72_ai_world.txt's header.
+#      THIS IS WHY THE COOLDOWN IS A VARIABLE EVEN THOUGH AN INTERACTION-STYLE
+#      cooldown_against_recipient WOULD ALSO WORK: only a variable is visible to the
+#      pulse's own trigger.
+#   2. *** THE SECOND JOB CLAIMED HERE WAS DELETED IN V15 BECAUSE IT WAS FALSE. ***
+#      This slot used to say the pulse is "deliberately hung off TWO hosts
+#      (ai_character_pulse and yearly_playable_pulse)" and that the lock made that
+#      double-hosting idempotent. BOTH HALVES ARE WRONG NOW: host 2 was DELETED,
+#      and the log disproved the idempotence claim for the case that mattered - the
+#      three-year lock did NOT gate the second same-tick fire, and 169 of 172 deals
+#      showed WTRY twice. A VARIABLE LATCH IS THEREFORE NOT A VIABLE ALTERNATIVE TO
+#      DELETION: fire2's trigger does not see fire1's variable within one tick.
+#      The authority on this point, with the full forensics, is
+#      common\on_action\tnt_72_ai_world.txt (its header and its host block, which
+#      lists exactly ONE on_action). NOTHING IN THIS MOD RECOMMENDS RE-ADDING HOST
+#      2; it produced 13,506 engine warnings.
+#
+# TIMED, years = 3, so it expires by itself and leaves nothing in the save. See this
+# file's header for why that is the only acceptable form for a variable written on an
+# AI character. `set_variable` with `years`: REAL,
+# GAME\events\dlc\tgp\tgp_tribute_mission_events.txt:511-515.
+#
+# value = 1 rather than value = yes: every other numeric variable in this mod is an
+# integer and `has_variable` — which is all anybody tests — does not care.
+###############################################################################
+tnt_ai_world_cooldown_effect = {
+	$A$ = {
+		set_variable = {
+			name = tnt_ai_world_cd
+			value = 1
+			years = 3
+		}
+	}
+	$B$ = {
+		set_variable = {
+			name = tnt_ai_world_cd
+			value = 1
+			years = 3
+		}
+	}
+}
+
+
+###############################################################################
+###############################################################################
+##
+##  PART C — THE PHASE C-2 PULSE
+##
+##  30-V2-DESIGN §6.3 phase AI-3. Behind the tnt_ai_treaties game rule
+##  (tnt_81_ai_rules.txt). Host, trigger and the full performance budget:
+##  MOD\common\on_action\tnt_72_ai_world.txt.
+##
+##  *** SCOPE NOTE FOR THE USER-ITEM-2 COVERAGE MATRIX: THIS FILE IS NOT THE
+##  *** LETTER PATH. *** Its archetypes never write tnt_ai_offer_arch and never
+##  place a term on the PLAYER's table — they apply a finished treaty between two
+##  AI rulers immediately, and the only variable the whole path writes is the
+##  timed tnt_ai_world_cd. So no archetype here can discharge an item-2 gap, and
+##  no item-2 gap may be closed by adding one here to make a matrix look full.
+##  After the V13 wave this file moves: gold (E1, every archetype), hook (E5 via
+##  the favour archetype), usehook (the hookcall), threat (the ultimatum), title
+##  (E19/S-TITLE), vassal (E21/S-FEALTY), artifact (E22/S-ARTIFACT) and marriage
+##  (E24/S-WED). NOT covered and not coverable here: prestige (E2 exists but has
+##  no archetype), piety, influence, claim (retired), courtier, hostage,
+##  ward (RETIRED MOD-WIDE V16, user item 5 - nothing to cover any more),
+##  independence, hook_tier and the nine contract obligations. INDEPENDENCE,
+##  HOSTAGES, COURTIER TRANSFER AND THE OBLIGATION SHEET ARE ITEM 2'S BUSINESS
+##  AND LIVE IN common\scripted_effects\tnt_37_ai_offer.txt (A17-A20).
+##  The one genuine overlap, recorded so the two do not grow two constants: if
+##  the letter path ever gains an independence archetype that needs a sandbox
+##  mirror, S-FEALTY is that mirror and they should share
+##  tnt_ai_vassal_cost_value.
+##
+###############################################################################
+###############################################################################
+
+
+###############################################################################
+# E10b — THE STRATEGIC SUBMISSION LANE
+#
+# The cash ultimatum proves that high-tier AI rulers can price and execute a
+# threat, but it can only move gold. The user's 2026-08-28 ruling adds a separate
+# territorial use: an independent king/emperor may force one overwhelmingly
+# weaker independent neighbour to swear fealty while both remain at peace. This
+# is not S-FEALTY: no gold is
+# offered and friendship is not the consideration. It is also not added to the
+# generic random archetype draw, because the measured draw was precisely what
+# left Ghurid/Seljuk/Khwarazmid rulers idle despite legal targets.
+#
+# ONE bounded neighbouring iterator, one chance roll, one target. The private
+# tnt_submission_target scope is never the generic scope:recipient. Only the
+# revalidated success branch copies it, so a failed strategic attempt cannot
+# leak a stale partner into E11 when the peaceful fallback runs afterwards.
+###############################################################################
+tnt_ai_world_submission_pulse_effect = {
+	save_temporary_scope_as = actor
+
+	# Cheap actor shape before the strategic chance/value work. At-peace counts,
+	# dukes and non-independent kings simply fall through to the old generic lane.
+	if = {
+		limit = {
+			is_ai = yes
+			is_alive = yes
+			is_landed = yes
+			is_ruler = yes
+			is_adult = yes
+			is_independent_ruler = yes
+			is_at_war = no
+			highest_held_title_tier >= tier_kingdom
+			vassal_limit_available > 0
+			NOT = { has_variable = tnt_ai_world_cd }
+			NOT = { has_variable = agot_pwl_direct }
+			max_military_strength > 0
+		}
+		tnt_log_wsubpulse_effect = yes
+
+		if = {
+			limit = {
+				current_military_strength >= fifty_percent_of_max_military_strength
+			}
+			random = {
+				chance = tnt_ai_world_chance_value
+				tnt_log_wsubtry_effect = yes
+
+				random_neighboring_and_across_water_top_liege_realm_owner = {
+					limit = {
+						# T49b's nested pair gates require absolute handles. Name the
+						# iterator candidate before substitution so `this` cannot rebind
+						# to the actor inside an $A$ scope and waste this year's attempt.
+						save_temporary_scope_as = tnt_submission_candidate
+						tnt_ai_coercive_fealty_pair_trigger = {
+							A = scope:actor
+							B = scope:tnt_submission_candidate
+						}
+					}
+					save_temporary_scope_as = tnt_submission_target
+				}
+
+				if = {
+					limit = { exists = scope:tnt_submission_target }
+					# Candidate tests may leave guarded threat aliases behind. Re-anchor
+					# them to the chosen pair before any telemetry or mutation.
+					scope:actor = { save_temporary_scope_as = tnt_thr_me }
+					scope:tnt_submission_target = { save_temporary_scope_as = tnt_thr_you }
+					tnt_log_warch_submission_effect = yes
+					tnt_ai_world_do_submission_effect = yes
+				}
+				else = {
+					tnt_log_wstop_submission_nocand_effect = yes
+				}
+			}
+		}
+		else = {
+			tnt_log_wstop_submission_depleted_effect = yes
+		}
+	}
+}
+
+
+###############################################################################
+# E10c — REVALIDATE AND APPLY ONE COERCED FEALTY
+#
+# The player-negotiation guard is deliberately rechecked here using the private
+# target scope. A strategic candidate picked while a human has either ruler open
+# is abandoned; the at-peace generic lane may then try its own ordinary pair.
+# Successful coercion uses the same single vassal mutation seam as S-FEALTY,
+# records the normal fifteen-year threat grievance and writes the common
+# three-year sandbox cooldown on both parties.
+###############################################################################
+tnt_ai_world_do_submission_effect = {
+	if = {
+		limit = {
+			exists = scope:actor
+			exists = scope:tnt_submission_target
+			tnt_ai_coercive_fealty_pair_trigger = {
+				A = scope:actor
+				B = scope:tnt_submission_target
+			}
+			NOT = {
+				any_player = {
+					exists = var:tnt_partner
+					OR = {
+						var:tnt_partner ?= { this = scope:actor }
+						var:tnt_partner ?= { this = scope:tnt_submission_target }
+					}
+				}
+			}
+		}
+
+		# Only a successful revalidation is allowed to populate the generic API
+		# scope consumed by vanilla's vassalization effect.
+		scope:tnt_submission_target = { save_temporary_scope_as = recipient }
+		scope:actor = { save_temporary_scope_as = tnt_thr_me }
+		scope:recipient = { save_temporary_scope_as = tnt_thr_you }
+
+		tnt_ai_world_apply_vassal_effect = yes
+		scope:actor = { add_dread = minor_dread_gain }
+		scope:recipient = {
+			add_opinion = {
+				target = scope:actor
+				modifier = tnt_threat_opinion
+			}
+		}
+		tnt_log_wdone_submission_effect = yes
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_submission
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+	else = {
+		tnt_log_wskip_submission_revalidate_effect = yes
+	}
+}
+
+
+###############################################################################
+# E11 — tnt_ai_world_pulse_effect     NO PARAMETERS
+#        *** root MUST be the proposing AI ruler. ***
+#
+# Called from exactly one place: tnt_ai_world_pulse's `effect` block in
+# tnt_72_ai_world.txt, whose trigger has already established that root is an AI,
+# landed, at peace, county-or-above, un-cooled-down ruler and that the game rule is
+# not `off`.
+#
+# ===========================================================================
+# WHY THIS SAVES SCOPES CALLED `actor` AND `recipient`
+# ===========================================================================
+# Because the tnt_ai_*_value family in tnt_56_ai_values.txt reads exactly
+# `scope:actor` and `scope:recipient` and nothing else — it has to, since those are
+# the names the ENGINE supplies inside an interaction's ai_accept, which is the
+# family's primary consumer. Saving the same two names here is what lets one value
+# family serve both the interaction path and this one. Writing a second family for
+# the pulse would double the retuning surface and guarantee the two drift.
+#
+# `save_scope_as = actor` IN AN on_action EFFECT CHAIN IS VANILLA, verbatim:
+#   GAME\common\on_action\title_on_actions.txt:2973-2975
+#       root = { save_scope_as = actor }
+#   and it is read back as `scope:actor` nine lines later at :2982
+#       left_icon = scope:actor
+#   also GAME\common\scripted_effects\00_bastard_effects.txt:955.
+#
+# TEMPORARY, NOT PERMANENT. Everything this pulse does happens inside this one
+# effect chain, so `save_temporary_scope_as` is correct and leaves nothing behind
+# (contract m10 discipline, 30-V2-DESIGN §3.5(e)).
+#
+# *** THE D4 HAZARD, AND WHY IT CANNOT BITE HERE. *** Defect D4 was
+#   "[jomini_eventscope.cpp:565]: Trying to add the temporary target 'tnt_p' which
+#    has the same name as a permanent target"
+# — a temporary scope colliding with a permanent one of the same name in the same
+# chain (30-V2-DESIGN §9 D4). `actor` and `recipient` are permanent targets inside a
+# CHARACTER INTERACTION's chain. This chain is not one: it is
+# code -> yearly_playable_pulse -> (ai_character_pulse) -> tnt_ai_world_pulse, with
+# no interaction anywhere in it and no saved scopes supplied by the engine.
+# CONSEQUENCE FOR FUTURE AUTHORS: never call this effect from inside an interaction,
+# an event that an interaction fired, or anything else that already has an `actor`
+# scope. If that is ever wanted, the values must be re-parameterised instead.
+#
+# ===========================================================================
+# THE PARTNER PICK — ONE CANDIDATE, BOUNDED, AI ONLY
+# ===========================================================================
+# *** V15 CHANGED THE ITERATOR, AND IT IS THE SINGLE LARGEST FIX THIS FILE HAS
+# *** EVER HAD. `random_neighboring_top_liege_realm_owner` returns the neighbouring
+# realm's TOP LIEGE, while the pulse itself fires from any AI count-or-above. So it
+# paired the map's poorest rulers as BUYERS against its richest as SELLERS, 584
+# times out of 584, and every archetype in E12 has the ACTOR buying. MEASURED
+# 2026-08-17:
+#   490 distinct actors vs 58 distinct recipients; ONE recipient (the Emperor of
+#   Dorne) was 290 of 584 pairs (49.7%), the top three 74.7%
+#   actor primary-title tier     380 c_ | 171 d_ | 24 k_ |  9 e_   (94% count/duke)
+#   recipient primary-title tier 290 e_ | 164 k_ | 27 d_ | 103 c_  (78% king/emperor)
+#   tnt_ai_power_ratio_value below 1.0 on 475 of 584 pairs (81.3%), mean 0.867
+# That ONE line penalised the actor THREE TIMES AT ONCE: the price was x1.5 dearer
+# (gold-per-point 10 -> 15 when the recipient is duchy+, 481 of 584 pairs), the
+# acceptance threshold +20 harder (tier edge <= -2 on 373 pairs, +10 on 74 more),
+# and he was the poorer party. THE CLEANEST FACT IN THE RUN: the ONE completed
+# treaty of 584 draws was the ONE pair where the actor was the stronger party
+# (ratio=5, the max clamp). 583 failures were 583 cases of the poor buying from the
+# rich - including 171 of 184 S-TITLE draws dying on a reach gate that asks for
+# physical county adjacency while the iterator handed over a top liege whose
+# personally-held counties sit in his capital.
+# `random_neighboring_realm_same_rank_owner` returns a same-rank owner of an
+# ADJACENT realm, which is precisely the pair for which that reach gate can be
+# true, and it puts tnt_ai_tier_edge_value at or near 0 - which is where
+# tnt_can_threat_trigger and the hook-holding test become answerable in either
+# direction.
+#
+# *** V16 CORRECTS THE REST OF THIS PARAGRAPH. *** It used to continue "...and
+# S-FEALTY's tier comparison all become answerable in either direction. THE THREE
+# NEARLY-DEAD ARCHETYPES (A5 ultimatum drew 4 of an expected ~58, A6 hookcall 0 of
+# ~29, S-FEALTY 1 of ~29) NEED NO GATE CHANGE OF THEIR OWN; they were correct
+# triggers being asked an impossible question." THE SECOND HALF OF THAT IS
+# REFUTED BY MEASUREMENT AND THE FIRST HALF WAS BACKWARDS. "At or near 0" turned
+# out to be exactly 0 on 757 of 757 pairs, and a tier edge of 0 does not make
+# `recipient tier < actor tier` answerable in either direction - it makes it
+# UNSATISFIABLE. After the V15 swap, ultimatum went 4-of-~58 to 5-of-~202 and
+# S-FEALTY 1-of-~29 to 0-of-~101; hookcall stayed at 0. The archetypes were
+# indeed correct triggers being asked an impossible question, but the same-rank
+# iterator was the question, not the answer. V16 keeps this iterator for half the
+# pulses - everything the paragraph above says about the reach gate and the threat
+# and hook tests still holds for those - and pairs across ranks on the other half.
+# The whole argument, the numbers and the acceptance test are at the pick itself
+# (search "TWO ITERATORS, ONE PER PULSE").
+# REAL, in effect position with a limit block:
+#   GAME\events\councillor_task_events\chancellor_task_events.txt:255-260
+#     (also :450, :707)
+#   GAME\common\scripted_effects\01_ep1_court_artifact_creation_effects.txt:398-405
+# 36 sites across GAME\common + GAME\events, and tnt_72_ai_world.txt's own
+# iterator census already rates `random_neighboring_realm_same_rank_owner 20 fine`
+# for a pulse - so this needed no new performance argument, only the measurement.
+#
+# HISTORY, kept because the OLD choice was defended on real evidence and the next
+# author must not "restore" it: `random_neighboring_top_liege_realm_owner` has 57
+# uses in GAME\common + GAME\events against the 178 of its `any_` sibling, i.e.
+# vanilla treats that neighbourhood as a cheap bounded set too (GAME\common\
+# task_contracts\laamp_transport_contracts.txt:119, :461, :816, :1124, :1464,
+# :1817; GAME\common\decisions\00_major_decisions_east_europe.txt:916;
+# GAME\common\scripted_effects\00_courtier_guest_management_effects.txt:345). It
+# was never a PERFORMANCE mistake. It was a MATCHMAKING mistake, and only the
+# WPAIR histogram could show it.
+# R8 (43-…md §3.C.2) states the rule this obeys, and the swap keeps it: "Per-
+# character pulses, never global loops. Inside the pulse pick ONE partner with
+# random_neighboring_..._owner = { limit = { … } }, evaluate ONE balance, and stop.
+# O(1) per AI ruler per year."
+# The full iterator census and the every_ruler ban are in tnt_72_ai_world.txt.
+#
+# EXPECTED SIGNATURE OF THE V15 RUN - SCORED, AND THAT IS WHY THIS PARAGRAPH IS
+# KEPT. It read: "WPAIR should stay near its current volume while the pair SHAPE
+# changes: the tier edge should centre on 0, no single recipient should hold more
+# than a few per cent of pairs, and WSKIP why=no_candidate should RISE from 7.1% to
+# roughly 12-20% (same-rank neighbours are a thinner pool than top lieges), plus
+# 2-4 points more from the two hierarchy rows and the Watch row. WDONE/WARCH should
+# move off 1/584 (0.17%) toward the pre-V13 baseline of 169/1641 (10.3%). If
+# S-TITLE's no_eligible_title share stays above 85%, the gate and the iterator are
+# STILL mismatched and S-TITLE should be retired, not tuned."
+# SCORE, from the 2026-08-17 log: WPAIR 757 (volume held). Recipient concentration
+# fixed - no more 49.7% single recipient. WDONE/WARCH 20/757 = 2.6%, up from 0.17%
+# but far short of 10.3%. The tier edge did NOT "centre on 0" - it was CONSTANT at
+# 0, 757 of 757, which is the finding V16 acts on (see the partner pick). S-TITLE's
+# no_eligible_title fell to 59% of its own draws, i.e. below the 85% retirement
+# line, so S-TITLE is TUNED and not retired - the remaining 59% is a pick-vs-entry-
+# trigger mismatch inside E20, not a gate/iterator mismatch.
+# THE V16 EXPECTATION IS STATED AT THE PICK ITSELF, not here, so the two rounds'
+# predictions can never be confused with each other.
+#
+# `is_ai = yes` ON THE CANDIDATE IS THE MOST IMPORTANT LINE IN THIS EFFECT.
+# It is what makes phase C-2 strictly AI<->AI. A silent path must never bind a
+# HUMAN to anything: the player's consent beat is the window (the manual path) or
+# the vanilla acceptance popup (phase B), and this path has neither. If a future
+# author ever drops that line, every guard in the mod that assumes the player agreed
+# to his own treaties becomes false.
+#
+# ===========================================================================
+# NO CONVERGENCE LOOP — 30-V2-DESIGN §6.4.3
+# ===========================================================================
+# "One archetype + at most one corrective step; if the package is still negative,
+#  abort the offer. There is no safe `while` in a CK3 effect on a pulse, and every
+#  iteration re-evaluates the whole value chain."
+# So: ONE archetype is chosen by random_list, and inside it ONE price tier is tried
+# and then ONE dearer tier as the single corrective step. Worst case two balance
+# evaluations per firing pulse. No loop, no recursion, no retry next tick.
+###############################################################################
+tnt_ai_world_pulse_effect = {
+	save_temporary_scope_as = actor
+
+	#===============================================================
+	# TELEMETRY (v3 iteration 7). Bodies in tnt_3b_log.txt, all behind the
+	# tnt_ai_telemetry game rule, which ships OFF.
+	#
+	# WPULSE IS `verbose` ONLY, AND THAT IS THE WHOLE REASON THE VERBOSE SETTING
+	# EXISTS. This point is reached once per AI ruler per year that passes
+	# tnt_ai_world_pulse's trigger - on the order of two thousand times a game
+	# year on a 1066 start, which is more lines than the rest of the telemetry
+	# put together. At `on` it is suppressed and the first line of this section
+	# becomes WTRY, below, which is emitted only after the chance gate.
+	#
+	# WHAT `verbose` BUYS: it is the only way to distinguish "the AI-to-AI pulse
+	# never ran at all" from "it ran and the tier-scaled dice said no". At `on` a
+	# WTRY count of zero cannot tell those apart. Use verbose for a short
+	# confirmation run, never for the half-year run.
+	#===============================================================
+	# *** THE BANNER IS DELIBERATELY **NOT** HERE. *** This point is reached once
+	# per AI ruler per year - order of 2,000 times a game year - and the banner is
+	# not verbose-gated, so emitting it here would put ~1,000 identical lines into
+	# a half-year log and drown the data. It sits behind the chance gate below
+	# instead, where it is bounded by the same 3/7/14 per cent that bounds WTRY.
+	tnt_log_wpulse_effect = yes
+
+	# The tier-scaled throttle. tnt_ai_world_chance_value returns 3 / 7 / 14 percent
+	# by tier at the `rare` setting and x2.5 at `common`, and 0 if the rule is off.
+	# `chance = <named script value>`: REAL,
+	#   GAME\common\scripted_effects\00_bastard_effects.txt:410 (chance = real_father_suspicion_base_value)
+	#   GAME\common\scripted_effects\00_travel_effects.txt:37   (chance = food_poison_value)
+	#   GAME\common\scripted_effects\05_dlc_fp3_scripted_effects.txt:229
+	# Vanilla's own precedent for probability-gating a bounded iteration on a
+	# periodic on_action is GAME\common\on_action\religion_on_actions.txt:600-612,
+	# where two nested `random = { chance = … }` blocks guard an
+	# every_independent_ruler on on_faith_monthly.
+	random = {
+		chance = tnt_ai_world_chance_value
+
+		# TELEMETRY: the chance gate passed, so this AI is really going to look for
+		# a treaty partner. COUNT(WTRY) is the denominator for every WSTOP and
+		# WDONE count in this section.
+		#
+		# V11, USER ITEM 2: THE BANNER CALL THAT RODE HERE IS GONE. It sat one line
+		# in front of WTRY, under the byte-identical rule gate, and WTRY already
+		# carries y= - so it was 1:1 duplication, not a second observation. Measured
+		# on the 2026-08-16 run: BANNER 2872 = TRY 1108 + WTRY 1764 exactly, 24.3% of
+		# 11,798 telemetry lines carrying none of their own information. What it used
+		# to prove - that THIS path is instrumented and running even when the
+		# tnt_ai_offer_rate rule is `off` and the AI-to-player path emits nothing -
+		# is proven just as well by COUNT(WTRY) > 0, which is emitted on the very
+		# next line under the very same gate. tnt_log_banner_effect still exists,
+		# with no caller; see its tombstone at tnt_3b_log.txt L0.
+		tnt_log_wtry_effect = yes
+
+		#===============================================================
+		# THE PARTNER PICK — TWO ITERATORS, ONE PER PULSE, 50/50.
+		# V16, USER ITEM 2, FINDING Q2-F3.
+		#
+		# WHAT WENT WRONG. V15 swapped this pick to
+		# `random_neighboring_realm_same_rank_owner` on real evidence (the whole
+		# argument is the comment block above and it is still correct about what it
+		# fixed). What it did not foresee is that the iterator's CONTRACT is a
+		# SAME-RANK owner, so tnt_ai_tier_edge_value came out at exactly 0 on 757 of
+		# 757 pairs — constant, not "centred on 0" as the acceptance test at
+		# tnt_3b_log.txt asked for. Two archetypes need a tier EDGE to exist:
+		#   * S-FEALTY's entry trigger demands
+		#     `highest_held_title_tier < scope:actor.highest_held_title_tier`
+		#     (vanilla's own row from offer_vassalization's is_shown,
+		#     GAME\common\character_interactions\00_character_interactions.txt:44)
+		#   * S-HOOKCALL needs a standing hook, which the same-rank pool rarely has
+		# Measured over 757 draws against the declared weights: S-FEALTY 0 of ~101
+		# expected, S-HOOKCALL 0 of ~101, and 62.4 of the list's 100 declared weight
+		# points evaporated into `none` (measured 34.6% against a declared 13%).
+		# ZERO lines in the whole log carry arch=vassal or arch=hookcall. The V15
+		# note that the tier edge was the binding constraint on the three starved
+		# archetypes is therefore REFUTED by measurement, not by argument: after the
+		# swap, ultimatum went from 4-of-~58 to 5-of-~202 and S-FEALTY from
+		# 1-of-~29 to 0-of-~101.
+		#
+		# WHAT IS FIXED, AND WHAT IS DELIBERATELY NOT. S-FEALTY's tier row is NOT
+		# weakened — it is vanilla's own row and it is the whole meaning of the
+		# archetype. THE PAIRING is fixed instead: half the pulses pair PEERS (the
+		# V15 iterator, which is what makes S-TITLE's physical reach gate and the
+		# threat/hook tests answerable), half pair ACROSS RANKS with the iterator
+		# this file used BEFORE V15 and still cites in the HISTORY paragraph above.
+		#
+		# STILL ONE ITERATOR CALL PER PULSE, so R8 holds unchanged: "pick ONE
+		# partner with random_neighboring_..._owner = { limit = { … } }, evaluate ONE
+		# balance, and stop. O(1) per AI ruler per year." A random_list runs exactly
+		# one of its entries.
+		#
+		# BOTH ITERATORS ARE VANILLA AND BOTH ARE ALREADY CITED IN THIS FILE:
+		#   random_neighboring_realm_same_rank_owner — 36 sites, and
+		#     tnt_72_ai_world.txt's own iterator census rates it "20 fine" for a
+		#     pulse (:826-829 above:
+		#     GAME\events\councillor_task_events\chancellor_task_events.txt:255-260,
+		#     GAME\common\scripted_effects\
+		#     01_ep1_court_artifact_creation_effects.txt:398-405)
+		#   random_neighboring_top_liege_realm_owner — 57 sites (:832-837 above:
+		#     GAME\common\task_contracts\laamp_transport_contracts.txt:119, :461,
+		#     :816, :1124, :1464, :1817;
+		#     GAME\common\decisions\00_major_decisions_east_europe.txt:916;
+		#     GAME\common\scripted_effects\
+		#     00_courtier_guest_management_effects.txt:345)
+		# `random_list` in effect position with plain weights is this file's own
+		# archetype draw (:1140) and vanilla's everywhere.
+		#
+		# THE 94-LINE CANDIDATE LIMIT IS NOW T49 tnt_ai_world_partner_valid_trigger
+		# (common\scripted_triggers\tnt_40_triggers.txt), MOVED THERE VERBATIM —
+		# every row, every comment, every citation, unchanged and in the same order.
+		# It was NOT duplicated into the second entry on purpose: two copies of the
+		# sandbox's only safety limit is exactly the drift this round already had to
+		# repair four times elsewhere (finding F3). The trigger reads `root` as the
+		# proposer and takes no parameter; root is the AI actor on this path, which
+		# is the only path that calls it. Read its header before adding a caller.
+		#
+		# EXPECTED SIGNATURE OF THE NEXT RUN, so this is checkable rather than
+		# arguable: the WPAIR edge histogram must show a SPREAD again rather than a
+		# constant 0, and arch=vassal must appear in WARCH at all. If the edge
+		# spreads and arch=vassal is still zero, the constraint is somewhere else and
+		# the next author should look at S-FEALTY's other rows, not at this pick.
+		#===============================================================
+		random_list = {
+			50 = {
+				random_neighboring_realm_same_rank_owner = {
+					limit = { tnt_ai_world_partner_valid_trigger = yes }
+					save_temporary_scope_as = recipient
+				}
+			}
+			50 = {
+				random_neighboring_top_liege_realm_owner = {
+					limit = { tnt_ai_world_partner_valid_trigger = yes }
+					save_temporary_scope_as = recipient
+				}
+			}
+		}
+
+		if = {
+			limit = {
+				exists = scope:recipient
+
+				# *** DO NOT TOUCH ANYBODY THE PLAYER IS CURRENTLY NEGOTIATING WITH. ***
+				# The mod writes tnt_partner on the PLAYER, never on the AI
+				# (tnt_30_effects.txt E1), so the only way to ask "is this AI
+				# somebody's current partner" is to look at the players. That is one
+				# iteration in single player.
+				# Without this row the pulse can hand an alliance to the very ruler
+				# the player is at that moment pricing an alliance with, and the
+				# player's own alliance row silently becomes a paid no-op when
+				# tnt_exec_alliance_effect re-validates and declines.
+				# `any_player`: REAL, GAME\common\casus_belli_types\00_religious_war.txt:3354,
+				# GAME\common\council_tasks\00_court_chaplain_tasks.txt:1371.
+				# The `var:x ?= { this = scope:y }` shape is the mod's own, from
+				# tnt_70_on_actions.txt:76.
+				NOT = {
+					any_player = {
+						exists = var:tnt_partner
+						OR = {
+							var:tnt_partner ?= { this = scope:actor }
+							var:tnt_partner ?= { this = scope:recipient }
+						}
+					}
+				}
+			}
+
+			# TELEMETRY: a legal pair. ratio is tnt_ai_power_ratio_value, the same
+			# value the alliance and truce prices are scaled by, so a reader can
+			# check whether the archetype mix matches the power distribution.
+			tnt_log_wpair_effect = yes
+
+			tnt_ai_world_strike_effect = yes
+		}
+
+		#===============================================================
+		# TELEMETRY: THE PULSE FOUND NOBODY TO DEAL WITH, AND THE TWO CAUSES ARE
+		# KEPT APART BECAUSE THEY MEAN OPPOSITE THINGS.
+		#   why=no_candidate       nobody in the neighbourhood passed the filter -
+		#                          all at war, all on cooldown, hating root at the
+		#                          -100 clamp (item 26), or no AI neighbour.
+		#   why=player_negotiating the pair was legal and the pulse deliberately
+		#                          stood down because a human has one of the two
+		#                          open in the negotiation window.
+		# The first is a world-state observation; the second says the pulse is
+		# working and being polite. Collapsing them into one counter would make the
+		# commonest question - "why so few treaties" - unanswerable.
+		#===============================================================
+		else = {
+			if = {
+				limit = { NOT = { exists = scope:recipient } }
+				tnt_log_wnocand_effect = yes
+			}
+			else = {
+				tnt_log_wbusy_effect = yes
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# E12 — tnt_ai_world_strike_effect    NO PARAMETERS
+#        reads scope:actor and scope:recipient, both saved by E11.
+#
+# Chooses ONE archetype and hands off. They draw on items 1/3/4/9 of contract
+# R0.1 plus the two ruling-superseded legs 6 and 12 — see this file's header
+# for the amended forbidden list.
+# (Item 2, the yearly tribute, had archetype A3 here. The mechanic is retired and
+# the entry is deleted; A3 is not reused. Its weight of 25 was rehomed to the
+# "nothing happens" entry rather than left to evaporate — random_list weights are
+# relative, so simply deleting an entry raises every survivor's odds. See that
+# entry for the arithmetic.)
+#
+# THE ENTRY TRIGGERS ARE CHEAP LEGALITY TESTS ONLY, never a balance. That split is
+# deliberate and it is the performance decision in this effect: random_list
+# evaluates EVERY entry's trigger to work out the weights, so a balance value in
+# there would cost one full value chain per entry per firing pulse instead of the
+# one or two the chosen archetype actually needs. Legality is flat lookups;
+# fairness is the archetype's own job.
+#
+# `random_list` with per-entry `trigger` blocks inside an on_action-driven effect is
+# ordinary vanilla — GAME\common\on_action\army_on_actions.txt:79-95.
+#
+# THE UNTRIGGERED "NONE" ENTRY IS NOT PADDING. If every archetype's trigger
+# fails, a random_list with no valid entry is a needless edge case; an
+# untriggered entry guarantees there is always exactly one valid choice. It also
+# gives the pulse a deliberate "the AI thought better of it this year" outcome,
+# which keeps the world rate below the theoretical maximum without touching the
+# chance value. (It has not been literally EMPTY since the telemetry pass - it
+# carries one log call - so vanilla's `80 = {}` precedent is no longer needed.)
+#
+# WEIGHTS. *** THE PARAGRAPH THAT STOOD HERE IS NOW HISTORICAL. *** It read: "A
+# truce is the commonest deal in a Total War diplomacy screen and the safest one
+# here (it is a timed relation and nothing else), so it carries the most weight.
+# Alliances are rarer and stickier." Both archetypes are RETIRED under V13 user
+# item 1 - see the tombstone above E3.
+# THE RANKING ARGUMENT AFTER V13 USER ITEM 2, now that the replacements have
+# landed: the commonest deals in this world are the two PURCHASES, S-TITLE and
+# S-ARTIFACT at 22 each, because buying a thing is the least binding act two
+# neighbours can agree on and because their entry triggers are the ones most
+# often true. Marriage follows at 18 - it binds two houses for a generation and
+# its cross-legality can still fail after the entry trigger passed. Selling a
+# hook on yourself is still the rarest thing a ruler does and its balance usually
+# refuses anyway, and a realm swallowing a realm (S-FEALTY) stays rarest of all.
+# THE TOTAL IS STATED IN EXACTLY ONE PLACE: the paragraph on the "nothing
+# happens" entry at the bottom of this random_list.
+# THE TOTAL IS STATED IN EXACTLY ONE PLACE: the paragraph on the "nothing
+# happens" entry at the bottom of this random_list. Read it there.
+###############################################################################
+tnt_ai_world_strike_effect = {
+	random_list = {
+		# --- A1 AND A2 ARE RETIRED. V13, USER ITEM 1. -----------------------
+		# See the tombstone above E3 in part A: the alliance and the ten-year
+		# pact are a DESIGN REFUSAL, in the sandbox exactly as in the window.
+		# Their weights were 30 (truce) and 15 (alliance) = 45 of 100.
+		# *** THE 45 POINTS ARE RESERVED, NOT REHOMED, AND THE DRAW IS
+		# *** DELIBERATELY LEFT AT 55. See the arithmetic paragraph on the
+		# *** "nothing happens" entry below before touching any weight here.
+		# --- A1: gold for a ten-year non-aggression pact --------------------
+		#	30 = {
+		#		trigger = {
+		#			scope:actor = { NOT = { has_truce = scope:recipient } }
+		#			tnt_can_truce_trigger = {
+		#				A = scope:actor
+		#				B = scope:recipient
+		#			}
+		#		}
+		#		tnt_log_warch_truce_effect = yes
+		#		tnt_ai_world_do_truce_effect = yes
+		#	}
+		#
+		# --- A2: gold for an alliance ---------------------------------------
+		#	15 = {
+		#		trigger = {
+		#			scope:actor = { NOT = { is_allied_to = scope:recipient } }
+		#			tnt_can_ally_trigger = {
+		#				A = scope:actor
+		#				B = scope:recipient
+		#			}
+		#		}
+		#		tnt_log_warch_ally_effect = yes
+		#		tnt_ai_world_do_ally_effect = yes
+		#	}
+
+		# --- A4: gold for a favour owed --------------------------------------
+		# can_add_hook is the engine's own predicate and it is the only honest test:
+		# it already knows about existing hooks, strong-hook cooldowns and the type's
+		# own requirements. REAL, in exactly this form:
+		# GAME\common\scripted_effects\00_hook_effects.txt:15-18.
+		# Direction: scope:actor is the one who will HOLD the hook (E5's header).
+		5 = {
+			trigger = {
+				scope:actor = {
+					can_add_hook = {
+						target = scope:recipient
+						type = tnt_deal_favor_hook
+					}
+				}
+			}
+			tnt_log_warch_hook_effect = yes
+			tnt_ai_world_do_hook_effect = yes
+		}
+
+		# --- A5: THE ULTIMATUM (V4 expansion 1) -----------------------------
+		# The actor demands gold and pays nothing; the transfer only balances
+		# because the recipient is afraid of him. This is the AI's use of the
+		# player's own threat option, and the user's ruling is that it happens
+		# BETWEEN AI RULERS - which this pulse already guarantees, since the
+		# candidate must satisfy `is_ai = yes` (:773).
+		#
+		# THE TRIGGER IS THE PURE tnt_can_threat_trigger, never the reporting twin:
+		# a custom_description inside a limit prints itself into any tooltip that
+		# touches the value, this file's stated D5 defect class.
+		# WEIGHT 10, TAKEN OUT OF THE "nothing happens" ENTRY and not added on top,
+		# so the pulse sums to 100 and the others keep their old frequencies. And it
+		# STAYS 10: weight piled on a forecast is how the retired tribute became the
+		# AI's default offer. *** THE 15.9% THAT USED TO ARGUE THAT IS RETRACTED AS
+		# *** A PROXY INFERENCE STATED AS A MEASUREMENT, 2026-08-25. *** Run D
+		# predates this gate and logs neither side's dread nor prestige level, so
+		# nothing in it says who clears the bar; the provable half, the PREDICTION
+		# that replaces the forecast and why THE PICK IS FIRST are all at E17b.
+		10 = {
+			trigger = {
+				tnt_can_threat_trigger = {
+					A = scope:actor
+					B = scope:recipient
+				}
+			}
+			tnt_ai_world_pick_threat_target_effect = yes
+			tnt_log_warch_ultimatum_effect = yes
+			tnt_ai_world_do_ultimatum_effect = yes
+		}
+
+		### --- A6: CALLING IN A HOOK (V4 item A2) ---------------------------
+		### The actor holds leverage on this neighbour and collects. Weight 5, taken
+		### from the "nothing happens" entry when this archetype was added, so no
+		### existing archetype changed frequency (that entry has since absorbed the
+		### retired tribute's 25 and stands at 35). Five and not ten because holding a
+		### hook on a NEIGHBOURING RULER is rarer than being feared by one - and because a
+		### creditor who calls in every debt the moment he can is a caricature.
+		###
+		### The trigger is bare has_weak_hook / has_strong_hook on scope:actor: both
+		### are ordinary triggers with no custom_description, so they are safe in a limit.
+		###
+		### *** MEASURED 2026-08-18: 0 of 1,379 WARCH DRAWS. RECORDED, NOT WIDENED,
+		### *** AND THE WEIGHT IS NOT THE LEVER. *** The full-coverage audit proposed
+		### adding `modifier = { add = 25 ... }` here so that a drawn pair which does
+		### hold a hook wins the list. That would change nothing: at weight 5 out of
+		### 100 a passing entry would still be expected to win tens of times in 1,379
+		### draws, and it won none - so the entry is not LOSING the roll, its TRIGGER
+		### is not passing. A random_list simply drops a failing entry and renormalises
+		### over the rest, so this zero costs the other seven entries nothing.
+		### THE TRIGGER IS CORRECT-BUT-NARROW AND MUST STAY: it asks whether ONE named
+		### ruler already holds leverage over ONE named neighbour, which is genuinely
+		### rare, and it is the only honest test of "a debt he already owes". It is the
+		### sandbox twin of the letter path's A9 (tnt_37_ai_offer.txt), which composed
+		### 0 in the same run for the identical reason. Hooks ARE being created in the
+		### world - the hook-GRANTING archetype completed 21 of the run's 58 treaties -
+		### so the pool is not empty; the coincidence is.
+		### IF THIS IS EVER TO FIRE, the lever is the PAIR SEARCH, not the weight and
+		### not this trigger: draw the counterparty from among the rulers the actor
+		### already holds a hook on, instead of drawing a neighbour and asking. That is
+		### a larger job and a separate commit.
+		5 = {
+			trigger = {
+				scope:actor = {
+					OR = {
+						has_weak_hook = scope:recipient
+						has_strong_hook = scope:recipient
+					}
+				}
+			}
+			tnt_log_warch_hookcall_effect = yes
+			tnt_ai_world_do_hookcall_effect = yes
+		}
+
+		# --- S-TITLE: a county for gold (ruling supersession, see header) ----
+		# The actor BUYS; entry trigger is cheap legality on the SELLER only
+		# (county tier + T3, which already refuses his capital and primary
+		# title). The expensive rows - the de jure tidy-up gate, the price and
+		# the seller's balance - live in E20, where they run once for the one
+		# drawn archetype instead of once per draw evaluation.
+		# WEIGHT 10, TAKEN OUT OF THE "nothing happens" ENTRY per house law, so
+		# the draw stays at 100 and no other archetype changes frequency.
+		# *** V13, USER ITEM 1/2: 10 -> 22. *** This entry is the user's own
+		# first-named replacement for the retired truce and alliance -
+		# "gold-for-a-title" - and it did not have to be BUILT, only weighted: it
+		# was already here. It takes 12 of the 45 points the retirement freed.
+		# *** THE CONDITIONAL REVERT INSTRUCTION THAT STOOD HERE IS NOW RESOLVED.
+		# *** V14, user item 6. DO NOT REVERT THE WEIGHT. ***
+		# It read: under the OLD de jure-only reach gate the 2026-08 playtest
+		# measured this archetype dying 68 times out of 68 drawn
+		# (why=no_eligible_title); item 7b widened the gate, nobody had measured
+		# the widened form, and "if the next run still shows WSKIP
+		# why=no_eligible_title as the whole population, this weight rise must be
+		# REVERTED, not tuned".
+		# THAT RUN HAS NOW HAPPENED. Measured on the 2026-08-16 error.log
+		# (5,084,708 bytes, 2,188 TNTLOG lines):
+		#     WARCH arch=title                    92
+		#     WSKIP arch=title no_eligible_title  82   (89.1%)
+		#     WSKIP arch=title buyer_broke         9
+		#     WSKIP arch=title unbalanced          1
+		#     WDONE (any sandbox archetype)        0
+		#     92 - 82 - 9 - 1 = 0, so the partition is complete.
+		# THE CONDITION IS NOT MET, and the honest reading cuts both ways. The
+		# widening DID work in kind - eligible candidates went 0 -> 10, so
+		# no_eligible_title is no longer "the whole population" - but zero trades
+		# completed and the failure merely moved to buyer_broke. The deciding
+		# fact is that WDONE is 0 for EVERY sandbox archetype in that run, so
+		# S-TITLE is not uniquely broken and moving 12 points to S-ARTIFACT and
+		# S-WED would only relocate the same silence.
+		# *** V15 RESOLVES THE NEXT ROUND OF THAT INSTRUCTION TOO, AND THE ANSWER
+		# *** IS THAT NEITHER THE GATE NOR THE WEIGHT WAS EVER THE PROBLEM. ***
+		# The 2026-08-17 run measured WARCH arch=title 184, WSKIP no_eligible_title
+		# 171 (92.9%), buyer_broke 11, unbalanced 2, WDONE 0 - partition complete.
+		# So the literal revert condition ("still the whole population") is again
+		# not met, for the SECOND round running, with WDONE still 0. Two findings
+		# settle it:
+		#   1. THE WIDENING NAMED BELOW IS A MEASURED NO-OP FOR TWO THIRDS OF THE
+		#      ACTOR POPULATION. It read: "replace `target_is_de_jure_liege_or_above
+		#      = scope:actor.primary_title` in E20's reach gate with
+		#      `any_this_title_or_de_jure_above = { holder ?= scope:actor }`, the
+		#      full upward walk against ANY title the buyer holds instead of only his
+		#      primary". Measured actor tiers over 584 WPAIR lines: 380 of 584
+		#      (65.1%) are counts, and A COUNT HOLDS ONE COUNTY - his primary title
+		#      IS his only title, so the walk widens nothing for him. DO NOT APPLY
+		#      IT; it would buy almost nothing and cost a walk per candidate.
+		#   2. THE GATE IS SOUND AND THE PAIRING WAS WRONG. E20's reach gate asks
+		#      that the seller's county physically border the buyer's realm; the OLD
+		#      partner iterator handed the buyer a neighbouring realm's TOP LIEGE,
+		#      whose personally-held counties sit around his capital, so the gate and
+		#      the iterator were mutually exclusive BY CONSTRUCTION. V15 swapped the
+		#      iterator to random_neighboring_realm_same_rank_owner, which returns a
+		#      same-rank owner of an ADJACENT realm - precisely the pair for which
+		#      `any_neighboring_county = { holder = scope:actor ... }` CAN be true.
+		#      The full measurement is in the partner-pick header of this file.
+		#      WHO THE 13 SURVIVORS WERE is the proof: of the 11 buyer_broke, 9 name
+		#      bid=324, and both unbalanced name bid=324 - AGOT's ruins placeholder,
+		#      the only seller in the run whose counties ever passed the gate. It is
+		#      now refused at the door by T48's second flag.
+		# RE-MEASURE AFTER THE SWAP BEFORE TOUCHING EITHER THE GATE OR THE WEIGHT.
+		# Expected: no_eligible_title falls from 92.9% to 45-65%. If it stays above
+		# 85%, the gate and the iterator are STILL mismatched and S-TITLE should be
+		# RETIRED rather than tuned - that is the third strike.
+		# ON THE SAVE-CORRUPTION QUESTION, checked again and unchanged: leave the
+		# transfer leg alone. E20 moves exactly ONE title with one
+		# create_title_and_vassal_change / change_title_holder / resolve triple and
+		# re-validates T3 at apply; tnt_35_multiselect.txt's hazard is a
+		# create/resolve pair PER TITLE inside an iterator. S-TITLE's zero
+		# completions were a pairing failure, not a safety gate doing its job.
+		# The entry trigger below already proves tier=tier_county + T3, so those
+		# 82 (and the later 171) are the reach gate alone.
+		# V16, USER ITEM 2 (Q2-F5): THE ENTRY TRIGGER IS NOW E20'S PICK, EXACTLY.
+		# It used to ask only `tier = tier_county` + T3 while the PICK also demanded
+		# the REACH GATE, so 134 of 227 arch=title draws in the 2026-08-17 run (59%)
+		# won the draw, spent 22 of this list's 100 weight points and then found
+		# nothing - WSKIP why=no_eligible_title, which E20's own else-branch comment
+		# had already diagnosed correctly and which the header above had already
+		# ruled "tune, do not retire". Both ends now call ONE trigger, T50
+		# tnt_ai_world_title_saleable_trigger
+		# (common\scripted_triggers\tnt_40_triggers.txt), which carries all four rows
+		# and their vanilla citations; read its header for the cost argument and for
+		# why the neighbour test is now vanilla's guarded
+		# county_held_or_vassal_to_target_trigger rather than a bare `holder =`.
+		# THE INVARIANT IS THE LETTER PATH'S OWN, now true here: the pick's limit and
+		# the entry trigger are the SAME TEXT, so the archetype can no longer win a
+		# draw it cannot serve.
+		# STILL CHEAP LEGALITY AND NOT A BALANCE, so this list's rule at :1109-1114
+		# holds. A failed entry trigger drops the entry and the other seven
+		# re-normalise - which is the point: those weight points now reach an
+		# archetype that can actually conclude.
+		22 = {
+			trigger = {
+				scope:recipient = {
+					any_held_title = { tnt_ai_world_title_saleable_trigger = yes }
+				}
+			}
+			tnt_log_warch_title_effect = yes
+			tnt_ai_world_do_title_effect = yes
+		}
+
+		# --- S-ARTIFACT: a treasure for gold (V13, user item 1/2) ------------
+		# THE SECOND OF THE USER'S THREE NAMED REPLACEMENTS. The actor buys one
+		# piece out of the recipient's hall. Item 10 (artifacts) was on this
+		# file's STILL FORBIDDEN list; it is removed from that list by the same
+		# "full range of deal terms" ruling that already superseded the ban for
+		# titles and fealty, and the argument is a fortiori: an artifact is a
+		# possession, not a piece of the realm graph. Nothing here creates or
+		# destroys a title, a liege link or a claim.
+		#
+		# ENTRY TRIGGER: one bounded scan of the SELLER's own artifacts, delegated
+		# whole to T9 -> vanilla's artifact_can_be_gift_to_trigger, which has no
+		# iterator and no tree walk (GAME\common\scripted_triggers\
+		# 00_artifact_triggers.txt:58-111) and already refuses house banners,
+		# faith relics, claimed pieces and anything tied to a title's succession.
+		# The price and the seller's balance live in E23, once for the one drawn
+		# archetype, per this list's own performance rule.
+		#
+		# WEIGHT 22, out of the 45 the retirement freed. It is the joint largest
+		# entry with S-TITLE deliberately: its entry trigger passes far more often
+		# than the title one (most rulers own something giftable), so it is the
+		# entry most likely to keep the world audibly alive while the widened
+		# title gate is still unmeasured.
+		22 = {
+			trigger = {
+				# V15: A CHEAP AFFORDABILITY FLOOR IN THE ENTRY TRIGGER, so the draw
+				# REDISTRIBUTES instead of the body dying. This leg failed 95 times
+				# out of 95 in the 2026-08-17 run - the whole partition was ONE
+				# bucket, why=buyer_broke - with the price CONSTANT at 1125 gold (75
+				# points x 15, i.e. masterwork at the duchy+ rate, 95 times of 95)
+				# against a buyer cohort whose gold ran 4 to 735, median 155. The
+				# bucket this leg's own header calls "near-zero, and a population
+				# here is a bug" (no_giftable_artifact) was EMPTY, so the entry
+				# trigger works perfectly and the body died on money every time.
+				# 25 IS tnt_ai_artifact_gold_value's OWN MIN CLAMP, the cheapest bill
+				# this leg can ever present. It CANNOT price the specific piece - the
+				# piece is not picked until E23 - so it is a floor, not the real
+				# test; the real test stays in E23's branch limit. One flat field
+				# read, which is what E12's rule for entry triggers allows ("cheap
+				# legality only").
+				# REAL form, `gold >= 25` in a trigger position:
+				# GAME\common\character_interactions\00_prison_interactions.txt:2253.
+				# THE BINDING CONSTRAINT WAS NEVER THIS FLOOR and the next author must
+				# not read it as the fix: the fix is the PAIRING (V15 swapped the
+				# partner iterator - see the partner-pick header). With peer pairing
+				# tnt_ai_gold_per_point_value falls from 15 to 10 for the 82.4% of
+				# pairs that used to pay the duchy+ surcharge - masterwork 1125 -> 750
+				# - and the seller is a peer whose hall holds cheaper pieces, so the
+				# 35-point common tier finally enters the sample at 350 gold.
+				# DO NOT touch tnt_ai_artifact_points_value: the seller's balance
+				# subtracts it, and changing one side of that round trip reintroduces
+				# the conversion artefact its header exists to prevent. If a further
+				# cut is still wanted after the next run, clamp
+				# tnt_ai_artifact_gold_value to the payer's capacity instead of
+				# lowering the points ladder.
+				scope:actor = { gold >= 25 }
+				scope:recipient = {
+					any_character_artifact = {
+						tnt_artifact_giftable_trigger = { RECEIVER = scope:actor }
+					}
+				}
+			}
+			tnt_log_warch_artifact_effect = yes
+			tnt_ai_world_do_artifact_effect = yes
+		}
+
+		# --- S-WED: two houses joined (V13, user item 1/2) -------------------
+		# THE THIRD OF THE USER'S THREE NAMED REPLACEMENTS: marriages between AI
+		# rulers. Item 5 (marriage) was on this file's STILL FORBIDDEN list and
+		# comes off it under the same ruling. It is the one replacement that
+		# needed real machinery rather than a weight - see E24.
+		#
+		# *** THIS ARCHETYPE DOES NOT SMUGGLE THE RETIRED ALLIANCE BACK IN, AND
+		# *** THAT WAS CHECKED IN THE INSTALL RATHER THAN ASSUMED. *** A wedding
+		# creates no alliance in vanilla: the only create_alliance call sites
+		# under GAME\common\on_action are game_start.txt:4623 and
+		# relation_on_actions.txt (on_set_relation_blood_brother), and
+		# on_marriage itself (marriage_concubinage.txt:4-30) contains none. An
+		# alliance in CK3 comes from negotiate_alliance_interaction, which user
+		# item 1 refused; a marriage is kinship, which vanilla gives away free.
+		#
+		# *** THE PARAGRAPH ABOVE IS FALSE AND IS KEPT ONLY AS THE FALSIFIED
+		# *** REASONING. IT MISLED ROUND 11 BEFORE ROUND 11 OVERTURNED IT. ***
+		# The search was sound and its conclusion did not follow: A VANILLA
+		# ARRANGE-MARRIAGE DOES CREATE AN ALLIANCE, ENTIRELY IN C++, so of course
+		# no on_action does it and of course grepping create_alliance under
+		# GAME\common\on_action finds nothing. The grant is bundled into the
+		# interaction by one key -
+		# `special_interaction = arrange_marriage_interaction`, documented at
+		# GAME\common\character_interactions\_character_interactions.info:580 and
+		# repeated verbatim at :661: "It automatically marries/betroths the
+		# secondary participants and sets up alliances and hands out prestige."
+		# The engine even exposes the predicate to script (`yields_alliance`, 9
+		# vanilla sites) and the grant (`create_alliance`), and vanilla proves
+		# script `marry` grants nothing by writing create_alliance on the very next
+		# line after it (GAME\events\dlc\fp1\fp1_trade_events.txt:2242-2247).
+		# "An alliance in CK3 comes from negotiate_alliance_interaction" was the
+		# load-bearing error: that is one source of several.
+		#
+		# *** WHAT ROUND 11 DID, AND WHY THIS SANDBOX IS STILL EXCLUDED. *** By user
+		# ruling (2026-08-23) a deal marriage in the PLAYER-facing paths now grants
+		# the alliance, in tnt_wed_one_pair_effect
+		# (common\scripted_effects\tnt_34_marriage.txt), above its grand/plain
+		# dispatch, behind T54 tnt_pair_yields_alliance_trigger. THE AI-TO-AI
+		# SANDBOX GETS NONE OF IT, AND THAT IS DELIBERATE AND STRUCTURAL: this
+		# archetype calls tnt_wed_plain_pair_effect DIRECTLY (see E24 below), never
+		# tnt_wed_one_pair_effect, so the grant is simply not on its path. Nothing
+		# needs to be added here to keep it out.
+		# *** WIRING IT IN IS A BALANCE RULING, NOT A TIDY-UP, AND NEEDS THE USER. ***
+		# The sandbox concluded 40 weddings in the measured run. Routing them through
+		# the grant would add roughly forty alliances a run to the world graph and
+		# would invalidate the measured sandbox ledger this file's header quotes. It
+		# is listed as an OPEN QUESTION, not an oversight. Do not "finish the job".
+		#
+		# ENTRY TRIGGER: two shallow close-family scans, one per side, and
+		# DELIBERATELY NOT A CROSS-PRODUCT - a nested can_marry_character_trigger
+		# here would cost O(kin x kin) consanguinity walks per firing pulse.
+		# The cross-legality is asked in E24's body, twice, for one candidate
+		# each time. That is A16's own split and its own argument
+		# (tnt_37_ai_offer.txt).
+		# marriage_interaction_can_be_picked_trigger = can_marry_trigger +
+		# is_available_quick, no tree walk: GAME\common\scripted_triggers\
+		# 00_marriage_triggers.txt:354-360. any_close_family_member: REAL,
+		# GAME\common\character_interactions\00_marriage_interactions.txt:3635.
+		#
+		# WEIGHT 18, the balance of the freed 45 (12 + 22 + 18 = 52, less the 7
+		# the "nothing happens" entry gave up = 45). It is below the two purchases
+		# because it is the one whose BODY can still come up empty after the entry
+		# trigger passed - the cross-legality draw - and a weight cannot fix that;
+		# the two-pass pick is what fixes it, and it ships here from day one
+		# because A16 measured a single blind draw failing 6 times out of 6.
+		# *** V18, USER ITEM 2 - THE OWNERSHIP ROW SHIPS HERE IN THE SAME COMMIT
+		# *** AS A16'S, AND AT HIGHER VOLUME THAN A16. The user objected to being
+		# offered a match with a relative who is himself a landed adult vassal.
+		# This archetype had the identical defect and it is the mod's single
+		# most-executed marriage path - 26 completed weddings in the 2026-08-18
+		# run against arch16's one. A rule that binds only the letter would leave
+		# the visible world contradicting the rule the player is held to.
+		# T51 tnt_may_offer_spouse_trigger is vanilla's own "is this someone I can
+		# marry off?" - GAME\common\character_interactions\
+		# 00_marriage_interactions.txt:1429-1438, full citation set in T51's own
+		# header (common\scripted_triggers\tnt_41_gates.txt).
+		# marriage_interaction_can_be_picked_trigger is NOT that test: it is
+		# can_marry_trigger plus a hostage/imprisoned check, with no power row.
+		# Both handles below are absolute saved scopes, which is what makes the
+		# macro substitution safe inside these iterators.
+		# EXPECTED EFFECT: the WDONE wed count falls, and that is the point. A
+		# failing entry trigger simply drops this entry and the other seven
+		# renormalise; the list ships an explicit `none` entry, so it can never
+		# produce an empty treaty.
+		18 = {
+			trigger = {
+				scope:actor = {
+					any_close_family_member = {
+						is_alive = yes
+						is_betrothed = no
+						marriage_interaction_can_be_picked_trigger = yes
+						tnt_may_offer_spouse_trigger = { SIDE = scope:actor }
+					}
+				}
+				scope:recipient = {
+					any_close_family_member = {
+						is_alive = yes
+						is_betrothed = no
+						marriage_interaction_can_be_picked_trigger = yes
+						tnt_may_offer_spouse_trigger = { SIDE = scope:recipient }
+					}
+				}
+			}
+			tnt_log_warch_wed_effect = yes
+			tnt_ai_world_do_wed_effect = yes
+		}
+
+		# --- S-FEALTY: silent vassalization (ruling supersession, see header) -
+		# Vanilla's offer_vassalization AI logic is SCRIPT, not C++, and these
+		# rows are that script, copied with citations:
+		#   actor rows     = its ai_potential, 00_character_interactions.txt:1350-1355
+		#   recipient rows = its is_shown :33-34 (top_liege + is_tributary),
+		#                    :44 (the tier row, verbatim cross-scope shape),
+		#                    :46-49 (the two government flags), and is_valid :90
+		#                    (is_confederation_member; the recipient's
+		#                    is_at_war = no of :89 is already in the pulse limit).
+		# Vanilla's send throttle for this interaction is ai_frequency 12/year at
+		# duchy+ (:15-22); our pulse chance plus the 3-year tnt_ai_world_cd is
+		# stricter, so no extra throttle is added.
+		# WEIGHT 5, ALSO OUT OF THE "nothing happens" ENTRY - the rarest thing in
+		# the draw, as a realm swallowing a realm should be.
+		5 = {
+			trigger = {
+				scope:actor = {
+					is_adult = yes
+					top_liege = this
+					highest_held_title_tier > tier_county
+					vassal_limit_available > 1
+				}
+				scope:recipient = {
+					top_liege = this
+					is_tributary = no
+					is_confederation_member = no
+					highest_held_title_tier < scope:actor.highest_held_title_tier
+					NOR = {
+						government_has_flag = cannot_be_vassal_or_liege
+						government_has_flag = government_is_herder
+					}
+				}
+				# V14, USER ITEM 1: THE WALL IS NOT SWALLOWED SILENTLY EITHER.
+				# This entry is the ONE vassalage door that does not run through
+				# T5 - its rows are written out inline above - so T5's own
+				# Night's Watch row does not reach it. Same T46 call
+				# (common\scripted_triggers\tnt_40_triggers.txt), both sides, so
+				# a neighbour cannot absorb the Night's Watch and the Lord
+				# Commander cannot absorb a neighbour. nights_watch_government
+				# declares NEITHER of the two flags in the NOR above, so it
+				# passes every other row here today.
+				# IT MATTERS BECAUSE THE SANDBOX IS ALREADY REACHING HIM: the
+				# 2026-08-16 run has 16 WPAIR and 16 WARCH lines naming
+				# k_the_wall as a party, including one where the Lord Commander
+				# is the ACTOR.
+				# THE SENTENCE THAT STOOD HERE - "S-FEALTY simply has not come up yet
+				# at weight 5" - IS DELETED AS REFUTED (V16, Q2-F3). It had not come up
+				# because it COULD NOT: from V15 to V16 the partner pick was a
+				# SAME-RANK iterator, so tnt_ai_tier_edge_value was exactly 0 on 757 of
+				# 757 measured pairs and the
+				# `highest_held_title_tier < scope:actor.highest_held_title_tier` row
+				# above was unsatisfiable BY CONSTRUCTION - 0 draws of ~101 expected,
+				# and zero arch=vassal lines in the whole 2026-08-17 log. That tier row
+				# is CORRECT and is vanilla's own (offer_vassalization's is_shown,
+				# GAME\common\character_interactions\00_character_interactions.txt:44),
+				# so the PAIRING was fixed instead - see "TWO ITERATORS, ONE PER PULSE"
+				# at the partner pick. If arch=vassal is still absent from the next
+				# run's WARCH census once the tier edge shows a spread, the constraint
+				# is one of the OTHER rows here and this is where to look.
+				# In a vanilla game the T46 row below is always true.
+				tnt_vassalage_pair_allowed_trigger = { A = scope:actor  B = scope:recipient }
+			}
+			tnt_log_warch_vassal_effect = yes
+			tnt_ai_world_do_vassal_effect = yes
+		}
+
+		# --- nothing happens this year --------------------------------------
+		# *** THE DRAW SUMS TO EXACTLY 100 AGAIN, AND THIS PARAGRAPH IS THE ONE
+		# *** PLACE IN THIS FILE THAT MAY STATE THE TOTAL. Restate it here; do
+		# *** not add a second statement anywhere in E12.
+		#
+		#   5 hook + 10 ultimatum + 5 hookcall + 22 title + 5 fealty
+		#   + 22 artifact + 18 wed + 13 none = 100.
+		#
+		# V13 IN ONE PARAGRAPH. USER ITEM 1 retired A1 (truce, 30) and A2
+		# (alliance, 15) and left their 45 points RESERVED rather than rehomed,
+		# so this file shipped for one stage at a total of 55 with every survivor
+		# running at 1.82x its tuned odds. USER ITEM 2 SPENDS THOSE 45 ON THE
+		# THREE REPLACEMENTS THE USER NAMED HIMSELF - gold for a title, artifacts,
+		# and marriages between AI rulers:
+		#   S-TITLE    10 -> 22   (+12; it existed already and needed weight)
+		#   S-ARTIFACT  0 -> 22   (+22; NEW, E23)
+		#   S-WED       0 -> 18   (+18; NEW, E24)
+		#   none       20 -> 13   (-7)
+		# 12 + 22 + 18 = 52, less the 7 this entry gave up = 45. NO SURVIVING
+		# ARCHETYPE CHANGED FREQUENCY except S-TITLE, deliberately: hook, the
+		# ultimatum, the hookcall and S-FEALTY carry the same numbers they did
+		# before the retirement, and now against the same denominator, so their
+		# tuned odds are restored exactly.
+		#
+		# *** REHOMING TO THIS ENTRY REMAINS FORBIDDEN. *** It fell 20 -> 13
+		# because a livelier world was the point; it may not be used as a sink for
+		# a future retirement. "Nothing happens" at a third of the draw is the
+		# dead world the user's replacement ruling exists to prevent.
+		#
+		# WHAT THE NEXT PLAYTEST MUST READ, IN THIS ORDER. Rewritten for V15: items
+		# 1-3 are ANSWERED, and what replaces them is a different question.
+		#   1. ANSWERED TWICE, and not by the gate. no_eligible_title was 68/68
+		#      (100%) under the de jure-only gate and 171/184 (92.9%) after the
+		#      widening, with WDONE 0 both times. It is a PAIRING failure - see the
+		#      resolved-instruction block above S-TITLE's entry, and the partner-pick
+		#      header for the measurement. Read it again after V15's iterator swap:
+		#      45-65% is the prediction, above 85% means retire S-TITLE.
+		#   2. ANSWERED, AND IT IS A WIN - REPORT IT AS ONE. COUNT(WSKIP arch=wed
+		#      why=no_legal_pair) / COUNT(WARCH arch=wed) = 19/116 = 16.4%. A16
+		#      measured a single blind draw failing 6 of 6; two passes fail 16%. This
+		#      archetype's stated risk line is RETIRED - it dies on money, not on
+		#      legality, and the money bug was `short_term_gold` (see E1's header).
+		#   3. ANSWERED, AND THE PREDICTION WAS HALF WRONG. No WDONE arch=artifact
+		#      exists, but all 95 buyer_broke lines priced at exactly 1125 = 75 x 15,
+		#      i.e. MASTERWORK AT THE DUCHY+ RATE, 95 times out of 95. The 1200 cap
+		#      never bit once (famed 100x15 and illustrious 150x15 would both log
+		#      1200, not 1125), so the cap arithmetic is fine - but the predicted
+		#      "mix of 35 and 75" is wrong in the 35 half: NO COMMON PIECE WAS EVER
+		#      DRAWN, because 90 of the 95 draws bought from ONE seller and
+		#      random_character_artifact was sampling one man's hall.
+		#   4. COUNT(WDONE) / COUNT(WPAIR) overall - still the single number that
+		#      says whether the world is alive. It was 1/584 (0.17%) in the
+		#      2026-08-17 run against a pre-V13 baseline of 169/1641 (10.3%). V15's
+		#      target is the OLD RATE OR BETTER: 10-18%.
+		#   5. ZERO occurrences of arch=truce and arch=ally anywhere. Any hit
+		#      means one of the two retired entries was uncommented.
+		#   6. *** NEW AND NON-OPTIONAL: COUNT(WARCH arch=X) AGAINST X'S DECLARED
+		#      *** WEIGHT, FOR EVERY ENTRY - not just a WSKIP histogram. A weight
+		#      that never draws is INVISIBLE in a histogram of failures: hookcall
+		#      drew ZERO in 584 draws and emitted not one telemetry line of its own,
+		#      and nobody noticed for two rounds. Measured 2026-08-17 against the
+		#      declared 5+10+5+22+5+22+18+13:
+		#        title 184 (~128 expected) | none 126 (~76) | wed 116 (~105) |
+		#        artifact 95 (~128) | hook 58 (~29) | ultimatum 4 (~58) |
+		#        vassal 1 (~29) | hookcall 0 (~29)
+		#      The survivors run hot because random_list renormalises over PASSING
+		#      entries, so a dead entry's weight silently drains into the others and
+		#      into `none`. Ultimatum, hookcall and S-FEALTY were all asking for a
+		#      POSITIVE tier edge from an iterator that produced a negative one 76.5%
+		#      of the time; V15's peer pairing is the whole fix and none of the three
+		#      needs a gate change. IF THEY STILL DRAW UNDER A THIRD OF THEIR
+		#      WEIGHTED SHARE AFTER THE SWAP, retire or re-weight them EXPLICITLY
+		#      rather than leaving reserved weight to drain into `none`.
+		#   7. The 21.6% observed share of `none` against its declared 13% is HONEST
+		#      - it is the same renormalisation - and should fall back to 13-16% once
+		#      item 6's dead entries either draw or are retired.
+		#
+		# HISTORY, the arithmetic as it stood before the retirement: the
+		# none-entry was 35 (the retired tribute's 25 rehomed here, minus the 15
+		# the ultimatum and hookcall took), then 20 once the two
+		# ruling-superseded archetypes took title 10 + fealty 5 from it, and the
+		# draw summed to exactly 100 the other way:
+		#   30 truce + 15 ally + 5 hook + 10 ultimatum + 5 hookcall
+		#   + 10 title + 5 fealty + 20 none = 100.
+		# Logging the entry is not optional bookkeeping - without the line, these
+		# draws would have no matching outcome anywhere in the log and the natural
+		# reading would be that the pulse is broken.
+		13 = {
+			tnt_log_warch_none_effect = yes
+		}
+	}
+}
+
+
+###############################################################################
+# E13 — tnt_ai_world_do_truce_effect     NO PARAMETERS   (archetype A1)
+#
+# The actor pays one-time gold; both sides get a ten-year non-aggression pact.
+#
+# THE SHAPE OF EVERY ARCHETYPE, EXPLAINED ONCE HERE.
+#
+#   if      = try the LOW price
+#   else_if = try the HIGH price   <- the ONE corrective step of §6.4.3
+#   (no else) = abort. No retry, no third tier, no next-tick continuation.
+#
+# `else_if` and not a second `if`, so the high tier's balance is evaluated ONLY when
+# the low tier failed. Worst case per firing pulse: two balance chains. Best case:
+# one.
+#
+# EACH LIMIT HAS THE AFFORDABILITY TEST **BEFORE** THE BALANCE TEST, and that order
+# is a performance decision, not a style one: `gold >= <value>` is one field read
+# against a two-link value, while tnt_ai_deal_truce_low_value pulls nine.
+# A broke actor is rejected for the cost of the cheap test alone.
+# V15: THE FIELD IS `gold` EVERYWHERE ON THIS PATH, NOT `short_term_gold`. The
+# whole argument, the measured cost of getting it wrong and the reason both guards
+# must name the same field are in E1's header above. The retired E13/E14
+# tombstones below still SHOW `short_term_gold` because that is what they shipped;
+# do not "fix" a tombstone.
+#
+# *** THE AFFORDABILITY TEST IS ALSO WHAT MAKES THE DEAL HONEST. *** E1 refuses to
+# pay what the payer does not have. If the branch condition did not test the same
+# thing, the recipient would sign a package priced on gold that never arrived — a
+# free truce, and exactly the "not value-fair" failure the user's request rules out.
+# The two guards are independent on purpose: this one chooses the tier, E1's protects
+# against the world changing between the choice and the payment.
+#
+# WHY THE LEGALITY TESTS ARE NOT REPEATED HERE: E12's entry trigger already
+# established them, and E3 re-checks them itself. Repeating them a third time in the
+# branch condition would cost a T13 evaluation per tier for no new information.
+###############################################################################
+# RETIRED - E13 GOES WITH SANDBOX ARCHETYPE A1. See the tombstone above E3.
+# Its E12 entry is commented out, so nothing calls it; its two apply calls named
+# tnt_ai_apply_truce_effect, which is commented out too - a call line and its
+# effect are a single atomic pair. Its two WDONE telemetry effects lose their only
+# callers here and are commented out in tnt_3b_log.txt.
+# tnt_ai_world_do_truce_effect = {
+# 	if = {
+# 		limit = {
+# 			scope:actor = { short_term_gold >= tnt_ai_gold_low_value }
+# 			tnt_ai_deal_truce_low_value > 0
+# 		}
+# 		# TELEMETRY: this tier was affordable AND balanced, so the branch runs and a
+# 		# treaty is concluded. WDONE means "the tier was chosen"; the four calls
+# 		# below cannot fail back out of it.
+# 		tnt_log_wdone_truce_low_effect = yes
+# 		tnt_ai_send_gold_effect = {
+# 			PAYER = scope:actor
+# 			RECEIVER = scope:recipient
+# 			AMOUNT = tnt_ai_gold_low_value
+# 		}
+# 		tnt_ai_apply_truce_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 		}
+# 		tnt_ai_world_notify_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 			TT = tnt_ai_msg_tt_truce
+# 		}
+# 		tnt_ai_world_cooldown_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 		}
+# 	}
+# 	else_if = {
+# 		limit = {
+# 			scope:actor = { short_term_gold >= tnt_ai_gold_high_value }
+# 			tnt_ai_deal_truce_high_value > 0
+# 		}
+# 		tnt_log_wdone_truce_high_effect = yes
+# 		tnt_ai_send_gold_effect = {
+# 			PAYER = scope:actor
+# 			RECEIVER = scope:recipient
+# 			AMOUNT = tnt_ai_gold_high_value
+# 		}
+# 		tnt_ai_apply_truce_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 		}
+# 		tnt_ai_world_notify_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 			TT = tnt_ai_msg_tt_truce
+# 		}
+# 		tnt_ai_world_cooldown_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 		}
+# 	}
+
+	#=======================================================================
+	# TELEMETRY: NEITHER TIER WAS BOTH AFFORDABLE AND BALANCED, SO THE ARCHETYPE
+	# WAS ABANDONED. This is the `(no else) = abort` outcome this effect's own
+	# header describes, and until now it left NO trace of any kind - a WARCH line
+	# with no matching WDONE and nothing to say why.
+	#
+	# THE TWO CAUSES ARE SEPARATED BECAUSE THEY POINT AT DIFFERENT FIXES:
+	#   why=actor_broke            the AI has less gold than even the cheap tier
+	#                              costs. An economy observation - lower the tier
+	#                              prices or accept that poor rulers do not buy
+	#                              treaties.
+	#   why=unbalanced_both_tiers  the AI could pay but the recipient's valuation
+	#                              refused at both prices. A pricing observation -
+	#                              the balance values are the thing to look at.
+	# Collapsing them would make "why so few treaties" unanswerable, which is the
+	# one outcome the telemetry brief rules out.
+	#
+	# The `gold` row re-tests exactly what the low-tier limit tests, so
+	# `broke` here means the same thing it means four lines up. Both branches are
+	# inside the telemetry rule test, so at the shipped default this whole block is
+	# one has_game_rule lookup.
+	#=======================================================================
+# 	else = {
+# 		if = {
+# 			limit = { scope:actor = { short_term_gold < tnt_ai_gold_low_value } }
+# 			tnt_log_wabort_broke_effect = yes
+# 		}
+# 		else = {
+# 			tnt_log_wabort_unbalanced_effect = yes
+# 		}
+# 	}
+# }
+# NOTE: tnt_log_wabort_broke_effect / tnt_log_wabort_unbalanced_effect are NOT
+# retired - E16 (the hook archetype) is the surviving two-tier archetype and still
+# calls both.
+
+
+# RETIRED - E14 GOES WITH SANDBOX ARCHETYPE A2. See the tombstone above E3.
+# ###############################################################################
+# # E14 — tnt_ai_world_do_ally_effect      NO PARAMETERS   (archetype A2)
+#
+# The actor pays one-time gold; the two realms form an alliance.
+# Same two-tier shape as E13; see E13's header for the whole rationale.
+#
+# NOTE ON THE SECOND NOTIFICATION. vanilla's on_alliance_added
+# (GAME\common\on_action\alliance_on_actions.txt:4-27) already messages both sides
+# for ANY create_alliance, so an alliance struck here announces itself twice: once
+# through vanilla's channel (which every player sees under vanilla's own rules) and
+# once through E9 (which only players who border or fight a party see, and which
+# says WHY — that it was bought). Keeping both is deliberate: dropping ours would
+# lose the "this was a purchased alliance, not a dynastic one" information, and
+# dropping vanilla's is not possible without overriding a vanilla file (R1).
+###############################################################################
+# tnt_ai_world_do_ally_effect = {
+# 	if = {
+# 		limit = {
+# 			scope:actor = { short_term_gold >= tnt_ai_gold_low_value }
+# 			tnt_ai_deal_ally_low_value > 0
+# 		}
+# 		tnt_log_wdone_ally_low_effect = yes
+# 		tnt_ai_send_gold_effect = {
+# 			PAYER = scope:actor
+# 			RECEIVER = scope:recipient
+# 			AMOUNT = tnt_ai_gold_low_value
+# 		}
+# 		tnt_ai_apply_alliance_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 		}
+# 		tnt_ai_world_notify_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 			TT = tnt_ai_msg_tt_ally
+# 		}
+# 		tnt_ai_world_cooldown_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 		}
+# 	}
+# 	else_if = {
+# 		limit = {
+# 			scope:actor = { short_term_gold >= tnt_ai_gold_high_value }
+# 			tnt_ai_deal_ally_high_value > 0
+# 		}
+# 		tnt_log_wdone_ally_high_effect = yes
+# 		tnt_ai_send_gold_effect = {
+# 			PAYER = scope:actor
+# 			RECEIVER = scope:recipient
+# 			AMOUNT = tnt_ai_gold_high_value
+# 		}
+# 		tnt_ai_apply_alliance_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 		}
+# 		tnt_ai_world_notify_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 			TT = tnt_ai_msg_tt_ally
+# 		}
+# 		tnt_ai_world_cooldown_effect = {
+# 			A = scope:actor
+# 			B = scope:recipient
+# 		}
+# 	}
+#
+# 	# TELEMETRY: both tiers refused. Same two causes and same reasoning as E13's
+# 	# else - see the block comment there.
+# 	else = {
+# 		if = {
+# 			limit = { scope:actor = { short_term_gold < tnt_ai_gold_low_value } }
+# 			tnt_log_wabort_broke_effect = yes
+# 		}
+# 		else = {
+# 			tnt_log_wabort_unbalanced_effect = yes
+# 		}
+# 	}
+# }
+
+
+###############################################################################
+# E16 — tnt_ai_world_do_hook_effect      NO PARAMETERS   (archetype A4)
+#
+# The actor pays one-time gold; the recipient owes him one weak, ten-year,
+# single-use favour (tnt_deal_favor_hook). Direction is E5's; read its header.
+#
+# THIS IS THE ARCHETYPE THAT USUALLY FAILS, AND THAT IS CORRECT. The recipient gets
+# nothing back but coin and gives up a hook on himself, so
+# tnt_ai_deal_hook_low_value is positive only when the gold genuinely outweighs 30
+# points plus his threshold — i.e. between rulers who already like each other, or
+# where one is very poor and the other very rich. Nobody sells a hook on themselves
+# cheaply, and the numbers say so without any special-casing.
+#
+# TIER 1 ONLY. No strong or eternal hook is ever created on this path; see E5.
+###############################################################################
+tnt_ai_world_do_hook_effect = {
+	if = {
+		limit = {
+			scope:actor = { gold >= tnt_ai_gold_low_value }
+			tnt_ai_deal_hook_low_value > 0
+		}
+		tnt_log_wdone_hook_low_effect = yes
+		tnt_ai_send_gold_effect = {
+			PAYER = scope:actor
+			RECEIVER = scope:recipient
+			AMOUNT = tnt_ai_gold_low_value
+		}
+		tnt_ai_grant_hook_effect = {
+			GIVER = scope:recipient
+			RECEIVER = scope:actor
+		}
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_hook
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+	else_if = {
+		limit = {
+			scope:actor = { gold >= tnt_ai_gold_high_value }
+			tnt_ai_deal_hook_high_value > 0
+		}
+		tnt_log_wdone_hook_high_effect = yes
+		tnt_ai_send_gold_effect = {
+			PAYER = scope:actor
+			RECEIVER = scope:recipient
+			AMOUNT = tnt_ai_gold_high_value
+		}
+		tnt_ai_grant_hook_effect = {
+			GIVER = scope:recipient
+			RECEIVER = scope:actor
+		}
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_hook
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+
+	# TELEMETRY: both tiers refused. Same two causes and same reasoning as E13's
+	# else - see the block comment there. Selling a hook on yourself is the rarest
+	# thing a ruler does and this effect's own weight is 5 out of 100, so this line
+	# is expected to be rare in both directions.
+	else = {
+		if = {
+			limit = { scope:actor = { gold < tnt_ai_gold_low_value } }
+			tnt_log_wabort_broke_effect = yes
+		}
+		else = {
+			tnt_log_wabort_unbalanced_effect = yes
+		}
+	}
+}
+
+
+###############################################################################
+# E17 — tnt_ai_world_do_ultimatum_effect     NO PARAMETERS   (archetype A5)
+#
+# THE ACTOR DEMANDS GOLD AND PAYS NOTHING. The transfer balances only because the
+# recipient fears him: tnt_ai_threat_points_value sits on the credit side of
+# tnt_ai_deal_ultimatum_value and the coin demanded is 15% of it (0.6 until
+# 2026-08-25 - the ratio ruling's scale change forced it). Since 2026-08-24
+# that name is a one-line alias onto the PLAYER's own tnt_threat_points_value, and
+# scope:recipient is chosen by E17b at the END OF THIS FILE - read that first.
+# There is no dice roll anywhere in this effect; the recipient's balance decides.
+#
+# ONE TIER, NOT TWO, and that is the only structural difference from its siblings.
+# Their low/high pair exists because the ACTOR is buying something and may need to
+# bid higher. Here he is not bidding: the price is dictated by how frightened the
+# other man is, and "offer more" is not a move a threat has. One branch, honest else.
+#
+# THE AFFORDABILITY TEST IS ON THE RECIPIENT - he is the payer here - and it comes
+# before the balance test for the reason the other archetypes state: one field read
+# against a six-link value. E1 re-checks it at payment time.
+#
+# *** THAT TEST WAS THE ARCHETYPE'S WHOLE DEFECT UNTIL 2026-08-25 AND IT IS NOW A
+# *** LITERAL 13. *** The row read `gold >= tnt_ai_ultimatum_gold_value` - a HARD
+# test of the victim's purse against a points-derived price - while the LETTER path
+# for the identical mechanic clamped that price to 80% of the payer's purse
+# (tnt_ai_demand_gold_value). One mechanic, two rulings, and the sandbox got the
+# harsh one. MEASURED over the 2026-08-25 run: 53 ultimatums drawn, 4 concluded,
+# 49 refused - and 48 of those 49 carried a POSITIVE balance. The victims were
+# WILLING AND BROKE, not unafraid. Mean ask 557 gold against a measured median AI
+# purse of 73 (310 gold_have readings); largest ultimatum ever paid 257, smallest
+# ever refused 174, nothing under 174 refused at all.
+# THE FIX IS NOT A LOOSENING OF A CONTINGENT GATE - the standing rule in CLAUDE.md
+# forbids that and it is not what this is. The DRAW rate is untouched: this row
+# lives in the archetype BODY, downstream of the draw, so a refusal was always a
+# WSKIP and still is. What changed is that the two paths of ONE mechanic now agree
+# (house law 9), and 13 is not a new number - it is A21's own floor, copied
+# verbatim from its entry trigger `root = { gold >= 13 }` in
+# common\scripted_effects\tnt_37_ai_offer.txt, and it is the exact purse at which
+# 0.8 x 13 = 10.4 clears the ask ladder's own min = 10.
+# WHY THE CALLER'S ROW AND E1'S GUARD MAY DIFFER HERE. E1's header makes "the two
+# guards must name the identical field" a rule, because E1 is an `if` with no
+# `else` and a divergence pays nothing after WDONE is already logged. They are
+# satisfied by arithmetic instead: for every purse this row admits, the clamped
+# ask is strictly smaller than the purse. The proof is at
+# tnt_ai_demand_gold_value, common\script_values\tnt_56_ai_values.txt; re-run it
+# if the 0.8 moves. AND NO ACTOR-SIDE WORTH ROW: E17b's "NO MINIMUM TAKE" box.
+#
+# THE OPINION PENALTY IS THE SAME MODIFIER THE PLAYER PAYS: tnt_threat_opinion, -100
+# decaying over fifteen years, applied by the recipient towards the actor, inside the
+# success branch only - a demand that was refused was never made, as far as the world
+# is concerned. Two intended consequences:
+#   * the racket eats itself. Every successful ultimatum lowers this neighbour's
+#     opinion, and opinion is what tnt_ai_relation_value feeds into the very balance
+#     the next ultimatum must clear, so a bully returns to a well he has poisoned.
+#   * the world becomes legible. WDONE plus the opinion row is a story a half-year
+#     run can be read for: who extorts whom, and how long until the victim stops
+#     paying.
+#
+# NO NEW MESSAGE WIDGET: tnt_ai_world_notify_effect takes the tooltip key as a
+# parameter, so this archetype passes its own and nothing else changes.
+###############################################################################
+tnt_ai_world_do_ultimatum_effect = {
+	if = {
+		limit = {
+			# There must be something to take. A21's own floor, verbatim.
+			scope:recipient = { gold >= 13 }
+			tnt_ai_deal_ultimatum_value > 0
+		}
+		tnt_log_wdone_ultimatum_effect = yes
+		tnt_ai_send_gold_effect = {
+			PAYER = scope:recipient
+			RECEIVER = scope:actor
+			# The purse-clamped ask, NOT the raw one. Its twin is the points
+			# charge in tnt_ai_ultimatum_gold_points_value, which was repointed
+			# at the same value in the same commit - one atom, revert together.
+			AMOUNT = tnt_ai_demand_gold_value
+		}
+		scope:recipient = {
+			add_opinion = {
+				target = scope:actor
+				modifier = tnt_threat_opinion
+			}
+		}
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_ultimatum
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+	else = {
+		tnt_log_wskip_ultimatum_effect = yes
+	}
+}
+
+###############################################################################
+# E18 — tnt_ai_world_do_hookcall_effect     NO PARAMETERS   (archetype A6)
+#
+# THE ACTOR COLLECTS A DEBT. He holds a hook on the recipient, demands gold and pays
+# nothing; the transfer balances because the obligation is real. This is the sandbox's
+# half of V4 item 2 - the same instrument the player got in tnt_59_usehook_values.txt,
+# priced with the same numbers (45 for a favour, 120 for blackmail-grade leverage).
+#
+# ONE TIER, like the ultimatum and for the same reason: the actor is not bidding. What
+# he can ask is set by what he holds, and "offer more" is not a move a creditor has.
+#
+# THE HOOK IS SPENT THROUGH VANILLA'S OWN use_hook, which knows the difference this
+# feature is about: a weak hook is consumed by the call, a strong one survives it (95
+# vanilla call sites, e.g. 00_alliance.txt:1346). So the archetype prices the strength
+# and lets the engine decide what remains - no bookkeeping of our own.
+#
+# NO OPINION PENALTY, unlike the ultimatum. A debt collected is not a threat made;
+# vanilla charges no opinion for using a hook, and the price is already paid in the hook
+# itself. Adding a grievance would make leverage strictly worse than extortion.
+#
+# THE AFFORDABILITY TEST IS ON THE RECIPIENT - he pays - and comes before the balance
+# test, one field read against a six-link value, exactly as its siblings do.
+###############################################################################
+tnt_ai_world_do_hookcall_effect = {
+	if = {
+		limit = {
+			scope:recipient = { gold >= tnt_ai_hookcall_gold_value }
+			tnt_ai_deal_hookcall_value > 0
+		}
+		tnt_log_wdone_hookcall_effect = yes
+		tnt_ai_send_gold_effect = {
+			PAYER = scope:recipient
+			RECEIVER = scope:actor
+			AMOUNT = tnt_ai_hookcall_gold_value
+		}
+		scope:actor = {
+			use_hook = scope:recipient
+		}
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_hookcall
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+	else = {
+		tnt_log_wskip_hookcall_effect = yes
+	}
+}
+
+
+###############################################################################
+# E19 — tnt_ai_transfer_title_effect   params: TITLE, GIVER, RECEIVER
+#
+# A pure parameter machine, like E1..E6: reads no variable anywhere. The body is
+# the window's own per-title transfer — tnt_exec_title_multi_effect's iterator
+# payload (tnt_35_multiselect.txt:420-449) with the variable-list reads replaced
+# by parameters — SAME mechanism, so the sandbox and the window cannot drift:
+#   type = granted            the negotiated hand-over type (119 vanilla uses)
+#   add_claim_on_loss = yes   the former holder keeps a claim — the
+#                             Total-War-appropriate outcome, and the sandbox's
+#                             extra safety valve: a sold county stays winnable
+#                             back by war rather than vanishing from the map's
+#                             story. Parameter of create_title_and_vassal_change,
+#                             NOT the blacklisted short claim-effect name.
+#   take_baronies = no        carried from the window leg (tnt_35_multiselect.txt M6)
+# ONE change object, ONE hand-over, ONE resolve — vanilla's own shape, proven at
+# GAME\common\scripted_effects\00_major_decisions_scripted_effects.txt:772-798
+# and re-argued at length in tnt_35_multiselect.txt's header ("THIS IS THE
+# EFFECT THAT CAN CORRUPT A SAVE"): never a create/resolve pair per title, never
+# a resolve over another open change. This leg moves exactly one title, so the
+# question does not even arise.
+#
+# T3 IS RE-VALIDATED AT APPLY, exactly as the window leg does per title: the
+# world can change between E20's pick and this call only within one effect
+# chain today, but this leg is a general-purpose machine and the guard is what
+# lets any future caller trust it.
+#
+# The change scope is a PERMANENT save_scope_as because
+# create_title_and_vassal_change requires one (30-V2-DESIGN §3.5(e)); it dies
+# with the chain like every scope, and the name is this leg's own so it cannot
+# collide with the window's tnt_change_p/_r.
+###############################################################################
+tnt_ai_transfer_title_effect = {
+	$GIVER$ = {
+		if = {
+			limit = {
+				$TITLE$ = {
+					tnt_can_cede_title_trigger = { GIVER = $GIVER$ }
+				}
+			}
+			create_title_and_vassal_change = {
+				type = granted
+				save_scope_as = tnt_ai_title_change
+				add_claim_on_loss = yes
+			}
+			# V16, USER ITEM 1 - THE SAME SHAPE AS THE WINDOW LEG
+			# (tnt_35_multiselect.txt M6), so the two cannot drift. Only baronies
+			# the GIVER holds HIMSELF and that are NOT leased out follow the
+			# county; a mayor, a lay-clergy temple holder and a leased bishopric
+			# or holy-order barony all stay where they are. Full vanilla
+			# citations at the window leg; the load-bearing ones are
+			# GAME\common\casus_belli_types\00_event_war.txt:638-658 (iterator +
+			# tier filter + change_title_holder sharing the OUTER change, inside
+			# hidden_effect), GAME\common\on_action\title_on_actions.txt:2302-2318
+			# (`tier = tier_barony` in every_in_de_jure_hierarchy),
+			# GAME\common\important_actions\00_realm_actions.txt:218-222
+			# (`is_leased_out = no` in an iterator limit) and
+			# GAME\events\yearly_events\yearly_events_7.txt:1393-1403
+			# (`type = granted` + `add_claim_on_loss = yes` + `take_baronies = no`
+			# on ONE change, verbatim).
+			# This leg is capped at ONE county by E20 (tier = tier_county at
+			# :2135 with random_held_title), so the row count inside the change is
+			# 1 + the giver's own unleased baronies in that county.
+			$TITLE$ = {
+				if = {
+					limit = { tier = tier_county }
+					hidden_effect = {
+						every_in_de_jure_hierarchy = {
+							limit = {
+								tier = tier_barony
+								holder ?= $GIVER$
+								is_leased_out = no
+								# Same engine refusal as the live leg - see the long note in
+								# common\scripted_effects\tnt_35_multiselect.txt beside this row.
+								is_capital_barony = no
+							}
+							change_title_holder = {
+								holder = $RECEIVER$
+								change = scope:tnt_ai_title_change
+							}
+						}
+					}
+				}
+				change_title_holder = {
+					holder = $RECEIVER$
+					change = scope:tnt_ai_title_change
+					take_baronies = no
+				}
+			}
+			resolve_title_and_vassal_change = scope:tnt_ai_title_change
+		}
+	}
+}
+
+
+###############################################################################
+# E20 — tnt_ai_world_do_title_effect     NO PARAMETERS   (archetype S-TITLE)
+#
+# THE ACTOR BUYS ONE COUNTY FROM THE RECIPIENT, at full points price. Runs under
+# the ruling supersession recorded in this file's header; these are the tight
+# gates that keep it from being the silent land-grab the old ban feared:
+#
+#   1. COUNTY TIER ONLY. One county is a border adjustment; a duchy is a war.
+#   2. T3 (tnt_can_cede_title_trigger) — which itself refuses the seller's
+#      capital county and primary title (tnt_40_triggers.txt:406-407), so a
+#      one-county ruler can never be bought out of existence.
+#   3. THE REACH GATE, WIDENED UNDER USER ITEM 7b. The gate used to be the de
+#      jure row ALONE and the 2026-08 playtest measured it killing 68 of 68
+#      drawn title archetypes - demanding that the buyer already hold de jure
+#      claim over the seller's county is far narrower than this leg's own
+#      stated intent, "one county is a border adjustment". A border adjustment
+#      is exactly as legible when the county PHYSICALLY BORDERS the buyer's
+#      realm, so the gate is now an OR of the two honest readings:
+#        a. the de jure tidy-up - the buyer's PRIMARY title is the county's
+#           de jure liege or above (a duke buying a county of his own duchy).
+#           `target_is_de_jure_liege_or_above` on a title scope with a title
+#           target: REAL, verbatim shape
+#           GAME\common\casus_belli_types\09_mpo_wars.txt:3672
+#           (`target_is_de_jure_liege_or_above = scope:attacker.primary_title`).
+#           (The spec sketched this gate through any_held_title +
+#           is_de_jure_liege_or_above_target; that shape needs a prev.prev
+#           reach-back with ZERO vanilla call sites, so under R2 the mpo form —
+#           same fact, one proven trigger — is used instead. primary_title
+#           exists: the pulse trigger requires is_landed.)
+#        b. the border purchase - the county neighbours a county of the
+#           buyer's own realm, so the sale moves the existing frontier rather
+#           than planting an exclave. `any_neighboring_county` with a
+#           holder-or-his-liege-chain body: REAL, verbatim shape
+#           GAME\common\casus_belli_types\07_ep3_admin_cbs.txt:1260-1266
+#           (`any_neighboring_county = { OR = { holder = root  holder = {
+#            any_liege_or_above = { this = root } } } }`).
+#      A non-de-jure county is priced x1.4 dearer - the rider is inside
+#      tnt_ai_title_points_value (tnt_56_ai_values.txt S-TITLE), so the bump
+#      feeds the gold AND the seller's loss row and the round-trip below stays
+#      exact. Cost note: the neighbour walk runs inside the pick's limit, once
+#      per held title of the seller, on a path already rate-limited to one
+#      draw per AI per 3+ years.
+#   4. THE BALANCE. Gold at full price round-trips to the county's own points
+#      (S-TITLE, tnt_56_ai_values.txt), so the seller's balance reduces to
+#      relation - threshold > 0: land moves only between friendly realms.
+#
+# ONE TIER, like the ultimatum: the price is the county's worth, and "bid more"
+# is not a move this trade has — a county is not dearer because the buyer is
+# keen, and an overpaying AI would be the mis-priced-term failure the composer's
+# header warns about.
+#
+# ORDER: pick, then one compound test, then pay-transfer-notify-cooldown. The
+# pick must come first because tnt_ai_title_points_value reads
+# scope:tnt_deal_title (the declared one-scope exception in tnt_56). TEMPORARY
+# scope: everything ends inside this chain, contract m10 discipline.
+###############################################################################
+tnt_ai_world_do_title_effect = {
+	# V16, USER ITEM 2 (Q2-F5) - THE FOUR ROWS THAT STOOD HERE ARE NOW T50
+	# tnt_ai_world_title_saleable_trigger (common\scripted_triggers\tnt_40_triggers.txt),
+	# and E12's S-TITLE entry trigger calls the SAME trigger, so the entry trigger
+	# and this pick are one text and can never disagree again. That disagreement was
+	# 134 of 227 draws (59%) in the 2026-08-17 run: WSKIP why=no_eligible_title, the
+	# bucket the else-branch below already named correctly.
+	# T50 carries the tier row, T3, and the reach gate's two readings with every
+	# vanilla citation the inline version had, PLUS one repair: the neighbour test is
+	# now vanilla's own guarded county_held_or_vassal_to_target_trigger
+	# (GAME\common\scripted_triggers\00_title_triggers.txt:153-159) instead of a bare
+	# `holder = scope:actor` / `holder = { any_liege_or_above = … }` pair, which was
+	# an unguarded dereference of a neighbouring county's holder - the exact R13
+	# hazard the letter path already removed from all six copies of the same body.
+	# NOTHING WAS WIDENED: no across-water door was added here, so the silent land
+	# transfer still needs a LAND border or a de jure claim.
+	scope:recipient = {
+		random_held_title = {
+			limit = { tnt_ai_world_title_saleable_trigger = yes }
+			save_temporary_scope_as = tnt_deal_title
+		}
+	}
+
+	if = {
+		limit = {
+			exists = scope:tnt_deal_title
+			scope:actor = { gold >= tnt_ai_title_gold_value }
+			tnt_ai_deal_title_value > 0
+		}
+		tnt_log_wdone_title_effect = yes
+		tnt_ai_send_gold_effect = {
+			PAYER = scope:actor
+			RECEIVER = scope:recipient
+			AMOUNT = tnt_ai_title_gold_value
+		}
+		tnt_ai_transfer_title_effect = {
+			TITLE = scope:tnt_deal_title
+			GIVER = scope:recipient
+			RECEIVER = scope:actor
+		}
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_title
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+
+	# The archetype was abandoned. THREE HONEST BUCKETS since user item 7a,
+	# re-tested one row at a time the way E13's else does, so exactly one WSKIP
+	# line is written and the reasons partition the skips:
+	#   no candidate  V16 CHANGED WHAT THIS BUCKET MEANS. It used to mean "the entry
+	#                 trigger proved a cedable county EXISTS, so the reach gate
+	#                 (header gate 3) filtered them all" - the bucket the old
+	#                 compound why hid the 68/68 die-off in, and 134 of 227 draws
+	#                 (59%) in the 2026-08-17 run. Since Q2-F5 the entry trigger and
+	#                 the pick are the SAME trigger (T50), so a passing draw always
+	#                 has a candidate and NOTHING inside one effect chain can change
+	#                 that between them. This branch should therefore now be
+	#                 EMPTY, and it is kept as an assertion: any
+	#                 why=no_eligible_title line in the next run's log means the two
+	#                 ends have drifted apart again, or that random_held_title can
+	#                 fail where any_held_title succeeded - either of which is a
+	#                 defect to chase, not a statistic to accept.
+	#   buyer broke   a county was picked but the actor cannot pay its price.
+	#                 The re-test is the same `gold` row the branch limit asked,
+	#                 so `broke` means the same thing four lines up - and since
+	#                 V15 it also means the same thing the telemetry PRINTS, which
+	#                 it did not while the gate read short_term_gold and the log
+	#                 read GetGold (see tnt_3b_log.txt).
+	#   unbalanced    affordable and picked, and the seller's balance refused -
+	#                 the pricing observation.
+	else = {
+		if = {
+			limit = { NOT = { exists = scope:tnt_deal_title } }
+			tnt_log_wskip_title_notitle_effect = yes
+		}
+		else_if = {
+			limit = { scope:actor = { gold < tnt_ai_title_gold_value } }
+			tnt_log_wskip_title_broke_effect = yes
+		}
+		else = {
+			tnt_log_wskip_title_unbalanced_effect = yes
+		}
+	}
+}
+
+
+###############################################################################
+# E21 — tnt_ai_world_do_vassal_effect    NO PARAMETERS   (archetype S-FEALTY)
+#
+# THE ACTOR PAYS A WEAKER INDEPENDENT NEIGHBOUR TO KNEEL. Runs under the ruling
+# supersession recorded in this file's header. Legality is E12's entry trigger
+# (vanilla's own offer_vassalization rows, cited there); this effect owns the
+# money test, the balance and the hand-off to vanilla.
+#
+# THE APPLY IS VANILLA'S OWN ON_ACCEPT BODY, not a copy:
+# offer_vassalization_interaction_effect
+# (GAME\common\character_interactions\00_character_interactions.txt:1326-1327)
+# reads exactly scope:actor and scope:recipient — the two names E11 saves for
+# precisely this reuse (see E11's header) — and its body is the same
+# 00_interaction_effects.txt machinery the window's tnt_exec_vassal_effect was
+# copied from (tnt_32_apply.txt E26 header cites :2130-2226).
+#
+# THE OBLIGATION-CHOICE SCOPES MUST BE SAVED BEFORE THE CALL. The old text here
+# claimed unset scopes were "the effect's ordinary diet"; the 2026-08 playtest
+# log DISPROVED that - every feudal-recipient strike produced 9 error lines
+# (3 scopes x Undefined-event-target + unset-scope + Invalid-left-side, at
+# 00_interaction_effects.txt:2155/:2167/:2179), 18 across the run's two vassal
+# strikes. Non-fatal (the default-obligations else branch still ran and WDONE
+# preceded every cluster), but vanilla's OWN calling convention is to save the
+# scope first: start_tributary_from_war_effect does exactly
+# `save_scope_value_as = { name = high_obligations value = yes }` before its
+# nested call (00_interaction_effects.txt:2239-2242). We save all four choice
+# scopes as `no` - the fourth, religious_exemption_clan, is read by the clan
+# branch at :2206-2207 and would have erred the same way the moment a clan
+# ruler knelt - so the default-obligations else branch is chosen EXPLICITLY
+# instead of by error fallthrough.
+#
+# ACCEPTANCE IS ANCHORED ON VANILLA'S OWN base = -50 (:144): the actor pays 50
+# points of gold, the would-be vassal's balance reduces to
+# relation - threshold > 0 (S-FEALTY, tnt_56_ai_values.txt) — an AI kneels only
+# to a liege it already likes, never to a stranger with a purse.
+#
+# ONE TIER, like the ultimatum and the title trade: what independence is worth
+# is not a bidding matter, and vanilla prices it with one constant too.
+###############################################################################
+# One mutation seam for both consensual S-FEALTY and strategic submission.
+# Vanilla's effect requires all four obligation-choice scopes to exist; `no`
+# selects the default contract explicitly on feudal and clan branches.
+tnt_ai_world_apply_vassal_effect = {
+	save_scope_value_as = { name = high_obligations  value = no }
+	save_scope_value_as = { name = low_obligations  value = no }
+	save_scope_value_as = { name = religious_exemption  value = no }
+	save_scope_value_as = { name = religious_exemption_clan  value = no }
+	offer_vassalization_interaction_effect = yes
+}
+
+
+tnt_ai_world_do_vassal_effect = {
+	if = {
+		limit = {
+			scope:actor = { gold >= tnt_ai_vassal_gold_value }
+			tnt_ai_deal_vassal_value > 0
+		}
+		tnt_log_wdone_vassal_effect = yes
+		tnt_ai_send_gold_effect = {
+			PAYER = scope:actor
+			RECEIVER = scope:recipient
+			AMOUNT = tnt_ai_vassal_gold_value
+		}
+		tnt_ai_world_apply_vassal_effect = yes
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_vassal
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+	# TWO HONEST BUCKETS since user item 7a, the same re-test-the-rows split as
+	# E13's else and E20's: `liege_broke` re-asks the branch's own affordability
+	# row, so it means exactly what it means there; `vassal_refused` is the
+	# would-be vassal's balance saying no at a price the liege could pay.
+	else = {
+		if = {
+			limit = { scope:actor = { gold < tnt_ai_vassal_gold_value } }
+			tnt_log_wskip_vassal_broke_effect = yes
+		}
+		else = {
+			tnt_log_wskip_vassal_refused_effect = yes
+		}
+	}
+}
+
+
+###############################################################################
+# E22 — tnt_ai_transfer_artifact_effect   params: ARTIFACT, GIVER, RECEIVER
+# V13, USER ITEM 2.
+#
+# A pure parameter machine, like E1..E6 and E19: reads no variable anywhere, so
+# it is usable identically from this pulse and from any future interaction's
+# on_accept. SCOPE: the effect re-scopes into $ARTIFACT$ itself, so the caller
+# may stand anywhere.
+#
+# *** IT EXISTS BECAUSE M8 MAY NOT BE CALLED FROM HERE. *** The window's own
+# tnt_exec_artifact_multi_effect (tnt_35_multiselect.txt) opens with
+# `has_variable_list = tnt_sel_artifact_$SIDE$` and then iterates that list
+# UNQUALIFIED — off the CALLER's scope, which the window guarantees is the player
+# and this pulse does not. Calling it from an AI-to-AI path would read a list
+# that is not there, or worse, somebody else's. This leg is M8's per-artifact
+# PAYLOAD (its every_in_list body, :592-600) with the list read replaced by a
+# parameter — the same derivation E19 is built on, and the same guarantee: the
+# window and the sandbox move an artifact with one piece of code, so they cannot
+# drift.
+#
+# THE FULL set_owner FORM WITH A HISTORY BLOCK, so the piece's own history reads
+# correctly afterwards. Verbatim vanilla call site, inside an interaction's
+# on_accept, on a saved artifact scope:
+# GAME\common\character_interactions\10_tgp_interactions.txt:8473-8485.
+# The two blacklisted artifact-moving names do not exist in 1.19.
+#
+# T9 IS RE-VALIDATED HERE, exactly as the window leg re-validates it per
+# artifact: it delegates whole to vanilla's artifact_can_be_gift_to_trigger,
+# which owns the real rules (house banners, faith relics, claimed pieces, and
+# anything tied to a title's succession). Within one effect chain nothing can
+# change between E23's pick and this call, but this is a general-purpose machine
+# and the guard is what lets a future caller trust it.
+#
+# NO create_title_and_vassal_change, no resolve, no change object: an artifact is
+# a possession and moving it is one engine call. None of the save-corruption
+# reasoning that surrounds E19 applies here.
+###############################################################################
+tnt_ai_transfer_artifact_effect = {
+	$ARTIFACT$ = {
+		if = {
+			limit = { tnt_artifact_giftable_trigger = { RECEIVER = $RECEIVER$ } }
+			set_owner = {
+				target = $RECEIVER$
+				history = {
+					type = given
+					actor = $GIVER$
+					recipient = $RECEIVER$
+					location = $GIVER$.location
+				}
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# E23 — tnt_ai_world_do_artifact_effect   NO PARAMETERS   (archetype S-ARTIFACT)
+# V13, USER ITEM 2 — the user's second named replacement for the retired pacts.
+#
+# THE ACTOR BUYS ONE PIECE OUT OF THE RECIPIENT'S HALL, at full points price.
+# Structurally this is E20 with the title swapped for an artifact, and everything
+# E20's header argues for applies unchanged:
+#
+#   1. THE GATE IS VANILLA'S OWN AND NOTHING ELSE. T9 delegates entirely to
+#      artifact_can_be_gift_to_trigger (GAME\common\scripted_triggers\
+#      00_artifact_triggers.txt:58-111) — flat lookups, no iterator, no tree
+#      walk — which already refuses dynasty and house banners, relics of a
+#      faith, claimed pieces and anything carrying var:artifact_succession_title.
+#      There is no mod-invented restriction on top: this file does not get to
+#      decide what an heirloom is.
+#   2. THE PRICE IS FULL VALUE, so the round trip is exact and the seller's
+#      balance reduces to relation - threshold > 0 — TREASURE MOVES ONLY BETWEEN
+#      FRIENDLY REALMS, the same property that makes the title sale safe. The
+#      rarity ladder is the WINDOW'S own, 35 / 75 / 100 / 150
+#      (tnt_54_multiselect_values.txt), so the sandbox and the window agree about
+#      what a piece is worth.
+#   3. ONE TIER, like the ultimatum and the title trade. A sword is not dearer
+#      because the buyer is keen, and an overpaying AI is the mis-priced-term
+#      failure the composer's header warns about.
+#
+# ORDER: pick, then one compound test, then pay-transfer-notify-cooldown. The
+# pick MUST come first because tnt_ai_artifact_points_value reads
+# scope:tnt_deal_artifact — the second declared exception to tnt_56's two-scope
+# rule, beside E20's scope:tnt_deal_title, and guarded on `exists` the same way
+# so a stray evaluation outside this chain returns 0.
+#
+# random_character_artifact in EFFECT position with a scripted-trigger limit:
+# REAL, GAME\common\character_interactions\00_tributary_interactions.txt
+# :2395-2403. The any_ form is the entry trigger's, E12. SAVING THE PICKED
+# ARTIFACT AS A SCOPE is vanilla's own shape in that same family - the decision
+# twin of that interaction does `random_character_artifact = { limit = {
+# is_suitable_artifact_tribute_trigger = yes }  save_scope_as = ... }`,
+# GAME\common\scripted_effects\tgp_tribute_mission_scripted_effects.txt:207-210,
+# and the TEMPORARY form on an artifact is at
+# GAME\common\character_interactions\06_ep3_interactions.txt:11830-11832.
+#
+# WHY THE 1200-GOLD CAP IS LOAD-BEARING RATHER THAN TIDINESS: at 15 gold a point
+# a famed piece (100) asks 1,500 and an illustrious one (150) asks 2,250, both
+# clamped to 1,200 — which makes the round trip UNFAVOURABLE to the seller and
+# the balance below refuses. That is the right failure: the sandbox should not be
+# able to move a legendary sword silently. Expect WDONE pts=35 and pts=75 almost
+# exclusively; pts=100 or pts=150 lines in a log mean the cap arithmetic broke.
+###############################################################################
+tnt_ai_world_do_artifact_effect = {
+	scope:recipient = {
+		random_character_artifact = {
+			limit = {
+				tnt_artifact_giftable_trigger = { RECEIVER = scope:actor }
+			}
+			save_temporary_scope_as = tnt_deal_artifact
+		}
+	}
+
+	if = {
+		limit = {
+			exists = scope:tnt_deal_artifact
+			scope:actor = { gold >= tnt_ai_artifact_gold_value }
+			tnt_ai_deal_artifact_value > 0
+		}
+		tnt_log_wdone_artifact_effect = yes
+		tnt_ai_send_gold_effect = {
+			PAYER = scope:actor
+			RECEIVER = scope:recipient
+			AMOUNT = tnt_ai_artifact_gold_value
+		}
+		tnt_ai_transfer_artifact_effect = {
+			ARTIFACT = scope:tnt_deal_artifact
+			GIVER = scope:recipient
+			RECEIVER = scope:actor
+		}
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_artifact
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+
+	# THREE HONEST BUCKETS, E20's own split and for E20's own reason: a compound
+	# why= is what hid the title archetype's 68/68 die-off for a whole playtest.
+	# The rows are re-tested one at a time so exactly one WSKIP line is written
+	# and the reasons partition the skips.
+	#   no_giftable_artifact  the entry trigger proved a giftable piece EXISTS,
+	#                         so reaching this bucket means the world changed
+	#                         inside the pulse - it should be near-zero, and a
+	#                         population here is a bug, not a tuning signal.
+	#   buyer_broke           a piece was picked and the actor cannot pay.
+	#   unbalanced            affordable, picked, and the seller refused - the
+	#                         pricing observation, and where the 1200-gold cap
+	#                         will show up on famed and illustrious pieces.
+	else = {
+		if = {
+			limit = { NOT = { exists = scope:tnt_deal_artifact } }
+			tnt_log_wskip_artifact_none_effect = yes
+		}
+		else_if = {
+			limit = { scope:actor = { gold < tnt_ai_artifact_gold_value } }
+			tnt_log_wskip_artifact_broke_effect = yes
+		}
+		else = {
+			tnt_log_wskip_artifact_unbalanced_effect = yes
+		}
+	}
+}
+
+
+###############################################################################
+# E24 — tnt_ai_world_do_wed_effect   NO PARAMETERS   (archetype S-WED)
+# V13, USER ITEM 2 — the user's third named replacement, and the only one that
+# needed machinery rather than a weight.
+#
+# TWO HOUSES ARE JOINED. The actor's kinsman marries the recipient's, and the
+# actor pays a dowry. Nothing about the realm graph moves, and NO ALLIANCE IS
+# CREATED — that was checked in the install rather than assumed; the proof is in
+# the S-WED entry in E12 and it matters, because user item 1 refused the alliance
+# and a wedding that quietly minted one would reverse his ruling by the back
+# door.
+#
+# ===========================================================================
+# WHICH MARRIAGE DOOR THIS USES, AND WHY THE OTHER TWO ARE FORBIDDEN HERE
+# ===========================================================================
+# tnt_wed_plain_pair_effect (tnt_34_marriage.txt) IS THE DOOR. It reads exactly
+# scope:tnt_wed_p, scope:tnt_wed_r and `exists = var:tnt_wed_matri` on the scope
+# it runs in — no root read, no variable list, no var:tnt_partner, no
+# var:tnt_open. Run inside scope:tnt_wed_p the scope shape is bit-identical to
+# the window path's, where that effect runs on a member of tnt_wed_list. It is
+# also the NON-GRAND leg, so vanilla's four promised_grand_wedding_* variables —
+# whose whole lifecycle belongs to vanilla — stay unreachable from a silent path.
+# var:tnt_wed_matri does not exist on an ordinary AI kinsman, so the pair takes
+# the patrilineal branch; that is the deliberate default here, because the line
+# is a PLAYER's choice in the window and there is no player on this path.
+#
+# NOT tnt_wed_add_pair_effect: it is a STAGING door for an open table. It writes
+# five permanent variables on a character, freezes a price against
+# var:tnt_partner and sets tnt_marriage_p/_r on the caller. The sandbox has no
+# table and must leave no state behind but the timed cooldown.
+# NOT tnt_wed_one_pair_effect: it saves scope:tnt_wed_p from `this` and reads
+# var:tnt_wed_partner off the member, i.e. it DEMANDS those staged variables.
+# What it also does is re-validate the pair, and THAT is the part this effect
+# must supply itself — the four rows are in the commit limit below, copied from
+# tnt_wed_one_pair_effect's own `if` (tnt_34_marriage.txt:2126-2134).
+# NOT tnt_marriage_default_line_effect: it writes tnt_marriage_matri, the window
+# CURSOR, from root's realm law — a different variable, and there is no root.
+#
+# ===========================================================================
+# TWO PASSES FROM DAY ONE, AND THE MEASUREMENT THAT BOUGHT THEM
+# ===========================================================================
+# The entry trigger proves each side HAS somebody marriageable; it says nothing
+# about whether those two may marry EACH OTHER. Pass 1 fixes the ACTOR's
+# candidate and asks the recipient's pool; when that single draw finds nobody it
+# is almost always vanilla's gender row, which is a fact about the PAIR and not
+# about either pool — so re-drawing from the same end would keep asking the same
+# question. Pass 2 fixes the RECIPIENT's candidate and asks the actor's: an
+# independent draw over the same two pools. A16 on the letter path measured ONE
+# blind draw coming up empty 6 times out of 6, which is why this archetype ships
+# with the second pass instead of earning it later.
+# NEW SCOPE NAMES, NOT A RE-SAVE: re-saving a live temporary scope is itself an
+# error in this engine.
+#
+# THE COMMIT ASKS can_marry_character_trigger IN THE SAME DIRECTION THE PICK
+# ASKED IT. Whichever pass produced the pair, tnt_wed_p is the character whose
+# scope the pick's test passed in, so the commit's re-test cannot disagree with
+# the pick about a row that reads asymmetrically. Lineality does not depend on
+# which of the two is p: it is decided by the effect NAME, not by the scope
+# (tnt_34_marriage.txt).
+#
+# COST: the cross-legality is the expensive part (can_marry_character_trigger
+# pulls vanilla's consanguinity walk) and it lives HERE, in the body, which runs
+# once for the ONE drawn archetype — never in the entry trigger, which
+# random_list evaluates for every entry on every firing pulse.
+#
+# ONE TIER, like every other one-sided sandbox trade: what a match is worth is
+# not a bidding matter.
+###############################################################################
+tnt_ai_world_do_wed_effect = {
+	# V18, USER ITEM 2 - all four picks carry T51, the ownership gate, exactly as
+	# this archetype's entry trigger does. The entry and the picks must ask the
+	# same question or the entry promises a pair the picks then refuse, which is
+	# the defect A16 shipped for three rounds on the letter path. Both handles
+	# are absolute saved scopes. Full argument at the entry trigger above.
+	# --- PASS 1: fix THEIR side first, then ask the recipient's pool ---------
+	scope:actor = {
+		random_close_family_member = {
+			limit = {
+				is_alive = yes
+				is_betrothed = no
+				marriage_interaction_can_be_picked_trigger = yes
+				tnt_may_offer_spouse_trigger = { SIDE = scope:actor }
+			}
+			save_temporary_scope_as = tnt_wed_a1
+		}
+	}
+	if = {
+		limit = { exists = scope:tnt_wed_a1 }
+		scope:recipient = {
+			random_close_family_member = {
+				limit = {
+					is_alive = yes
+					is_betrothed = no
+					marriage_interaction_can_be_picked_trigger = yes
+					tnt_may_offer_spouse_trigger = { SIDE = scope:recipient }
+					can_marry_character_trigger = { CHARACTER = scope:tnt_wed_a1 }
+				}
+				save_temporary_scope_as = tnt_wed_b1
+			}
+		}
+	}
+
+	# --- PASS 2: the same search from the other end, only if pass 1 failed ---
+	if = {
+		limit = { NOT = { exists = scope:tnt_wed_b1 } }
+		scope:recipient = {
+			random_close_family_member = {
+				limit = {
+					is_alive = yes
+					is_betrothed = no
+					marriage_interaction_can_be_picked_trigger = yes
+					tnt_may_offer_spouse_trigger = { SIDE = scope:recipient }
+				}
+				save_temporary_scope_as = tnt_wed_b2
+			}
+		}
+		if = {
+			limit = { exists = scope:tnt_wed_b2 }
+			scope:actor = {
+				random_close_family_member = {
+					limit = {
+						is_alive = yes
+						is_betrothed = no
+						marriage_interaction_can_be_picked_trigger = yes
+						tnt_may_offer_spouse_trigger = { SIDE = scope:actor }
+						can_marry_character_trigger = { CHARACTER = scope:tnt_wed_b2 }
+					}
+					save_temporary_scope_as = tnt_wed_a2
+				}
+			}
+		}
+	}
+
+	# --- name the winning pair, p first in the direction the pick tested -----
+	# Pass 1 tested the recipient's kinsman against the actor's, so HE is p;
+	# pass 2 tested the actor's kinsman against the recipient's, so he is.
+	if = {
+		limit = {
+			exists = scope:tnt_wed_a1
+			exists = scope:tnt_wed_b1
+		}
+		scope:tnt_wed_b1 = { save_temporary_scope_as = tnt_wed_p }
+		scope:tnt_wed_a1 = { save_temporary_scope_as = tnt_wed_r }
+	}
+	else_if = {
+		limit = {
+			exists = scope:tnt_wed_a2
+			exists = scope:tnt_wed_b2
+		}
+		scope:tnt_wed_a2 = { save_temporary_scope_as = tnt_wed_p }
+		scope:tnt_wed_b2 = { save_temporary_scope_as = tnt_wed_r }
+	}
+
+	# --- ONE ATOMIC BRANCH: pair, re-validation, money and balance together --
+	# The re-validation rows are inside the LIMIT and not after the payment on
+	# purpose: a dowry that moves without a wedding is the one outcome this
+	# archetype must never produce.
+	if = {
+		limit = {
+			exists = scope:tnt_wed_p
+			exists = scope:tnt_wed_r
+			NOT = { scope:tnt_wed_p = { this = scope:tnt_wed_r } }
+			scope:tnt_wed_p = {
+				is_alive = yes
+				can_marry_character_trigger = { CHARACTER = scope:tnt_wed_r }
+			}
+			scope:tnt_wed_r = { is_alive = yes }
+			scope:actor = { gold >= tnt_ai_wed_gold_value }
+			tnt_ai_deal_wed_value > 0
+		}
+		tnt_log_wdone_wed_effect = yes
+		tnt_ai_send_gold_effect = {
+			PAYER = scope:actor
+			RECEIVER = scope:recipient
+			AMOUNT = tnt_ai_wed_gold_value
+		}
+		scope:tnt_wed_p = {
+			tnt_wed_plain_pair_effect = yes
+		}
+		tnt_ai_world_notify_effect = {
+			A = scope:actor
+			B = scope:recipient
+			TT = tnt_ai_msg_tt_wed
+		}
+		tnt_ai_world_cooldown_effect = {
+			A = scope:actor
+			B = scope:recipient
+		}
+	}
+
+	# THREE HONEST BUCKETS, the same partition E20 and E23 use.
+	#   no_legal_pair  BOTH passes came up empty, or the two picks landed on one
+	#                  and the same man. THIS IS THE ARCHETYPE'S RISK LINE and
+	#                  the first number the next playtest must read: the entry
+	#                  trigger only proved that each side HAS somebody
+	#                  marriageable, never that those two may marry each other.
+	#                  THE EXPENSIVE ROW IS DELIBERATELY NOT RE-ASKED HERE: a
+	#                  pair can only exist at all if one of the two picks already
+	#                  passed can_marry_character_trigger on it, and nothing can
+	#                  change inside one effect chain - so re-walking vanilla's
+	#                  consanguinity check on the SKIP path would buy nothing and
+	#                  would be paid even with telemetry off. The cheap not-the-
+	#                  same-man row IS re-asked, because that is the one way the
+	#                  commit limit can refuse a pair the picks produced.
+	#   payer_broke    a legal pair, and the actor cannot afford the dowry.
+	#   unbalanced     affordable and legal, and the recipient's balance refused.
+	else = {
+		if = {
+			limit = {
+				NOT = {
+					AND = {
+						exists = scope:tnt_wed_p
+						exists = scope:tnt_wed_r
+						NOT = { scope:tnt_wed_p = { this = scope:tnt_wed_r } }
+					}
+				}
+			}
+			tnt_log_wskip_wed_nopair_effect = yes
+		}
+		else_if = {
+			limit = { scope:actor = { gold < tnt_ai_wed_gold_value } }
+			tnt_log_wskip_wed_broke_effect = yes
+		}
+		else = {
+			tnt_log_wskip_wed_unbalanced_effect = yes
+		}
+	}
+}
+
+
+###############################################################################
+# E17b - tnt_ai_world_pick_threat_target_effect     NO PARAMETERS
+#        reads scope:actor and scope:recipient (both saved by E11) and MAY
+#        RE-POINT scope:recipient. Called as the FIRST statement of the A5
+#        entry body, above its WARCH line - see THE TELEMETRY ORDER below.
+#
+# *** IT IS DECLARED AT THE END OF THE FILE AND NOT BESIDE E17, WHICH IS WHERE
+# *** IT BELONGS BY SUBJECT. *** Scripted effects are resolved at load and the
+# order of declaration means nothing to the engine, but a 114-line block
+# inserted above E17 would shift every line below it and rot five live
+# citations into this file at :2224, :2718, :2731, :2748 and :2761 - house law
+# 11, the citation discipline, in its plainest form. Appending costs one
+# cross-reference from the A5 entry and rots nothing at all.
+#
+# *** THE STARRED CLAIM THAT STOOD HERE WAS UNTRUE IN BOTH HALVES AND IS
+# *** REPLACED, 2026-08-25. *** It read "THE AI WATCHES THE SCOPE OF EVERYONE IT
+# CAN LEAN ON, AND PICKS FROM IT", with "DRAW FROM AMONG THE RULERS THE ACTOR
+# CAN ALREADY LEAN ON" under it. Neither describes what ships. What ships is:
+#
+#   (1) THE POOL IS THE ACTOR'S NEIGHBOURS - BY LAND AND ACROSS WATER - MINUS
+#       ITS OWN VASSALS AND ITS OWN LIEGE CHAIN. Not "everyone". The iterator
+#       below is random_neighboring_and_across_water_top_liege_realm_owner, and
+#       tnt_ai_world_partner_valid_trigger (T49) then deletes two whole classes
+#       that the ratio ruling permits: NOT = { target_is_liege_or_above = root }
+#       and NOT = { target_is_vassal_or_below = root }, the two hierarchy rows
+#       of common\scripted_triggers\tnt_40_triggers.txt, which carry their own
+#       measurement beside them (without them, 290 of 584 pairs had ONE
+#       recipient, the Emperor of Dorne, and the 290 actors were his vassals).
+#       *** THOSE TWO ROWS STAY, AND THAT IS A DECISION, NOT AN OVERSIGHT. ***
+#       T49 is the SHARED partner gate of all eight archetypes, not the
+#       ultimatum's own: loosening it for A5 would loosen wedding, title,
+#       artifact and fealty against a ruler's own vassals in the same edit,
+#       which is the concentration defect those rows were added to cure. An
+#       ultimatum-only exemption would be a SECOND COPY of T49 minus two rows -
+#       house law 9, this project's most expensive recurring defect. If the
+#       sandbox is ever to extort INSIDE a realm, the move is a new named
+#       trigger that CALLS T49's flat rows, never a fork of T49 and never a row
+#       quietly deleted from it.
+#
+#   (2) THE SEARCH CANNOT RAISE HOW OFTEN THE AI LEANS ON ANYBODY AT ALL. It is
+#       the FIRST STATEMENT of A5's entry BODY, and A5's entry TRIGGER has
+#       already run tnt_can_threat_trigger on the pair E11 drew blindly. So the
+#       search can only RE-AIM a draw that has already succeeded: it improves
+#       WHO gets extorted, never HOW OFTEN. The retired starred line implied the
+#       opposite, and that is the reading it left behind - which is why this
+#       correction is at the top of the block and not twelve lines further down.
+#
+# WHY THE PICK IS STILL HERE AND NOT AT THE PAIR PICK: biasing E11 would bias
+# ALL EIGHT archetypes toward victims - the tribute scar this project already
+# carries once. Inside the drawn archetype's own body the entry trigger stays
+# the blind test, so the archetype's FREQUENCY is exactly what it was; the pick
+# can only IMPROVE the victim. If the search finds nobody, the entry-drawn
+# recipient is kept and nothing is worse than before. The weight stays 10 and
+# A21's stays 6 - DO NOT RAISE EITHER: run D measured that weight was never the
+# constraint (43 of 64 letter compositions drew no archetype at all, so a
+# passing entry wins with probability 1 two thirds of the time).
+#
+# THE LEVER IS THIS FILE'S OWN, NAMED FOR THE SIBLING ARCHETYPE IN A6's comment
+# block above: *"the lever is the PAIR SEARCH, not the weight and not this
+# trigger: draw the counterparty from among the rulers the actor already holds a
+# hook on, instead of drawing a neighbour and asking."* Applied here as far as
+# the SHARED partner gate allows, and the qualifier is the whole of (1) above:
+# DRAW FROM AMONG THE NEIGHBOURS THE ACTOR CAN ALREADY LEAN ON.
+#
+# *** THE ITERATOR GAINED ACROSS-WATER ON 2026-08-25 - THE SAME ONE WORD THE
+# *** ALERT'S POOL 2 GAINED. *** The mirror case is the evidence, and it was a
+# plain inconsistency rather than a judgement call: an across-water neighbour
+# can already compose a DEMAND against the player - tnt_ai_offer_try_effect
+# draws its candidate with random_neighboring_and_across_water_top_liege_realm_
+# owner in common\scripted_effects\tnt_37_ai_offer.txt - yet that same man could
+# never be picked as an AI's own ultimatum victim, because this iterator was
+# land-only. REAL, and in the exact form used below (iterator + limit +
+# save_temporary_scope_as inside the limit): GAME\common\scripted_effects\
+# 01_dlc_fp3_scripted_effects.txt:592-601; a second site is GAME\common\
+# decisions\dlc_decisions\ce_1\ce1_legendary_decisions.txt:411. MEASURED
+# 2026-08-25 over GAME\common + GAME\events: the random_ form has 24 sites, the
+# any_ form 62 and the every_ form 26, against 57 for the land-only
+# random_neighboring_top_liege_realm_owner it replaces. Vanilla treats both
+# neighbourhoods as cheap bounded sets; across-water adds the realms one sea
+# tile away and nothing else.
+#
+# *** AND THE INEQUALITY IS NOW REVERSED, WHICH NOBODY HAD WRITTEN DOWN. *** The
+# alert widened its own pool 2 on the argument that the PLAYER's threat scope
+# was strictly NARROWER than the AI's reach (common\important_actions\
+# tnt_91_alerts.txt, THE SWEEP). Since the ruling gave him three pools -
+# every_vassal, every_neighboring_and_across_water_top_liege_realm_owner and
+# every_liege_or_above - that inequality reads the other way: THE PLAYER'S SCOPE
+# IS NOW STRICTLY WIDER THAN THE AI'S, by exactly the two classes T49 deletes.
+# It is an ACCEPTED asymmetry, not a bug to be closed by deleting a player pool:
+# the player aims one threat by hand at a man he chose, and the sandbox fires
+# whatever archetype the pulse happened to draw at whoever it happened to draw.
+#
+# COST: ONE bounded iterator per DRAWN ultimatum - 4 in run D - never per pulse.
+# tnt_72_ai_world.txt's own iterator census rates this neighbourhood "fine" for
+# a pulse; we are far inside that, and E11 already pays for one iterator of the
+# same family on every pulse that reaches it.
+#
+# =============================================================================
+# WHAT RUN D PROVES ABOUT THIS ARCHETYPE, AND WHAT IT CANNOT - 2026-08-25.
+# A5's own comment used to carry "15.9% of run D's 2,105 WPAIR pairs clear the
+# new one-number gate against ~0.55% before, so this entry goes from 4 draws to
+# ~110 unaided", and this block used to carry the "~110" half as a cost figure.
+# The log was re-counted line by line this round. The claim splits into three
+# parts with three different evidentiary statuses, and only the first is a
+# measurement.
+#
+# EXACT, RE-COUNTED FROM THE 2026-08-24 LOG (26,886 TNTLOG lines):
+#   WPAIR 2,105 - WARCH 2,105 - arch=ultimatum 4, i.e. 0.190% of all WARCH.
+#   334 of the 2,105 WPAIR lines carry ratio >= 2.0, i.e. 15.87%. THAT is where
+#   the 15.9% came from, and it is a real count - of a PROXY, not of the gate.
+#
+# WHY IT IS NOT THE GATE. Three independent reasons, any one of them fatal:
+#   (a) TWO OF THE GATE'S THREE FACTORS ARE NOT IN THE LOG AT ALL. A WPAIR line
+#       carries exactly y|a|aid|b|bid|ratio|edge. Neither side's dread and
+#       neither side's prestige level appears on WPAIR or on WARCH, so the
+#       prestige-difference and dread-difference factors were silently pinned to
+#       neutral. Both are multipliers that can carry a pair across the bar or to
+#       zero, so 15.87% is neither an upper nor a lower bound on the gate - it
+#       is one counterfactual slice. (edge= is a TITLE-TIER gap and is not a
+#       stand-in for prestige_level; do not reuse it as one.)
+#   (b) EVEN THE ONE LOGGED FACTOR IS THE WRONG QUANTITY. WPAIR's ratio= is
+#       tnt_ai_power_ratio_value - current_military_strength over
+#       current_military_strength, CLAMPED to 0.2-5, with 132 pairs pinned at
+#       the ceiling. The gate uses tnt_threat_ratio_value: max_military_strength
+#       over max_military_strength, UNCLAMPED. Different engine field, different
+#       clamp, different population.
+#   (c) THE GATE NEVER RAN. Run D's four ultimatum lines carry pts= 13.594,
+#       26.583, 100 and 50 - three of the four could not have been drawn at all
+#       under pts >= 100 - and their asks (82, 239, 400, 300) match the RETIRED
+#       x0.6 constants on 4 of 4 and the shipped x0.15 ones on 0 of 4. That log
+#       was written by the four-rule ladder the ruling replaced.
+#
+# THE "~0.55% BEFORE" IS NOT A COUNT EITHER. The counted rate is 0.190%
+# (4 / 2,105). 0.55% is that number inverted through the random_list's
+# renormalisation: `none` carries weight 13 and no trigger and took 955 of the
+# 2,105 draws, so the passing weights sum to 13 / 0.45368 = 28.65, an ultimatum
+# whose trigger passed wins 10 / 28.65 = 34.9% of the time, hence ~11.5 passing
+# pairs = 0.545%. That denominator is optimistic - when the ultimatum passes,
+# its own 10 joins the sum, giving 38.65, 25.9% and 0.735% - and the whole
+# estimate rests on FOUR events, whose Poisson 95% band is roughly 0.15%-1.4%.
+# Two significant figures were never available from it.
+#
+# SO THE BOUND IS DEMOTED TO A PREDICTION, TO BE TESTED ON THE NEXT RUN AND NOT
+# QUOTED AS A RESULT UNTIL THEN: with the ratio gate live and this iterator
+# widened, arch=ultimatum should rise from 0.190% of WARCH toward the low single
+# digits, and it MUST STAY UNDER ITS NOMINAL SHARE OF 10 IN 100. If it lands at
+# or above that nominal share, the gate is too loose and the fix is THE GATE,
+# never the weight - see the tribute scar named above.
+#
+# *** AND THAT BOUND MEASURES DRAWS, WHICH ON 2026-08-25 STOPPED BEING THE THING
+# *** THAT MOVES. *** The purse clamp shipped that day lives in the archetype
+# BODY - E17's limit and its AMOUNT row, above in this file - DOWNSTREAM of the
+# draw. So the WARCH share is unchanged BY CONSTRUCTION and the bound above will
+# read PASS whatever happens. What moved is the CONVERSION rate: 4 of 53 drawn
+# ultimatums concluded before the clamp, and the measurement that forced it (48
+# of the 49 refusals came from victims with a POSITIVE balance) predicts roughly
+# 41 of 53 after. A bound blind to the only quantity that changed certifies
+# nothing, so there are TWO acceptance bounds now and BOTH must hold:
+#   1. DRAWS - arch=ultimatum over all WARCH, under its nominal 10 in 100. That
+#      is the paragraph above, unchanged.
+#   2. CONVERSION - WDONE|arch=ultimatum over WARCH|arch=ultimatum, and it must
+#      CLEAR 40%. THE 40 IS DERIVED HERE, NOT BORROWED: A21's 25 is
+#      COMPOSE|arch=21 over COMPOSE - letters SENT, no go/no-go (CLAUDE.md
+#      section 3), another stage. BASELINE 4 of 53 = 7.5%; the repair above
+#      predicts 41 of 53 = 77%; 40 separates moved from unmoved. The 08-19
+#      4-of-94 all-WDONE share (4.3%) is a different histogram.
+# WHICH BOUND BREAKS TELLS YOU WHICH LEVER IS WRONG. Bound 1 alone: the gate is
+# loose, fix THE GATE. Bound 2 alone: the fault is the CONVERSION, so the fix is
+# E17's limit or the clamp - never the weight, which bound 1 already governs.
+# Both: the tribute scar, and it is the weight after all.
+#
+# NO MINIMUM TAKE, AND IT IS A JUDGEMENT RATHER THAN AN OVERSIGHT (audited and
+# answered 2026-08-25). E17's limit is RECIPIENT-SIDE ONLY - `gold >= 13` and the
+# victim's own balance - so nothing tests that the take is worth what the ACTOR
+# spends, and what he spends is not small: tnt_ai_world_cooldown_effect writes a
+# 3-year GLOBAL tnt_ai_world_cd on BOTH parties, and tnt_threat_opinion locks the
+# pair against any further threat for fifteen years. At the floor the take is
+# round(0.8 x 13) = 10 gold. An actor-side row, `tnt_ai_demand_gold_value >= 25`,
+# was proposed and is NOT SHIPPED, for three reasons in order of weight:
+#   (a) IT WOULD RE-BREAK THE PARITY THIS ROUND JUST BOUGHT. The letter path duns
+#       the player from a purse of 13 - A21's own `root = { gold >= 13 }` entry
+#       row at common\scripted_effects\tnt_37_ai_offer.txt:4833. A 25 here alone
+#       is one mechanic under two rulings again, the defect the clamp repaired.
+#   (b) THE 25 IS BORROWED FROM AN UNRELATED CALIBRATION. It is the `min` of
+#       tnt_ai_gold_low_value (common\script_values\tnt_56_ai_values.txt), the
+#       floor of the ACTOR'S LOW SWEETENER TIER - 0.6 of the RECIPIENT'S yearly
+#       income, clamped 25..400 - and not a stated floor on what a payer hands
+#       over. Its own header sets it so an AI cannot bid what a player cannot
+#       match, which is a different question entirely.
+#   (c) ITS COST IS UNMEASURED. The row refuses every purse under 30.625, not
+#       25/0.8: round = yes on the ask makes it 0.8g >= 24.5. Median purse 73,
+#       291 of 310 readings under 300, but NO count below 31 - so shipping it
+#       would cut an unknown slice out of the archetype calibrated the same day.
+# IT IS DECIDABLE ON THE NEXT RUN WITH NO NEW FIELD. The WDONE ultimatum line
+# already carries gold= (raw), cap=, ask= (paid) and bal=, so count
+# WDONE|arch=ultimatum with ask under 25 as a share of WDONE|arch=ultimatum. If
+# that share is large the gap is real - and the fix then belongs on BOTH paths in
+# one commit, never on this one alone.
+#
+# THE INSTRUMENT ALREADY EXISTS AND NEEDS NO NEW FIELD: count arch=ultimatum
+# over all WARCH, and count WPAIR.bid != WARCH.bid on those lines to see how
+# much this pick is actually doing (the deliberate join break is documented
+# below). WHAT IS STILL NOT MEASURABLE, said plainly so the next session does
+# not re-derive 15.9% by another route: NO line type logs a threat number for a
+# pair that did not draw, so "how many pairs clear the bar" needs a new emitter,
+# not a cleverer query over the old log.
+# =============================================================================
+#
+# ROOT IS THE PROPOSER HERE, AND THAT IS SETTLED BY CONSTRUCTION RATHER THAN BY
+# AN IN-GAME TEST. tnt_ai_world_partner_valid_trigger (T49,
+# common\scripted_triggers\tnt_40_triggers.txt) reads `root` as the proposer and
+# its header forbids calling it from anywhere else. The chain from the host is
+# ai_character_pulse -> tnt_ai_world_pulse -> tnt_ai_world_pulse_effect, whose
+# FIRST statement is a bare `save_temporary_scope_as = actor` - so scope:actor
+# IS root on this path - and a scope-change block re-binds `this` and `prev`,
+# never `root`. E11, E12 and this effect are scripted effects, which are inlined
+# textually and create no root of their own. No wrapper is needed and none is
+# wanted.
+#
+# THE IDIOM IS THE MOD'S OWN: save_temporary_scope_as FIRST in the limit, then
+# the parameterised gate on ABSOLUTE handles. $A$/$B$ are TEXT MACROS and a
+# relative handle re-binds inside the substituted body - the trap written out at
+# common\important_actions\tnt_91_alerts.txt, POOL 1's own note.
+#
+# *** THE FOUR SAVES AT THE BOTTOM ARE NOT OPTIONAL AND THIS IS THE ONE THING
+# *** THAT COULD HAVE GONE WRONG SILENTLY. *** Since the 2026-08-25 alias split,
+# tnt_threat_points_value resolves "me" and "him" through scope:tnt_thr_me /
+# scope:tnt_thr_you, and its own prologue is GUARDED - it fills them in only when
+# they are absent. tnt_can_threat_trigger saves that pair UNGUARDED, so the search
+# below leaves them pointing at THE LAST CANDIDATE IT TESTED, who is not
+# necessarily the one it chose and need not be the recipient at all. The PRICE pair
+# tnt_me / tnt_p is re-anchored beside it because the sandbox's own values read
+# THAT one. Both pairs, in BOTH branches, is what keeps the ask, WARCH's pts= and
+# the recipient's own balance talking about the same man.
+#
+# THE TELEMETRY ORDER, AND IT IS WHY THIS IS CALLED FROM THE ENTRY BODY RATHER
+# THAN FROM THE FIRST LINE OF E17. tnt_log_warch_ultimatum_effect runs BEFORE
+# E17 and stamps bid= and pts= off scope:recipient. Re-pointing the recipient
+# after that line would leave WARCH naming one man and WDONE/WSKIP naming
+# another, and the bid= join every ultimatum count in this project rests on
+# would break silently. The pick therefore runs FIRST in the entry body.
+# ONE JOIN THIS DOES BREAK, ON PURPOSE, AND A READER MUST BE TOLD: WPAIR is
+# emitted by E11 before any archetype is drawn, so on a pulse where the pick
+# substituted, WPAIR names the DRAWN neighbour and WARCH names the CHOSEN
+# victim. That divergence is the feature working, and counting how often
+# WPAIR.bid != WARCH.bid on arch=ultimatum is the cheapest measure of how much
+# the pick is actually doing. Do not "fix" it by re-emitting WPAIR.
+#
+# THE PLAYER-NEGOTIATING ROW IS THE SAME RULE E11 APPLIES, RE-APPLIED TO A NEW
+# CANDIDATE - NOT A SECOND RULE. E11 clears the pair it drew (its own `if` at
+# the partner pick: *"DO NOT TOUCH ANYBODY THE PLAYER IS CURRENTLY NEGOTIATING
+# WITH"*), and that clearance is spent the moment this effect substitutes a
+# different man, so it has to be asked again about him. It is written on the
+# `if` that performs the substitution rather than inside the search, so a
+# candidate the player happens to be negotiating with costs the search nothing
+# and simply leaves the entry-drawn recipient in place. HOUSE LAW 9 IS ENGAGED
+# AND THE HONEST STATEMENT IS THIS: the rule now has two call sites in one file
+# and it should be one scripted trigger. That is a one-function move into
+# common\scripted_triggers\, and it is owed.
+###############################################################################
+tnt_ai_world_pick_threat_target_effect = {
+	scope:actor = {
+		# WIDENED 2026-08-25 BY ONE WORD, the same word the alert's pool 2 gained.
+		# REAL, in this exact shape (iterator + limit + save_temporary_scope_as as
+		# the limit's own row): GAME\common\scripted_effects\
+		# 01_dlc_fp3_scripted_effects.txt:592-601. The argument, the mirror case
+		# and the site census are in the header block above.
+		random_neighboring_and_across_water_top_liege_realm_owner = {
+			limit = {
+				save_temporary_scope_as = tnt_x
+				tnt_ai_world_partner_valid_trigger = yes
+				tnt_can_threat_trigger = { A = scope:actor  B = scope:tnt_x }
+			}
+			save_temporary_scope_as = tnt_better
+		}
+	}
+
+	if = {
+		limit = {
+			exists = scope:tnt_better
+			NOT = {
+				any_player = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { this = scope:tnt_better }
+				}
+			}
+		}
+		scope:tnt_better = { save_temporary_scope_as = recipient }
+	}
+
+	# RE-ANCHOR BOTH PAIRS ON WHOEVER THE RECIPIENT NOW IS. Unconditional on
+	# purpose: the search leaves a stale pair behind whether or not it chose
+	# anybody. See the block above. The PRICE pair first, the THREAT pair second.
+	scope:actor = { save_temporary_scope_as = tnt_me }
+	scope:recipient = { save_temporary_scope_as = tnt_p }
+	scope:actor = { save_temporary_scope_as = tnt_thr_me }
+	scope:recipient = { save_temporary_scope_as = tnt_thr_you }
+}

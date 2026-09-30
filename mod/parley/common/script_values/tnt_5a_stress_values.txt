@@ -1,0 +1,241 @@
+﻿########################################################################
+# PARLEY — ITEM 21, THE ONE-SIDEDNESS MEASURE
+#
+# THIS FILE HELD EXACTLY ONE VALUE UNTIL V30 AND THE PROHIBITION THAT SAID SO
+# WAS LIFTED BY RULING, NOT BY TIDY-UP. The old wording read: "ONE VALUE LIVES
+# IN THIS FILE AND NOTHING ELSE MAY BE ADDED TO IT" - integration contract
+# section 1.D registers exactly one script value for item 21 and section 5 R12
+# forbids the item growing, so a second value here is the first step of that
+# growth. That reasoning was and is correct about PRICES. The two names added
+# below are not prices and are not new arithmetic: each is a one-line alias of
+# a column total that already exists, and the four invariants the paragraph
+# protects still hold word for word for all three (see the next box).
+#
+# WHAT MAY STILL NEVER BE ADDED HERE, and this half of the old rule stands:
+# anything with a `desc`, anything a GUI widget reads, anything a total adds,
+# anything that re-prices a term the balance already prices, and any per-term
+# stress row. The user has twice refused a per-term stress table and CLAUDE.md
+# section 3 nails that refusal down. Three read-only measures is the ceiling.
+#
+#=======================================================================
+# *** ALL THREE ARE READ-ONLY. THEY TOUCH NO INVARIANT. ***
+#=======================================================================
+# tnt_stress_onesided_value, tnt_stress_gave_value and tnt_stress_took_value
+# enter NO total, carry NO desc, and are read only from `limit` rows in
+# tnt_3c_stress.txt and from the two APPLY emitters in tnt_3b_log.txt. That is
+# what makes them safe in a mod whose balance model is a closed sum:
+#   I1  an empty treaty still reads 0 - none of these is in the headline;
+#   I2  the bar's magnitude inputs stay unchanged - there is no positive/negative
+#       row here to be forgotten, and no `multiply = -1` twin to get wrong;
+#   I4  adding value to the table cannot lower the headline - none of these
+#       is in the headline at all;
+#   I6  no price becomes signed - none of these is a price.
+# If a later author ever points a GUI widget or a total at any of these three
+# names, every one of those four sentences stops being true. Do not.
+#
+#=======================================================================
+# WHAT THE THREE MEASURE, AND WHY THE NET ONE IS NO LONGER TESTED
+#=======================================================================
+# In this ledger GAIN is what the PARTNER receives and LOSS is what the
+# partner hands over (the column-totals header at tnt_50_values.txt:2260-2263,
+# the two declarations at :2304 and :2622, and the headline arithmetic in
+# tnt_ai_accept_value at :3553, whose two figure rows are :3556 and :3561).
+# So "the player over-paid" is a large gain against a small loss, and on the
+# NET measure the coefficient sits on the loss term:
+#
+#     tnt_stress_onesided_value = tnt_gain_total_value - 2 x tnt_loss_total_value
+#
+# The 2 was the definition of "one-sided" the contract fixed: a treaty in
+# which the player hands over more than TWICE what he gets back.
+#
+# *** V30: THE NET MEASURE IS RETAINED AND IS NO LONGER READ BY ANY LEG. ***
+# ITS ONE REGISTERED READER IS NOW THE TELEMETRY (tnt_3b_log.txt, the osided=
+# field on both APPLY emitters). It was not retired - deleting a registered
+# value breaks a live caller and erases the only continuous series the layer
+# has - but it is no longer what selects a charge, and here is why, in the two
+# halves the design round established.
+#
+#   MEASURED. Run B, 2026-08-23, 13,791 TNTLOG lines: TWELVE APPLY records,
+#   ten of them letter=1 (suppressed by the manual-only guard) and two manual.
+#   Every one of the twelve osided readings was NEGATIVE - -18 -42 -43 -46 -47
+#   -78 -80 -98 -114 -124 -140 -288. The rung was +200. The sign never even
+#   flipped in either measured run.
+#
+#   STRUCTURAL, which is why it was never bad luck. osided = gain - 2 x loss =
+#   (gain - loss) - loss. Auto-balance exists precisely to land a deal at
+#   gain ~= loss, so on any balanced treaty osided ~= -(size of the treaty):
+#   the measure reads TREATY SIZE, not lopsidedness, and reads it with the
+#   wrong sign. The only way to reach +200 is to overpay by 2x AND refuse to
+#   auto-balance. The headline feature of the mod is the thing that kept the
+#   rung unreachable.
+#
+# SO THE LEGS NOW TEST GROSS, THROUGH THE TWO ALIASES BELOW, AND VANILLA NEVER
+# NETS EITHER. A conscience registers what it handed over, not the exchange
+# rate, and the engine says so at three sites that perform this very deed:
+#   GAME\common\character_interactions\00_gift.txt:148-150 / :159-161 - hand
+#     over gold: greedy = medium_stress_impact_gain, generous = medium loss,
+#     with NO credit for anything received in return;
+#   GAME\common\character_interactions\00_artifact_interactions.txt:277-280
+#     and :291-294 - the same pair scaled by the given artifact's rarity;
+#   GAME\common\character_interactions\00_grant_titles_interaction.txt:884-889
+#     - "# Generous characters enjoy giving away titles", add_stress =
+#     generous_title_grant_value (a negative value), and :1003-1006 / :1012-1015
+#     charging greedy + ambitious for the grant at two rungs.
+#
+# Both members already round (`round = yes` at tnt_50_values.txt:2394 and
+# :2678), so all three values here are integers without needing their own.
+#
+# V18 - ALL FIVE tnt_50_values.txt CITATIONS IN THIS HEADER WERE RE-MEASURED AND
+# ALL FIVE WERE STALE (they pointed at :1425 / :1652 / :1465 / :1678 / :785 /
+# :789, two of which now land inside the retired GRANT CLAIM tombstone). House
+# law 1 makes a citation the evidence, so a stale one is a defect in the file it
+# sits in, not a cosmetic slip. Re-measure them again after any large edit to
+# tnt_50_values.txt.
+# V30 - RE-MEASURED AGAIN AND ALL OF THEM HAD ROTTED A SECOND TIME. The header
+# said :2029 / :2326 / :3186 / :2098 / :2371 for the two totals, the headline
+# and the two `round = yes` rows, and :2041 / :2338 for the two marriage rows.
+# 2026-08-24 - THE ORDER WAS DISCHARGED A THIRD TIME AND EVERY NUMBER HAD ROTTED
+# AGAIN. There are TEN anchors, not seven, and the live ones are printed above and
+# below: each was re-measured against the definition itself, never shifted by a
+# delta. NEEDED THREE ROUNDS RUNNING - re-measure again after any large edit.
+#
+# The two members carry their own `var:tnt_partner ?= { save_temporary_scope_as = tnt_p }`
+# prologue (contract R0.4), so this value needs no scope preamble of its own
+# and must not grow one — a second save under the same name is the D4 error.
+#
+#=======================================================================
+# THE TWO SHAPES THIS VALUE OVER-READ, MEASURED RATHER THAN GUESSED
+#=======================================================================
+# *** V13, USER ITEM 1: THE WHOLE OF THE NEXT SECTION IS NOW HISTORY. ***
+# The alliance and the ten-year non-aggression pact are RETIRED as a design
+# refusal - vanilla gates both behind a Diplomacy lifestyle investment - and their
+# tombstones are TOMBSTONE A and TOMBSTONE B in
+# common\scripted_effects\tnt_32_apply.txt. WITH BOTH PACTS GONE THERE IS NO
+# MUTUAL TERM LEFT IN tnt_gain_total_value AT ALL, so there is nothing to subtract
+# back out and this value is once again plain `gain - 2 x loss`. The two
+# subtraction lines below are commented out with the terms they corrected for.
+#
+# THE FILE AND THE VALUE BOTH STAY. tnt_stress_onesided_value is registered in the
+# integration contract and is read from common\scripted_effects\tnt_3c_stress.txt;
+# deleting either would break a live caller. Only the correction goes.
+#
+# MARRIAGE IS STILL THE OPPOSITE CASE and still needs no handling - see the
+# paragraph at the end of this header, which is unaffected.
+#
+# HISTORICAL, kept because it is the derivation of the rung and a revival of
+# either pact must read it before re-adding a correction:
+# THE MUTUAL TERMS WERE PRICED IN GAIN ONLY, AND WERE SUBTRACTED BACK OUT
+# HERE. Alliance and truce were single mutual terms (v3 item ADD-4 deleted their
+# _r rows as a double count), so a pact the player benefited from as much as the
+# partner landed entirely in the gain column — and this value would otherwise
+# have read it as generosity.
+#
+# THE FIRST ATTEMPT TRIED TO BOUND THAT INFLATION INSTEAD, AND THE BOUND WAS
+# FALSE. It argued: alliance max 100 "today", truce base 10 + ~15, worst case
+# ~175, which sits below the 200 rung — "a computed guarantee rather than a
+# hope". Both numbers were wrong against the code even as it stood. The alliance
+# clamp is 0..150 (tnt_50_values.txt, item 22) and the truce clamp is -20..50,
+# so the real worst case is 150 + 50 = 200 — and the effect tests `>=`. A player
+# four times stronger than a neighbour, realms touching, neither at war, signing
+# nothing but a mutual defence pact and a non-aggression pact, took 80 stress for
+# it if he was ambitious, arrogant and greedy. That is precisely the outcome the
+# rung was chosen to make impossible.
+#
+# SO THE MEASURE WAS WRONG, NOT THE RUNG. Raising the threshold would only move
+# an arbitrary line while still counting a mutual pact as a gift; two more terms
+# would breach it again. "One-sided" means "I handed over far more than I got",
+# and a thing both parties receive is not handed over at all. Both mutual terms
+# are therefore removed from the reading at source. They are guarded values that
+# return a hard 0 when unselected, so the subtraction costs nothing on a deal
+# that has neither.
+#
+# THIS ALSO RETIRES THE STANDING WARNING that the rung must be re-derived
+# whenever an alliance ceiling moves: the ceiling no longer reaches this value.
+#
+# MARRIAGE IS THE OPPOSITE CASE AND NEEDS NO HANDLING. It is the one mutual
+# term priced on BOTH sides — tnt_val_marriage_p_value in gain
+# (tnt_50_values.txt:2329) and tnt_val_marriage_r_value in loss (:2640) —
+# because the two rows price two
+# different people's matches, not one thing twice. Under gain - 2 x loss a
+# marriage exchange therefore contributes p - 2r, i.e. it pushes the reading
+# DOWN toward "not one-sided" whenever the partner's side of the match is
+# worth anything at all. That is the conservative direction, so no correction
+# is applied and none may be added: subtracting a marriage row here would be
+# inventing a second formula the contract did not register.
+# UNDER THE GROSS MEASURES IT IS SIMPLER STILL: the p row is part of what the
+# partner receives and the r row is part of what he hands over, so a mutual
+# match lands one row in each alias and neither alias has to know it was a
+# marriage. No correction there either, and none may be added.
+#
+#=======================================================================
+# THE TWO GROSS ALIASES - RULING 1, V30
+#=======================================================================
+# THEY ARE NAMED WRAPPERS, NOT NEW ARITHMETIC. Each is one line and returns a
+# column total unchanged. They exist for two reasons and no third:
+#   * so the rung argument has a place to live beside the number it argues
+#     about, instead of being buried in an effect file, and
+#   * so tnt_stress_onesided_value can keep its one registered reader (the
+#     log) without the legs and the telemetry silently measuring different
+#     quantities - the exact V7b/V17 guard defect, where the code and the log
+#     disagreed for three rounds and nothing in the game hinted at it.
+#
+# THE DIRECTION IS FIXED BY THE LEDGER AND IS EASY TO GET BACKWARDS. GAIN is
+# the PARTNER's column, so tnt_gain_total_value is WHAT I HANDED OVER, and
+# tnt_loss_total_value is WHAT I TOOK IN. The alias names are written from the
+# PLAYER's point of view precisely so the effect file cannot get it wrong:
+#   tnt_stress_gave_value  = tnt_gain_total_value   (arm B - I gave heavily)
+#   tnt_stress_took_value  = tnt_loss_total_value   (arm C - I took heavily)
+#
+# THE RUNGS ARE VANILLA'S OWN AND ARE PROVISIONAL, and the file says so rather
+# than pretending otherwise. GAME\common\script_values\00_ai_values.txt:26-27
+# gives very_high_positive_ai_value = 75 and dominant_positive_ai_value = 200.
+# Against the twelve measured treaty sizes above (gross ~= |osided| because
+# accept ~= 0 on a balanced deal), 200 fires on 1 of 12 and 75 fires on 7 of
+# 12 - grave is rare, ordinary is felt, silence stays the common outcome. BUT
+# ONLY TWO OF THE TWELVE WERE MANUAL, so the calibration rests on n=2 and the
+# next run decides it: that is what the new gave= and took= log fields are for.
+#
+# WHY THREE ARMS AND NOT A PER-TERM TABLE. The balance ALREADY prices gold,
+# prestige, piety, influence, land, artifacts, marriages, hostages, captives,
+# courtiers, transferred vassals, fealty and the nine obligations - every one
+# of them is summed into tnt_gain_total_value (24 rows) or
+# tnt_loss_total_value (15 rows). Exactly two live families sit outside those
+# totals by written design, threat_p and usehook_p/_r, because "pressure is
+# not generosity" (tnt_57_threat_values.txt:14-23). So a concluded treaty has
+# precisely three characters a stress layer can read without re-pricing
+# anything: I leaned on him (the two families the balance cannot see), I gave
+# heavily, I took heavily. The measure does the routing; no per-term row is
+# needed, and that is why the user's standing refusal of a per-term stress
+# table costs this design nothing.
+########################################################################
+tnt_stress_onesided_value = {
+	value = tnt_gain_total_value
+	# RETIRED V13, USER ITEM 1. The two mutual terms these lines corrected for are
+	# retired, and their rows in tnt_gain_total_value are commented out, so there is
+	# nothing left to take back out. Tombstones A and B in tnt_32_apply.txt.
+	# (Both names still exist as hard-zero stubs, so these lines would be harmless
+	# arithmetic - they go because a correction with nothing to correct is a lie
+	# about what this value measures.)
+	#	subtract = tnt_val_alliance_p_value
+	#	subtract = tnt_val_truce_p_value
+	subtract = {
+		value = tnt_loss_total_value
+		multiply = 2
+	}
+}
+
+# --- THE TWO GROSS ALIASES (V30, ruling 1) ---------------------------------
+# One line each, on purpose. A `value = <named value>` body is vanilla's own
+# one-line forward shape - GAME\common\script_values\00_stress_values.txt:26-35
+# is a whole family of bare constants and
+# GAME\common\script_values\00_scheme_values.txt:2352 shows a named value being
+# consumed by a stress row - and this mod already ships the idiom for
+# tnt_val_marriage_p_value and tnt_val_hook_p_value.
+# NO round = yes: both members already carry one (tnt_50_values.txt:2394 and
+# :2678) and a named value returns its rounded result, so a second round here
+# would be a lie about where the rounding happens.
+# NO scope preamble: the two members carry their own
+# `var:tnt_partner ?= { save_temporary_scope_as = tnt_p }` prologue (contract
+# R0.4), and a second save under the same name is the D4 error.
+tnt_stress_gave_value = { value = tnt_gain_total_value }   # what the partner receives = what I handed over
+tnt_stress_took_value = { value = tnt_loss_total_value }   # what the partner hands over = what I took in

@@ -1,0 +1,743 @@
+﻿######################################################################################
+# PARLEY: THE NEGOTIATING TABLE — SCRIPTED GUIS, FILE 4 OF 4
+# USER ITEM 2.3 (hook tiers) and USER ITEM 2.5 (the vassal contract template)
+#
+# Owner: hooks-contracts.  19 entries:
+#     GROUP A   2  hook tier, reverse direction tnt_hook_{p,r}_toggle_back
+#     GROUP B   8  obligation level steppers    tnt_ob_{tax,levy}_{up,down,max,min}
+#     GROUP C   7  obligation rights toggles    tnt_ob_<right>_toggle
+#     GROUP D   2  panel open + sheet reset     tnt_pick_contract_open · tnt_ob_reset
+#
+# The legal key set of a scripted_gui is EXACTLY scope / saved_scopes / is_shown /
+# is_valid / effect (02-script-gui-bridge.md §2.1, measured over all 7 vanilla files
+# plus every scripted_guis file in 12 installed mods). Nothing here uses is_shown
+# (visibility is driven from the GUI by cheap variable and script-value reads) and
+# nothing here uses saved_scopes (no entry receives a GUI-supplied object — every one
+# of them edits a numeric variable on the player and nothing else).
+#
+# Root of every Execute call is the player: GuiScope.SetRoot( GetPlayer.MakeScope ),
+# i.e. `root` below is always the player and the partner is always var:tnt_partner.
+#
+#-------------------------------------------------------------------------------------
+# THE CLAMP IDIOM, identical to the shipped gold and prestige steppers
+#     set_variable = { name = X  value = { value = var:X  min = 0  max = <cap> } }
+# vocabulary confirmed at GAME\common\scripted_effects\00_diarchy_scripted_effects.txt:1002-1011
+# and shipped 24 times over in tnt_20_scripted_guis.txt and tnt_22_v2.txt.
+#
+#-------------------------------------------------------------------------------------
+# THREE LAYERS OF GATING, AND WHY NONE OF THEM IS REDUNDANT
+# (the long version is tnt_55_hc_values.txt §0.4)
+#   1. the GUI greys the control out  — `enabled = "[TntPos('tnt_ob_fort_ok_value')]"`,
+#      a plain script-value read, never a GetScriptedGui in a per-row expression (R11);
+#   2. THIS FILE refuses the write     — is_valid for the failure tooltip AND an
+#      `else_if` on the same condition inside the effect, so the variable cannot be
+#      set even if a stale click lands or `Execute` turns out not to consult is_valid;
+#   3. tnt_36_hooks_contracts.txt refuses to emit the line at apply time.
+# Switching an obligation OFF is never gated — only switching it ON. A player whose
+# partner just changed faith must always be able to take the term back off the table.
+#
+# Report 41 W-9 is the reason layer 3 exists: it is UNKNOWN whether
+# vassal_contract_set_obligation_level enforces the level's own is_valid, and vanilla
+# never relies on it — it duplicates every gate in the interaction instead
+# (00_character_interactions.txt:1276-1278).
+#
+#-------------------------------------------------------------------------------------
+# CLEANUP OBLIGATION (30-V2-DESIGN §3.5 R-CLEAN, "for every write, name the removal")
+# This file writes exactly eleven variables:
+#   tnt_hook_p  tnt_hook_r        -> ALREADY removed by tnt_reset_offer_effect
+#                                    (tnt_30_effects.txt:239 and :253). Only their type
+#                                    changed, 0/1 -> a 0..3 tier index; remove_variable
+#                                    does not care.
+#   tnt_ob_tax  tnt_ob_levy  tnt_ob_relig  tnt_ob_council  tnt_ob_revoke
+#   tnt_ob_war  tnt_ob_fort  tnt_ob_coin   tnt_ob_succ
+#                                 -> removed by tnt_reset_hc_effect
+#                                    (common\scripted_effects\tnt_36_hooks_contracts.txt),
+#                                    which the integrator calls with ONE line from
+#                                    tnt_reset_offer_effect.
+# plus the two picker variables tnt_picker / tnt_picker_side, which the shipped
+# tnt_picker_close and tnt_reset_offer_effect already own (tnt_21_pickers.txt:583-590,
+# tnt_30_effects.txt:259-260).
+# Nothing here writes a variable onto any object that is not a character (R-CLEAN-2).
+#
+#-------------------------------------------------------------------------------------
+# THE ONE ENTRY THIS ITEM NEEDS AND THIS FILE MAY NOT WRITE
+# tnt_hook_p_toggle / tnt_hook_r_toggle already exist, in tnt_20_scripted_guis.txt
+# :777-809, and they are still the old 0/1 flip. The window already binds them as the
+# hook control's FORWARD direction, so each needs a one-line body swap to
+#     effect = { tnt_hook_tier_up_effect = { SIDE = p } }
+# That edit belongs to the sgui author and is in the integration list; it is NOT made
+# here, because a duplicate scripted_gui key across two files is last-loaded-wins and
+# silent, which is exactly the kind of invisible fragility this project forbids.
+# Until it lands the row still works and can offer tier 1 only — see GROUP A.
+######################################################################################
+
+
+######################################################################################
+# GROUP A — THE REVERSE HALF OF THE HOOK TIER CONTROL (2)         USER ITEM 2.3
+#
+# tnt_hook_p / tnt_hook_r are TIER INDICES 0..3: 0 (or absent) none, 1 weak favour,
+# 2 strong, 3 eternal (30-V2-DESIGN §3.2). The design's interaction is "cycle on
+# click, reverse on right-click" (§3.2 table), so the control needs exactly two entry
+# points per side.
+#
+#=====================================================================================
+# READ THIS BEFORE ADDING A THIRD HOOK ENTRY: THE NAMES ARE ALREADY DECIDED, AND NOT
+# BY THIS FILE.
+#=====================================================================================
+# gui\tnt_diplomacy_window.gui:710-711 and :1229-1230 already ship the binding:
+#     onclick      = "[TntExec('tnt_hook_p_toggle')]"
+#     onrightclick = "[TntExec('tnt_hook_p_toggle_back')]"
+# and its own comment at :675-683 explains the choice: the FORWARD direction keeps the
+# shipped name tnt_hook_p_toggle "deliberate insurance: if the reverse-cycle gui is
+# late, only right-click is dead and the row still works".
+#
+#   tnt_hook_p_toggle / tnt_hook_r_toggle  ALREADY EXIST, in tnt_20_scripted_guis.txt
+#     :777-809, and they are still the old 0/1 flip. They belong to the sgui author.
+#     THEY ARE NOT REDEFINED HERE — a duplicate scripted_gui key across two files is
+#     last-loaded-wins and silent. The one-line body swap that turns each into a tier
+#     step is in the integration list; until it lands the row still works and offers
+#     tier 1 only, which is the graceful degradation the gui author designed for.
+#   tnt_hook_p_toggle_back / tnt_hook_r_toggle_back  DO NOT EXIST ANYWHERE and nobody
+#     else owns them. They are below. Without them right-click is dead and a tier can
+#     only be lowered by "Clear all".
+#
+# BOTH DIRECTIONS SHARE ONE LADDER, in tnt_36_hooks_contracts.txt (H2 / H3). A
+# scripted_gui cannot call another scripted_gui — only a scripted EFFECT can be called
+# from an effect block — so the ladder had to be an effect for its two entry points to
+# live in two authors' files without the rules being written twice. Calling a
+# parameterised scripted effect from a scripted_gui is already in this build at
+# tnt_22b_multiselect.txt:124.
+#
+# NO is_valid ON THESE TWO. Taking a term OFF the table must never be refused. The
+# gate (tnt_hook_free_*_value, "the receiver does not already hold a hook over the
+# giver" — vanilla's own guard at
+# GAME\common\character_interactions\00_invite_agent_to_scheme.txt:606-615) applies to
+# the FORWARD direction and lives inside tnt_hook_tier_up_effect, so it holds no matter
+# what the forward wrapper looks like.
+#
+# `button_ignore = none` is already on tnt_control_hook_tier, and without it
+# onrightclick never fires (R12, vanilla's own stepper at
+# GAME\gui\window_knights.gui:716-759).
+######################################################################################
+
+tnt_hook_p_toggle_back = {
+	scope = character
+
+	effect = {
+		tnt_hook_tier_down_effect = { SIDE = p }
+	}
+}
+
+tnt_hook_r_toggle_back = {
+	scope = character
+
+	effect = {
+		tnt_hook_tier_down_effect = { SIDE = r }
+	}
+}
+
+
+######################################################################################
+# GROUP B — THE TWO OBLIGATION LEVEL STEPPERS (8)                USER ITEM 2.5
+#
+# tnt_ob_tax and tnt_ob_levy are LEVEL INDICES 0..4 on feudal_government_taxes and
+# feudal_government_levies:
+#     0 exempt · 1 low · 2 normal (VANILLA DEFAULT) · 3 high · 4 extortionate
+# GAME\common\subject_contracts\contracts\feudal.txt:1-189, level keys
+# feudal_tax_{exempt,low,normal,high,extortionate} and feudal_levies_{…}.
+#
+# UNSET MEANS "NORMAL", NOT "ZERO", and every entry below is built around that:
+#   * `up` on an unset variable writes 3, not 1, because the level the player is
+#     stepping up FROM is the implicit 2;
+#   * `down` on an unset variable writes 1;
+#   * an explicit 2 and an absent variable are indistinguishable everywhere else in
+#     the build — tnt_val_ob_tax_value prices neither, tnt_ob_changed_value counts
+#     neither, and tnt_exec_obligations_effect writes level 2 for both.
+# That is why there is no "back to unset" control: tnt_ob_reset (group D) is the only
+# thing that deletes these, and it deletes all nine at once.
+#
+# R12: left click steps by one, right click jumps to the end of the ladder, which is
+# what type tnt_level_stepper's four button blocks are shaped for
+# (gui\tnt_panels.gui:1132-1191, blocks tnt_level_minus / _minus_big / _plus /
+# _plus_big). GUI wiring for the tax row:
+#     blockoverride "tnt_level_minus"     { onclick      = "[TntExec('tnt_ob_tax_down')]" }
+#     blockoverride "tnt_level_minus_big" { onrightclick = "[TntExec('tnt_ob_tax_min')]" }
+#     blockoverride "tnt_level_plus"      { onclick      = "[TntExec('tnt_ob_tax_up')]" }
+#     blockoverride "tnt_level_plus_big"  { onrightclick = "[TntExec('tnt_ob_tax_max')]" }
+#
+# ALL EIGHT ARE GATED ON tnt_ob_feudal_value > 0, which is 1 only when a fealty term
+# is on the table AND the character who would swear it is feudal. Two consequences,
+# both intended:
+#   * the sheet cannot be filled in before a direction exists — with no direction the
+#     legality gates of the seven rights cannot even be evaluated, so a pre-filled
+#     sheet would be a sheet of unverified promises;
+#   * a clan, tribal, republic, theocratic, administrative, nomad or mandala subject
+#     gets no tax or levy rows at all, because those two types are not in its contract
+#     group (GAME\common\subject_contracts\groups\subject_contract_groups.txt) and
+#     setting them would write error.log.
+######################################################################################
+
+tnt_ob_tax_up = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = {
+				tnt_ob_feudal_value > 0
+				exists = var:tnt_ob_tax
+			}
+			change_variable = {
+				name = tnt_ob_tax
+				add = 1
+			}
+			set_variable = {
+				name = tnt_ob_tax
+				value = {
+					value = var:tnt_ob_tax
+					min = 0
+					max = 4
+				}
+			}
+		}
+		else_if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			# stepping up from the implicit default of 2
+			set_variable = {
+				name = tnt_ob_tax
+				value = 3
+			}
+		}
+	}
+}
+
+tnt_ob_tax_down = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = {
+				tnt_ob_feudal_value > 0
+				exists = var:tnt_ob_tax
+			}
+			change_variable = {
+				name = tnt_ob_tax
+				subtract = 1
+			}
+			set_variable = {
+				name = tnt_ob_tax
+				value = {
+					value = var:tnt_ob_tax
+					min = 0
+					max = 4
+				}
+			}
+		}
+		else_if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_tax
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_ob_tax_max = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_tax
+				value = 4
+			}
+		}
+	}
+}
+
+tnt_ob_tax_min = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_tax
+				value = 0
+			}
+		}
+	}
+}
+
+tnt_ob_levy_up = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = {
+				tnt_ob_feudal_value > 0
+				exists = var:tnt_ob_levy
+			}
+			change_variable = {
+				name = tnt_ob_levy
+				add = 1
+			}
+			set_variable = {
+				name = tnt_ob_levy
+				value = {
+					value = var:tnt_ob_levy
+					min = 0
+					max = 4
+				}
+			}
+		}
+		else_if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_levy
+				value = 3
+			}
+		}
+	}
+}
+
+tnt_ob_levy_down = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = {
+				tnt_ob_feudal_value > 0
+				exists = var:tnt_ob_levy
+			}
+			change_variable = {
+				name = tnt_ob_levy
+				subtract = 1
+			}
+			set_variable = {
+				name = tnt_ob_levy
+				value = {
+					value = var:tnt_ob_levy
+					min = 0
+					max = 4
+				}
+			}
+		}
+		else_if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_levy
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_ob_levy_max = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_levy
+				value = 4
+			}
+		}
+	}
+}
+
+tnt_ob_levy_min = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_levy
+				value = 0
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP C — THE SEVEN RIGHTS TOGGLES (7)                         USER ITEM 2.5
+#
+# Each is one checkbox line on the sheet, and each maps to one vanilla contract type at
+# obligation level 1 — the literal 1, never `<key>_level`, because those index
+# constants are hand-written script values that exist for taxes / levies / herd ONLY
+# (GAME\common\script_values\00_goverment_values.txt:81-91;
+# `religious_rights_protected_level` has ZERO hits in the whole game, report 41 §3.5).
+#
+#   tnt_ob_relig    religious_rights          -> religious_rights_protected
+#                   THE USER'S "religious protection". subject_opinion +5, subject
+#                   county_opinion_add +5, flag religiously_protected, score 3 — the
+#                   joint highest score in the feudal group.
+#                   GAME\common\subject_contracts\contracts\special_contracts.txt:295-352
+#   tnt_ob_council  council_rights            -> council_rights_guaranteed   (:492-519)
+#   tnt_ob_revoke   title_revocation_rights   -> …_protected                 (:521-566)
+#   tnt_ob_war      war_declaration_rights    -> …_allowed                   (:468-490)
+#   tnt_ob_fort     fortification_rights      -> …_granted                   (:354-394)
+#   tnt_ob_coin     coinage_rights            -> …_granted                   (:396-431)
+#   tnt_ob_succ     succession_rights         -> …_forced_partition          (:433-466)
+#                   THE ONLY ONE THAT FAVOURS THE LIEGE (score -1, subject_opinion -5,
+#                   flag locked_to_partition), hence its negative subject-side price.
+#
+# GATES. council_rights and war_declaration_rights have no is_shown of their own in
+# vanilla, so their only requirement is a feudal subject. The other five each carry
+# vanilla's own condition, folded into a tnt_ob_*_ok_value in tnt_55_hc_values.txt §3
+# together with the government test, so no consumer has to remember to ask twice.
+#
+# EVERY TOGGLE CAN ALWAYS BE SWITCHED OFF. The `if` that removes the variable carries
+# no gate at all; only the `else_if` that sets it does. A partner who changes faith
+# mid-negotiation must not be able to strand a term on the table.
+#
+# GUI wiring, per right (gui\tnt_panels.gui:1074-1122 `type tnt_toggle_line`):
+#     blockoverride "tnt_toggle_line_label"   { text     = "tnt_ob_relig_label" }
+#     blockoverride "tnt_toggle_line_sgui"    { onclick  = "[TntExec('tnt_ob_relig_toggle')]" }
+#     blockoverride "tnt_toggle_line_var"     { checked  = "[TntOn('tnt_ob_relig')]" }
+#     blockoverride "tnt_toggle_line_enabled" { enabled  = "[TntPos('tnt_ob_relig_ok_value')]" }
+#     blockoverride "tnt_toggle_line_tooltip" { tooltip  = "tnt_ob_relig_desc" }
+# `enabled` reads a SCRIPT VALUE and not TntValid, i.e. one value evaluation per
+# frame instead of a full scripted-gui IsValid — the panel has nine of these rows and
+# R11's reasoning applies to any per-row expression, datamodel or not. The failure
+# TOOLTIP is a static requirement key rather than TntTip for the same reason.
+######################################################################################
+
+tnt_ob_relig_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_relig
+			tnt_ob_relig_ok_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_ob_relig }
+			remove_variable = tnt_ob_relig
+		}
+		else_if = {
+			limit = { tnt_ob_relig_ok_value > 0 }
+			set_variable = {
+				name = tnt_ob_relig
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_ob_council_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_ob_council }
+			remove_variable = tnt_ob_council
+		}
+		else_if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_council
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_ob_revoke_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_revoke
+			tnt_ob_revoke_ok_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_ob_revoke }
+			remove_variable = tnt_ob_revoke
+		}
+		else_if = {
+			limit = { tnt_ob_revoke_ok_value > 0 }
+			set_variable = {
+				name = tnt_ob_revoke
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_ob_war_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_feudal
+			tnt_ob_feudal_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_ob_war }
+			remove_variable = tnt_ob_war
+		}
+		else_if = {
+			limit = { tnt_ob_feudal_value > 0 }
+			set_variable = {
+				name = tnt_ob_war
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_ob_fort_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_fort
+			tnt_ob_fort_ok_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_ob_fort }
+			remove_variable = tnt_ob_fort
+		}
+		else_if = {
+			limit = { tnt_ob_fort_ok_value > 0 }
+			set_variable = {
+				name = tnt_ob_fort
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_ob_coin_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_coin
+			tnt_ob_coin_ok_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_ob_coin }
+			remove_variable = tnt_ob_coin
+		}
+		else_if = {
+			limit = { tnt_ob_coin_ok_value > 0 }
+			set_variable = {
+				name = tnt_ob_coin
+				value = 1
+			}
+		}
+	}
+}
+
+tnt_ob_succ_toggle = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_ob_req_succ
+			tnt_ob_succ_ok_value > 0
+		}
+	}
+
+	effect = {
+		if = {
+			limit = { exists = var:tnt_ob_succ }
+			remove_variable = tnt_ob_succ
+		}
+		else_if = {
+			limit = { tnt_ob_succ_ok_value > 0 }
+			set_variable = {
+				name = tnt_ob_succ
+				value = 1
+			}
+		}
+	}
+}
+
+
+######################################################################################
+# GROUP D — OPENING THE SHEET, AND WIPING IT (2)
+######################################################################################
+
+# THE CONTRACT SHEET LIVES AT PICKER OVERLAY INDEX 12, reserved for it in advance by
+# 10-CONTRACT R0.8 and confirmed by 30-V2-DESIGN §3.4 and by the window's own row index
+# table (gui\tnt_diplomacy_window.gui:29-41: "RESERVED, panels deliberately absent
+# until their handlers exist: 12 = the nine-row vassal contract sheet"). THIS IS THAT
+# HANDLER.
+#
+# ONE OPENER FOR BOTH SIDES, and side 0 always, which is the one place this item
+# deviates from the shipped picker convention (every other index has a _p and an _r
+# opener writing tnt_picker_side 0 or 1 — tnt_21_pickers.txt:201-285). There is nothing
+# to distinguish: the nine variables carry no side suffix, so the two vassal rows open
+# the SAME sheet and the panel reads tnt_ob_dir_value to say which way the fealty runs.
+# A second opener writing side 1 would need a second, identical panel instantiation.
+#
+# The shipped tnt_picker_close (tnt_21_pickers.txt:583-590) closes it, exactly as it
+# closes every other panel, and tnt_reset_offer_effect removes both picker variables
+# anyway (tnt_30_effects.txt:259-260).
+#
+# NOT GATED, deliberately. Opening the sheet with no fealty on the table shows the
+# panel's own explanatory line ("switch Swear Fealty on in either column first"), which
+# teaches the mechanism; a disabled button teaches nothing. Every CONTROL inside the
+# sheet is gated instead.
+#
+# THE NAME IS tnt_pick_contract_open BECAUSE THE WINDOW ALREADY CALLS IT THAT.
+# gui\tnt_diplomacy_window.gui:835 and :1330 ship the round button in each fealty row's
+# extra slot with `onclick = "[TntExec('tnt_pick_contract_open')]"`, and it follows
+# the tnt_pick_<item>_<side>_open family of tnt_21_pickers.txt with the side dropped.
+# Both rows call this one entry, and the panel's `visible` (:2017) tests the INDEX
+# ONLY, with no side clause — the gui author's note at :43-49 gives the reason: index 12
+# edits the single contract T11 guarantees can only exist on one side, so a per-side
+# twin would be a second identical panel. tnt_picker_side is still written to 0 to
+# match every other opener and to leave no stale value behind for a panel that does
+# test it.
+tnt_pick_contract_open = {
+	scope = character
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 12
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+	}
+}
+
+# The sheet's "back to a plain oath" button: deletes all nine variables, so the
+# contract the deal produces is exactly the one a bare fealty would produce
+# (tax 2 / levies 2, every right off).
+#
+# The body is a single call into the scripted effect that owns the nine removals, so
+# the removal list exists in exactly one place in the mod and this entry can never
+# drift from tnt_reset_offer_effect. A scripted_gui effect block CAN call a scripted
+# effect — tnt_close_window, tnt_clear_all, tnt_refresh_lists and
+# tnt_refresh_v2_mirrors all do it and all ship.
+tnt_ob_reset = {
+	scope = character
+
+	effect = {
+		tnt_reset_hc_effect = yes
+	}
+}
+
+
+########################################################################
+# THE HOOK ZEROERS (V5, user item 15a) — the gap this file recorded is closed.
+#
+# The tier controls step: _toggle goes UP, _toggle_back goes ONE down, and an X
+# that turns 3 into 2 does not "remove the term". These two REMOVE it, whatever
+# the tier, and they are deliberately GATE-FREE: a removal must never be refused
+# (the same law the deal sheet's other Xes follow — an is_valid that can say no
+# to taking something OFF the table dead-clicks exactly when availability drifts
+# false mid-session).
+#
+# The body is the shared tnt_cur_clear_effect (tnt_39_autobalance.txt), so the
+# "clearing voids the auto-balance verdict" rule holds here by construction
+# rather than by a copied second line.
+########################################################################
+tnt_hook_p_clear = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_hook_p
+		}
+	}
+}
+
+tnt_hook_r_clear = {
+	scope = character
+
+	effect = {
+		tnt_cur_clear_effect = {
+			VAR = tnt_hook_r
+		}
+	}
+}

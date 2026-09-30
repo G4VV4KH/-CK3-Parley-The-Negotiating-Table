@@ -1,0 +1,837 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — picker list construction + promise garbage collection
+#
+# Contract 10-CONTRACT.md §6.1, effects E4..E12 and E29.
+#
+# There is NO engine datamodel for a character's titles, claims or
+# artifacts — the two blacklisted `Character.Get*` datafunctions people
+# expect were searched across all ~200 vanilla .gui files and do not exist —
+# so every picker is fed by a script-built variable LIST that the GUI reads
+# with GetPlayer.MakeScope.GetList('<name>') and unwraps with Scope.Title /
+# Scope.Artifact / Scope.Char.
+#
+# All 15 candidate lists live ON THE PLAYER, whichever side they describe, so
+# the GUI always reads them off GetPlayer. Every fill effect therefore
+# saves the player as scope:tnt_list_owner and writes into that scope from
+# inside the iterator — the vanilla idiom, verbatim shape from
+#   GAME\common\scripted_effects\00_funeral_scripted_effects.txt:5-33
+#     clear_variable_list = $LIST_NAME$
+#     save_scope_as = list_scope
+#     every_X = { limit = { ... }
+#         scope:list_scope = { add_to_variable_list = { name = ... target = prev } } }
+# `target = prev` inside the re-scoped block resolves to the iterated
+# object, which is exactly what we want stored.
+#
+# ONE DELIBERATE DEPARTURE from that vanilla snippet: every scope here is
+# saved with save_temporary_scope_as, not save_scope_as. The scopes are
+# dereferenced only inside the same effect invocation, and a permanent
+# save_scope_as would serialise tnt_*-named scopes into the savegame that
+# tnt_close_window_effect has no way to remove. That matters most in
+# tnt_gc_promises_effect (E29) - which is RETIRED V12: tombstone header at
+# :773, dead body from :815. History, never a live yearly walk. (2026-08-24)
+#
+# MakeScope.GetList is a persistent save-game variable list, not a live
+# query, so the lists are rebuilt on window open, on window _show, when a
+# picker panel is opened, and after a title changes hands.
+#
+# THE PRISONER PARAGRAPH THAT STOOD HERE IS RETIRED WITH ITS TERM. It explained why
+# the captive picker needed a script list at all: a datamodel cannot answer "am I
+# already chosen?" - the engine has no list-membership datafunction - so candidates
+# have to MOVE between two variable lists, which is the two-list invariant's whole
+# reason for existing (tnt_35_multiselect.txt). The argument is still true and still
+# governs every list-shaped term in this file; it is simply no longer about captives.
+# Full tombstone: the FAMILY B block heading E22 in
+# common\scripted_effects\tnt_32_apply.txt.
+#
+# The filter triggers (tnt_can_cede_title_trigger, tnt_can_grant_claim_trigger,
+# tnt_artifact_giftable_trigger) are defined in tnt_40_triggers.txt.
+# tnt_nonwar_candidate_trigger was the fourth; it is commented out there with the
+# rest of the non-aggression family (tombstone at E25 in tnt_32_apply.txt).
+#
+# ITEM 19 ADDED SIX LISTS AND SIX FILL EFFECTS, AND ONLY THE WIRING IS
+# HERE. FOUR SURVIVE — tnt_list_hostage_p/_r and
+# tnt_list_courtier_p/_r — cleared by E4 below and rebuilt by E5 below, in
+# the same breath as the nine that shipped. Their BODIES are not in this file:
+# integration contract §1.B puts tnt_fill_hostage_p/_r_effect
+# and tnt_fill_courtier_p/_r_effect in
+# common\scripted_effects\tnt_3a_people.txt, one file one owner, beside the exec
+# legs that consume what they build. Their FILTERS are
+# tnt_hostage_candidate_trigger and
+# tnt_courtier_candidate_trigger, both defined in
+# common\scripted_triggers\tnt_42_people_gates.txt.
+#
+# RETIRED V16, USER ITEM 5 — tnt_list_ward_p/_r, tnt_fill_ward_p/_r_effect and
+# tnt_ward_candidate_trigger. The two fill CALLS in E5 are commented out; the two
+# clear_variable_list lines in E4 are deliberately KEPT for one cycle (see the note
+# at the call site). Reason: the ward term was too abusable on points and the
+# hostage term covers the same immersive ground. Full WARD TOMBSTONE:
+# common\scripted_effects\tnt_32_apply.txt.
+#
+# V11 CORRECTION, user item 2: this paragraph used to add "and each fill also
+# opens with its term's cheap pair gate (tnt_can_hostage_trigger /
+# tnt_can_ward_trigger, retired V16 / tnt_can_courtier_trigger) so that a pair which could
+# never use the term pays for no iteration at all". IT DOES NOT. All six fills
+# guard on `exists = var:tnt_partner` and nothing else (tnt_3a_people.txt:96-309).
+# There is NO correctness consequence, which is why nobody noticed: the show
+# gates test their pair gate explicitly and independently
+# (tnt_42_people_gates.txt), so an illegal pair's rows are hidden either way.
+# The consequence is COST — every window open, every _show transition and every
+# post-deal refill runs every_close_family_member x2, every_child x2 and
+# every_courtier x2 with the full candidate trigger, even for a pair that can
+# never use the term. Adding the pair gate to the six fills is the obvious
+# improvement and it is deliberately NOT made in this commit, which is a
+# behaviour-preserving one; whoever makes it should make it in all six at once,
+# in the shape `if = { limit = { exists = var:tnt_partner
+# tnt_can_courtier_trigger = { GIVER = root  RECEIVER = var:tnt_partner } } ... }`.
+# Until then this comment describes the code, which is the point.
+#
+# WHY THE WIRING IS HERE AND NOT AT THE FILL SITES. Exactly the reason the spouse
+# fan-out was moved here in build 3: tnt_refill_all_lists_effect is the ONE thing
+# every window-open path calls — E1, the tnt_refresh_lists _show state, the AI
+# counter-offer path, and the post-apply refill — and a fill parked anywhere else
+# leaves some of those paths with an empty list. An empty list is not a harmless
+# state for item 19: the six show-gates in tnt_42_people_gates.txt read
+# variable_list_size on these very lists, so a missing fill does not show an empty
+# picker, it HIDES THE ROW for the rest of the session.
+########################################################################
+
+
+########################################################################
+# E4 — tnt_clear_lists_effect
+#
+# Empties the 10 CANDIDATE lists + item 2.1's two spouse lists.
+# (4 shipped pickers and item 19's six people lists. The count was "8 + two"
+# until V4 added tnt_list_prisoner_p and item 19 added six more; it is written
+# out here because a list that nobody clears is a permanent leak in the savegame
+# and the only way to notice one is to be able to count them. V12 REMOVED THREE
+# FROM THE COUNT: the old-save sweeps of tnt_list_nonwar_p/_r and
+# tnt_list_prisoner_p are commented out under ruling E0 - a clear_variable_list
+# counts as a USE, so those three lines were themselves the cause of three
+# 'is used but is never set' complaints. Nothing FILLS the retired lists any
+# more, so under E0 there is nothing left for them to clear.
+# V13 USER ITEM 1 REMOVED TWO MORE, tnt_list_claim_p/_r, on exactly that ruling:
+# the granted claim is retired, both fills below are commented out, so the two
+# sweeps had no writer left. 12 -> 10 candidate lists cleared here.)
+# Deliberately never touches tnt_nonwar_promises: that list was the permanent
+# record of concluded non-aggression promises, pruned only by
+# tnt_gc_promises_effect - and V12 retired the GC too (see E29).
+#
+# I CLEAR ONLY THE CANDIDATE HALF. The two courtier SELECTION lists
+# tnt_sel_courtier_p / _r are OFFER STATE, exactly like the six shipped
+# tnt_sel_* lists (tnt_sel_prisoner_p was one of them until its term was
+# retired; V12 commented its clear out under E0), so they are cleared where the offer is
+# cleared — tnt_reset_offer_effect in tnt_30_effects.txt, which is not this
+# author's file. That line is in the handoff. The rule is the one this header has
+# stated since build 3: "the selection lists are NOT here: they are offer state
+# and belong to tnt_reset_offer_effect."
+#
+# v2 BUILD 3 — NOTES3-marriage §3.C.1. tnt_list_spouse_p / _r are variable
+# LISTS of characters and this is the only path that removes them, so
+# without the delegation below they survive every window close and are
+# written into the save for ever. It replaces a *** BRIDGE *** call that
+# build 2's integrator had to leave in tnt_close_window_effect because this
+# file belonged to nobody; that call is now deleted, so the clear happens
+# exactly once and in the one place that owns the list-clearing list.
+# The nine tnt_sel_* / selection lists are NOT here: they are offer state and
+# belong to tnt_reset_offer_effect.
+########################################################################
+tnt_clear_lists_effect = {
+	clear_variable_list = tnt_list_title_p
+	clear_variable_list = tnt_list_title_r
+	# RETIRED V13, USER ITEM 1, under the same ruling E0 as the three lines below:
+	# a clear_variable_list COUNTS AS A USE of the list. The only fills of
+	# tnt_list_claim_p/_r are E8 and E9, commented out further down with the granted
+	# claim (TOMBSTONE C in tnt_32_apply.txt), so leaving these two sweeps live would
+	# log 'Variable tnt_list_claim_p is used but is never set' once each per run.
+	# clear_variable_list = tnt_list_claim_p
+	# clear_variable_list = tnt_list_claim_r
+	clear_variable_list = tnt_list_artifact_p
+	clear_variable_list = tnt_list_artifact_r
+	# RETIRED V12 under ruling E0. A clear_variable_list COUNTS AS A USE of the
+	# list, so these sweeps were the whole cause of 'Variable tnt_list_nonwar_p is
+	# used but is never set'. Same treatment as tnt_ally_inrealm,
+	# tnt_30_effects.txt:316-319.
+	# clear_variable_list = tnt_list_nonwar_p
+	# clear_variable_list = tnt_list_nonwar_r
+	# RETIRED V12 under ruling E0, same reason for the retired prisoner terms: a
+	# clear_variable_list COUNTS AS A USE, and the engine logged 'Variable
+	# tnt_list_prisoner_p is used but is never set' twice per run.
+	# clear_variable_list = tnt_list_prisoner_p
+	# --- ITEM 19: the four people terms ------------------------------------
+	# Six lists, not eight: GRANT INDEPENDENCE has no list and no picker,
+	# because the only person it can ever be about is the negotiating partner
+	# himself (tnt_42_people_gates.txt, PART D).
+	clear_variable_list = tnt_list_hostage_p
+	clear_variable_list = tnt_list_hostage_r
+	# RETIRED V16, USER ITEM 5 — the two ward candidate-list clears, under ruling E0
+	# and for the reason MEASURED three lines above: a clear_variable_list COUNTS AS A
+	# USE, and the engine logged 'Variable tnt_list_prisoner_p is used but is never
+	# set' twice per run for exactly this shape. The two fills that wrote these lists
+	# are commented out in tnt_3a_people.txt (P3/P4) and their four call sites went
+	# with them, so keeping these two clears would trade an old-save sweep for two
+	# guaranteed error lines per run — and the acceptance condition for a playtest is
+	# ZERO tnt_ error lines.
+	# THE OLD-SAVE ARGUMENT IS VOID ANYWAY: the mod is not published and savegame
+	# compatibility is never a constraint (CLAUDE.md §1). The twin clears in
+	# tnt_30_effects.txt's bridge block are commented out in the same pass.
+	#	clear_variable_list = tnt_list_ward_p
+	#	clear_variable_list = tnt_list_ward_r
+	clear_variable_list = tnt_list_courtier_p
+	clear_variable_list = tnt_list_courtier_r
+	# V26 — the third people term's CANDIDATE lists. Session state like the four
+	# above them: their SELECTION twins tnt_sel_subject_p/_r are offer state and
+	# are cleared with the offer, in tnt_30_effects.txt's tnt_reset_offer_effect,
+	# exactly as the courtier pair is.
+	clear_variable_list = tnt_list_subject_p
+	clear_variable_list = tnt_list_subject_r
+	tnt_clear_spouse_lists_effect = yes
+}
+
+
+########################################################################
+# E5 — tnt_refill_all_lists_effect
+#
+# The fan-out. Bound to the window's state = { name = _show } through the
+# tnt_refresh_lists scripted_gui, called on window open, called from the AI
+# counter-offer path (tnt_37_ai_offer.txt:777), and called again after a
+# deal is applied (titles and artifacts may have changed hands).
+#
+# v2 BUILD 3 — NOTES3-marriage §3.C.2. The spouse fan-out is the LAST line
+# and it belongs here rather than at each of the four call sites, which is
+# what the finding "two of the three window-open paths never build the two
+# spouse candidate lists" was about: tnt_refresh_lists (the _show state) and
+# tnt_ai_offer_counter_effect both call only this effect, so a bridge call
+# parked in tnt_open_window_effect left the marriage editor opening on two
+# empty columns on both of those paths — and tnt_show_marriage_p_trigger /
+# _r_trigger (tnt_41_gates.txt:1273, :1294) gate the two marriage rows on
+# variable_list_size > 0 of those same lists, so the rows went dark for the
+# rest of the session after every applied deal.
+# tnt_fill_spouse_lists_effect also ends in tnt_marriage_sync_effect, which
+# recomputes tnt_marriage_legal / _betroth / _line_shown and drops
+# tnt_marriage_p/_r when the chosen pair stops being legal. That is the
+# anti-phantom rule, and having it here is why tnt_refresh_lists and
+# tnt_clear_all no longer need a call of their own.
+# Every fill opens with clear_variable_list, so this is idempotent.
+########################################################################
+tnt_refill_all_lists_effect = {
+	# DECLARATION ONLY — THIS BRANCH MUST NEVER RUN. tnt_person_is_beast_trigger
+	# (tnt_42_people_gates.txt P19) READS AGOT's global variable list
+	# `living_dragons`. The engine audits every variable and flag NAME at load and
+	# reports "Variable 'X' is used but is never set" when a loaded script reads a
+	# name no loaded script writes — and that audit counts TRIGGER reads, proven by
+	# "AGOT Submod Core"\common\scripted_triggers\aotk_loaded_trigger.txt:4
+	# (`exists = global_var:Aotk_enabled`, its only reference to that name
+	# anywhere) turning up in the 2026-08-16 error.log's never-set list. With AGOT
+	# loaded, AGOT writes the list itself (00_agot_dragon_effects.txt:2918) and
+	# nothing is logged — verified, zero never-set lines for `living_dragons` in
+	# that 33.7 MB log. This branch exists so a VANILLA-ONLY game logs nothing
+	# either. `always = no` is airtight and has to stay airtight: actually putting
+	# the player into AGOT's dragon list would corrupt AGOT's own bookkeeping.
+	# DO NOT DELETE AS DEAD CODE. Deleting it brings the log line back.
+	if = {
+		limit = { always = no }
+		add_to_global_variable_list = {
+			name = living_dragons
+			target = this
+		}
+	}
+
+	# THE SECOND SUPPRESSOR, AND IT IS THE SAME TRICK FOR THE SAME REASON (V18).
+	# tnt_40_triggers.txt:697-702 reads `culture = { has_variable = wildling_culture }`
+	# four times - AGOT's own marker for a wildling culture, which AGOT writes and a
+	# vanilla-only game never does. The 2026-08-18 vanilla-only run logged it twice:
+	#   [E][jomini_effect.cpp:1161]: Variable 'wildling_culture' is used but is never
+	#   set. Setting it in an unused scripted trigger or effect does not count
+	# That message names no tnt_ identifier, which is exactly why the project's own
+	# acceptance criterion ("zero tnt_ error lines") could not see it for rounds.
+	# The engine's complaint is about a variable READ with no writer anywhere in the
+	# load order, so the cure is a writer the engine can see and the game can never
+	# reach - the identical `always = no` branch used for living_dragons above.
+	# IT MUST STAY AIRTIGHT: actually marking a culture as wildling would hand AGOT a
+	# lie about its own world. And it must stay on a CULTURE scope, because that is
+	# the scope the four readers ask.
+	# DO NOT DELETE AS DEAD CODE. Deleting it brings the log line back.
+	if = {
+		limit = { always = no }
+		culture = {
+			set_variable = {
+				name = wildling_culture
+				value = 0
+			}
+		}
+	}
+
+	tnt_fill_title_p_effect = yes
+	tnt_fill_title_r_effect = yes
+	# RETIRED V13, USER ITEM 1 - the two claim fills. TOMBSTONE C in
+	# tnt_32_apply.txt. The two bodies (E8 / E9) are commented out below; these two
+	# calls go with them, because a call to a commented-out effect is a name the
+	# engine cannot resolve.
+	#	tnt_fill_claim_p_effect = yes
+	#	tnt_fill_claim_r_effect = yes
+	tnt_fill_artifact_p_effect = yes
+	tnt_fill_artifact_r_effect = yes
+	# RETIRED - the two non-aggression fills (tombstone at E25 in tnt_32_apply.txt)
+	# and the captive fill (tombstone at E22 there). The three bodies are commented
+	# out below; these three calls go with them, because a call to a commented-out
+	# effect is a name the engine cannot resolve.
+	#	tnt_fill_nonwar_p_effect = yes
+	#	tnt_fill_nonwar_r_effect = yes
+	#	# V4 item A1: the captives the player may release, filled with the same trigger
+	#	# that prices and frees them.
+	#	tnt_fill_prisoner_p_effect = yes
+
+	# --- ITEM 19: the four people terms ------------------------------------
+	# Six calls, defined in common\scripted_effects\tnt_3a_people.txt (§1.B).
+	# Each one is the same shape as the nine above: clear, guard on
+	# `exists = var:tnt_partner`, save the player as scope:tnt_list_owner, iterate
+	# with the term's per-candidate trigger, and store on the PLAYER whichever side
+	# the list describes — because the GUI reads every list off GetPlayer.
+	# (V11: this sentence used to say "run the term's pair gate once" as well. It
+	# does not — see the E4 header above, where the same claim is corrected in
+	# full and the reason it has no correctness consequence is set out.)
+	#
+	# THE TWO SURVIVING POOLS, in the words the player is owed (item 7's ruling: a
+	# pool that cannot be explained in one sentence is a defect). The same sentences
+	# are the headers of the candidate triggers in tnt_42_people_gates.txt,
+	# and the loc keys tnt_item_*_desc must not say anything else:
+	#   hostage   — the sender's own unlanded, unmarried, unbetrothed close kin
+	#               (child, grandchild, sibling, niece or nephew) at his court,
+	#               not already a hostage or ward, not away, not his regent.
+	#   ward      — RETIRED V16, USER ITEM 5. Was: a child at the sender's own court,
+	#               fit to travel, not already the other ruler's ward, not a hostage,
+	#               not away. IT WAS THE ONLY CHILDREN-ONLY POOL IN THE MOD, and no
+	#               surviving term has one — the hostage pool admits any unlanded
+	#               close family member, adult or not. Recorded here because a future
+	#               author looking for "the children pool" will look in this list.
+	#   courtier  — a grown, landless member of the sender's court who holds no
+	#               post in it, and who is not a rival of the man receiving him.
+	#
+	# THE ORDER OF THESE SIX AMONG THEMSELVES DOES NOT MATTER; the order of the
+	# BLOCK does. It must precede tnt_refresh_show_gates_effect, which is E1's
+	# last statement, because the six show-gates read variable_list_size on these
+	# lists. That contract is stated in tnt_41_gates.txt's PART 2 header and this
+	# call site is the reason it holds for item 19 too, on all four window paths.
+	tnt_fill_hostage_p_effect = yes
+	tnt_fill_hostage_r_effect = yes
+	# RETIRED V16, USER ITEM 5 — the two ward fills. These were the ONLY refill-path
+	# callers of tnt_fill_ward_p/_r_effect (the other two were the two openers in
+	# tnt_24_people.txt, retired in the same pass), so both fills are now callerless
+	# and are commented out in tnt_3a_people.txt (P3/P4). Reason: the term was too
+	# abusable on points and the hostage term covers the same immersive ground; full
+	# WARD TOMBSTONE in tnt_32_apply.txt.
+	# BONUS, and it is the same argument as the V11 correction in this file's header:
+	# this removes two every_child walks with a full candidate trigger from every
+	# window open, every _show transition and every post-deal refill.
+	#	tnt_fill_ward_p_effect = yes
+	#	tnt_fill_ward_r_effect = yes
+	tnt_fill_courtier_p_effect = yes
+	tnt_fill_courtier_r_effect = yes
+	# V26 — THE THIRD PEOPLE TERM. Defined in tnt_3a_people.txt (P21/P22), same
+	# shape as the four above: clear, guard on `exists = var:tnt_partner`, save
+	# the player as scope:tnt_list_owner, iterate with the term's per-candidate
+	# trigger, and store on the PLAYER whichever side the list describes.
+	#   subject   — a DIRECT vassal of the giver's who holds a county or more,
+	#               ranks below the man receiving him, is at peace with the
+	#               giver, with everyone under him and with the receiver, is
+	#               neither the giver's regent nor his heir, and has not been
+	#               moved by a treaty in the last three years.
+	# ITS POOL IS every_vassal, which is vanilla's own for this question
+	# (GAME\common\character_interactions\00_vassal_interactions.txt:11-17), and
+	# it is the one fill in this block whose candidate trigger contains a subtree
+	# walk. The cost argument is written into P21's own header so a later round
+	# does not delete the row as a performance-law violation; the short version
+	# is that this runs on window open and not per frame, over 5-25 direct
+	# vassals, and is cheaper than the every_courtier pair above it.
+	tnt_fill_subject_p_effect = yes
+	tnt_fill_subject_r_effect = yes
+
+	# ITEM 3 — THE ORDER, once for all twelve multi-select lists. Every fill above
+	# opens with clear_variable_list and rebuilds from the world in whatever order
+	# the iterator yields, so the canonical order has to be re-imposed after the
+	# block and not inside it. ONE line here covers all four whole-window refresh
+	# paths — window open (tnt_30_effects.txt:220), the _show state
+	# (tnt_20_scripted_guis.txt:1354), post-apply (tnt_32_apply.txt:730) and the AI
+	# counter-offer (tnt_37_ai_offer.txt:5051) — in the spirit of M4
+	# tnt_multi_prune_all_effect: so the ORDER never has to be reasoned about again
+	# at a call site. It is idempotent, so it does not matter that some of those
+	# paths also reach a per-click sort. Argument: tnt_35a_sort.txt.
+	# It goes here rather than after the spouse fan-out below because that line must
+	# stay last (the rule stated immediately under this one), and because the spouse
+	# lists are not among the twelve.
+	tnt_sort_all_effect = yes
+
+	# LAST, and it must stay last: this one ends in tnt_marriage_sync_effect,
+	# which recomputes the marriage mirrors and can DROP a chosen pair. Anything
+	# appended after it would run before that recompute on the next reading of
+	# this list, which is how the anti-phantom rule gets quietly broken.
+	tnt_fill_spouse_lists_effect = yes
+}
+
+
+########################################################################
+# E6 — tnt_fill_title_p_effect
+# Titles the PLAYER could cede: own held titles, county or above, not the
+# primary title, not the capital.
+########################################################################
+# RETIRED WITH THE PRISONER TERMS. Tombstone: the FAMILY B block heading E22 in
+# common\scripted_effects\tnt_32_apply.txt. The list this built is still CLEARED by
+# E4 above, as an old-save sweep; only the filling is gone.
+# ###############################################################################
+# # tnt_fill_prisoner_p_effect — THE CAPTIVES THE PLAYER MAY RELEASE  (V4, item A1)
+# #
+# # THE REQUEST: release prisoners FROM A LIST instead of all-or-nothing, because "even
+# # when a ruler is in my dungeon I only get +12 for releasing all prisoners". The
+# # pricing half of that was fixed first (rank now matters, tnt_50_values.txt); this is
+# # the selection half.
+# #
+# # THE SHAPE IS THE ONE THE OTHER THREE MULTI-SELECT TERMS USE, deliberately and
+# # line-for-line: fill a candidate list, move entries into a selection list, price the
+# # selection, execute the selection. Nothing new is invented here - the machinery was
+# # already built for titles, claims and artifacts, and the docs even reserved the name
+# # tnt_sel_prisoner_p for this.
+# #
+# # THE FILTER IS tnt_prisoner_relevant_trigger, THE SAME ONE THE PRICE AND THE EXECUTOR
+# # USE. That is the invariant worth stating: a captive who appears in this list is a
+# # captive who will be priced and who will actually walk free. Three copies of a filter
+# # is how a treaty ends up promising a release it does not perform.
+# #
+# # `target = prev` inside the loop and the owner saved beforehand: inside
+# # `every_prisoner` the current scope is the PRISONER, so a bare add_to_variable_list
+# # would build the list on him instead of on the player. Same reason and same shape as
+# # tnt_fill_title_p_effect below.
+# ###############################################################################
+# tnt_fill_prisoner_p_effect = {
+# 	clear_variable_list = tnt_list_prisoner_p
+#
+# 	save_temporary_scope_as = tnt_list_owner
+# 	var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+#
+# 	if = {
+# 		limit = { exists = scope:tnt_p }
+# 		every_prisoner = {
+# 			limit = { tnt_prisoner_relevant_trigger = { PARTY = scope:tnt_p } }
+# 			scope:tnt_list_owner = {
+# 				add_to_variable_list = {
+# 					name = tnt_list_prisoner_p
+# 					target = prev
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+
+
+tnt_fill_title_p_effect = {
+	clear_variable_list = tnt_list_title_p
+
+	save_temporary_scope_as = tnt_list_owner
+
+	every_held_title = {
+		limit = { tnt_can_cede_title_trigger = { GIVER = scope:tnt_list_owner } }
+		scope:tnt_list_owner = {
+			add_to_variable_list = {
+				name = tnt_list_title_p
+				target = prev
+			}
+		}
+	}
+}
+
+
+########################################################################
+# E7 — tnt_fill_title_r_effect
+# Titles the PARTNER could cede. Iterated on the partner, stored on the
+# player so the GUI can still read the list off GetPlayer.
+########################################################################
+tnt_fill_title_r_effect = {
+	clear_variable_list = tnt_list_title_r
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_giver }
+
+		var:tnt_partner ?= {
+			every_held_title = {
+				limit = { tnt_can_cede_title_trigger = { GIVER = scope:tnt_list_giver } }
+				scope:tnt_list_owner = {
+					add_to_variable_list = {
+						name = tnt_list_title_r
+						target = prev
+					}
+				}
+			}
+		}
+	}
+}
+
+
+# RETIRED V13, USER ITEM 1 - E8 AND E9, THE TWO CLAIM FILLS.
+# See TOMBSTONE C in common\scripted_effects\tnt_32_apply.txt: the granted claim is
+# a DESIGN REFUSAL, because vanilla gates the manufacture of claims behind a LEARNING
+# investment (the Court Chaplain's task_fabricate_claim) and this window sold a
+# finished claim for points.
+# These two were the ONLY writers of tnt_list_claim_p / tnt_list_claim_r, and the only
+# live callers of T4 tnt_can_grant_claim_trigger together with A11's two sites in
+# tnt_37_ai_offer.txt - so T4 is tombstoned with them in tnt_40_triggers.txt.
+# ########################################################################
+# # E8 — tnt_fill_claim_p_effect
+# # Titles the PLAYER could grant the partner a claim on. Symmetric with the
+# # cede picker on purpose: you may only sell a claim on something you
+# # actually hold, which makes it a real concession.
+# ########################################################################
+# tnt_fill_claim_p_effect = {
+# 	clear_variable_list = tnt_list_claim_p
+#
+# 	if = {
+# 		limit = { exists = var:tnt_partner }
+#
+# 		save_temporary_scope_as = tnt_list_owner
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_receiver }
+#
+# 		every_held_title = {
+# 			limit = {
+# 				tnt_can_grant_claim_trigger = {
+# 					GIVER = scope:tnt_list_owner
+# 					RECEIVER = scope:tnt_list_receiver
+# 				}
+# 			}
+# 			scope:tnt_list_owner = {
+# 				add_to_variable_list = {
+# 					name = tnt_list_claim_p
+# 					target = prev
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+#
+#
+# ########################################################################
+# # E9 — tnt_fill_claim_r_effect
+# # Titles the PARTNER could grant the player a claim on.
+# ########################################################################
+# tnt_fill_claim_r_effect = {
+# 	clear_variable_list = tnt_list_claim_r
+#
+# 	if = {
+# 		limit = { exists = var:tnt_partner }
+#
+# 		save_temporary_scope_as = tnt_list_owner
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_giver }
+#
+# 		var:tnt_partner ?= {
+# 			every_held_title = {
+# 				limit = {
+# 					tnt_can_grant_claim_trigger = {
+# 						GIVER = scope:tnt_list_giver
+# 						RECEIVER = scope:tnt_list_owner
+# 					}
+# 				}
+# 				scope:tnt_list_owner = {
+# 					add_to_variable_list = {
+# 						name = tnt_list_claim_r
+# 						target = prev
+# 					}
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+
+
+########################################################################
+# E10 — tnt_fill_artifact_p_effect
+# The player's giftable artifacts. every_character_artifact in an effect
+# with a rarity/giftability limit is vanilla —
+# GAME\common\character_interactions\00_prison_interactions.txt:4255-4261.
+########################################################################
+tnt_fill_artifact_p_effect = {
+	clear_variable_list = tnt_list_artifact_p
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_list_receiver }
+
+		every_character_artifact = {
+			limit = { tnt_artifact_giftable_trigger = { RECEIVER = scope:tnt_list_receiver } }
+			scope:tnt_list_owner = {
+				add_to_variable_list = {
+					name = tnt_list_artifact_p
+					target = prev
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# E11 — tnt_fill_artifact_r_effect
+# The partner's giftable artifacts.
+########################################################################
+tnt_fill_artifact_r_effect = {
+	clear_variable_list = tnt_list_artifact_r
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_list_owner
+
+		var:tnt_partner ?= {
+			every_character_artifact = {
+				limit = { tnt_artifact_giftable_trigger = { RECEIVER = scope:tnt_list_owner } }
+				scope:tnt_list_owner = {
+					add_to_variable_list = {
+						name = tnt_list_artifact_r
+						target = prev
+					}
+				}
+			}
+		}
+	}
+}
+
+
+# RETIRED WITH THE NON-AGGRESSION TERM. Tombstone: the FAMILY A block heading E25 in
+# common\scripted_effects\tnt_32_apply.txt. The two lists these built are still
+# CLEARED by E4 above, as an old-save sweep; only the filling is gone.
+# ########################################################################
+# # E12 — tnt_fill_nonwar_p_effect / tnt_fill_nonwar_r_effect
+# #
+# # TWO lists now, one per column, each built from the PROMISER's vantage
+# # (user item 7): tnt_list_nonwar_p = whom the PLAYER could promise to
+# # spare, tnt_list_nonwar_r = whom the PARTNER could. The pool is "rulers
+# # the promiser could realistically attack": rulers of realms bordering
+# # the promiser's by land, plus holders of titles the promiser has a
+# # claim on. The old pool (allies of either side, one shared list) put
+# # people the promiser could never march on in front of the player and no
+# # UI line said what the list meant.
+# #
+# # Every candidate from both sources goes through T8
+# # (tnt_nonwar_candidate_trigger), which carries the exclusions — the two
+# # parties, the promiser's allies, anyone the promiser already holds a
+# # truce towards — so the trigger stays the single statement of the rule.
+# #
+# # every_neighboring_top_liege_realm_owner is the LAND-border form:
+# # vanilla keeps the separate every_neighboring_and_across_water_
+# # top_liege_realm_owner for sea neighbours
+# # (GAME\common\activities\guest_invite_rules\activity_invite_rules.txt:259).
+# # REAL call sites, effect context, with a limit:
+# #   GAME\common\character_interactions\00_debug_interactions.txt:369
+# #   GAME\common\important_actions\05_bp2_actions.txt:15-21
+# #
+# # every_claim iterates the TITLES the character claims; the candidate is
+# # each title's holder. REAL call sites:
+# #   GAME\common\scripted_effects\05_dlc_fp3_scripted_effects.txt:793 (bare)
+# #   GAME\common\character_interactions\00_prison_interactions.txt:4380-4390
+# #     (with a limit doing `exists = holder` + `holder = { ... }` — the
+# #     exact shape used here)
+# # `holder = { ... }` as an EFFECT block off a title scope:
+# #   GAME\common\scripted_effects\00_almohad_invasion_effects.txt:273.
+# #
+# # The claim pass de-duplicates against the list — the same ruler may hold
+# # two claimed titles, or hold a claimed title AND be a border neighbour —
+# # and would otherwise appear twice in the picker and light up twice under
+# # the ObjectsEqual "selected" test. has_variable_list guards
+# # is_target_in_variable_list exactly as vanilla pairs them —
+# # GAME\common\character_interactions\00_character_interactions.txt:1060-1064.
+# # The neighbour pass runs first on a just-cleared list and the iterator
+# # yields each realm owner once, so only the claim pass needs the guard.
+# ########################################################################
+# tnt_fill_nonwar_p_effect = {
+# 	clear_variable_list = tnt_list_nonwar_p
+#
+# 	if = {
+# 		limit = { exists = var:tnt_partner }
+#
+# 		save_temporary_scope_as = tnt_list_owner
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_nw_other }
+#
+# 		# --- rulers whose realm borders the player's by land ------------
+# 		every_neighboring_top_liege_realm_owner = {
+# 			limit = {
+# 				tnt_nonwar_candidate_trigger = {
+# 					PROMISER = scope:tnt_list_owner
+# 					OTHER = scope:tnt_nw_other
+# 				}
+# 			}
+# 			scope:tnt_list_owner = {
+# 				add_to_variable_list = {
+# 					name = tnt_list_nonwar_p
+# 					target = prev
+# 				}
+# 			}
+# 		}
+#
+# 		# --- holders of titles the player claims, skipping anyone listed
+# 		every_claim = {
+# 			limit = {
+# 				exists = holder
+# 				holder = {
+# 					tnt_nonwar_candidate_trigger = {
+# 						PROMISER = scope:tnt_list_owner
+# 						OTHER = scope:tnt_nw_other
+# 					}
+# 					trigger_if = {
+# 						limit = {
+# 							scope:tnt_list_owner = { has_variable_list = tnt_list_nonwar_p }
+# 						}
+# 						NOT = {
+# 							scope:tnt_list_owner = {
+# 								is_target_in_variable_list = {
+# 									name = tnt_list_nonwar_p
+# 									target = prev
+# 								}
+# 							}
+# 						}
+# 					}
+# 				}
+# 			}
+# 			holder = {
+# 				scope:tnt_list_owner = {
+# 					add_to_variable_list = {
+# 						name = tnt_list_nonwar_p
+# 						target = prev
+# 					}
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+#
+#
+# tnt_fill_nonwar_r_effect = {
+# 	clear_variable_list = tnt_list_nonwar_r
+#
+# 	if = {
+# 		limit = { exists = var:tnt_partner }
+#
+# 		save_temporary_scope_as = tnt_list_owner
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_nw_promiser }
+#
+# 		var:tnt_partner ?= {
+# 			# --- rulers whose realm borders the partner's by land --------
+# 			every_neighboring_top_liege_realm_owner = {
+# 				limit = {
+# 					tnt_nonwar_candidate_trigger = {
+# 						PROMISER = scope:tnt_nw_promiser
+# 						OTHER = scope:tnt_list_owner
+# 					}
+# 				}
+# 				scope:tnt_list_owner = {
+# 					add_to_variable_list = {
+# 						name = tnt_list_nonwar_r
+# 						target = prev
+# 					}
+# 				}
+# 			}
+#
+# 			# --- holders of titles the partner claims, skipping anyone listed
+# 			every_claim = {
+# 				limit = {
+# 					exists = holder
+# 					holder = {
+# 						tnt_nonwar_candidate_trigger = {
+# 							PROMISER = scope:tnt_nw_promiser
+# 							OTHER = scope:tnt_list_owner
+# 						}
+# 						trigger_if = {
+# 							limit = {
+# 								scope:tnt_list_owner = { has_variable_list = tnt_list_nonwar_r }
+# 							}
+# 							NOT = {
+# 								scope:tnt_list_owner = {
+# 									is_target_in_variable_list = {
+# 										name = tnt_list_nonwar_r
+# 										target = prev
+# 									}
+# 								}
+# 							}
+# 						}
+# 					}
+# 				}
+# 				holder = {
+# 					scope:tnt_list_owner = {
+# 						add_to_variable_list = {
+# 							name = tnt_list_nonwar_r
+# 							target = prev
+# 						}
+# 					}
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+
+
+########################################################################
+# E29 — tnt_gc_promises_effect
+#
+# RETIRED V12 (ruling E0). Nothing has written tnt_nonwar_promises since the
+# non-aggression term was retired (its writer is commented out at
+# tnt_32_apply.txt:1300), and every_in_list over the list counts as a USE - the
+# engine logged 'Variable tnt_nonwar_promises is used but is never set' twice per
+# run. The body below and its single call site
+# (common\on_action\tnt_70_on_actions.txt:171) are commented out together;
+# revive both or neither. Tombstone: E25 in common\scripted_effects\tnt_32_apply.txt.
+# (It was the ONE variable of that family living on ARBITRARY characters — the AI
+# partner as often as the player — so no window path, no reset and no close could
+# ever reach it. That is why it had a yearly GC of its own instead.)
+#
+# It WAS called once a year for every playable character from
+# yearly_playable_pulse via tnt_yearly_cleanup.
+#
+# tnt_nonwar_promises records "I swore not to attack X". add_to_variable_list
+# entries NEVER expire on their own — only set_variable takes days/years
+# (report 04 warning #18) — so once the one-way truce lapses the record has
+# to be pruned by hand or the list grows forever inside the save.
+#
+# Shape copied verbatim from the one place vanilla does exactly this,
+# GAME\common\story_cycles\story_cycle_infidelity_confrontation.txt:45-64:
+#   every_in_list = { variable = <list>  limit = { ... }
+#       save_temporary_scope_as = remove_from_list
+#       <list owner> = { remove_list_variable = { name = <list> target = scope:remove_from_list } } }
+# Vanilla removes entries during the same pass it iterates, so that is safe.
+#
+# NOTE the key is `variable = <name>` for a VARIABLE list; `list = <name>`
+# is for temporary lists built with add_to_list.
+#
+# The truce test is asked from the promiser's side so there is no ambiguity
+# about which direction of a one-way truce is being checked.
+# The trigger is `has_truce` — the longer blacklisted `has_truce_*` spelling
+# does not exist. REAL call sites, which is the only admissible evidence (R3):
+#   GAME\common\casus_belli_types\07_ep3_wars.txt:4211  has_truce = scope:attacker.liege
+#   GAME\common\character_interactions\00_war.txt:79    has_truce = scope:recipient
+#   GAME\common\character_interactions\00_fp3_interactions.txt:408, :474
+# trigger_localization is NOT an existence oracle — that folder is exactly what
+# shipped defect D1 (30-V2-DESIGN §9 D1), and citing it here was the last
+# surviving instance of the mistake in this mod.
+########################################################################
+# tnt_gc_promises_effect = {
+# 	if = {
+# 		limit = { has_variable_list = tnt_nonwar_promises }
+#
+# 		save_temporary_scope_as = tnt_gc_owner
+#
+# 		every_in_list = {
+# 			variable = tnt_nonwar_promises
+# 			limit = {
+# 				NOT = {
+# 					scope:tnt_gc_owner = { has_truce = prev }
+# 				}
+# 			}
+# 			save_temporary_scope_as = tnt_gc_lapsed
+# 			scope:tnt_gc_owner = {
+# 				remove_list_variable = {
+# 					name = tnt_nonwar_promises
+# 					target = scope:tnt_gc_lapsed
+# 				}
+# 			}
+# 		}
+# 	}
+# }

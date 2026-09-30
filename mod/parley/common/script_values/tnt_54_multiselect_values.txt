@@ -1,0 +1,1195 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — MULTI-SELECT VALUES  (user item 2.2 + U1)
+#
+# Owner: multiselect.  Files that belong to this author and to nobody else:
+#   common/script_values/tnt_54_multiselect_values.txt   <- this file
+#   common/scripted_effects/tnt_35_multiselect.txt
+#   common/scripted_guis/tnt_22b_multiselect.txt
+#   gui/tnt_panel_multiselect.gui
+#
+# WHAT ITEM 2.2 IS
+# ---------------------------------------------------------------------
+# Build 1 stored exactly ONE object per picker in a character variable
+# (tnt_title_p, tnt_claim_r, tnt_artifact_p ...). The user asked for
+# several at once. 30-V2-DESIGN §1 row 2.2 replaces those six variables
+# with six VARIABLE LISTS:
+#     tnt_sel_title_p     tnt_sel_title_r
+#     tnt_sel_claim_p     tnt_sel_claim_r
+#     tnt_sel_artifact_p  tnt_sel_artifact_r
+# and the picker panel shows TWO datamodels — "available" (the shipped
+# tnt_list_* lists) and "chosen" (tnt_sel_*). A row click MOVES the object
+# from one list to the other. That is the whole reason for the two-list
+# shape: the engine has NO list-membership datafunction, so a GUI can
+# never ask "is this row already chosen". If the object is only ever in
+# one list at a time, the question never has to be asked.
+#
+# THE FOUR THINGS THIS FILE COMPUTES
+#   1. six COUNTS         (how many objects are in each selection list)
+#   2. six CAP FLAGS      (all hard zeros now — the cap is gone; §2 is the tombstone)
+#   3. six VALUATIONS     (what the whole selection is worth, in points)
+#   4. the DOMAIN COUNTER (U1(a): what both domains become, and whether
+#                          either side ends up over its domain limit)
+#
+# ---------------------------------------------------------------------
+# THE CENTRAL PROOF — every_in_list OVER A VARIABLE LIST, INSIDE A
+# common/script_values ENTRY, IS REAL
+# ---------------------------------------------------------------------
+# GAME\common\script_values\00_diarchy_values.txt:3746-3756, verbatim:
+#     pv_overthrow_tally_value = {
+#         value = 0
+#         every_in_list = {
+#             variable = coup_pv_supporters_list
+#             limit = { is_powerful_vassal_of = root.liege  is_alive = yes }
+#             add = 1
+#         }
+#     }
+# i.e. `variable = <name>` (a VARIABLE list — `list = <name>` is for the
+# temporary lists built by add_to_list), a `limit`, and `add` at the top
+# level of a named value. That is counter shape 1 exactly.
+# Four further sites: 01_dlc_fp1_script_values.txt:268,
+# 06_ce1_epidemics_values.txt:2001, 07_ep3_values.txt:4042, :5629.
+#
+# AND THE PER-ELEMENT-MATHS PROOF, which is the shape used for valuation:
+# GAME\common\script_values\00_stress_values.txt:107-150 —
+# vanilla's OWN multi-title price, `generous_title_grant_value`:
+#     every_in_list = {
+#         list = target_titles
+#         add = {
+#             value = 0
+#             if      = { limit = { this.tier = tier_county } add = minor_stress_loss }
+#             else_if = { limit = { this.tier = tier_duchy  } add = { value = medium_stress_loss  multiply = 1.25 } }
+#             ...
+#             multiply = { value = this.tier  add = 1  divide = scope:actor.primary_title.tier }
+#         }
+#     }
+# A full nested `add = { value = 0  if/else_if …  multiply … }` inside an
+# in-list iterator inside a script value. Vanilla prices a bag of titles
+# with the same machinery this file uses, tier by tier.
+# `save_temporary_scope_as` inside such an iterator: 00_basic_values.txt:1858-1868.
+# `if = { limit = { … }  every_in_list = { … add = <n> } }` (an iterator
+# nested inside an if): GAME\common\script_values\00_interaction_values.txt:350-367
+# (`grant_title_opinion_sum_baronies`).
+#
+# ---------------------------------------------------------------------
+# LAW R9 — every value here reads ONLY root (the player) and var: values
+# ---------------------------------------------------------------------
+# GetScriptValueBreakdown supplies root ONLY (00-ARCHITECTURE §2.7), and
+# these values feed the balance through tnt_gain_total_value /
+# tnt_loss_total_value, so no value below reads scope:actor,
+# scope:recipient or any GUI-supplied scope. The partner is reached the
+# way the other 55 values reach him — contract R0.4's prologue
+#     var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+# and then `scope:tnt_p ?= { … }` at every read. The `?=` is not
+# decoration: the window can be open when the partner dies, and a frame
+# can be drawn before the GUI notices (tnt_51_relation_values.txt:51-62).
+# Top-level `scope:tnt_p ?= { add = <field> }` is shipped in this mod at
+# tnt_51_relation_values.txt:88.
+#
+# ---------------------------------------------------------------------
+# THE PER-ITEM CAP IS 3, AND HERE IS WHY
+# ---------------------------------------------------------------------
+# 30-V2-DESIGN offers a cap of 3 as the fallback "if performance or
+# balance demands it" (§1 row 2.2) and names it again as the mitigation
+# for risk R-15 ("Multi-select scale: 5 counties on one side ... error.log
+# during apply (five create_title_and_vassal_change cycles in one
+# effect)"). THE CAP IS TAKEN, not deferred, for four reasons:
+#   1. R-15 is unresolved. Nobody has yet run a five-title hand-over, and
+#      the title leg is the one effect in this mod that can corrupt a save
+#      (00-ARCHITECTURE §6 item 11). A cap is the cheapest possible
+#      insurance and can be raised later by editing four lines.
+#   2. Vertical budget. The centre deal sheet has ~786 px for up to 16
+#      static rows per side (30-V2-DESIGN §4.2); 6 lists x 3 objects adds
+#      at most 18 rows plus 6 group heads, which fits. At 5 per list it
+#      does not.
+#   3. Balance. Three duchies at 260 base is already 780 points, i.e.
+#      more than half of the vassalage term's 1400 ceiling. Beyond that
+#      the scales stop being informative.
+#   4. The AI. 30-V2-DESIGN §6.4 constraint 3 forbids a convergence loop,
+#      so the AI composer picks a package in one pass; a bounded item is
+#      one it can actually price.
+# THE CAP LIVES IN EXACTLY FOUR PLACES. Change all four together:
+#   (a) the six tnt_cap_hit_*_value entries below      (the GUI warning)
+#   (b) tnt_multi_add_effect's variable_list_size guard (tnt_35_multiselect.txt)
+#   (c) the six tnt_sel_count_* loc strings          (they print "of 3")
+#   (d) this comment.
+#
+# *** v3 ITEM 5 — THE CAP IS OFF FOR THE TWO TITLE LISTS. *** The user overruled
+# reasons 1-4 above for titles specifically: "let us remove the limit, and instead
+# make exceeding the domain limit give fewer points." So for tnt_sel_title_p and
+# tnt_sel_title_r the wall is gone. THE PRICE THAT REPLACED IT IS GONE TOO (user
+# item 13; §4b at the foot of this file is now a tombstone): going over the domain
+# limit costs nothing at all, and the red domain counter of §4 is the only thing
+# left that says so. Concretely: (a) tnt_cap_hit_title_p/_r_value are hard zeros,
+# (b) the two title *_add setters no longer route through tnt_multi_add_effect, (c) NO LOC
+# CHANGE IS NEEDED — place (c) above is stale: the six shipped tnt_sel_count_*
+# strings print "Chosen: N" and never mention 3 (tnt_l_english.yml:436-441), so
+# they are already correct for an uncapped list.
+#
+# *** V4 + THE ARTIFACT/DOMAIN BUG — THE CAP IS OFF FOR ALL SIX LISTS NOW. ***
+# V4 removed the ENFORCEMENT for every term alike (tnt_35_multiselect.txt:124-137:
+# claims and artifacts delegate to tnt_multi_add_effect, whose variable_list_size
+# guard is deleted), but the four claim/artifact cap FLAGS in §2 below kept firing
+# at >= 3 selected — reporting a wall that no longer stood. The warning line they
+# light prints tnt_err_too_many, whose wording is a DOMAIN-LIMIT sentence left
+# over from the v3-item-5 rewording — which is exactly the reported bug "a third
+# artifact says I am over my domain limit". The four flags are now hard zeros like
+# the title pair (see §2 for the full account). Of the four places above: (a) all
+# six flags are hard zeros, (b) gone from tnt_35 for every term, (c) stale as
+# noted, (d) is this comment. Reason 1 (risk R-15, several
+# create_title_and_vassal_change cycles in one effect) is NOT resolved by this
+# change and is now a live risk on the title leg — it is reported upward rather
+# than silently accepted.
+#
+# ---------------------------------------------------------------------
+# NOTHING HERE IS A desc-BEARING VALUE
+# ---------------------------------------------------------------------
+# Contract §4 rule 3: exactly two values in this mod carry `desc`
+# (tnt_balance_value and tnt_ai_accept_value). The six valuations below
+# are plain numbers, and the integrator wires them into tnt_balance_value
+# with the desc keys that ALREADY exist for the single-object rows —
+# tnt_bd_title_p/_r, tnt_bd_claim_p/_r, tnt_bd_artifact_p/_r. So item 2.2
+# needs ZERO new breakdown loc keys, and R10 (no VALUE token in a
+# breakdown desc) is satisfied by keys that already satisfy it.
+########################################################################
+
+
+###############################################################################
+# 1. THE SIX COUNTS  +  THE GRAND TOTAL
+#
+# Read by: the panel's counter line, the deal sheet's group heads, the six
+# cap flags, and (through the integrator) tnt_items_count_value.
+#
+# `has_variable_list` guards every iteration. An absent variable list is
+# the normal state — tnt_reset_offer_effect clears all six on every
+# window open — and the engine logs when asked to fetch a list that is
+# not set (defect D5 was exactly that class of failure, on a variable).
+# Vanilla pairs the same two in one trigger block:
+#   GAME\common\achievements\ep2_achievements.txt:265-273
+#     has_variable_list = ep2_im_in_my_elements_achievement_terrain_list
+#     variable_list_size = { name = <same list>  value >= 17 }
+###############################################################################
+
+tnt_count_sel_title_p_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_title_p }
+		every_in_list = {
+			variable = tnt_sel_title_p
+			add = 1
+		}
+	}
+}
+
+tnt_count_sel_title_r_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_title_r }
+		every_in_list = {
+			variable = tnt_sel_title_r
+			add = 1
+		}
+	}
+}
+
+# TOMBSTONE, THE GRANTED CLAIM (V13, user item 1). The term was built, shipped and
+# played twice, considered and withdrawn for an indefinite period: vanilla gates the
+# manufacture of claims behind a LEARNING investment (the Court Chaplain's
+# task_fabricate_claim), and selling a finished claim at this table short-circuits
+# it. THIS IS A DESIGN REFUSAL, NOT A BUG FIX. Full tombstone: TOMBSTONE C in
+# common\scripted_effects\tnt_32_apply.txt.
+#
+# THESE TWO VALUES STAY LIVE THOUGH THEIR TERM IS RETIRED, exactly as
+# tnt_count_sel_prisoner_p_value did at the bottom of this file. FIVE loc keys name
+# them by string through GetPlayer.MakeScope.ScriptValue(...) - tnt_sel_count_claim_p,
+# tnt_sel_count_claim_r, tnt_multi_count_claim_p, tnt_multi_count_claim_r and
+# tnt_ai_offer_row_claim_r - and the key count is pinned at 553. An unused script
+# value is never evaluated and costs nothing; a loc key whose ScriptValue target does
+# not exist is the raw-key-in-tooltip failure this mod has already paid for.
+# DO NOT DELETE THE VALUES AND DO NOT DELETE THE KEYS.
+tnt_count_sel_claim_p_value = {
+	# RETIRED V13 (ruling E0). The body used to count tnt_sel_claim_p, a list whose
+	# writers are ALL commented out (the four tnt_sel_claim_*_add/_remove entries and
+	# the two clears in tnt_22b_multiselect.txt, A11's pick in tnt_37_ai_offer.txt,
+	# and the parchment rung in tnt_39_autobalance.txt), so it could only ever return
+	# 0 - while still counting as a USE of the list for the engine's 'is used but is
+	# never set' validator. THE VALUE NAME STAYS DEFINED ON PURPOSE: tnt_sel_count_claim_p
+	# and tnt_multi_count_claim_p resolve it by name and the key count is pinned.
+	# Original body tombstoned:
+	# if = {
+	# 	limit = { has_variable_list = tnt_sel_claim_p }
+	# 	every_in_list = {
+	# 		variable = tnt_sel_claim_p
+	# 		add = 1
+	# 	}
+	# }
+	value = 0
+}
+
+tnt_count_sel_claim_r_value = {
+	# RETIRED V13 (ruling E0), the _r twin - same argument, same list-read hazard.
+	# THE VALUE NAME STAYS DEFINED ON PURPOSE: its three key readers are
+	# tnt_sel_count_claim_r, tnt_multi_count_claim_r and tnt_ai_offer_row_claim_r.
+	# Original body tombstoned:
+	# if = {
+	# 	limit = { has_variable_list = tnt_sel_claim_r }
+	# 	every_in_list = {
+	# 		variable = tnt_sel_claim_r
+	# 		add = 1
+	# 	}
+	# }
+	value = 0
+}
+
+tnt_count_sel_artifact_p_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_p }
+		every_in_list = {
+			variable = tnt_sel_artifact_p
+			add = 1
+		}
+	}
+}
+
+tnt_count_sel_artifact_r_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_r }
+		every_in_list = {
+			variable = tnt_sel_artifact_r
+			add = 1
+		}
+	}
+}
+
+# How many multi-select objects are on the table altogether. Offered to the
+# integrator as a ONE-LINE amendment to tnt_items_count_value
+# (`add = tnt_count_sel_all_value`) instead of six separate rows — the item
+# count is a count of terms, and with multi-select each chosen object IS a
+# term. See the integration notes in NOTES3-multiselect.md.
+tnt_count_sel_all_value = {
+	value = 0
+	add = tnt_count_sel_title_p_value
+	add = tnt_count_sel_title_r_value
+	# RETIRED V13, USER ITEM 1 - the granted claim (TOMBSTONE C in tnt_32_apply.txt).
+	# MANDATORY, not tidiness: tnt_50_values.txt feeds tnt_count_sel_all_value
+	# straight into tnt_items_count_value, which IS tnt_offer_nonempty_trigger, so
+	# leaving these two rows in would let a retired term make the table read
+	# non-empty. Both counters are gutted to a constant 0 above and would contribute
+	# nothing anyway; the rows go so the intent is unmistakable.
+	#	add = tnt_count_sel_claim_p_value
+	#	add = tnt_count_sel_claim_r_value
+	add = tnt_count_sel_artifact_p_value
+	add = tnt_count_sel_artifact_r_value
+}
+
+
+###############################################################################
+# 2. THE SIX CAP FLAGS — ALL RETIRED TO HARD ZEROS (kept as named GUI slots)
+#
+# Originally 1 when the list was full, 0 otherwise. They existed because a GUI
+# cannot compare a number against 3 — the data_binding macro set is
+# TntPos / TntNeg / TntZero (tnt_macros.txt:112-132), i.e. tests
+# against zero only. So the >= 3 comparison was done HERE, against a
+# literal, which is also the only legal way to do it (Law R7: never
+# compare two script variables; fold into a named value and compare that
+# to a literal — 00-ARCHITECTURE §3.4).
+#
+# The panel reads them as   visible = "[TntPos('tnt_cap_hit_title_p_value')]"
+# ONCE per panel, not once per row (Law R11).
+###############################################################################
+
+# *** ALL SIX CAP FLAGS ARE HARD ZEROS NOW. ***
+#
+# THE TWO TITLE FLAGS went first (v3 item 5). The user: "let us remove the limit,
+# and instead make exceeding the domain limit give fewer points." So there IS no
+# cap on the two title lists any more — the two title *_add setters in
+# common\scripted_guis\tnt_22b_multiselect.txt no longer go through
+# tnt_multi_add_effect's `variable_list_size … value >= 3` guard, and any number
+# of titles may be put on the table. The price that once stood in the wall's
+# place has itself been removed (user item 13, §4b below): passing the domain
+# limit costs nothing now, it only lights the red counter of §4.
+#
+# THE FOUR CLAIM/ARTIFACT FLAGS followed — the "artifacts count toward the domain
+# limit" bug. V4 removed cap ENFORCEMENT from tnt_multi_add_effect for every term
+# alike (tnt_35_multiselect.txt:124-137), but these four flags kept firing at
+# >= 3 selected, reporting a limit that no longer existed. Two aggravations made
+# a stale flag into a false DOMAIN message: (1) the warning line the flags light
+# prints tnt_err_too_many, reworded in the v3-item-5 era into a domain-limit
+# sentence ("Over their domain limit — worth less to them") for a price that has
+# since died (§4b); (2) the six derived picker types' blockoverride
+# "tnt_multi_cap_visible" (gui\tnt_panel_multiselect.gui:1122-1345) consumes the
+# named block without re-declaring one inside itself, so the window-level
+# silencers (gui\tnt_diplomacy_window.gui:2635-2765) never matched and a third
+# artifact resurrected the message. Zeroing the flags HERE kills the message at
+# the source regardless of GUI override semantics, and stops four stale >= 3
+# comparisons from evaluating every frame.
+#
+# ALL SIX NAMES ARE KEPT, AT ZERO, ON PURPOSE. gui\tnt_panel_multiselect.gui
+# reads them once per panel to raise the "list is full" warning; a zero means the
+# warning never appears, a deleted value means an error line per frame (R15).
+# NO LOC KEY CHANGES NEEDED FOR THE COUNTERS: the shipped counter strings print
+# "Chosen: N" and never name the cap (tnt_l_english.yml:436-441). tnt_err_too_many
+# itself is now unreachable from script — it must either be reworded away from
+# domain language or kept as a documented orphan, per the house ruling shape at
+# common\scripted_triggers\tnt_41_gates.txt:309-316 (the localizer's call).
+tnt_cap_hit_title_p_value = {
+	value = 0
+}
+
+tnt_cap_hit_title_r_value = {
+	value = 0
+}
+
+tnt_cap_hit_claim_p_value = {
+	value = 0
+}
+
+tnt_cap_hit_claim_r_value = {
+	value = 0
+}
+
+tnt_cap_hit_artifact_p_value = {
+	value = 0
+}
+
+tnt_cap_hit_artifact_r_value = {
+	value = 0
+}
+
+
+###############################################################################
+# 3. THE SIX VALUATIONS
+#
+# Each one is the multi-object twin of a shipped single-object value, and
+# every number, every multiplier and every trigger is copied from it so
+# that a one-title deal prices EXACTLY as it did in build 1:
+#   tnt_val_title_multi_p_value    <- tnt_val_title_p_value    (tnt_50_values.txt:1550)
+#   tnt_val_title_multi_r_value    <- tnt_val_title_r_value    (:1587)
+#   tnt_val_claim_multi_p_value    <- tnt_val_claim_p_value    (:1689)
+#   tnt_val_claim_multi_r_value    <- tnt_val_claim_r_value    (:1693)
+#   tnt_val_artifact_multi_p_value <- tnt_val_artifact_p_value (:1949)
+#   tnt_val_artifact_multi_r_value <- tnt_val_artifact_r_value (:2021)
+# The tier bases 15 / 30 / 45 / 60 / 75 are inlined rather than read
+# from tnt_tier_base_title_p_value, because those four shipped values
+# dereference the single object variables (`var:tnt_title_p ?= { … }`)
+# and there is no per-element equivalent to hand a value name.
+# tier constants: GAME\common\script_values\00_title_tiers_values.txt:1-7.
+#
+# ===========================================================================
+# v3 ITERATION 2 — THE LADDER AND THE CLAIM FACTOR BOTH MOVED. KEEP THEM IN
+# STEP WITH tnt_50_values.txt §4.B OR A ONE-TITLE DEAL WILL PRICE TWICE OVER.
+# ===========================================================================
+#   tier ladder   45 / 110 / 260 / 620 / 1250   ->   15 / 30 / 45 / 60 / 75
+#   claim factor  x0.35                          ->   x0.5
+#   artifact      40 / 90 / 180 / 350            ->   35 / 75 / 100 / 150
+# The derivations are written out once, in tnt_50_values.txt §4.B (the ladder is
+# vanilla's grant-title opinion ladder 20/40/60/80/100 from
+# GAME\common\script_values\00_interaction_values.txt:359,378,397,416,435, times the
+# 0.75 at which opinion enters an acceptance sum,
+# GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:662-670) and in
+# tnt_50_values.txt §4.C items 7 and 10. THE SIX VALUES BELOW MUST AGREE WITH THEIR
+# SINGLE-OBJECT TWINS TO THE POINT, because the header promise of this section is
+# that "a one-title deal prices EXACTLY as it did in build 1" — that promise is now
+# "prices EXACTLY as its single-object twin does", and it is the only thing keeping
+# the deal sheet and the breakdown from disagreeing.
+#
+# WHICH MULTIPLIERS ARE PER ELEMENT AND WHICH ARE PER DEAL — this is the
+# one judgement call in this section, and it follows the semantics of each
+# test rather than convenience:
+#   PER ELEMENT (inside the nested add, evaluated in the TITLE's scope)
+#     x1.4  the land is the receiver's de jure  (a property of that title)
+#     x1.25 the land is culturally the receiver's (a property of that title)
+#     rarity buckets for artifacts               (a property of that artifact)
+#   PER DEAL (top level, evaluated in the PLAYER's scope)
+#     x1.2  the two realms border each other     (a property of the pair)
+#     x1.3  the current holder is the weaker side (a property of the pair)
+#     x0.5  a claim is a licence, not land        (a property of the term)
+# A top-level `multiply` after an iterator applies to the accumulated
+# total — vanilla's own shape, GAME\common\script_values\00_stress_values.txt:143-147.
+#
+# `NOT = { … }` and the tier tests run inside every_in_list, where the
+# iterated element IS the current scope, so `tier = tier_county` and
+# `title_province ?= { … }` need no dereference at all. The character-side
+# neighbour trigger is therefore re-scoped with `root = { … }`.
+###############################################################################
+
+# --- 6. CEDE TITLES, player's side ------------------------------------------
+# The de jure walk is any_this_title_or_de_jure_above, NOT the bidirectional
+# any_in_de_jure_hierarchy — that substitution mis-priced every ceded duchy in
+# an earlier revision of tnt_50_values.txt and its warning is repeated at
+# tnt_50_values.txt:1534-1544. Verbatim vanilla shape:
+#   GAME\common\casus_belli_types\07_ep3_wars.txt:3780
+#     any_this_title_or_de_jure_above = { holder ?= scope:attacker.liege }
+tnt_val_title_multi_p_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_partner
+			has_variable_list = tnt_sel_title_p
+		}
+		every_in_list = {
+			variable = tnt_sel_title_p
+			add = {
+				value = 0
+
+				if = {
+					limit = { tier = tier_barony }
+					add = 15
+				}
+				else_if = {
+					limit = { tier = tier_county }
+					add = 30
+				}
+				else_if = {
+					limit = { tier = tier_duchy }
+					add = 45
+				}
+				else_if = {
+					limit = { tier = tier_kingdom }
+					add = 60
+				}
+				else_if = {
+					limit = { tier = tier_empire }
+					add = 75
+				}
+
+				# The land is already his by right.
+				if = {
+					limit = {
+						any_this_title_or_de_jure_above = { holder ?= scope:tnt_p }
+					}
+					multiply = 1.4
+				}
+				# The people down there are his people. `?=` because only county
+				# tier has a province (tnt_50_values.txt:1546-1549).
+				if = {
+					limit = {
+						title_province ?= { culture ?= scope:tnt_p.culture }
+					}
+					multiply = 1.25
+				}
+			}
+		}
+		# Per deal, not per title: adjacency is a property of the two realms.
+		if = {
+			limit = {
+				scope:tnt_me = { character_is_land_realm_neighbor = scope:tnt_p }
+			}
+			multiply = 1.2
+		}
+	}
+}
+
+# --- 6. CEDE TITLES, partner's side -----------------------------------------
+tnt_val_title_multi_r_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = {
+			exists = var:tnt_partner
+			has_variable_list = tnt_sel_title_r
+		}
+		every_in_list = {
+			variable = tnt_sel_title_r
+			add = {
+				value = 0
+
+				if = {
+					limit = { tier = tier_barony }
+					add = 15
+				}
+				else_if = {
+					limit = { tier = tier_county }
+					add = 30
+				}
+				else_if = {
+					limit = { tier = tier_duchy }
+					add = 45
+				}
+				else_if = {
+					limit = { tier = tier_kingdom }
+					add = 60
+				}
+				else_if = {
+					limit = { tier = tier_empire }
+					add = 75
+				}
+
+				if = {
+					limit = {
+						any_this_title_or_de_jure_above = { holder ?= scope:tnt_me }
+					}
+					multiply = 1.4
+				}
+				if = {
+					limit = {
+						title_province ?= { culture ?= scope:tnt_me.culture }
+					}
+					multiply = 1.25
+				}
+			}
+		}
+		if = {
+			limit = {
+				scope:tnt_me = { character_is_land_realm_neighbor = scope:tnt_p }
+			}
+			multiply = 1.2
+		}
+	}
+}
+
+# --- 7. GRANT CLAIMS, player's side -----------------------------------------
+# HALF the tier base (v3 iteration 2, was 35 %): a claim is a licence to make
+# war later, not land today, and the war still has to be won. x1.3 when the
+# current holder is the weaker of the two, because then the claim is actually
+# cashable. _p: the PLAYER holds the land, so "weaker" means
+# tnt_power_ratio_value < 1. The reason 0.35 became 0.5 is written out at
+# tnt_50_values.txt §4.C item 7: the 0.35 was calibrated against
+# "20 x (tier-1), x2 if strong", a figure whose cited source file
+# (00_ai_value_modifiers.txt) does not exist in 1.19.
+# RETIRED V13, USER ITEM 1 - see TOMBSTONE C in tnt_32_apply.txt and the tombstone
+# above tnt_count_sel_claim_p_value in this file.
+# GUTTED TO A CONSTANT 0 AND KEPT DEFINED rather than commented out. The gut is
+# MANDATORY: the body READ tnt_sel_claim_p through has_variable_list and
+# every_in_list, and that list now has no writer anywhere in the mod - a read with
+# no writer is the "is used but is never set" error class. The NAME is kept because
+# gui\tnt_panel_multiselect.gui still resolves it while the GUI owner retires the
+# two claim panels in the same wave, and a missing script value prints an error
+# where a zero prints a zero.
+# Its two aggregate readers, tnt_gain_total_value and tnt_balance_value's
+# tnt_bd_claim_p row, are commented out in tnt_50_values.txt.
+# Original body tombstoned: the tier ladder 15/30/45/60/75 by tier_barony ..
+# tier_empire, summed over tnt_sel_claim_p, x0.5 (a claim is a licence, not land),
+# x1.3 when tnt_power_ratio_value < 1 (the holder is the weaker of the two, so the
+# claim is actually cashable).
+tnt_val_claim_multi_p_value = {
+	value = 0
+}
+
+# --- 7. GRANT CLAIMS, partner's side ----------------------------------------
+# RETIRED V13, USER ITEM 1 - the _r twin. Same treatment and same two reasons as
+# tnt_val_claim_multi_p_value above: the body read tnt_sel_claim_r, which has no
+# writer left, and the name is still resolved from
+# gui\tnt_panel_multiselect.gui until the GUI owner's half of the wave lands.
+# Its two aggregate readers, tnt_loss_total_value and tnt_balance_value's
+# tnt_bd_claim_r row, are commented out in tnt_50_values.txt.
+# Original body tombstoned: the same tier ladder over tnt_sel_claim_r, x0.5, and
+# x1.3 when tnt_power_ratio_value > 1.
+tnt_val_claim_multi_r_value = {
+	value = 0
+}
+
+# --- 10. ARTIFACTS - THE PIECE CORE ------------------------------------------
+# tnt_artifact_piece_value - SCOPE: AN ARTIFACT. The ONE place a piece is
+# priced. SIX READERS, and the list is the point - the ladder can never drift
+# apart again (it shipped as four inline copies plus a fifth in the sandbox,
+# and V18's affordability literals in tnt_37_ai_offer.txt rotted the moment
+# the four copies moved to vanilla's numbers): tnt_val_artifact_p/_r_value
+# (tnt_50_values.txt section 4.C item 10), tnt_val_artifact_multi_p/_r_value
+# (below), the sandbox twin tnt_ai_artifact_points_value and A13's gate
+# tnt_ai_art_afford_gap_value (both in tnt_56_ai_values.txt).
+#
+# RARITY 10 / 25 / 50 / 100 - vanilla's own gift_artifact_opinion ladder,
+# GAME\common\script_values\00_basic_values.txt:1654-1666 (was 40/90/180/350,
+# then 35/75/100/150; the second set billed a common brooch at 525 gold and
+# the user reported it twice - the full history is at tnt_50_values.txt
+# section 4.C item 10). One point here IS one vanilla acceptance point, so
+# the ladder transfers with no conversion.
+# DURABILITY /3, AND /3 AGAIN - the same vanilla value, :1677-1684, in the
+# same script-value context. Intrinsic to the OBJECT and direction-blind: the
+# core reads NO receiver, which is what makes it scope-safe in every copy, in
+# the sandbox and in the entry-trigger gate.
+#
+# WHAT IS DELIBERATELY NOT HERE, so nobody "completes" it later:
+#  * the receiver rows (usefulness /10 /5 min 5, claim x1.5, dynast-banner
+#    +100) - they price a RECEIVER and live on the _p pair ONLY; put here
+#    they would reach the _r pair and open the buy-cheap-sell-back pump
+#    (buy a piece I cannot use at 1-10 pts, resell to a fit receiver at
+#    25-100 - 400-600 gold per cycle).
+#  * the greed rider x(1+ai_greed/100) up to x2 (:1667-1676) - ai_greed
+#    already moves tnt_threshold_value at 0.1/point, and the gold-rate header
+#    of tnt_50_values.txt refused this exact double count when it dropped
+#    bribe_value's +ai_greed/4. Same refusal, same ground: vassal /1.33
+#    (:1689-1692) and religious-head /2 (:1694-1697) - party-relationship
+#    rows, priced once, in relation/threshold.
+#  * the max = 150 cap (:1738) - it caps an OPINION value; vanilla's own
+#    acceptance side reaches 200 uncapped
+#    (GAME\common\character_interactions\00_artifact_interactions.txt:756-781).
+#  * the useless-banner crush (subtract 100 min 0, :1698-1713; -200 ai_accept,
+#    00_artifact_interactions.txt:782-797) - UNREACHABLE through the mod's own
+#    filter: T9 delegates to vanilla's artifact_can_be_gift_to_trigger
+#    (GAME\common\scripted_triggers\00_artifact_triggers.txt:58-89), which
+#    refuses any banner whose receiver is not of its house/dynasty - EXCEPT a
+#    receiver holding an artifact claim (:60-63), and that claimant edge is
+#    priced by the _p claim row, the coherent half of vanilla's own
+#    trigger-vs-ai_accept contradiction.
+# `rarity = <name>` on an artifact scope inside a script value:
+#   GAME\common\script_values\04_ep2_tournament_values.txt:1143-1170.
+tnt_artifact_piece_value = {
+	value = 0
+	# GAME\common\script_values\00_basic_values.txt:1654-1666 (gift_artifact_opinion)
+	if = { limit = { rarity = illustrious }  add = 100 }
+	else_if = { limit = { rarity = famed }  add = 50 }
+	else_if = { limit = { rarity = masterwork }  add = 25 }
+	else = { add = 10 }
+	# 1/3 for damaged, 1/9 for very damaged - GAME\common\script_values\
+	# 00_basic_values.txt:1677-1684; the defines are 20.0 / 5.0
+	# (GAME\common\defines\00_defines.txt:1480-1481).
+	if = {
+		limit = { artifact_durability <= define:NInventory|ARTIFACT_LOW_DURABILITY }
+		divide = 3
+	}
+	if = {
+		limit = { artifact_durability <= define:NInventory|ARTIFACT_VERY_LOW_DURABILITY }
+		divide = 3
+	}
+}
+
+# --- 10. ARTIFACTS, player's side -------------------------------------------
+# THIS IS THE LIVE COPY. The composer stages lists, so the single-object twins
+# in tnt_50_values.txt are dead rows kept only so the two can never disagree.
+# EDIT BOTH OR NEITHER - since the piece core above, "both" means the RECEIVER
+# rows below, the only lines left that can drift.
+# THE RECEIVER ROWS - _p PAIR ONLY. The partner is the receiver here, which is
+# vanilla's exact case (gift_artifact_opinion prices the recipient's view):
+# usefulness divisors, claim x1.5, dynast-banner +100 - each cited beside its
+# row. REFUSED ON _r, deliberately: vanilla prices the GIVING side flat and
+# rarity-blind (-50, GAME\common\character_interactions\
+# 00_artifact_interactions.txt:1486-1491), and receiver(-player) divisors on
+# _r would open the buy-cheap-sell-back pump named in the core header. The
+# player's defence against overpriced junk is declining the letter.
+# ROOT IS THE PLAYER in both environments that evaluate these copies - the
+# window (LAW R9 at the head of this file) and the letter path (tnt_ai_offer.
+# 0001 writes tnt_partner in its immediate, BEFORE it composes - the A8 header
+# in tnt_56_ai_values.txt records the same fact) - so root.var:tnt_partner is
+# the partner in every reachable evaluation, and every read of it is guarded
+# (R13): no partner, no receiver rows, and the piece degrades to the plain
+# core instead of throwing.
+# save_temporary_scope_as INSIDE an in-list iterator, then reading the saved
+# scope from the member's math block: GAME\common\script_values\
+# 00_basic_values.txt:1856-1868 (count_obligation_improvements_for_vassal),
+# already recorded at the head of this file. The `?=` scope-change trigger:
+# GAME\common\scripted_triggers\00_artifact_triggers.txt:54, :68.
+# `round = yes` INSIDE a nested math block (the per-piece round here and in
+# every copy): GAME\common\script_values\00_diarchy_values.txt:2085-2097.
+tnt_val_artifact_multi_p_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_p }
+		every_in_list = {
+			variable = tnt_sel_artifact_p
+			save_temporary_scope_as = tnt_art
+			add = {
+				value = 0
+				add = tnt_artifact_piece_value
+				# Usefulness - can the receiver use it? Receiver rewritten
+				# scope:recipient -> root.var:tnt_partner; otherwise row for
+				# row GAME\common\script_values\00_basic_values.txt:1714-1736.
+				if = {
+					limit = {
+						root.var:tnt_partner ?= {
+							NOR = {
+								can_equip_artifact = scope:tnt_art
+								can_benefit_from_artifact = scope:tnt_art
+							}
+						}
+					}
+					divide = 10 # 1/10 for useless artifacts (:1723)
+				}
+				else_if = {
+					limit = {
+						root.var:tnt_partner ?= {
+							OR = {
+								NOT = { can_equip_artifact = scope:tnt_art }
+								NOT = { can_benefit_from_artifact = scope:tnt_art }
+							}
+						}
+					}
+					divide = 5 # 1/5 for unfit artifacts (:1734)
+				}
+				else_if = {
+					# vanilla's else is the FIT receiver (:1736), so the floor
+					# stays his and never fires partnerless - no min-5 on a
+					# stray tooltip; the piece degrades to the plain core.
+					limit = { exists = root.var:tnt_partner }
+					min = 5
+				}
+				# 3/2 for claimed artifacts - 00_basic_values.txt:1685-1688.
+				# Also the price of the ONE banner T9 lets through to an
+				# outsider, the artifact-claimant bypass
+				# (00_artifact_triggers.txt:60-63).
+				if = {
+					limit = {
+						exists = root.var:tnt_partner
+						can_be_claimed_by = root.var:tnt_partner
+					}
+					multiply = 1.5
+				}
+				# The lost banner of his line: +100 when the receiver IS the
+				# banner dynasty's dynast - 00_artifact_interactions.txt:
+				# 775-781 (dynasty only; vanilla has no house +100). A flat
+				# ai_accept add there, never divided, so it lands AFTER the
+				# divisors here too.
+				if = {
+					limit = {
+						exists = root.var:tnt_partner
+						exists = var:banner_dynasty
+						exists = root.var:tnt_partner.dynasty
+						root.var:tnt_partner = var:banner_dynasty.dynast
+					}
+					add = 100
+				}
+				round = yes
+			}
+		}
+	}
+}
+
+# --- 10. ARTIFACTS, partner's side ------------------------------------------
+# CORE ONLY - the ladder and the durability divisors. NO receiver rows, per
+# the _p header's ruling: this column is what the PARTNER hands over, vanilla
+# prices that side rarity-blind (-50 flat, 00_artifact_interactions.txt:
+# 1486-1491), and a receiver(-player) discount here is the resale pump's
+# other half.
+tnt_val_artifact_multi_r_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_r }
+		every_in_list = {
+			variable = tnt_sel_artifact_r
+			add = {
+				value = 0
+				add = tnt_artifact_piece_value
+				round = yes
+			}
+		}
+	}
+}
+
+
+###############################################################################
+# 4. THE DOMAIN COUNTER   (U1(a) — MANDATORY, not optional)
+#
+# WHY IT IS MANDATORY. 30-V2-DESIGN §1 row U1 rules the vanilla
+# grant-titles screen RED (every widget in GAME\gui\interaction_grant_titles.gui
+# is a GrantTitlesInteractionWindow.* C++ call, so it can be launched but
+# never read), and then says: steal its two good ideas. The first is the
+# domain counter it prints at :105 and :125 —
+#     [GetResultingDomainSize] / [Actor.GetDomainLimit]
+# with a red warning above the limit — "and they become mandatory once 2.2
+# lets a player dump five counties on someone". Without it a player can
+# accept three counties and only find out afterwards that every holding
+# above the limit pays no tax and raises no levies
+# (GAME\localization\english\holdings_l_english.yml:20-31).
+#
+# WHAT WE CAN AND CANNOT COPY. GetResultingDomainSize is C++. The two
+# script-side fields are real and are what vanilla's own script uses:
+#   domain_size  as a VALUE:  GAME\common\script_values\00_activity_values.txt:2816
+#                             (`value = domain_size`, inside coronation_amenity_ai_discount_value)
+#   domain_limit as a VALUE:  GAME\common\script_values\00_building_values.txt:343
+#                             (`add = domain_limit`)
+#   the two compared as a TRIGGER: GAME\common\script_values\00_difficulty_values.txt:1246-1247
+#                             (`domain_size < domain_limit`), and
+#                             GAME\common\character_interactions\00_grant_titles_interaction.txt:1001
+#                             (`domain_size = domain_limit`, in the real grant-titles script)
+#
+# HOW MANY HOLDINGS DOES ONE OFFERED TITLE MOVE — AND THE APPROXIMATION,
+# STATED HONESTLY. domain_size is counted in HOLDINGS, not titles (the
+# penalty loc lives in holdings_l_english.yml). A directly held county
+# occupies a domain slot; a duchy, kingdom or empire title does not. So
+# the counters below count one slot per county-tier and per barony-tier
+# title in the selection and zero for anything higher. TWO KNOWN
+# INACCURACIES, both in the safe direction for the warning:
+#   * tnt_exec_title_multi_effect passes `take_baronies = no` and then
+#     moves, explicitly, only the baronies the GIVER holds himself and
+#     that are not leased out (tnt_35_multiselect.txt M6, V16 / user
+#     item 1). Ceding a county therefore still moves MORE than one
+#     holding whenever the giver held baronies in it, so the counter
+#     continues to UNDER-state the relief for the giver and the burden
+#     for the receiver - by less than it used to.
+#   * ceding a duchy is counted as zero holdings, which is right for the
+#     duchy title itself.
+# It is a warning light, not a ledger, and it is the same warning light
+# vanilla shows. The exact number is not reachable from script; the
+# alternative was no warning at all.
+#
+# NOTHING HERE IS WRITTEN ANYWHERE. These are pure reads: R-CLEAN-2
+# (30-V2-DESIGN §3.5(d)) forbids writing a variable onto a title, and this
+# file writes nothing at all.
+###############################################################################
+
+# Holdings that move PLAYER -> PARTNER (the player's own selection).
+tnt_domain_titles_p_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_title_p }
+		every_in_list = {
+			variable = tnt_sel_title_p
+			limit = {
+				OR = {
+					tier = tier_county
+					tier = tier_barony
+				}
+			}
+			add = 1
+		}
+	}
+}
+
+# Holdings that move PARTNER -> PLAYER.
+tnt_domain_titles_r_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_title_r }
+		every_in_list = {
+			variable = tnt_sel_title_r
+			limit = {
+				OR = {
+					tier = tier_county
+					tier = tier_barony
+				}
+			}
+			add = 1
+		}
+	}
+}
+
+# --- the player's side ------------------------------------------------------
+tnt_domain_after_p_value = {
+	value = domain_size
+	subtract = tnt_domain_titles_p_value
+	add = tnt_domain_titles_r_value
+	min = 0
+}
+
+tnt_domain_limit_p_value = {
+	value = domain_limit
+	min = 0
+}
+
+# > 0 means the player ends this deal OVER his domain limit, by that many
+# holdings. The GUI tests it with TntPos and colours the line #N.
+tnt_domain_over_p_value = {
+	value = tnt_domain_after_p_value
+	subtract = tnt_domain_limit_p_value
+	min = 0
+}
+
+# --- the partner's side -----------------------------------------------------
+# R0.4 prologue + `scope:tnt_p ?= { … }` at every read. With no partner the
+# whole computation collapses to 0, which is what the panel wants: the
+# domain block is only shown while a negotiation is live.
+tnt_domain_after_r_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = { exists = var:tnt_partner }
+		scope:tnt_p ?= { add = domain_size }
+		subtract = tnt_domain_titles_r_value
+		add = tnt_domain_titles_p_value
+	}
+	min = 0
+}
+
+tnt_domain_limit_r_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = { exists = var:tnt_partner }
+		scope:tnt_p ?= { add = domain_limit }
+	}
+	min = 0
+}
+
+tnt_domain_over_r_value = {
+	value = tnt_domain_after_r_value
+	subtract = tnt_domain_limit_r_value
+	min = 0
+}
+
+# --- is the domain readout worth showing at all -----------------------------
+# 1 when ANY title is moving in either direction, 0 otherwise.
+#
+# THIS VALUE IS WHAT MAKES U1(a) UNLOSABLE ACROSS AN AGENT BOUNDARY. The two
+# domain lines are the DEFAULT content of tnt_panel_multi's block
+# "tnt_multi_domain" (gui\tnt_panel_multiselect.gui), each gated on this
+# value - so the domain counter appears in whichever multi-select panel is
+# open the moment titles are on the table, and the gui owner has to write
+# nothing at all to get it. Had it been left as a block for somebody else to
+# fill, the one mandatory half of U1 would have depended on another author
+# reading a note.
+#
+# It also means the readout is correctly ABSENT from the claim and artifact
+# panels until titles are actually in the deal, and correctly PRESENT there
+# once they are - a claim panel is a perfectly good place to be reminded that
+# the three counties you just accepted put you over your limit.
+tnt_domain_shown_value = {
+	value = 0
+	if = {
+		limit = {
+			OR = {
+				tnt_domain_titles_p_value > 0
+				tnt_domain_titles_r_value > 0
+			}
+		}
+		add = 1
+	}
+}
+
+# --- the single flag the centre column's contextual card reads --------------
+# 30-V2-DESIGN §4.4 names this value in the card's visible test
+# (`visible = "[TntSV('tnt_domain_over_value') > 0]"`, which in this mod's
+# macro vocabulary is `visible = "[TntPos('tnt_domain_over_value')]"`), and
+# gui\tnt_panels.gui:709-711 records that build 1 deliberately did NOT
+# reference it because it did not exist yet. It exists now.
+#
+# A FLAG, not a sum: 1 or 2 depending on how many sides are over. Anything
+# above zero means "somebody will be over the limit", which is the only
+# question the one-line card can ask.
+#
+# GATED ON TITLES ACTUALLY MOVING, deliberately. tnt_domain_over_p_value is
+# also > 0 for a ruler who is ALREADY over his limit with an empty table, and
+# a card that shouts about a pre-existing condition the moment the window
+# opens is noise the player cannot act on. The two per-side lines inside the
+# title panel are NOT gated — there the player is looking at titles by
+# definition, and "you will still be two over" is useful there.
+#
+# BUILD 3 STATUS: UNREFERENCED, KEPT. The optional centre-column line it was
+# written for (NOTES3-multiselect §3d(iv), a tnt_context_line bound to
+# tnt_domain_warning) was NOT added, and for a measured reason: the
+# tnt_context_card already carries the two tnt_multi_domain_line counters, which
+# state the same fact with the actual numbers, and the card is at 204 px of its
+# 208 px cap with those seven children (gui\tnt_panels.gui:942-949) — an eighth
+# 28 px line would need the cap raised to 236 to avoid clipping the last one.
+# The information is not missing; it is in the two counters and in the title
+# panel's own copy. If a one-line summary is ever wanted in the card instead of
+# the two counters, swap it for them rather than adding to them, and this value
+# plus the loc key tnt_domain_warning are both already here.
+tnt_domain_over_value = {
+	value = 0
+	if = {
+		limit = {
+			OR = {
+				tnt_domain_titles_p_value > 0
+				tnt_domain_titles_r_value > 0
+			}
+		}
+		if = {
+			limit = { tnt_domain_over_p_value > 0 }
+			add = 1
+		}
+		if = {
+			limit = { tnt_domain_over_r_value > 0 }
+			add = 1
+		}
+	}
+}
+
+
+###############################################################################
+# 4b. RETIRED - THE DOMAIN-LIMIT DISCOUNT IS GONE  (user item 13)
+#
+# tnt_domain_worth_p/_r_value and tnt_domain_penalty_p/_r_value stood here and are
+# DELETED. They multiplied ONE scalar worth factor by the ENTIRE gross title column,
+# so a receiver who ended two holdings over his limit had the whole bundle discounted
+# 30% - including the titles that fitted under the limit - and a ruler ALREADY over
+# his limit before the deal discounted every title offered, down to 40%. The counter
+# they priced off is a warning light and not a ledger (it counts one holding per
+# selected title while the apply leg also moves the giver's own unleased baronies
+# in a ceded county - tnt_35_multiselect.txt M6, V16), which section 4
+# above says of itself. The _r leg was worse still: it sat inside
+# tnt_loss_total_value, which the headline subtracts, so land an AI handed to an
+# over-limit PLAYER counted as a SMALLER concession and RAISED acceptance.
+#
+# GOING OVER THE DOMAIN LIMIT NO LONGER MOVES THE PRICE AT ALL. A title-only deal
+# now prices at exactly the gross tnt_val_title_multi_*_value. Section 4 ABOVE is
+# untouched and is now the only over-limit guard in the mod: it still feeds the two
+# red counter lines of U1(a), which is what the user asked to be left standing.
+#
+# The loc keys tnt_bd_domain_p / tnt_bd_domain_r keep their entries in both .yml
+# files as documented orphans, per the house ruling in
+# common\scripted_triggers\tnt_41_gates.txt:309-316.
+###############################################################################
+
+
+###############################################################################
+# V4: THE THREE FIGURES THE MULTI-SELECT PANELS SHOW ON THE PLAYER'S SIDE
+#
+# The panels used to print tnt_val_<x>_multi_p_value directly - the same value that
+# is a member of tnt_gain_total_value. Since V4 the headline multiplies that total by
+# the modifier stack, so the panel was quoting an unscaled number against a scaled
+# scale: exactly the "+50 and +40 gives +110" defect the marriage preview had.
+#
+# THESE ARE PURE DISPLAY WRAPPERS and must never be added to any total - the base
+# values are already there, and adding these would apply the multiplier twice. They
+# exist because a GUI cannot do arithmetic: Multiply_CFixedPoint has ZERO call sites
+# in the shipped interface, so the multiplication has to happen in a script value.
+#
+# THE PARTNER'S SIDE IS DELIBERATELY ABSENT. tnt_val_<x>_multi_r_value is what the
+# partner hands over, it lands in tnt_loss_total_value, and the headline does not
+# scale demands - so the _r panels are already quoting the right currency and get no
+# wrapper.
+###############################################################################
+tnt_shown_title_multi_p_value = {
+	value = tnt_val_title_multi_p_value
+	multiply = tnt_deal_mult_value
+	round = yes
+}
+
+# RETIRED V13, USER ITEM 1 - the display wrapper of the granted claim.
+# TOMBSTONE C in common\scripted_effects\tnt_32_apply.txt. Its only two readers
+# were the two claim panels in gui\tnt_panel_multiselect.gui, which the GUI owner
+# retires in the same wave. Unlike the two counter values it names NO loc key, so
+# nothing holds it open and it is commented out rather than gutted.
+# tnt_shown_claim_multi_p_value = {
+# 	value = tnt_val_claim_multi_p_value
+# 	multiply = tnt_deal_mult_value
+# 	round = yes
+# }
+
+tnt_shown_artifact_multi_p_value = {
+	value = tnt_val_artifact_multi_p_value
+	multiply = tnt_deal_mult_value
+	round = yes
+}
+
+# RETIRED - THE CAPTIVE LIST PRICE AND ITS DISPLAY WRAPPER. Tombstone: the FAMILY B
+# block heading E22 in common\scripted_effects\tnt_32_apply.txt. Their row in
+# tnt_gain_total_value is commented out there too, in the same pass.
+# THE COUNTER BELOW (tnt_count_sel_prisoner_p_value) DELIBERATELY STAYS LIVE - see
+# the note over it.
+# ###############################################################################
+# # PRISONERS AS A MULTI-SELECT TERM  (V4, item A1)
+# #
+# # THE LADDER IS THE ONE tnt_val_prisoners_p_value ALREADY USES for the all-or-nothing
+# # term, character for character - 10 base, +15 the partner's own kin, +10 for holding a
+# # title, then +15/+25/+40/+60 by tier. Two ladders for the same captive would be a
+# # window that changes its mind about what a king is worth depending on which control the
+# # player used.
+# #
+# # NO CAP HERE, and that is the one deliberate difference. The flat term caps at 200
+# # because it sweeps the whole dungeon and the player does not choose its contents; a
+# # SELECTED list is chosen deliberately, and a player who picks three kings has offered
+# # three kings. The domain-style discouragement for over-large offers is the balance
+# # itself: the more he frees, the less each further release moves an already-satisfied
+# # partner.
+# #
+# # every_in_list over a list of CHARACTERS puts the captive in scope, so the tier and
+# # kinship tests read off him directly - same as the flat term.
+# ###############################################################################
+# tnt_val_prisoner_multi_p_value = {
+# 	value = 0
+# 	if = {
+# 		limit = { NOT = { exists = scope:tnt_p } }
+# 		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+# 	}
+# 	if = {
+# 		limit = {
+# 			exists = var:tnt_partner
+# 			has_variable_list = tnt_sel_prisoner_p
+# 		}
+# 		every_in_list = {
+# 			variable = tnt_sel_prisoner_p
+# 			add = {
+# 				value = 10
+# 				if = {
+# 					limit = { is_close_or_extended_family_of = scope:tnt_p }
+# 					add = 15
+# 				}
+# 				if = {
+# 					limit = { is_ruler = yes }
+# 					add = 10
+# 				}
+# 				if = {
+# 					limit = { highest_held_title_tier >= tier_county }
+# 					add = 15
+# 				}
+# 				if = {
+# 					limit = { highest_held_title_tier >= tier_duchy }
+# 					add = 25
+# 				}
+# 				if = {
+# 					limit = { highest_held_title_tier >= tier_kingdom }
+# 					add = 40
+# 				}
+# 				if = {
+# 					limit = { highest_held_title_tier >= tier_empire }
+# 					add = 60
+# 				}
+# 			}
+# 		}
+# 	}
+# }
+#
+# # Display wrapper, exactly as for the other three _p terms: the panel must quote the
+# # same currency as the scales, and the headline scales the gain side. NEVER add this to
+# # a total - the base value is already in tnt_gain_total_value.
+# tnt_shown_prisoner_multi_p_value = {
+# 	value = tnt_val_prisoner_multi_p_value
+# 	multiply = tnt_deal_mult_value
+# 	round = yes
+# }
+# TOMBSTONE, FAMILY B (V11, user item 7). The prisoner terms were built, considered
+# and withdrawn for an indefinite period; doing them properly means leaning on the
+# VANILLA prisoner system rather than this mod's own bookkeeping. Everything else in
+# that family is commented out - THIS ONE VALUE STAYS LIVE, deliberately.
+#
+# KEPT LIVE THOUGH ITS TERM IS RETIRED: two loc keys that must stay defined (the key
+# count is pinned) call this value by name inside their text -
+# tnt_multi_count_prisoner_p and tnt_sel_count_prisoner_p, both resolving it through
+# GetPlayer.MakeScope.ScriptValue('tnt_count_sel_prisoner_p_value'). An unused script
+# value is never evaluated and costs nothing; a loc key whose ScriptValue target does
+# not exist is the raw-key-in-tooltip failure this mod has already paid for.
+# V4 item A1 - the badge on the captive row. Same shape as its six siblings above:
+# variable_list_size needs the list to exist, so the guard is not optional.
+tnt_count_sel_prisoner_p_value = {
+	# RETIRED V12 (ruling E0). The body used to count tnt_sel_prisoner_p, a list
+	# whose only writers are commented out (tnt_22b_multiselect.txt:630/639/647/676),
+	# so it could only ever return 0 - while still counting as a USE of the
+	# variable for the engine's 'is used but is never set' validator. THE VALUE
+	# NAME STAYS DEFINED ON PURPOSE: tnt_multi_count_prisoner_p and
+	# tnt_sel_count_prisoner_p resolve it by name (tnt_l_english.yml:341-342,
+	# tnt_l_russian.yml:366-367) and the key count is pinned at 553.
+	# Original body tombstoned:
+	# if = {
+	# 	limit = { has_variable_list = tnt_sel_prisoner_p }
+	# 	add = { value = 0  every_in_list = { variable = tnt_sel_prisoner_p  add = 1 } }
+	# }
+	value = 0
+}

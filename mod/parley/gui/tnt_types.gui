@@ -1,0 +1,3037 @@
+######################################################################
+### PARLEY: THE NEGOTIATING TABLE - reusable widget types
+### A types-only file. NO registration in gui/scripted_widgets is needed
+### for this file (proven by MOD\3276373926\gui\00_jdb_bc_map_icon_layer.gui).
+###
+### v3 ITERATION 1 ADDS, in this file:
+###   ADD 4 `block "tnt_balance_mutual" {}` at the TOP of type tnt_balance_panel,
+###       declared immediately under the panel's title divider. Alliance and
+###       non-aggression are ONE pact between two rulers, so their two per-column
+###       rows are deleted and the two mutual rows live in the centre column,
+###       filled from tnt_diplomacy_window.gui. A blockoverride is injected where
+###       the block is DECLARED, which is what puts them above the scales.
+###       The vertical budget on that type is re-done for the 108 px it costs.
+###
+### v2 BUILD 2 ADDS, in this file:
+###   NEW ROW GATING (the user's "hide unavailable options"): every row's
+###       `visible` in tnt_diplomacy_window.gui is now TntRow('tnt_show_<item>_<side>'),
+###       a two-map-lookup variable read. The rows already sit inside
+###       `vbox "tnt_column_rows"` which carries `ignoreinvisible = yes` (see
+###       type tnt_column below), so a hidden row collapses and leaves NO gap -
+###       that property is the whole mechanism and must never be removed.
+###       NOT a GetScriptedGui call: Law R11, 28 rows every frame.
+###   2.3 type tnt_item_row_hook - the hook row's control slot is no longer a
+###       checkbox but a 0..3 TIER control (tnt_control_hook_tier, defined by
+###       author:hooks-contracts in gui/tnt_panel_contract.gui).
+###   2.2 the three object rows (title / claim / artifact) now read SELECTION
+###       LISTS, not single-object variables. The two `down` defaults in the
+###       picker row types below therefore no longer name tnt_title_p /
+###       tnt_artifact_p - those variables are deleted (30-V2-DESIGN 3.1).
+###
+### v2 BUILD 1. Three defects and three user items are fixed in this file:
+###   D2  431 runtime errors - "Widget cannot have a position in a layout"
+###       (EXE:295212) and "Unsupported property: parentanchor on widgets that
+###       are a child of a hbox/vbox. Hboxes/vboxes arrange their children
+###       automatically." (EXE:294858). My own brace-accurate scanner found 21
+###       offending sites here, seven more than the log named - the log's eight
+###       are the ones the engine actually reached at layout time, the rest were
+###       latent. ALL 21 are gone; scratchpad\scan_tnt_layout.ps1 now reports
+###       "clean" for both .gui files.
+###   D3  "A (flow)container can't have an hbox/vbox as a direct child" -
+###       tnt_prisoner_list_tooltip below (was vbox inside container). That type
+###       is now RETIRED with the prisoner terms (user item 7) and commented out
+###       in section 11, but the RULE it proves still governs this file.
+###   1.2 every headline widget now reads tnt_ai_accept_value, the value that
+###       actually decides, instead of tnt_balance_value.
+###   3.2 window/column/row widths, explicit scrollbar margins, autoresize = no.
+###   3.3 two-state contextual control on the picker rows (types in tnt_panels.gui).
+###   3.4 the centre column carries the deal sheet and the contextual card.
+###
+### R-LAYOUT (30-V2-DESIGN section 9 D2), obeyed everywhere below:
+###   A direct child of hbox / vbox / flowcontainer carries NEITHER `position`
+###   NOR `parentanchor`. A scan of all 373 vanilla .gui files found 0 of 13650
+###   such children with a top-level position. To centre on the cross axis,
+###   wrap the child in a plain `widget` and anchor INSIDE it, or use
+###   `expand = {}` above and below inside a vbox. Vanilla's own stepper does
+###   exactly this: no anchors on the hbox children, `parentanchor = center`
+###   only INSIDE button_round - GAME\gui\window_knights.gui:716-759, anchors at
+###   :731 and :755.
+###   STILL LEGAL, and deliberately kept: an anchor on a child of a plain
+###   `widget`, `button`, `container` or `window`, because none of those arranges
+###   its children. That is why tnt_stepper_full may be anchored inside the plain
+###   widget of tnt_item_row_currency, and why the window's own
+###   `parentanchor = center` and tnt_result_banner's own anchor are untouched.
+###
+### R-SPILL (user item 3.2c): type text_single inherits `autoresize = yes` and
+###   `elide = right` (GAME\gui\preload\labels.gui:6-16). A self-resizing child
+###   of an hbox reports a minimum width equal to its FULL text width, so one
+###   long duchy name makes the row demand more width than the column has and
+###   the row's controls are pushed outside the window. Every text widget that
+###   prints game text therefore carries `autoresize = no` +
+###   `layoutpolicy_horizontal = expanding`, and never overrides the inherited
+###   `elide = right`. The exact pairing, as a direct child of a vbox with no
+###   explicit height, is vanilla's at GAME\gui\frontend_bookmarks.gui:1854-1888.
+###
+### Every base type below was verified on disk while writing this file:
+###   hbox / vbox / widget / icon / text_single       GAME\gui\preload\defaults.gui, labels.gui:6
+###   text_multi                                      GAME\gui\preload\labels.gui:19
+###   text_label_left / text_label_center             GAME\gui\preload\labels.gui:62 / :34
+###   header_pattern                                  GAME\gui\shared\windows.gui:683
+###   spacer / expand / divider_light                 GAME\gui\shared\windows.gui:590 / :597 / :944
+###   Window_Margins / Scrollbox_Margins              GAME\gui\shared\windows.gui:122 / :135
+###   button_standard                                 GAME\gui\shared\buttons.gui:153
+###   button_standard_list                            GAME\gui\shared\buttons.gui:348
+###   button_round (40x40)                            GAME\gui\shared\buttons.gui:1149
+###   button_checkbox (30x30)                         GAME\gui\shared\buttons.gui:1322
+###   button_plus_small / button_minus_small          GAME\gui\shared\buttons_icons.gui:596 / :608
+###   scrollbox (+ block "scrollbox_margins")         GAME\gui\shared\lists.gui:3185 / :3208
+###   Scrollbar_Vertical - the bar is 12 px wide      GAME\gui\shared\lists.gui:3253-3259
+###   widget_value_breakdown_tooltip                  GAME\gui\shared\value_breakdown.gui:92
+###   coa_title_tiny_crown                            GAME\gui\shared\coat_of_arms.gui:591
+###   portrait_head_small                             GAME\gui\shared\portraits.gui:45
+###   portrait_head_tiny                              GAME\gui\window_ledger.gui:6867
+###   container_ledger_tooltip - the D3 reference      GAME\gui\window_ledger.gui:9390
+###   artifact_tooltip                                GAME\gui\shared\cooltip.gui:5568
+###
+### The five type names on the 00-ARCHITECTURE section 4.6 GUI blacklist are
+### not spelled anywhere in this mod, so a mechanical blacklist grep stays at
+### zero hits. Their real replacements, all used below, are: button_close
+### (inside buttons_window_control, reached via blockoverride), fixedgridbox /
+### dynamicgridbox, and "enabled = " plus a tooltip datafunction.
+######################################################################
+
+types TwdDiplomacy
+{
+
+	####################################################################
+	### 1. SHARED ROW CHROME
+	### One negotiation term. Fixed height so 15 of them stack predictably.
+	### State is read ONLY through TntNum / TntVar (a cheap map lookup).
+	### GetScriptedGui() NEVER appears in a visible= or down= here (Law 9).
+	###
+	### WIDTH BUDGET, at the v2 column width of 452 (30-V2-DESIGN section 4.2):
+	###   452 - 8 (scroll margin left) - 26 (scroll margin right) = 418 usable
+	###   418 - 12 (margin { 6 0 }) = 406 for the three children + 2 spacings
+	###   406 - 48 (icon) - 6 - 6 - <control slot> = the name's width
+	###     toggle   slot 110 -> name 236
+	###     stepper  slot 150 -> name 196
+	###     picker   slot 116 -> name 230
+	###     currency slot 226 -> name 120   (V3 iteration 3, tnt_item_row_currency:
+	###                                      coarse pair + fine pair + preset opener)
+	###
+	### `maximumsize = { -1 56 }` is the second anti-spill guard: no child may
+	### make the row taller, whatever its text does.
+	####################################################################
+	type tnt_item_frame = hbox
+	{
+		name = "tnt_item_frame"
+		layoutpolicy_horizontal = expanding
+		size = { 0 56 }
+		### An hbox derives its cross-axis extent from its CHILDREN, so the `size`
+		### above is inert for height and this row was never 56 px. Measured on
+		### temp\screen1.png: 26 px with one text line, 49 px with two - the only
+		### child with an intrinsic height is tnt_row_text, because every other one
+		### asks for `100%` of a parent that is itself content-sized. The 48 px
+		### tnt_row_icon_bg, centred in that 26 px, then overhung 11 px top and
+		### bottom and landed on the neighbouring rows: that is the reported
+		### collision on prestige/piety, on "Darovat nezavisimost" under
+		### "Vassalnaya prisyaga", and on the partner column's "Usluga".
+		### `minimumsize` is the property that pins a flowcontainer -
+		### GAME\gui\interaction_confirmation.gui:134-136,
+		### GAME\gui\multiplayer_frontend.gui:64-66,
+		### GAME\gui\hud_notification_templates.gui:2557-2561.
+		### With min = max = 56 the icon gets 4 px of air each way and every `100%`
+		### child in this row resolves against a real height for the first time.
+		minimumsize = { 0 56 }
+		maximumsize = { -1 56 }
+		spacing = 6
+		margin = { 6 0 }
+		alwaystransparent = no
+
+		background = {
+			using = Background_Area
+		}
+
+		using = tooltip_es
+
+		block "tnt_row_tooltip"
+		{
+			tooltip = "tnt_item_gold_desc"
+		}
+
+		### D2 fix, was line 59: `parentanchor = vcenter` deleted and
+		### `size = { 48 48 }` became `{ 48 100% }`. The holder now fills the row
+		### height by policy instead of being centred by an illegal anchor, and
+		### the two inner icons keep `parentanchor = center` because their parent
+		### is a plain widget, which arranges nothing.
+		widget = {
+			name = "tnt_row_icon_holder"
+			size = { 48 100% }
+			alwaystransparent = yes
+
+			icon = {
+				name = "tnt_row_icon_bg"
+				size = { 48 48 }
+				parentanchor = center
+				texture = "gfx/interface/icons/character_interactions/icon_bg.dds"
+				alwaystransparent = yes
+			}
+
+			icon = {
+				name = "tnt_row_icon"
+				size = { 40 40 }
+				parentanchor = center
+				alwaystransparent = yes
+
+				block "tnt_row_icon"
+				{
+					texture = "gfx/interface/icons/character_interactions/icon_gold.dds"
+				}
+			}
+		}
+
+		### name on top, optional grey second line underneath.
+		### D2 fix, was line 87: `parentanchor = vcenter` deleted; the two lines
+		### are centred by an `expand = {}` above and below instead
+		### (type expand = hbox with growing policies,
+		###  GAME\gui\shared\windows.gui:597-601). `layoutpolicy_vertical =
+		### expanding` is what gives the vbox the full 56 px for those expands to
+		### divide.
+		###
+		### BOTH EXPANDS CARRY AN EXPLICIT UNIQUE NAME. `type expand` hard-codes
+		### `name = "expander"` in its own body (windows.gui:598), so two of them as
+		### direct siblings make the engine log its duplicate-child line - "Child
+		### 'expander' already exists added at gui/tnt_types.gui:N. Duplicate
+		### children with the same name override previous widgets." - and that line
+		### carries a tnt_ path, which the acceptance bar forbids in error.log. This
+		### type is instantiated 26 times, once per negotiation row, so it would be
+		### 26 lines. Vanilla uses the same double-expand idiom without renaming
+		### (hud.gui:6516+6544), so the layout is unaffected either way; this is
+		### log cleanliness.
+		vbox = {
+			name = "tnt_row_text"
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			spacing = 0
+			ignoreinvisible = yes
+			alwaystransparent = yes
+
+			expand = {
+				name = "tnt_row_text_pad_top"
+			}
+
+			text_single = {
+				name = "tnt_row_name"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+
+				block "tnt_row_name"
+				{
+					text = "tnt_item_gold"
+				}
+			}
+
+			### This is the line that prints game text - a title name, an artifact
+			### name, a character name - so R-SPILL matters most here. The engine
+			### shrinks the font to fontsize_min = 12 and only then elides right.
+			text_single = {
+				name = "tnt_row_sub"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = nobaseline|left
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+
+				block "tnt_row_sub"
+				{
+					visible = no
+				}
+			}
+
+			expand = {
+				name = "tnt_row_text_pad_bottom"
+			}
+		}
+
+		### right-hand control slot: checkbox, stepper, or pick/clear pair.
+		### D2 fix, was line 125: `parentanchor = vcenter` deleted; the fixed
+		### `size = { 160 48 }` became a per-row-type block so a toggle does not
+		### steal 160 px from the name (30-V2-DESIGN section 4.2).
+		widget = {
+			name = "tnt_row_control"
+
+			block "tnt_row_control_size"
+			{
+				size = { 150 100% }
+			}
+
+			block "tnt_row_control" {}
+		}
+	}
+
+
+	####################################################################
+	### 2. TOGGLE ROW  (marriage, hook, vassal, independence, threat)
+	### The parenthesis used to read "alliance, truce, marriage, prisoners, hook,
+	### vassal". Prisoners went with user item 7; the alliance and the truce went
+	### with V13 user item 1. All three are commented out in place behind
+	### tombstones, never deleted - see the block-default note further down.
+	### D2 fix, was line 148: the button_checkbox carried `parentanchor` as a
+	### direct child of the control hbox. It is now wrapped in a plain widget and
+	### centred inside that - the fix 30-V2-DESIGN section 9 D2 prescribes for
+	### this exact line.
+	####################################################################
+	type tnt_item_row_toggle = tnt_item_frame
+	{
+		blockoverride "tnt_row_control_size"
+		{
+			size = { 110 100% }
+		}
+
+		blockoverride "tnt_row_control"
+		{
+			hbox = {
+				name = "tnt_toggle_slot"
+				size = { 100% 100% }
+				spacing = 4
+				ignoreinvisible = yes
+
+				expand = {}
+
+				### An optional extra control, used by the prisoners row to open
+				### its list panel. Empty on the other seven toggle rows, which is
+				### the same as not writing it at all.
+				block "tnt_toggle_extra" {}
+
+				widget = {
+					name = "tnt_toggle_holder"
+					size = { 40 100% }
+
+					button_checkbox = {
+						name = "tnt_toggle"
+						parentanchor = center
+
+						### V13 USER ITEM 1 - THESE TWO DEFAULTS WERE REPOINTED OFF A
+						### RETIRED TERM, and that is the whole reason they are worth a
+						### comment. They are the TYPE'S DEFAULTS: a tnt_item_row_toggle
+						### that writes no blockoverride of its own inherits them. They
+						### named tnt_alliance_p_toggle / tnt_alliance_p until this
+						### round, and THE ALLIANCE IS RETIRED - a design refusal, not a
+						### bug fix: vanilla gates alliance management behind a
+						### Diplomacy lifestyle investment
+						### (GAME\common\character_interactions\00_alliance.txt:1184
+						### `has_perk = defensive_negotiations_perk`, a Foreign Affairs
+						### perk at GAME\common\lifestyle_perks\
+						### 00_diplomacy_1_foreign_affairs_tree_perks.txt:262), and
+						### buying it across the table short-circuits that investment.
+						### Full tombstone: common\scripted_effects\tnt_32_apply.txt and
+						### the mutual row in gui\tnt_diplomacy_window.gui.
+						###
+						### A DEFAULT THAT NAMES A COMMENTED-OUT SCRIPTED_GUI IS A TRAP
+						### for the next row that forgets its override. One shipped row
+						### was already in that trap - tnt_row_usehook_r
+						### (gui\tnt_diplomacy_window.gui) omitted `tnt_toggle_sgui` and
+						### fell straight through to the alliance toggle; it now carries
+						### an empty override, and this default no longer points at a
+						### dead target either. Belt and braces, on purpose.
+						###
+						### THE THREAT TOGGLE IS THE SUBSTITUTE because it is a live,
+						### ungated _p-side flag of exactly this shape, instantiated in
+						### the same left column by the same type
+						### (gui\tnt_diplomacy_window.gui:1563-1564) - so the default is
+						### demonstrably reachable code rather than a second trap.
+						block "tnt_toggle_sgui"
+						{
+							onclick = "[TntExec('tnt_threat_p_toggle')]"
+						}
+
+						block "tnt_toggle_var"
+						{
+							checked = "[TntOn('tnt_threat_p')]"
+						}
+
+						### The is_valid gate, for the rows whose scripted_gui has one.
+						### BUILD 2: eight rows, not four - marriage_p/_r and vassal_p/_r
+						### (shipped) plus alliance_p/_r and truce_p/_r, which item 1.1
+						### made mandatory when it stopped requiring an independent
+						### partner. V13 USER ITEM 1 TOOK THE PACTS BACK OUT: the
+						### alliance and truce rows are retired, so the count is four
+						### again (marriage_p/_r, vassal_p/_r) plus the ungated
+						### instantiations. The DOCTRINE below is unchanged and is why
+						### this block still exists. Vanilla's mandatory triple is
+						### enabled = IsValid / onclick = Execute / tooltip = BuildTooltip
+						### on ONE widget - GAME\gui\window_faith.gui:900-902. Without the
+						### enabled+tooltip half the engine silently swallows the click and
+						### tnt_err_advanced_off, the nine fealty reasons of T15 and the
+						### five alliance reasons of T14 can never reach the player.
+						### (T14 is retired with the alliance; the sentence stands as the
+						### reason the rule was written.)
+						### The ungated toggle rows leave both blocks empty, which is the
+						### same as not writing them at all. THAT LICENCE IS FOR THESE TWO
+						### BLOCKS ONLY. It does NOT extend to tnt_toggle_sgui: an omitted
+						### `tnt_toggle_sgui` does not mean "no click", it means "inherit
+						### the type default", which is a real scripted_gui on a real
+						### variable. A read-only row must write `blockoverride
+						### "tnt_toggle_sgui" {}` explicitly - tnt_row_usehook_r now does.
+						block "tnt_toggle_enabled" {}
+
+						block "tnt_toggle_tooltip" {}
+					}
+				}
+
+				spacer = {
+					size = { 10 0 }
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 3b. THE FULL CURRENCY STEPPER  (V3 ITERATION 3, additions 2 and 3)
+	### (section 3, the narrow numeric stepper, is gone - see the note below)
+	###
+	### THE ONLY STEPPER TYPE. There used to be a second, narrower 5-child type
+	### (tnt_stepper, hosted by tnt_item_row_stepper) for the yearly-tribute rows;
+	### that mechanic was retired and both types went with it. The FOUR CURRENCY
+	### rows per side use this type, and nothing else in the mod steps a number.
+	###
+	### THERE IS NO THIRD CLICK TO BIND. author:script measured every .gui and
+	### every .txt under GAME: onshiftclick 0, oncontrolclick 0, onctrlclick 0,
+	### onaltclick 0, onmiddleclick 0, shiftclick 0, onmouseclick 0. Only onclick
+	### and onrightclick exist, and both are already spent on +/-10 and +/-100.
+	### The coarse tier is therefore SHAPE B - its own pair of buttons.
+	###
+	### THE VISUAL GRAMMAR, and it is the whole reason this reads at a glance:
+	###   [ -BIG ][ -small ]  value  [ +small ][ +BIG ]
+	### the OUTER pair is 32 px and steps 1000 (influence 250), the INNER pair is
+	### 26 px and steps 10 / 100. Bigger button, bigger step, and the outermost
+	### button is the furthest from the number - the same ordering a media
+	### scrubber uses. Each pair carries its own tooltip naming its exact amounts,
+	### so nothing depends on the size cue alone.
+	###
+	### `button_ignore = none` is ON THE INNER PAIR ONLY. That attribute exists
+	### solely so onrightclick fires (GAME\gui\shared\buttons.gui:1149's own
+	### `button_ignore = right`), and the coarse pair has no right-click binding -
+	### giving it one would silently make a right-click do the left-click's job.
+	###
+	### WIDTH BUDGET, against the 226 px control slot of tnt_item_row_currency:
+	###   32 + 26 + 54 + 26 + 32 + 30 = 200, plus 5 spacings of 3 = 215,
+	###   plus the 10 px right offset the instantiation site applies = 225 <= 226.
+	### SPACING IS 3, NOT THE OLD NARROW STEPPER'S 4, AND THE VALUE COLUMN IS
+	### 54, NOT 62.
+	### Both are shaved for the same reason: every pixel taken here is a pixel the
+	### ROW NAME keeps, and the name is down from 196 px to 120 px on these eight
+	### rows. 54 px still prints six digits, because the preset `_max` buttons can
+	### put a five- or six-figure piety stock in this box and text_single shrinks
+	### to fontsize_min = 12 before it elides - the same R-SPILL contract every
+	### text widget in this file signs.
+	####################################################################
+	type tnt_stepper_full = hbox
+	{
+		name = "tnt_stepper_full"
+		spacing = 3
+
+		### Legal: every instance is hosted by the plain widget of
+		### tnt_item_row_currency, and a plain widget arranges nothing. Restated
+		### at the instantiation sites together with position = { -10 0 }.
+		parentanchor = vcenter|right
+
+		### ---- COARSE MINUS (1000, influence 250) ----
+		button_round = {
+			name = "tnt_stepper_huge_minus_button"
+			size = { 32 32 }
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_stepper_huge_minus"
+			{
+				onclick = "[TntExec('tnt_gold_p_sub_huge')]"
+			}
+
+			tooltip = "tnt_tt_step_huge_sub"
+
+			button_minus_small = {
+				name = "tnt_stepper_huge_dec"
+				parentanchor = center
+				alwaystransparent = yes
+			}
+		}
+
+		### ---- FINE MINUS (10 / right-click 100) ----
+		button_round = {
+			name = "tnt_stepper_minus_button"
+			size = { 26 26 }
+			button_ignore = none
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_stepper_minus"
+			{
+				onclick = "[TntExec('tnt_gold_p_sub')]"
+			}
+
+			block "tnt_stepper_minus_big"
+			{
+				onrightclick = "[TntExec('tnt_gold_p_sub_big')]"
+			}
+
+			block "tnt_stepper_tt_minus"
+			{
+				tooltip = "tnt_stepper_tt"
+			}
+
+			button_minus_small = {
+				name = "tnt_stepper_dec"
+				parentanchor = center
+				alwaystransparent = yes
+			}
+		}
+
+		text_single = {
+			name = "tnt_stepper_value"
+			min_width = 54
+			max_width = 54
+			align = nobaseline|center
+			default_format = "#high"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Medium
+
+			block "tnt_stepper_text"
+			{
+				text = "[TntNum('tnt_gold_p')|0]"
+			}
+		}
+
+		### ---- FINE PLUS (10 / right-click 100) ----
+		button_round = {
+			name = "tnt_stepper_plus_button"
+			size = { 26 26 }
+			button_ignore = none
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_stepper_plus"
+			{
+				onclick = "[TntExec('tnt_gold_p_add')]"
+			}
+
+			block "tnt_stepper_plus_big"
+			{
+				onrightclick = "[TntExec('tnt_gold_p_add_big')]"
+			}
+
+			block "tnt_stepper_tt_plus"
+			{
+				tooltip = "tnt_stepper_tt"
+			}
+
+			button_plus_small = {
+				name = "tnt_stepper_inc"
+				parentanchor = center
+				alwaystransparent = yes
+			}
+		}
+
+		### ---- COARSE PLUS (1000, influence 250) ----
+		button_round = {
+			name = "tnt_stepper_huge_plus_button"
+			size = { 32 32 }
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_stepper_huge_plus"
+			{
+				onclick = "[TntExec('tnt_gold_p_add_huge')]"
+			}
+
+			tooltip = "tnt_tt_step_huge_add"
+
+			button_plus_small = {
+				name = "tnt_stepper_huge_inc"
+				parentanchor = center
+				alwaystransparent = yes
+			}
+		}
+
+		### ---- THE PRESET OPENER ----
+		### The user's request was "avoid many clicks", and the counter-request in
+		### the brief was "the row itself must stay readable". Four presets x four
+		### currencies x two sides is 32 controls; laid out in the rows they would
+		### be 32 more things to look at, so they live behind THIS one button, in
+		### the modal panel type tnt_preset_menu below.
+		###
+		### IT IS A button_standard WITH A TEXT MARK, not an icon button, for a
+		### reason that has bitten this mod before: an icon button needs a texture
+		### path that exists on disk, and there is no vanilla "more choices" glyph
+		### under gfx/interface/icons/flat_icons. A loc key cannot be missing in a
+		### way that hides the control.
+		###
+		### THE MENU IS OPENED BY THE GUI VARIABLE SYSTEM, NOT BY A SCRIPTED GUI,
+		### and that is deliberate: author:script shipped exactly 49 scripted guis
+		### for this iteration - the 48 amount entry points and tnt_autobalance -
+		### and none of them opens a panel. GetVariableSystem is the engine's own
+		### GUI-local state and is vanilla at 1250 sites, of which
+		### GAME\gui\hud.gui:988 and :5943 are the exact shape used here
+		### (a Set/Clear pair driving a `visible`, in-game, not frontend).
+		### It is ALSO the right mechanism on the merits: the open/closed state of
+		### a menu is not part of the offer, so it must not become a character
+		### variable that the save carries and that tnt_close_window_effect has to
+		### remember to clean up.
+		button_standard = {
+			name = "tnt_stepper_presets"
+			size = { 30 28 }
+			text = "tnt_preset_open"
+			tooltip = "tnt_tt_preset_open"
+			using = tooltip_es
+			tooltip_offset = { 0 26 }
+
+			block "tnt_stepper_preset_open"
+			{
+				onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'gold_p' )]"
+			}
+		}
+	}
+
+
+	####################################################################
+	### 3c. THE CURRENCY ROW - a stepper row with a 226 px control slot
+	###
+	### The width budget at the top of this file gains a fourth line:
+	###   406 - 48 (icon) - 6 - 6 - 226 (slot) = 120 px for the row name.
+	### 120 px is enough for every name this row type ever prints, because the
+	### four currency rows are the SHORT ones - "Gold (one-time)", "Prestige",
+	### "Piety", "Influence" and their Russian equivalents - and none of them
+	### carries the grey second line. text_single still keeps `autoresize = no`
+	### plus the inherited `elide = right` (R-SPILL), so a longer translation
+	### shrinks to fontsize_min = 12 and then elides INSTEAD of widening the row
+	### and pushing the stepper out of the window.
+	####################################################################
+	type tnt_item_row_currency = tnt_item_frame
+	{
+		blockoverride "tnt_row_control_size"
+		{
+			size = { 226 100% }
+		}
+
+		blockoverride "tnt_row_control"
+		{
+			widget = {
+				name = "tnt_stepper_full_slot"
+				size = { 100% 100% }
+
+				block "tnt_stepper_full_block"
+				{
+					tnt_stepper_full = {
+						parentanchor = vcenter|right
+						position = { -10 0 }
+					}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 4. PICKER ROW  (title, claim, artifact; nonwar RETIRED - user item 1)
+	###
+	### USER ITEM 3.3, "the artifact and non-aggression rows use generic buttons
+	### that do not fit their content". The control slot is now TWO-STATE and the
+	### two states are mutually exclusive:
+	###   EMPTY  -> button_standard "tnt_btn_pick", 96x30, as v1 shipped it;
+	###   FILLED -> a content-shaped control from tnt_panels.gui
+	###             (tnt_chosen_artifact / tnt_chosen_char / tnt_chosen_title)
+	###             plus the round clear button.
+	### Both are driven by the SAME guard the grey second line already uses,
+	### <handle>.Title.IsValid / .Artifact.IsValid / .Char.IsValid - vanilla-proven
+	### at GAME\gui\window_government_administration.gui:3233
+	### ( Not( Title.MakeScope.Var('...').Title.IsValid ) ). The mods-only
+	### "is this variable set" datafunction (report 03 W9) is deliberately avoided
+	### everywhere in this mod.
+	### `ignoreinvisible = yes` on the slot hbox is what makes the hidden state
+	### cost no width.
+	###
+	### D2 fixes, was lines 326 and 347: the open button and the clear button both
+	### carried `parentanchor = vcenter` as direct children of the slot hbox. Both
+	### are now wrapped in plain widgets.
+	###
+	### A `block` declared inside this `blockoverride` and then overridden by the
+	### instantiation site is a verified vanilla form - see the long citation on
+	### type tnt_picker_panel below (GAME\gui\window_ledger.gui:3402-3407 ->
+	### GAME\gui\interaction_marriage.gui:474).
+	####################################################################
+	type tnt_item_row_picker = tnt_item_frame
+	{
+		blockoverride "tnt_row_control_size"
+		{
+			size = { 116 100% }
+		}
+
+		blockoverride "tnt_row_sub"
+		{
+			default_format = "#high"
+
+			block "tnt_picker_label"
+			{
+				visible = no
+			}
+		}
+
+		blockoverride "tnt_row_control"
+		{
+			hbox = {
+				name = "tnt_picker_slot"
+				size = { 100% 100% }
+				spacing = 4
+				ignoreinvisible = yes
+
+				expand = {}
+
+				### FILLED STATE. Empty on every row until the instantiation site
+				### drops a tnt_chosen_* control in here.
+				block "tnt_picker_content" {}
+
+				### EMPTY STATE. Hidden by the instantiation site once something
+				### is chosen, so the two states never both occupy the slot.
+				widget = {
+					name = "tnt_picker_open_holder"
+					size = { 100 100% }
+					### NO ignoreinvisible HERE. It is a LAYOUT property: it tells an
+					### hbox/vbox to skip hidden children while arranging. A plain
+					### widget does not arrange anything, so the engine rejected it
+					### with "Property 'ignoreinvisible' not handled" AND
+					### "Error setting properties for 'tnt_picker_open_holder'" — which
+					### put the size above at risk too, and a zero-size holder makes the
+					### centred button inside it unclickable. That was the reported bug.
+					### It was never needed: hiding THIS widget collapses because the
+					### parent hbox tnt_picker_slot already carries ignoreinvisible.
+
+					block "tnt_picker_open_state" {}
+
+					button_standard = {
+						name = "tnt_picker_open"
+						size = { 96 30 }
+						parentanchor = center
+						text = "tnt_btn_pick"
+
+						block "tnt_picker_open_sgui"
+						{
+							onclick = "[TntExec('tnt_pick_title_p_open')]"
+						}
+
+						### The is_valid gate for the two title-picker openers, which are
+						### the only picker sguis carrying is_valid. Same reasoning and
+						### same vanilla shape as tnt_toggle_enabled above
+						### (GAME\gui\window_faith.gui:900-902). The claim and artifact
+						### openers have no is_valid and leave both blocks empty. (The
+						### nonwar opener was the third such consumer before that term
+						### was retired - user item 1.)
+						block "tnt_picker_open_enabled" {}
+
+						block "tnt_picker_open_tooltip" {}
+					}
+				}
+
+				### Clearing only makes sense once something is chosen, so this
+				### wrapper is hidden in the empty state as well.
+				widget = {
+					name = "tnt_picker_clear_holder"
+					size = { 32 100% }
+					### NO ignoreinvisible HERE — same reason as tnt_picker_open_holder
+					### above. The parent hbox collapses this wrapper when it is hidden.
+
+					block "tnt_picker_clear_state" {}
+
+					button_round = {
+						name = "tnt_picker_clear"
+						size = { 28 28 }
+						parentanchor = center
+						tooltip = "tnt_btn_none"
+						using = tooltip_es
+
+						### BUILD 2: the default names tnt_sel_title_p_clear, not the
+						### shipped tnt_title_p_clear. Both scripted guis exist and
+						### both still work, but the shipped one empties the deleted
+						### single-object variable tnt_title_p while the term is now
+						### the LIST tnt_sel_title_p, so the old default would leave a
+						### chosen title on the table with the X apparently doing
+						### nothing. Every instantiation site overrides this block, so
+						### the default only has to be the honest one.
+						block "tnt_picker_clear_sgui"
+						{
+							onclick = "[TntExec('tnt_sel_title_p_clear')]"
+						}
+
+						button_minus_small = {
+							name = "tnt_picker_clear_icon"
+							parentanchor = center
+							alwaystransparent = yes
+						}
+					}
+				}
+
+				spacer = {
+					size = { 6 0 }
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 4b. HOOK TIER ROW   (user item 2.3, BUILD 2)
+	###
+	### The hook stopped being a 0/1 flag. tnt_hook_p / tnt_hook_r are now TIER
+	### INDICES 0..3 - 0 none, 1 favour, 2 strong, 3 eternal
+	### (30-V2-DESIGN section 3.2). A checkbox cannot express four states, so this
+	### row replaces tnt_item_row_toggle for the two hook rows and hosts
+	### tnt_control_hook_tier instead.
+	###
+	### tnt_control_hook_tier IS NOT DEFINED IN THIS FILE. It belongs to
+	### author:hooks-contracts and lives in gui/tnt_panel_contract.gui, with the
+	### two blocks the naming contract fixes in advance:
+	###     tnt_hook_tier_buttons   <- our onclick / onrightclick
+	###     tnt_hook_tier_label     <- our tier-name text
+	### The design's own wording for the interaction is "cycle on click, reverse
+	### on right-click" (30-V2-DESIGN section 3.2 table), which is why ONE button
+	### block is enough for both directions.
+	###
+	### THE CONTROL SLOT BUDGET IS 180 x 56, and author:hooks-contracts must fit
+	### tnt_control_hook_tier inside it. That number comes straight from the row
+	### width budget at the top of this file: 406 usable - 48 icon - 6 - 6 - 180
+	### leaves 148 px for the row name, which is enough for "Hook" elided, because
+	### the TIER name is printed by the control's own label and not by the row.
+	### tnt_level_stepper (tnt_panels.gui) is 26 + 4 + 118 + 4 + 26 = 178, so 180
+	### is that shape plus two pixels of air.
+	###
+	### FALLBACK, if tnt_control_hook_tier never lands or does not fit. This mod
+	### already owns an identical shape - `type tnt_level_stepper` in
+	### tnt_panels.gui, written in build 1 for exactly this purpose ("the shape
+	### the tax / levy obligation levels and the hook tier both need"). The swap
+	### is one instantiation site per side in tnt_diplomacy_window.gui:
+	###     tnt_level_stepper = {
+	###         parentanchor = vcenter|right
+	###         position = { -8 0 }
+	###         blockoverride "tnt_level_minus"     { onclick = "[TntExec('tnt_hook_p_toggle_back')]" }
+	###         blockoverride "tnt_level_plus"      { onclick = "[TntExec('tnt_hook_p_toggle')]" }
+	###         blockoverride "tnt_level_label"     { text = "[TntHookTier('tnt_hook_p')]" }
+	###         blockoverride "tnt_level_tt_minus"  { tooltip = "tnt_stepper_hook_tt" }
+	###         blockoverride "tnt_level_tt_plus"   { tooltip = "tnt_stepper_hook_tt" }
+	###     }
+	### Nothing else changes - not this type, not the row, not the deal sheet.
+	####################################################################
+	type tnt_item_row_hook = tnt_item_frame
+	{
+		blockoverride "tnt_row_control_size"
+		{
+			size = { 180 100% }
+		}
+
+		### A plain widget, not an hbox, and that is load-bearing: it is what
+		### makes `parentanchor` + `position` legal on the control that the
+		### instantiation site drops into the block below. R5 forbids an anchor
+		### on a direct child of hbox/vbox/flowcontainer; a plain widget arranges
+		### nothing, so its children may anchor freely. This is the identical
+		### mechanism the eight tnt_stepper_full instantiations already rely on
+		### through tnt_item_row_currency's "tnt_stepper_full_slot", and it is why the
+		### layout scanner reports those as block-scoped rather than as hard hits
+		### (60-BUILD2-REPORT section 2 R-5).
+		blockoverride "tnt_row_control"
+		{
+			widget = {
+				name = "tnt_hook_slot"
+				size = { 100% 100% }
+
+				block "tnt_hook_control_block"
+				{
+					spacer = {}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 5. ONE NEGOTIATION COLUMN
+	### The caller sets datacontext explicitly:
+	###   left  -> "[GetPlayer]"
+	###   right -> "[TntPartner]"
+	### Never rely on an ambient Character. Proof of the .Char-as-datacontext
+	### form: GAME\gui\window_situation_list.gui:1031.
+	###
+	### USER ITEM 3.2(b), the scrollbars overlapping the options. The vertical
+	### bar is 12 px (GAME\gui\shared\lists.gui:3253-3259) and it does NOT shrink
+	### the content area - the content must stay clear of it by margin. The
+	### inherited template is Scrollbox_Margins = 15/15/15/20
+	### (GAME\gui\shared\windows.gui:135-140), i.e. only 8 px of clearance, and a
+	### row whose right-hand control sat where D2 put it ran straight under the
+	### bar. 26 on the right is 12 for the bar plus 14 of air; 8 on the left buys
+	### that width back. Overriding this block is ordinary vanilla practice - 56
+	### sites, e.g. GAME\gui\window_knights.gui:692-695.
+	####################################################################
+	type tnt_column = vbox
+	{
+		name = "tnt_column"
+		layoutpolicy_horizontal = expanding
+		layoutpolicy_vertical = expanding
+		minimumsize = { 452 0 }
+		maximumsize = { 470 -1 }
+		spacing = 4
+
+		hbox = {
+			name = "tnt_column_head"
+			layoutpolicy_horizontal = expanding
+			spacing = 10
+			margin_bottom = 4
+
+			### D2 fix, was line 397: portrait_head_small carried `parentanchor`
+			### as a direct child of this hbox. Wrapped in a plain widget.
+			widget = {
+				name = "tnt_column_portrait_holder"
+				size = { 85 90 }
+
+				portrait_head_small = {
+					name = "tnt_column_portrait"
+					parentanchor = center
+					### USER ITEM 17(c): portraits render in a later pass than flat
+					### widgets and punch through the two modal dims, so the head
+					### hides while a picker or a preset menu is up - the table
+					### itself now stays drawn under the dim (see tnt_table,
+					### gui\tnt_diplomacy_window.gui). The gate sits on the portrait,
+					### NOT on the 85x90 holder, so the head row does not reflow.
+					### Or( Not( ... ), ... ) is vanilla, GAME\gui\frontend_main.gui:891;
+					### GetVariableSystem.Exists is vanilla at 300+ sites, e.g.
+					### GAME\gui\hud.gui:1006.
+					visible = "[Not( Or( TntOn('tnt_picker'), GetVariableSystem.Exists( 'tnt_preset_menu' ) ) )]"
+				}
+			}
+
+			### D2 fix, was line 402: `parentanchor = vcenter` deleted. The two
+			### texts already stack from the top of the box, which is what we want
+			### next to a 90 px portrait.
+			vbox = {
+				name = "tnt_column_head_text"
+				layoutpolicy_horizontal = expanding
+				spacing = 2
+
+				text_single = {
+					name = "tnt_column_header"
+					layoutpolicy_horizontal = expanding
+					autoresize = no
+					align = nobaseline|left
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Type_Flavor
+					using = Font_Size_Big
+
+					block "tnt_column_header"
+					{
+						text = "tnt_col_actor"
+					}
+				}
+
+				### The ruler's own name - game text, so R-SPILL in full. This is
+				### one of the widgets the user's complaint was about: a long
+				### regnal name used to widen the whole column.
+				text_single = {
+					name = "tnt_column_ruler"
+					layoutpolicy_horizontal = expanding
+					autoresize = no
+					text = "[Character.GetUINameNoTooltip]"
+					default_format = "#high"
+					align = nobaseline|left
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Size_Medium
+				}
+			}
+		}
+
+		divider_light = {
+			layoutpolicy_horizontal = expanding
+		}
+
+		scrollbox = {
+			name = "tnt_column_scroll"
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+
+			blockoverride "scrollbox_margins"
+			{
+				margin_left = 8
+				margin_right = 26
+				margin_top = 6
+				margin_bottom = 6
+			}
+
+			blockoverride "scrollbox_content"
+			{
+				vbox = {
+					name = "tnt_column_rows"
+					layoutpolicy_horizontal = expanding
+					spacing = 3
+
+					### BUILD 2 - THIS ONE PROPERTY IS THE WHOLE OF THE USER'S
+					### "hide unavailable options" REQUEST. Every row's `visible`
+					### is now TntRow('tnt_show_<item>_<side>'), and without
+					### `ignoreinvisible = yes` on THIS vbox an invisible row
+					### would still claim its 56 px plus 3 px of spacing, so the
+					### column would be full of holes instead of shortening.
+					### Already used at three sites in this mod before build 2
+					### (tnt_row_text, tnt_toggle_slot, tnt_picker_slot) and here.
+					### DO NOT REMOVE IT.
+					ignoreinvisible = yes
+
+					block "tnt_column_rows" {}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 6. THE SCALES ICON
+	### icon_strength_balance.dds is 300x60 -> framesize { 60 60 } -> 5 frames.
+	### Usage pattern verbatim from GAME\gui\interaction_declare_war.gui:101-107.
+	### The breakdown tooltip wiring (datacontext + tooltip_visible +
+	### tooltipwidget with its own datacontext) is verbatim from
+	### GAME\gui\activity_window_widgets\hunt_success_chance.gui:24-31.
+	###
+	### USER ITEM 1.2. The tooltip now opens tnt_ai_accept_value, not
+	### tnt_balance_value. That split - headline and scales showing the trade
+	### delta while the verdict tested the deciding value - IS the user's
+	### complaint: he pushed the visible number past zero and was still refused,
+	### by exactly threshold minus relations. 30-V2-DESIGN section 5.1 reverses
+	### the display half of 10-CONTRACT section 11 row 3 (amendment A-3).
+	### The FRAME still comes from tnt_balance_frame_value; that value's own body
+	### is re-pointed at tnt_ai_accept_value by the values author, so this file
+	### needs no change for it.
+	### RISK: which frame tilts which way is NOT runtime-verified. If the scales
+	### lean the wrong way, swap add<->subtract in tnt_balance_frame_value.
+	####################################################################
+	type tnt_balance_scales = icon
+	{
+		name = "tnt_balance_scales"
+		size = { 60 60 }
+		### USER ITEM 3, "the indicator is the war-score crossed swords".
+		### It was: icon_strength_balance.dds is 300x60, five frames of 60x60, and
+		### CROSSED SWORDS ARE BAKED INTO ALL FIVE - only the middle frame also
+		### carries a balance glyph, which is the frame the screenshot caught. It is
+		### vanilla's military-strength widget
+		### (GAME\gui\interaction_declare_war.gui:101-107,
+		###  GAME\gui\window_war_overview.gui:822-830), so it read as war score
+		### because it IS the war-score art.
+		###
+		### THE USER ASKED FOR A THREE-LEVEL SOURCE: none exists. There is no
+		### multi-frame SCALE texture in 1.19 - every scale-shaped texture vanilla
+		### ships is single-frame. So the scale becomes a static emblem and the
+		### three-level tell moves to tnt_balance_tilt, the coloured pip beside it
+		### (see tnt_scales_holder), which is a real 5-frame strip.
+		###
+		### framesize/frame are DELETED, not kept: scale_of_power.dds is 120x120 and
+		### single-frame, so leaving framesize = { 60 60 } would crop it to its
+		### top-left quarter. size = { 60 60 } downsamples the 120 px source 2:1.
+		### Vanilla call site: GAME\gui\window_diarchy.gui:197-201
+		### (`icon = { name = "scales_of_power_icon" size = { 30 30 }
+		###   texture = "gfx/interface/icons/scale_of_power.dds" }`).
+		### DO NOT swap in gfx/interface/window_regency/scale_of_power.dds - same
+		### file name, but it is a black alpha mask and would reproduce defect V1.
+		texture = "gfx/interface/icons/scale_of_power.dds"
+		alwaystransparent = no
+
+		using = tooltip_below
+
+		datacontext = "[TntBreakdown('tnt_ai_accept_value')]"
+		tooltip_visible = "[ValueBreakdown.HasTooltip]"
+
+		tooltipwidget = {
+			widget_value_breakdown_tooltip = {
+				datacontext = "[TntBreakdown('tnt_ai_accept_value')]"
+			}
+		}
+	}
+
+
+	####################################################################
+	### 7. THE TWO-SIDED BAR
+	### Structure copied from GAME\gui\interaction_declare_war.gui:990-1084
+	### (declare_war_progressbar / widget_progressbar_declare_war). Those two
+	### vanilla type names are NOT reused - mod 2712590542 ships a stale copy
+	### of interaction_declare_war.gui, so we define our own tnt_* types.
+	### NOTE the type bridge: ScriptValue() returns CFixedPoint but
+	### GetProgressBarValueMax*Scaled takes a float, so FixedPointToFloat wraps
+	### it. Both halves of the pairing are confirmed
+	### (GAME\gui\window_combat.gui:1361/1366 does exactly this), but flag it.
+	###
+	### BUILD 2: THE BAR IS THE FIFTH RENDERING OF THE DECIDING VALUE.
+	### It reads tnt_verdict_ratio_value (tnt_50_values.txt), which takes its signed
+	### distance from 50 directly from the authoritative tnt_ai_accept_value. The
+	### positive and negative halves remain the magnitude scale, but are not asked
+	### to re-derive the verdict: floor/threat can be fractional and relation/threshold
+	### are rounded separately there while the headline rounds the complete sum once.
+	### Therefore headline == 0 gives exactly 50 and ratio > 50 iff headline > 0,
+	### even when pos - neg carries a small rounding residue. The bar crossing the
+	### halfway mark IS the verdict flipping, so it cannot contradict the number.
+	###
+	### It used to read tnt_bar_ratio_value, the pure give/take TRADE ratio, on the
+	### strength of 30-V2-DESIGN section 5.1's last row. That left three shipped
+	### script values with no reader and left the one widget on the panel that
+	### could still contradict the headline. tnt_bar_ratio_value is untouched in
+	### tnt_50_values.txt and is the ready-made fallback for section 8 R-9 - its
+	### own header (:1469-1477) already sanctions exactly this outcome.
+	### Loc key tnt_scale_note is reworded to match, in both languages.
+	####################################################################
+	type tnt_balance_bar_half = widget
+	{
+		widget = {
+			size = { 100% 100% }
+			scissor = yes
+
+			icon = {
+				block "progressbar_texture"
+				{
+					texture = "gfx/interface/progressbars/war_progress_blue.dds"
+				}
+				size = { 100% 100% }
+				spriteType = Corneredtiled
+
+				modify_texture = {
+					name = overlay
+					texture = "gfx/interface/component_masks/mask_fade_horizontal_middle_solid.dds"
+					blend_mode = mask
+				}
+			}
+		}
+
+		icon = {
+			name = "tnt_bar_glow"
+			parentanchor = right|vcenter
+			position = { 5 0 }
+			size = { 20 100% }
+			texture = "gfx/interface/progressbars/progressbar_center_glow.dds"
+			alwaystransparent = yes
+		}
+	}
+
+
+	type tnt_balance_bar = widget
+	{
+		name = "tnt_balance_bar"
+		size = { 240 24 }
+
+		widget = {
+			size = { 100% 100% }
+			scissor = yes
+
+			widget = {
+				size = { 100% 100% }
+
+				background = {
+					texture = "gfx/interface/progressbars/war_progress_red.dds"
+				}
+			}
+
+			hbox = {
+				tnt_balance_bar_half = {
+					layoutpolicy_horizontal = expanding
+					layoutpolicy_vertical = expanding
+					layoutstretchfactor_horizontal = "[GetProgressBarValueMaxScaled( FixedPointToFloat( TntSV('tnt_verdict_ratio_value') ), '(float)100', '(int32)200' )]"
+
+					blockoverride "progressbar_texture"
+					{
+						texture = "gfx/interface/progressbars/war_progress_blue.dds"
+					}
+				}
+
+				widget = {
+					layoutpolicy_horizontal = expanding
+					layoutpolicy_vertical = expanding
+					layoutstretchfactor_horizontal = "[GetProgressBarValueMaxOtherScaled( FixedPointToFloat( TntSV('tnt_verdict_ratio_value') ), '(float)100', '(int32)200' )]"
+				}
+			}
+		}
+
+		widget = {
+			name = "tnt_bar_frame"
+			parentanchor = top
+			size = { 100% 100% }
+			alwaystransparent = yes
+
+			background = {
+				texture = "gfx/interface/progressbars/progress_frame_war.dds"
+				spriteType = Corneredstretched
+				spriteborder = { 10 10 }
+				margin = { 5 4 }
+			}
+		}
+	}
+
+
+	####################################################################
+	### 8. THE VERDICT ICON
+	### The only acceptance test anywhere in this mod is
+	### tnt_ai_accept_value > 0. The threshold is one SUMMAND of that value and
+	### also a visible row of the figure block below - v3 iteration 2 stopped it
+	### being a 15..95 constant and re-centred it on zero, so the headline is now
+	### directly comparable with what vanilla's own interaction prints for the
+	### same term. It is no longer a hidden tax on every deal.
+	### Exactly 0 declines (GAME\gui\interaction_templates.gui:3089,
+	### GAME\localization\english\interactions_l_english.yml:23).
+	###
+	### V5 (user item 15b): NO LONGER INSTANTIATED. The verdict row it sat in
+	### was folded into the headline number's tooltip to buy the deal sheet
+	### ~55 px (see the deletion note inside type tnt_balance_panel). The type
+	### stays, exactly like the tnt_scale_note loc keys stayed, so a future
+	### layout can put the icon back with one line; its breakdown tooltip is
+	### not lost either way - tnt_balance_scales carries the same one.
+	####################################################################
+	type tnt_verdict_icon = widget
+	{
+		name = "tnt_verdict_icon"
+		size = { 40 40 }
+		alwaystransparent = no
+
+		using = tooltip_below
+
+		datacontext = "[TntBreakdown('tnt_ai_accept_value')]"
+		tooltip_visible = "[ValueBreakdown.HasTooltip]"
+
+		tooltipwidget = {
+			widget_value_breakdown_tooltip = {
+				datacontext = "[TntBreakdown('tnt_ai_accept_value')]"
+			}
+		}
+
+		icon = {
+			name = "tnt_verdict_yes"
+			size = { 40 40 }
+			parentanchor = center
+			texture = "gfx/interface/icons/character_interactions/unity_harmonious.dds"
+			alwaystransparent = yes
+			visible = "[TntPos('tnt_ai_accept_value')]"
+		}
+
+		icon = {
+			name = "tnt_verdict_no"
+			size = { 40 40 }
+			parentanchor = center
+			texture = "gfx/interface/icons/character_interactions/icon_hostile.dds"
+			alwaystransparent = yes
+			visible = "[TntNeg('tnt_ai_accept_value')]"
+		}
+	}
+
+
+	####################################################################
+	### 9. ONE LABELLED FIGURE inside the balance panel
+	### The label is a fixed loc key, but autoresize is switched off anyway so a
+	### long translation cannot push the number out of the panel.
+	####################################################################
+	type tnt_balance_figure = hbox
+	{
+		name = "tnt_balance_figure"
+		layoutpolicy_horizontal = expanding
+		spacing = 4
+		alwaystransparent = yes
+
+		text_single = {
+			name = "tnt_figure_label_text"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			align = nobaseline|left
+			default_format = "#weak"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_figure_label"
+			{
+				text = "tnt_bd_gain"
+			}
+		}
+
+		text_single = {
+			name = "tnt_figure_value_text"
+			### 56 -> 46. The four aggregates are rounded ints and 46 px still
+			### prints "+1234" at Font_Size_Small; the 10 px goes to the label.
+			min_width = 46
+			max_width = 46
+			align = nobaseline|right
+			default_format = "#high"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Small
+
+			block "tnt_figure_value"
+			{
+				text = "[TntSV('tnt_gain_total_value')|0]"
+			}
+		}
+
+		### RETIRED - the per-figure unit widget (text_single "tnt_figure_unit",
+		### text = "tnt_label_points"). Two rows of two figures plus the pressure
+		### row printed "och." FIVE TIMES on one panel, and it cost 24 px of widget
+		### plus 4 px of spacing on EVERY figure. The panel header and the headline
+		### number already establish that this panel is denominated in points, and
+		### the value-breakdown tooltip names the unit on every row.
+		### That 28 px, with the 10 px reclaimed from the value column above, takes
+		### the label slot from 131 px to 169 px - which is what stopped the four
+		### labels eliding ("Chto partner poluch ...", "Otnosheniya - dolya ...",
+		### "Zapros sverkh - dol ..." in the user's screenshot).
+		### The loc key tnt_label_points STAYS DEFINED in both .yml files: it is
+		### still referenced elsewhere in the mod. Do not delete it.
+	}
+
+
+	####################################################################
+	### 9b. THE AUTO-BALANCE TOOLTIP  (V3 ITERATION 3, addition 3)
+	###
+	### FOUR LINES: the base explanation, always shown, then whichever ONE of the
+	### three outcome lines matches var:tnt_ab_state. Absent variable - the button
+	### has not been pressed, or an amount has changed since - shows the base line
+	### alone, which is the honest state.
+	###
+	### WHY A tooltipwidget AND NOT A LOC KEY. The three outcomes are a script
+	### fact (tnt_ab_state, written by tnt_autobalance_effect), and a `.gui`
+	### `tooltip =` takes exactly one loc key - it cannot pick one by arithmetic
+	### and a .yml file has no triggered_desc. Composing the four lines as widgets
+	### is the only way to say all three things from one control. The mod already
+	### uses `tooltipwidget` on tnt_balance_scales above, and
+	### `type tnt_prisoner_list_tooltip` in section 11 is the shape copied here,
+	### down to `using = DefaultTooltipText` being written ABOVE the explicit
+	### max_width for the reason recorded there. That type and the prisoners row
+	### that was the second tooltipwidget consumer are both RETIRED (user item 7)
+	### and commented out, but the shape they proved is the shape used here.
+	###
+	### EVERY `visible` HERE IS A PLAIN VARIABLE READ AGAINST A LITERAL - Law R7
+	### and Law R9 both. TntNum is two map lookups; there is no GetScriptedGui
+	### anywhere in this type. EqualTo_CFixedPoint against '(CFixedPoint)N' is the
+	### idiom this mod already uses for the picker indices
+	### (tnt_diplomacy_window.gui:1774).
+	####################################################################
+	type tnt_ab_tooltip = container
+	{
+		name = "tnt_ab_tooltip"
+		alwaystransparent = no
+		using = DefaultTooltipBackground
+
+		flowcontainer = {
+			name = "tnt_ab_tooltip_body"
+			direction = vertical
+			ignoreinvisible = yes
+			margin = { 18 12 }
+			spacing = 5
+			minimumsize = { 300 0 }
+
+			text_multi = {
+				name = "tnt_ab_tt_base"
+				using = DefaultTooltipText
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 340
+				text = "tnt_tt_autobalance"
+			}
+
+			### 1 - balanced. The offer was moved, up or down, to the minimum he
+			### will sign.
+			text_multi = {
+				name = "tnt_ab_tt_balanced"
+				using = DefaultTooltipText
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 340
+				text = "tnt_ab_state_balanced"
+				visible = "[EqualTo_CFixedPoint( TntNum('tnt_ab_state'), '(CFixedPoint)1' )]"
+			}
+
+			### 2 - already minimal. Nothing needed changing.
+			text_multi = {
+				name = "tnt_ab_tt_minimal"
+				using = DefaultTooltipText
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 340
+				text = "tnt_ab_state_minimal"
+				visible = "[EqualTo_CFixedPoint( TntNum('tnt_ab_state'), '(CFixedPoint)2' )]"
+			}
+
+			### 3 - out of reach. He refuses even with everything payable. This is
+			### the case the brief says must be obvious rather than looking broken,
+			### so it is ALSO printed on the panel itself - see
+			### tnt_ab_status_unreachable in the balance panel below - and not left
+			### to a tooltip the player has no reason to hover.
+			text_multi = {
+				name = "tnt_ab_tt_unreachable"
+				using = DefaultTooltipText
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 340
+				text = "tnt_ab_state_unreachable"
+				visible = "[EqualTo_CFixedPoint( TntNum('tnt_ab_state'), '(CFixedPoint)3' )]"
+			}
+		}
+	}
+
+
+	####################################################################
+	### 9c. THE VERDICT TOOLTIP  (V5, user item 15b)
+	###
+	### The two mutually exclusive accept/reject sentences that used to be the
+	### panel's own verdict row (window_faith.gui:703-720 idiom). The row's
+	### sentence only restated what the signed headline number and the bar
+	### already show, so the row was folded away for ~55 px of deal sheet and
+	### the sentences moved HERE, onto the number's hover - same journey
+	### tnt_scale_note made ("prose belongs in a tooltip").
+	###
+	### The shape is tnt_ab_tooltip above, copied down to `using =
+	### DefaultTooltipText` before the explicit max_width; the two `visible`s
+	### are the same TntPos/TntNeg pair the two texts carried in the row, so
+	### exactly one sentence shows at every value - TntNeg is true AT zero,
+	### which is the honest reading because exactly 0 declines (section 8).
+	####################################################################
+	type tnt_verdict_tooltip = container
+	{
+		name = "tnt_verdict_tooltip"
+		alwaystransparent = no
+		using = DefaultTooltipBackground
+
+		flowcontainer = {
+			name = "tnt_verdict_tooltip_body"
+			direction = vertical
+			ignoreinvisible = yes
+			margin = { 18 12 }
+			spacing = 5
+			minimumsize = { 300 0 }
+
+			text_multi = {
+				name = "tnt_verdict_tt_accept"
+				using = DefaultTooltipText
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 340
+				text = "tnt_balance_accept"
+				default_format = "#P"
+				visible = "[TntPos('tnt_ai_accept_value')]"
+			}
+
+			text_multi = {
+				name = "tnt_verdict_tt_reject"
+				using = DefaultTooltipText
+				layoutpolicy_horizontal = expanding
+				autoresize = yes
+				max_width = 340
+				text = "tnt_balance_reject"
+				default_format = "#N"
+				visible = "[TntNeg('tnt_ai_accept_value')]"
+			}
+		}
+	}
+
+
+	####################################################################
+	### 10. THE BALANCE PANEL - the whole centre column
+	###
+	### USER ITEM 3.4, "the selected terms must be shown in the centre, in full".
+	### Top to bottom (30-V2-DESIGN section 4.4): scales, headline number, bar,
+	### note, the four-figure decomposition, the verdict, then the DEAL SHEET
+	### listing every selected term of both sides with its point value, then one
+	### contextual card. The compound editors (marriage pair, 9-row contract) do
+	### NOT go here - they live in the modal picker overlay at the reserved
+	### indices 5 and 12, which is what keeps this column a summary rather than a
+	### second window.
+	###
+	### Vertical budget at 88% of 1080 (= 950 px window, ~786 px for the columns):
+	###   header 30 + divider 3 + scales 60 + headline 34 + bar 24 + note 30
+	###   + divider 3 + 4 figures 72 + divider 3 + verdict 40 + divider 3
+	###   + sheet header 22 + card 34..208 + 14 spacings of 8 = ~490 fixed,
+	###   leaving ~296 for the deal sheet, comfortably over its 150 minimum.
+	###
+	### V3 ADDITION 4 SPENDS 108 OF THAT SLACK, and the sum is why the two mutual
+	### pact rows are 34 px tnt_toggle_line instances and NOT the 56 px
+	### tnt_item_row_toggle the columns use:
+	###   tnt_mutual_block = header 20 + 2 + 34 + 2 + 34 + margin 8 = 100
+	###   + one panel-level spacing of 8                            = 108
+	###   296 - 108 = ~188 left for the deal sheet, still over its 150 minimum.
+	### Two 56 px rows plus a divider would have cost ~170 and driven the sheet
+	### under its own minimumsize, which does not shrink the sheet - it makes the
+	### panel demand more height than the window has and clips the last child, the
+	### failure the card's own 180 -> 208 note records. If the mutual rows ever grow
+	### back to full row chrome, take the height out of the contextual card first.
+	###
+	### V5 (user item 15b) - THE VERDICT ROW IS FOLDED AWAY. After the later
+	### savings above (spacing 8 -> 4, the note's ~50 px, ab_status collapsed)
+	### the sheet's worst case - contextual card at its 208 cap - stood at
+	### ~296 px. Deleting the verdict row (40 + 4 margin), one of its two
+	### dividers (3) and their two spacings (8) hands those ~55 px to the deal
+	### sheet, the column's only expanding child: worst case is now ~351 px,
+	### and every pixel of future window height still lands there too. The
+	### sentence the row printed is on the headline number's hover
+	### (tnt_verdict_tooltip, section 9c); the breakdown hover was never here
+	### but on the scales. The sheet's own floor rose 150 -> 200 - NOT the
+	### audited 260, which without a taller window would out-demand a sub-1080
+	### column and push the footer, the exact failure this box records - see
+	### the arithmetic on tnt_deal_sheet_scroll below.
+	####################################################################
+	type tnt_balance_panel = vbox
+	{
+		name = "tnt_balance_panel"
+		layoutpolicy_horizontal = expanding
+		layoutpolicy_vertical = expanding
+		minimumsize = { 470 0 }
+		maximumsize = { 500 -1 }
+
+		### V3: THE CENTRE COLUMN OVERFLOWED AND CARRIED THE FOOTER OFF-SCREEN.
+		### Sixteen children stack here and only the deal sheet expands, so the
+		### column's natural minimum was a few pixels taller than the table's
+		### share of the window - and a vbox that cannot fit grows downward,
+		### taking the footer with it as the next sibling. Nothing was wrong with
+		### the footer; it was being pushed.
+		### Two cheap savings, applied here:
+		###   spacing 8 -> 4 across sixteen children is about 64 px, the single
+		###   largest saving available without removing anything;
+		###   ignoreinvisible collapses tnt_ab_status, which is hidden until the
+		###   auto-balance button has been pressed and was reserving its height
+		###   the rest of the time.
+		spacing = 4
+		ignoreinvisible = yes
+
+		margin = { 10 10 }
+
+		background = {
+			using = Background_Area
+		}
+
+		text_label_center = {
+			name = "tnt_balance_title"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			text = "tnt_balance_header"
+			align = center|nobaseline
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Type_Flavor
+			using = Font_Size_Big
+		}
+
+		divider_light = {
+			layoutpolicy_horizontal = expanding
+		}
+
+		### V3 ADDITION 4 - THE MUTUAL TERMS BLOCK, and it is deliberately the
+		### FIRST thing in the centre column.
+		###
+		### An alliance and a non-aggression pact are ONE pact between two rulers,
+		### not two offers. Build 2 put a row in each column, and the user found the
+		### consequence: selecting the pact on the partner's side priced a second,
+		### non-existent pact and SUBTRACTED points. So both terms moved here, where
+		### the deal sheet and the balance already live - a term that binds both
+		### parties belongs BETWEEN the two lists, not inside one of them.
+		###
+		### THIS IS A DECLARED BLOCK, NOT INLINE CONTENT, for the reason R4 makes
+		### load-bearing: a blockoverride's contents are injected WHERE THE BLOCK IS
+		### DECLARED, so declaring it here is what puts the pacts at the top of the
+		### panel while the filling lives at the instantiation site in
+		### tnt_diplomacy_window.gui. Its contents become direct children of THIS
+		### vbox, so nothing inside the override may carry `position` or
+		### `parentanchor` at its top level (R4); the filler wraps its icons in plain
+		### widgets, which is the same mechanism every row in this file uses.
+		###
+		### It is EMPTY by default, so the panel is unchanged for any other consumer
+		### and there is no second tnt_balance_panel to keep in step.
+		block "tnt_balance_mutual" {}
+
+		### D2 fix, was line 709: tnt_balance_scales carried
+		### `parentanchor = hcenter` as a direct child of this vbox. This site was
+		### NOT in the log's list of eight and not in the design's table of
+		### fourteen - my own scanner found it. Wrapped in a plain widget.
+		### V3 ITERATION 3, ADDITION 3 - THE AUTO-BALANCE BUTTON LIVES HERE.
+		###
+		### The brief: "put it in the centre column next to the scales, where the
+		### number it fixes already lives". It is literally beside them: this
+		### holder is a 60 px band with a 60 px icon centred in it, so the ~200 px
+		### either side of the scales was empty. Nothing gains height for this -
+		### the vertical budget at the top of this section is untouched, which
+		### matters because the deal sheet is already down to ~188 px of slack.
+		###
+		### THE ANCHOR IS LEGAL: tnt_scales_holder is a plain widget and arranges
+		### nothing, which is the same licence tnt_balance_scales itself uses on
+		### the line below. This is NOT a direct child of the panel vbox.
+		###
+		### Panel width is 470..500 and the holder is the full width, so the
+		### button occupies roughly x=312..462 against the scales' 205..265 -
+		### they cannot touch even at the 470 minimum.
+		widget = {
+			name = "tnt_scales_holder"
+			layoutpolicy_horizontal = expanding
+			size = { 0 60 }
+
+			tnt_balance_scales = {
+				parentanchor = center
+			}
+
+			### THE TILT TELL, which the scales themselves stopped carrying when the
+			### five-frame war-strength art was dropped for the single-frame scale
+			### (see tnt_balance_scales). This is the mod's three-level indicator,
+			### and it is a REAL frame strip: change_indicator_icons_colored_up_good
+			### .dds is 130x26 = five frames of 26x26, PRE-COLOURED, so frame 1..5 is
+			### in range and none of them is a black mask (defect V1's trap).
+			###   1 red double-down  strongly in the partner's favour
+			###   2 red down         in the partner's favour
+			###   3 yellow diamond   even
+			###   4 green up         in your favour
+			###   5 green double-up  strongly in your favour
+			### The frame index is tnt_balance_frame_value UNCHANGED - that value
+			### already yields exactly 1..5 with 5 = best for the player
+			### (tnt_50_values.txt, tnt_balance_frame_value), so no script edit is
+			### needed and the RISK note above tnt_balance_scales still applies
+			### verbatim: if it leans the wrong way, swap add<->subtract there.
+			### Vanilla form, framesize + datafunction frame on this exact texture:
+			### GAME\gui\interaction_templates.gui:2713-2719.
+			###
+			### THE ANCHOR IS LEGAL for the same reason the scales' and the button's
+			### are - tnt_scales_holder is a plain widget and arranges nothing.
+			### position { 44 0 } puts the 26 px pip between the 60 px scales (which
+			### end at centre+30) and the auto-balance button (which starts around
+			### x=312 of a 470 px panel); the pip spans centre+31..centre+57, so it
+			### touches neither.
+			icon = {
+				name = "tnt_balance_tilt"
+				size = { 26 26 }
+				parentanchor = center
+				position = { 44 0 }
+				texture = "gfx/interface/icons/change_indicator_icons_colored_up_good.dds"
+				framesize = { 26 26 }
+				frame = "[FixedPointToInt( TntSV('tnt_balance_frame_value') )]"
+				alwaystransparent = yes
+			}
+
+			button_standard = {
+				name = "tnt_autobalance_button"
+				size = { 150 32 }
+				parentanchor = vcenter|right
+				position = { -8 0 }
+				text = "tnt_autobalance_btn"
+				onclick = "[TntExec('tnt_autobalance')]"
+
+				using = tooltip_es
+				tooltip_offset = { 0 26 }
+
+				tooltipwidget = {
+					tnt_ab_tooltip = {}
+				}
+			}
+		}
+
+		### USER ITEM 1.2, the headline. This is THE number the user was talking
+		### about: it is now tnt_ai_accept_value, the same value the verdict
+		### sentence in its own tooltip tests, so "the points are positive" and
+		### "he will agree" are the same statement. It already has the relation
+		### rows added and the threshold subtracted.
+		###
+		### V3 ITERATION 2 - THE PARITY GUARANTEE THIS NUMBER NOW CARRIES.
+		### Every term is denominated in vanilla's own raw acceptance points and
+		### the threshold defaults to 0, so a one-term deal reads what vanilla's
+		### equivalent interaction reads for that term: an ordinary marriage
+		### between equals at +10 opinion prints +13 here against the +12 the
+		### user measured in the vanilla marriage window. No widget changed for
+		### this - the guarantee lives entirely in the script values - but do NOT
+		### wrap this text in any scaling, offset or clamp, because doing so is
+		### precisely what broke it in iteration 0.
+		###
+		### V5 (user item 15b): the number now CARRIES the folded verdict row's
+		### sentence as its tooltip, so it stopped being decorative -
+		### alwaystransparent flipped to no or the hover could never land
+		### (transparent ancestors are click-AND-hover-through, the doctrine the
+		### deal sheet's X cell cites). Same licence tnt_balance_scales uses for
+		### its breakdown hover. The text itself is unchanged - see the V3 box
+		### above before touching it.
+		text_single = {
+			name = "tnt_balance_number"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			text = "[TntSV('tnt_ai_accept_value')|+=0]"
+			align = center|nobaseline
+			default_format = "#high"
+			alwaystransparent = no
+			fontsize_min = 12
+			using = Font_Type_Flavor
+			using = Font_Size_Big
+
+			using = tooltip_below
+
+			tooltipwidget = {
+				tnt_verdict_tooltip = {}
+			}
+		}
+
+		### D2 fix, was line 725: tnt_balance_bar carried `parentanchor = hcenter`
+		### as a direct child of this vbox. Also found only by the scanner.
+		widget = {
+			name = "tnt_bar_holder"
+			layoutpolicy_horizontal = expanding
+			size = { 0 24 }
+
+			tnt_balance_bar = {
+				parentanchor = center
+			}
+		}
+
+		### tnt_scale_note IS GONE FROM THE PANEL. It was a wrapping text_multi
+		### with autoresize = yes, i.e. the one child here whose height was
+		### unbounded and grew with its own translation - about 50 px, and more in
+		### Russian than in English. Prose belongs in a tooltip: the scales above
+		### already carry the full breakdown on hover, which says the same thing
+		### with numbers. The loc key tnt_scale_note is now unreferenced; it is
+		### left defined in both .yml files on purpose, so nothing renders a raw
+		### key if a future layout wants the sentence back.
+
+		### V3 ITERATION 3 - THE AUTO-BALANCE VERDICT, ON THE PANEL AND NOT ONLY
+		### IN A TOOLTIP.
+		###
+		### The brief's third task, verbatim: "make the third case obvious rather
+		### than making the button look broken". Pressing a button that cannot
+		### reach acceptance would otherwise look like a button that does nothing -
+		### the offer barely moves, the headline stays negative, and the only
+		### explanation is inside a tooltip the player has no reason to hover. So
+		### the outcome is printed here, once, in the panel, right under the number
+		### it is about. Case 3 is #N red, case 1 is #P green, case 2 is grey.
+		###
+		### `visible` on the wrapper is TntOn, i.e. `> 0`, so an ABSENT
+		### tnt_ab_state - never pressed, or pressed and then an amount changed,
+		### which is when the 48 entry points remove it - shows nothing at all.
+		### That is the whole reason author:script clears the variable from every
+		### amount entry point: a verdict about a deal that no longer exists would
+		### be worse than no verdict. Each inner line is a plain variable read
+		### against a literal (R7), never a GetScriptedGui (R9).
+		###
+		### THREE text_multi IN ONE BOX with ignoreinvisible is the same idiom the
+		### verdict row below already uses (GAME\gui\window_faith.gui:703-720).
+		vbox = {
+			name = "tnt_ab_status"
+			layoutpolicy_horizontal = expanding
+			spacing = 0
+			ignoreinvisible = yes
+			visible = "[TntOn('tnt_ab_state')]"
+
+			text_multi = {
+				name = "tnt_ab_status_balanced"
+				layoutpolicy_horizontal = expanding
+				text = "tnt_ab_state_balanced"
+				visible = "[EqualTo_CFixedPoint( TntNum('tnt_ab_state'), '(CFixedPoint)1' )]"
+				autoresize = yes
+				max_width = 430
+				align = center
+				default_format = "#P"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+
+			text_multi = {
+				name = "tnt_ab_status_minimal"
+				layoutpolicy_horizontal = expanding
+				text = "tnt_ab_state_minimal"
+				visible = "[EqualTo_CFixedPoint( TntNum('tnt_ab_state'), '(CFixedPoint)2' )]"
+				autoresize = yes
+				max_width = 430
+				align = center
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+
+			text_multi = {
+				name = "tnt_ab_status_unreachable"
+				layoutpolicy_horizontal = expanding
+				text = "tnt_ab_state_unreachable"
+				visible = "[EqualTo_CFixedPoint( TntNum('tnt_ab_state'), '(CFixedPoint)3' )]"
+				autoresize = yes
+				max_width = 430
+				align = center
+				default_format = "#N"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+		}
+
+		divider_light = {
+			layoutpolicy_horizontal = expanding
+		}
+
+		### THE EXACT DECOMPOSITION OF THE HEADLINE (30-V2-DESIGN section 5.2):
+		###   row 1  they receive       + tnt_gain_total_value
+		###   row 2  they give up       - tnt_loss_total_value      (minus in the label)
+		###   row 3  standing           +/- tnt_relation_mod_value
+		###   row 4  what they demand   - tnt_threshold_value       (minus in the label)
+		###   =      headline           tnt_ai_accept_value
+		### Row 1 - row 2 + row 3 - row 4 equals the headline EXACTLY, because all
+		### four aggregates carry `round = yes` and tnt_ai_accept_value sums those
+		### same rounded numbers. The minus signs live in the loc labels, not in
+		### the values, so nothing here needs a negating value.
+		###
+		### BUILD 2 - THE TWO SIGNED LABELS ARE _panel KEYS, NOT THE desc KEYS.
+		### The panel prints an UNSIGNED figure (|0 below), so its label must carry
+		### the minus. But tnt_bd_loss and tnt_bd_threshold are ALSO the `desc` of
+		### the two `multiply = -1` rows inside tnt_ai_accept_value
+		### (tnt_50_values.txt:3561, :3591), and GetScriptValueBreakdown prints
+		### that row's own already-negative number in its value column - so the
+		### shared key rendered as "- What they give up   -90", the minus twice.
+		### tnt_bd_loss_panel / tnt_bd_threshold_panel carry the sign for the panel;
+		### the unsigned tnt_bd_loss / tnt_bd_threshold stay on the value rows.
+		###
+		### Each instance MUST override `name`: type tnt_balance_figure sets
+		### name = "tnt_balance_figure" in its own body, and four same-named
+		### direct siblings of this vbox make the engine log
+		### "Duplicate children with the same name override previous widgets"
+		### four times - and that line would contain tnt_, which the acceptance
+		### checklist forbids in error.log.
+		### V3: TWO ROWS OF TWO, not four stacked rows. Saves about 52 px, which
+		### the centre column needed, and it does NOT break the rule stated in the
+		### threshold comment below: all four figures are still on screen at every
+		### frame and still sum to the headline. Only their arrangement changed, so
+		### the panel's height is still constant and nothing appears or vanishes
+		### under the cursor.
+		hbox = {
+			name = "tnt_figure_row_gain_loss"
+			layoutpolicy_horizontal = expanding
+			spacing = 12
+
+			tnt_balance_figure = {
+				name = "tnt_figure_gain"
+				layoutpolicy_horizontal = expanding
+				### _panel KEY, for the same reason tnt_bd_loss_panel exists above:
+				### tnt_bd_gain is ALSO the desc of a row inside tnt_ai_accept_value
+				### (tnt_50_values.txt, `add = { value = tnt_gain_total_value
+				### desc = tnt_bd_gain }`), and the breakdown tooltip has room for the
+				### long wording while this 169 px slot does not.
+				blockoverride "tnt_figure_label" { text = "tnt_bd_gain_panel" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_gain_total_value')|0]" }
+			}
+
+			tnt_balance_figure = {
+				name = "tnt_figure_loss"
+				layoutpolicy_horizontal = expanding
+				blockoverride "tnt_figure_label" { text = "tnt_bd_loss_panel" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_loss_total_value')|0]" }
+			}
+		}
+
+		### tnt_threshold_value is READ-ONLY here, which is exactly what
+		### 30-V2-DESIGN amendment A-3 restates acceptance check 17 to permit. It
+		### is never compared against anything outside tnt_ai_accept_value.
+		###
+		### THIS ROW PRINTS "0" FOR MOST PARTNERS, AND THAT IS THE FIX WORKING.
+		### The value now runs 0..40 - zero for an ordinary personality at or
+		### below the player's rank, rising only for a greedy partner or one who
+		### outranks him. DO NOT add a `visible` trigger to hide the zero and do
+		### NOT drop the row: the figure block's four rows must sum to the
+		### headline at every frame, and a row that appears and vanishes makes the
+		### panel change height under the player's cursor. A visible 0 is the
+		### honest statement that this deal is not being taxed - the constant tax
+		### the player could not remove was the whole complaint.
+		hbox = {
+			name = "tnt_figure_row_rel_threshold"
+			layoutpolicy_horizontal = expanding
+			spacing = 12
+
+			tnt_balance_figure = {
+				name = "tnt_figure_relation"
+				layoutpolicy_horizontal = expanding
+				### _panel KEY - tnt_bd_relation is the desc of the relation row
+				### inside tnt_ai_accept_value and stays long there; see the note on
+				### tnt_bd_gain_panel above.
+				blockoverride "tnt_figure_label" { text = "tnt_bd_relation_panel" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_relation_mod_value')|+=0]" }
+			}
+
+			### V4: THE FIGURE PRINTS tnt_threshold_delta_value, NOT tnt_threshold_value.
+			### The threshold is a PERCENTAGE now (0..40 of what is being offered), and
+			### the four figures on this panel have to sum to the headline - so the
+			### panel prints the same quantity converted to points and signed, which is
+			### what tnt_threshold_delta_value is. On an empty treaty it reads 0, like
+			### every other figure here, because the whole model is now multiplicative:
+			### no term of this window taxes a treaty that does not exist yet.
+			tnt_balance_figure = {
+				name = "tnt_figure_threshold"
+				layoutpolicy_horizontal = expanding
+				blockoverride "tnt_figure_label" { text = "tnt_bd_threshold_panel" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_threshold_delta_value')|+=0]" }
+			}
+		}
+
+		### FIGURE 5 - NAKED PRESSURE (V4 expansion 1), and it has to be a figure of
+		### its own or the panel stops adding up.
+		###
+		### tnt_val_threat_p_value is the one term of tnt_ai_accept_value that is NOT
+		### inside any of the four figures above. It is deliberately outside
+		### tnt_gain_total_value - fix 5 turned opinion into a multiplier on that
+		### total, and fear has to keep working on a ruler who hates you - so without
+		### this row the four figures would sum to something other than the headline,
+		### which is the invariant the note above figure 3/4 spends a paragraph on.
+		###
+		### IT IS GATED ON AVAILABILITY, NOT ON BEING TICKED, which is what keeps the
+		### panel from changing height under the cursor: tnt_show_threat_p is settled
+		### once, when the window opens, so the row appears or does not for the whole
+		### session with this partner. When the threat is available but unticked the
+		### figure honestly reads 0, exactly as the threshold row does.
+		###
+		### One figure alone in its hbox rather than a third one squeezed into the row
+		### above: three expanding figures in a ~470 px centre column leave ~150 px
+		### each, and tnt_bd_threat_panel does not fit in 150 px at Font_Size_Small.
+		hbox = {
+			name = "tnt_figure_row_threat"
+			layoutpolicy_horizontal = expanding
+			spacing = 12
+			visible = "[TntRow('tnt_show_threat_p')]"
+
+			tnt_balance_figure = {
+				name = "tnt_figure_threat"
+				layoutpolicy_horizontal = expanding
+				### V4 item 2: the figure prints tnt_val_pressure_p_value, which is the
+				### threat PLUS a spent hook. Both are outside the gift total and outside
+				### the opinion multiplier, so they belong to one figure - and the panel's
+				### rows must cover every term of the headline or they stop summing to it.
+				### The breakdown tooltip still names the two separately.
+				blockoverride "tnt_figure_label" { text = "tnt_bd_threat_panel" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_val_pressure_p_value')|+=0]" }
+			}
+		}
+
+		### V5 (user item 15b) - tnt_verdict_row STOOD HERE, between two dividers:
+		### the 40 px icon-plus-sentence line reading "he will accept / he will
+		### not". The sentence restated the signed headline number and the bar,
+		### and the icon's breakdown hover restated the scales', so the row and
+		### one of its dividers were folded into the number's own tooltip
+		### (tnt_verdict_tooltip, section 9c) - ~55 px with the two spacings,
+		### all of it landing in the deal sheet below. The panel budget box at
+		### the top of this type carries the arithmetic; put the row back only
+		### if the height comes out of something else first.
+		divider_light = {
+			layoutpolicy_horizontal = expanding
+		}
+
+		### A plain text_single, not text_label_left: that type ships its own
+		### tile_title_bg_01 background AND `margin_right = 40`
+		### (GAME\gui\preload\labels.gui:61-80), and 40 px of margin is exactly
+		### the width this panel cannot spare.
+		text_single = {
+			name = "tnt_sheet_title"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			text = "tnt_sheet_header"
+			align = nobaseline|left
+			default_format = "#high"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Type_Flavor
+			using = Font_Size_Medium
+		}
+
+		### THE DEAL SHEET. `scrollbox_content` takes EXACTLY ONE child
+		### (GAME\gui\shared\lists.gui:3182), and tnt_deal_sheet (tnt_panels.gui)
+		### is that one child. The same explicit margins as the columns keep the
+		### rows clear of the 12 px bar.
+		###
+		### V5 (user item 15b): the floor rose 150 -> 200. It is a FLOOR, not the
+		### height - layoutpolicy_vertical = expanding is what actually grows the
+		### sheet, and after the verdict fold it holds ~351 px worst-case at
+		### 1080p, so 200 never engages there; it only guards future fixed
+		### content. NOT the audited 260: a floor engages by OUT-DEMANDING the
+		### column, and at a 900-tall screen (column ~630, sheet slack ~195
+		### after the fold) 260 would push the footer ~65 px off-window - the
+		### V3 overflow failure - while 200 pushes nothing the old 150 did not.
+		### Raise it past 200 only together with window height.
+		scrollbox = {
+			name = "tnt_deal_sheet_scroll"
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			minimumsize = { 0 200 }
+
+			blockoverride "scrollbox_margins"
+			{
+				margin_left = 8
+				margin_right = 26
+				margin_top = 6
+				margin_bottom = 6
+			}
+
+			blockoverride "scrollbox_empty"
+			{
+				text = "tnt_sheet_empty"
+				visible = "[TntZero('tnt_items_count_value')]"
+			}
+
+			blockoverride "scrollbox_content"
+			{
+				tnt_deal_sheet = {
+					name = "tnt_deal_sheet_rows"
+				}
+			}
+		}
+
+		tnt_context_card = {
+			name = "tnt_context_card_main"
+		}
+
+		block "tnt_balance_extra" {}
+	}
+
+
+	####################################################################
+	####################################################################
+	### RETIRED - THE PRISONER TERMS ("Osvobozhdenie plennikov" and
+	### "Osvobodit vybrannykh").  USER ITEM 7.
+	###
+	### The mechanic was BUILT, SHIPPED AND PLAYED: an all-or-nothing release
+	### toggle on both columns, a read-only dungeon panel per side at overlay
+	### index 8, a per-captive selection list on the player's side at index 13
+	### with a rank ladder for a price, an apply leg that re-tested its filter
+	### at signing time, and an AI archetype that wrote a ransom letter when the
+	### player held the AI's own kin. It was CONSIDERED AND WITHDRAWN FOR AN
+	### INDEFINITE PERIOD on the user's ruling.
+	###
+	### A REVIVAL MUST LEAN ON THE VANILLA PRISONER SYSTEM rather than on this
+	### mod's own bookkeeping. Vanilla already owns imprisonment end to end -
+	### the prison type, ransom_cost_value and the ransom interactions, the
+	### imprisonment reasons, the release and execution on_actions, and the
+	### opinion and hook consequences each of them carries. This mod duplicated
+	### only the parts it could see: a private relevance filter, a private rank
+	### ladder, a private release loop and a private candidate list, none of
+	### which knew what vanilla charges for the same man or what vanilla does to
+	### the jailer afterwards. That divergence is why the term never read as
+	### diplomacy. A revival should PRICE AND EXECUTE THROUGH VANILLA'S OWN
+	### RANSOM PATH and let this window merely place that interaction on the
+	### table.
+	###
+	### NOTHING IS DELETED - the code stays readable behind these comments so
+	### the decision is legible and the mechanic can be revived without
+	### re-deriving it. DO NOT RE-ENABLE ONE HALF: a .gui row and its
+	### scripted_gui go together. Overlay indices 8 and 13 are RETIRED, not
+	### free. This type's only consumers were the two prisoner toggle rows in
+	### gui\tnt_diplomacy_window.gui, retired in the same pass.
+	### Full tombstone: common\scripted_effects\tnt_32_apply.txt.
+	####################################################################
+#	### 11. THE PRISONER LIST TOOLTIP
+#	###
+#	### DEFECT D3, the exact site the engine complained about:
+#	###   [E][pdx_gui_container.cpp:142]: gui/tnt_diplomacy_window.gui:272 -
+#	###   A (flow)container ({}:{}) can't have an hbox/vbox ({}:{}) as a direct child.
+#	### The error was reported at the two INSTANTIATION sites (:272 and :515, the
+#	### two prisoners rows) but the defect was in THIS type: a `container` with a
+#	### `vbox` as its direct child, and a second nested `vbox` for the datamodel.
+#	###
+#	### The vanilla type this was copied from does it correctly -
+#	### GAME\gui\window_ledger.gui:9390-9424, `type container_ledger_tooltip =
+#	### container`, whose child is a `flowcontainer` with `direction = vertical`,
+#	### never a vbox. Both levels are converted here, because the engine's message
+#	### says "(flow)container": a flowcontainer rejects hbox/vbox children too.
+#	### The per-prisoner row is now a single `text_single`, which is exactly what
+#	### vanilla's own prisoner tooltip does (GAME\gui\window_ledger.gui:6100-6106,
+#	### `item = { text_single = { ... } }`) - no container at any level, so the
+#	### defect cannot come back.
+#	###
+#	### The one place an ENGINE datamodel beats a script list.
+#	### `datamodel = "[Character.GetPrisoners]"` yields Character-scoped items
+#	### directly, with no Scope.Char unwrap, and `Character` comes from the
+#	### enclosing column's datacontext, so this works on either side.
+#	### Row text is a pure datafunction - no loc key is invented.
+#	###
+#	### The list is ALSO available as a full panel now (picker index 8, see
+#	### tnt_prisoner_row in tnt_panels.gui). This tooltip is kept because it needs
+#	### no scripted gui at all: hovering the row always informs the player, even
+#	### if the panel's opener is unavailable.
+#	####################################################################
+#	type tnt_prisoner_list_tooltip = container
+#	{
+#		name = "tnt_prisoner_list_tooltip"
+#		alwaystransparent = no
+#		using = DefaultTooltipBackground
+#
+#		### `set_parent_size_to_minimum = yes` was on v1's vbox here and is NOT
+#		### carried over: none of vanilla's 132 uses of it sits on a
+#		### flowcontainer, and container_ledger_tooltip - the type this is copied
+#		### from - sizes to its content without it.
+#		flowcontainer = {
+#			name = "tnt_prisoner_tooltip_body"
+#			direction = vertical
+#			ignoreinvisible = yes
+#			margin = { 18 12 }
+#			spacing = 5
+#			minimumsize = { 260 0 }
+#
+#			### `using = DefaultTooltipText` comes FIRST, above the two explicit
+#			### properties. A `using` expands in place, and that template carries
+#			### its own `max_width = 450` (GAME\gui\preload\tooltip.gui:1-9), so
+#			### with the using written last the template silently replaced our 320
+#			### and the header could render 130 px wider than the rows below it.
+#			text_multi = {
+#				name = "tnt_prisoner_tooltip_head"
+#				using = DefaultTooltipText
+#				layoutpolicy_horizontal = expanding
+#				autoresize = yes
+#				max_width = 320
+#
+#				block "tnt_prisoner_tooltip_header"
+#				{
+#					text = "tnt_item_prisoners_desc"
+#				}
+#			}
+#
+#			divider_light = {
+#				layoutpolicy_horizontal = expanding
+#			}
+#
+#			### THE LIST IS BOUNDED, because a jailer's prison has no upper size.
+#			### Each row is 24 px + 2 px spacing, so 25 prisoners is ~700 px and 40
+#			### is over 1000 - taller than a 1080p screen. The vanilla type this
+#			### whole tooltip is copied from bounds it the same way, with a
+#			### scrollbox around the datamodel flowcontainer:
+#			### GAME\gui\window_ledger.gui:9405-9423 (autoresizescrollarea = yes,
+#			### maximumsize, size = { 0 0 }, list inside blockoverride
+#			### "scrollbox_content"). `autoresizescrollarea = yes` is what lets a
+#			### short list stay short instead of always claiming the full 420 px.
+#			###
+#			### A scrollbox as a direct child of a flowcontainer is legal and is
+#			### exactly what window_ledger.gui:9394-9424 does; the block
+#			### "scrollbox_content" it fills sits inside the scrollbox's own vbox
+#			### (GAME\gui\shared\lists.gui:3204-3216), so the flowcontainer below is
+#			### a child of a vbox and R6 is satisfied at every level.
+#			scrollbox = {
+#				name = "tnt_prisoner_tooltip_scroll"
+#				autoresizescrollarea = yes
+#				maximumsize = { 340 420 }
+#				size = { 0 0 }
+#
+#				### 18 px on the right keeps the rows clear of the 12 px scrollbar
+#				### (GAME\gui\shared\lists.gui:3257), which is the same reservation
+#				### the three panel scrollboxes make with margin_right = 26. The
+#				### row is a fixed 300 px, so 300 + 18 = 318 fits the 340 cap. The
+#				### inherited template would have added 15/15/15/20 and pushed the
+#				### tooltip wider than its own header.
+#				blockoverride "scrollbox_margins"
+#				{
+#					margin_left = 0
+#					margin_right = 18
+#					margin_top = 0
+#					margin_bottom = 0
+#				}
+#
+#				blockoverride "scrollbox_content"
+#				{
+#					flowcontainer = {
+#						name = "tnt_prisoner_tooltip_list"
+#						direction = vertical
+#						ignoreinvisible = yes
+#						spacing = 2
+#						datamodel = "[Character.GetPrisoners]"
+#
+#						item = {
+#							text_single = {
+#								name = "tnt_prisoner_tooltip_row"
+#								size = { 300 24 }
+#								autoresize = no
+#								text = "[Character.GetUINameNoTooltip]"
+#								align = nobaseline|left
+#								default_format = "#high"
+#								alwaystransparent = yes
+#								fontsize_min = 12
+#								using = Font_Size_Medium
+#							}
+#						}
+#					}
+#				}
+#			}
+#		}
+#	}
+
+
+	####################################################################
+	### 12. PICKER OVERLAY - holds every picker panel, swallows clicks
+	### visible is a plain > 0 test on a character variable - the vanilla idiom
+	### (GAME\gui\hud.gui:294), never the mods-only "is set" datafunction.
+	####################################################################
+	type tnt_picker_overlay = widget
+	{
+		name = "tnt_picker_overlay"
+		size = { 100% 100% }
+		parentanchor = center
+		alwaystransparent = no
+		filter_mouse = all
+		visible = "[TntOn('tnt_picker')]"
+
+		background = {
+			texture = "gfx/interface/colors/black.dds"
+			alpha = 0.55
+		}
+
+		block "tnt_picker_panels" {}
+	}
+
+
+	####################################################################
+	### 12b. THE PRESET OVERLAY  (V3 ITERATION 3, addition 2)
+	###
+	### Same machinery as tnt_picker_overlay above, one line different: its
+	### `visible` is a GUI variable, not a character variable. Everything else -
+	### full-size widget, `filter_mouse = all` + `alwaystransparent = no` so the
+	### window behind it cannot be clicked through, the same black.dds at
+	### alpha 0.55, one empty block for the panels - is copied verbatim, because
+	### the brief said to reuse the overlay machinery this mod already has rather
+	### than invent new machinery.
+	###
+	### WHY IT IS A SEPARATE OVERLAY AND NOT ANOTHER tnt_picker INDEX. Every
+	### tnt_picker index is written by a scripted gui (tnt_21_pickers.txt), and
+	### there is no scripted gui for a preset menu. Reusing an index would have
+	### meant inventing one - forbidden by R2 and impossible in a .gui anyway.
+	### The two overlays are mutually exclusive in practice (the preset opener
+	### only exists on a currency row, which is only reachable with no picker
+	### open) and they do not interfere if both were ever on: they are siblings
+	### in the window and the later one simply draws on top.
+	###
+	### GetVariableSystem.Exists is vanilla at 357 sites; the Set/Clear pair that
+	### drives it is at GAME\gui\hud.gui:988 and :5943 for the same purpose.
+	### The value it stores is the ROW KEY - 'gold_p', 'piety_r' and so on - so
+	### one flag both opens the overlay and selects which of the eight panels
+	### inside it is the visible one. HasValue does that test
+	### (GAME\gui\frontend_mp_game_setup.gui:216-233).
+	####################################################################
+	type tnt_preset_overlay = widget
+	{
+		name = "tnt_preset_overlay"
+		size = { 100% 100% }
+		parentanchor = center
+		alwaystransparent = no
+		filter_mouse = all
+		visible = "[GetVariableSystem.Exists( 'tnt_preset_menu' )]"
+
+		background = {
+			texture = "gfx/interface/colors/black.dds"
+			alpha = 0.55
+		}
+
+		block "tnt_preset_panels" {}
+	}
+
+
+	####################################################################
+	### 12c. ONE PRESET MENU  (V3 ITERATION 3, addition 2)
+	###
+	### A compact modal: which currency, whose side, then four named amounts.
+	### Instantiated EIGHT times (four currencies x two sides) inside
+	### tnt_preset_overlay's block, each with its own `visible` HasValue test and
+	### its own four onclicks. It is a type rather than eight hand-written panels
+	### so the chrome, the sizes and the shared labels exist once.
+	###
+	### `parentanchor = center` is LEGAL here for the same reason tnt_picker_panel
+	### states: the parent is tnt_preset_overlay, a plain widget, which arranges
+	### nothing. Nothing INSIDE this vbox carries an anchor or a position.
+	###
+	### THE PRESETS NAME WHAT THEY DO, NOT THE FORMULA (brief, task 3). No button
+	### here prints a number, because the number is different for every player and
+	### every partner: `_std` on the gold row is a year of the giver's own income,
+	### `_half` and `_max` are fractions of what is actually held, and `_none`
+	### takes the currency off the table. The arithmetic is in the tooltips.
+	###
+	### THE `_std` LABEL IS NOT SHARED, and this is the one thing in this type a
+	### future editor must not "simplify". CK3 has no prestige, piety or influence
+	### INCOME - author:script measured GAME\common and GAME\events and found no
+	### monthly_prestige / monthly_piety / monthly_influence field - so on those
+	### three rows `_std` pays one full vanilla bribe
+	### (prestige_bribe_value / piety_bribe_value / influence_bribe_value), which
+	### is a customary gift and NOT a year of anything. One shared "a year's
+	### income" label would make three buttons out of four lie. Hence
+	### block "tnt_preset_lbl_std" + block "tnt_preset_tt_std", overridden on the
+	### two gold rows to the _gold pair and left at the _gift default elsewhere.
+	###
+	### EVERY BUTTON CARRIES TWO onclick LINES: the scripted gui, then
+	### GetVariableSystem.Clear, so choosing an amount also closes the menu.
+	### Stacked onclick on one widget is vanilla and every line fires - in-game at
+	### GAME\gui\hud.gui:988-989 and :5943-5944, and three deep at
+	### GAME\gui\frontend_bookmarks.gui:238-240. The Clear is written OUTSIDE the
+	### block on purpose: it is the same on all eight panels, so an instantiation
+	### can never forget it and leave a modal that cannot be dismissed.
+	###
+	### THE LAST ROW IS A CANCEL, not a preset. It is the only way out that does
+	### not touch the offer, and it reuses the shipped tnt_btn_close key. There is
+	### deliberately NO click-anywhere-to-close catcher: that would be a
+	### full-screen invisible button under the panel, and an invisible full-screen
+	### button inside a window that also has a scrollbox and an ESC handler is
+	### exactly the sort of thing that eats a click somewhere else.
+	####################################################################
+	type tnt_preset_menu = vbox
+	{
+		name = "tnt_preset_menu"
+		parentanchor = center
+		size = { 360 380 }
+		alwaystransparent = no
+
+		### HEIGHT BUDGET, and it is deliberately generous by ~50 px:
+		###   Window_Margins ~24 + title 24 + currency 24 + side 18 + divider 3
+		###   + four 34 px buttons + a 30 px cancel + 8 spacings of 6 = ~331.
+		### The `expand` before the cancel row absorbs the slack, so a translation
+		### that wraps a label onto a second line grows into the gap instead of
+		### pushing the cancel button off the panel. At 320 it did not fit.
+
+		using = Window_Background
+
+		vbox = {
+			using = Window_Margins
+			layoutpolicy_horizontal = expanding
+			layoutpolicy_vertical = expanding
+			spacing = 6
+
+			text_label_center = {
+				name = "tnt_preset_menu_head"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "tnt_preset_menu_header"
+				align = center|nobaseline
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Type_Flavor
+				using = Font_Size_Medium
+			}
+
+			### Which row this menu belongs to, printed as two grey lines so the
+			### modal can never be ambiguous about whose gold it is about. Both
+			### reuse keys the window already ships: the currency names are the
+			### row names (tnt_item_gold and friends) and the side line is the
+			### column header (tnt_col_actor / tnt_col_partner).
+			text_single = {
+				name = "tnt_preset_menu_which"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = center|nobaseline
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+
+				block "tnt_preset_menu_currency"
+				{
+					text = "tnt_item_gold"
+				}
+			}
+
+			text_single = {
+				name = "tnt_preset_menu_side"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				align = center|nobaseline
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+
+				block "tnt_preset_menu_whose"
+				{
+					text = "tnt_col_actor"
+				}
+			}
+
+			divider_light = {
+				layoutpolicy_horizontal = expanding
+			}
+
+			button_standard = {
+				name = "tnt_preset_btn_std"
+				layoutpolicy_horizontal = expanding
+				size = { 0 34 }
+				using = tooltip_es
+
+				block "tnt_preset_sgui_std"
+				{
+					onclick = "[TntExec('tnt_gold_p_std')]"
+				}
+
+				onclick = "[GetVariableSystem.Clear( 'tnt_preset_menu' )]"
+
+				block "tnt_preset_lbl_std"
+				{
+					text = "tnt_preset_std_gift"
+				}
+
+				block "tnt_preset_tt_std"
+				{
+					tooltip = "tnt_tt_preset_std_gift"
+				}
+			}
+
+			button_standard = {
+				name = "tnt_preset_btn_half"
+				layoutpolicy_horizontal = expanding
+				size = { 0 34 }
+				text = "tnt_preset_half"
+				tooltip = "tnt_tt_preset_half"
+				using = tooltip_es
+
+				block "tnt_preset_sgui_half"
+				{
+					onclick = "[TntExec('tnt_gold_p_half')]"
+				}
+
+				onclick = "[GetVariableSystem.Clear( 'tnt_preset_menu' )]"
+			}
+
+			button_standard = {
+				name = "tnt_preset_btn_max"
+				layoutpolicy_horizontal = expanding
+				size = { 0 34 }
+				tooltip = "tnt_tt_preset_max"
+				using = tooltip_es
+
+				block "tnt_preset_sgui_max"
+				{
+					onclick = "[TntExec('tnt_gold_p_max')]"
+				}
+
+				onclick = "[GetVariableSystem.Clear( 'tnt_preset_menu' )]"
+
+				### "All I can" on the four _p rows, "All he can" on the four _r
+				### rows. The amount is the same idea either way - everything the
+				### GIVER can afford - but the giver is a different person, so the
+				### label has to say which.
+				block "tnt_preset_lbl_max"
+				{
+					text = "tnt_preset_max"
+				}
+			}
+
+			button_standard = {
+				name = "tnt_preset_btn_none"
+				layoutpolicy_horizontal = expanding
+				size = { 0 34 }
+				text = "tnt_preset_none"
+				tooltip = "tnt_tt_preset_none"
+				using = tooltip_es
+
+				block "tnt_preset_sgui_none"
+				{
+					onclick = "[TntExec('tnt_gold_p_none')]"
+				}
+
+				onclick = "[GetVariableSystem.Clear( 'tnt_preset_menu' )]"
+			}
+
+			expand = {
+				name = "tnt_preset_menu_pad"
+			}
+
+			button_standard = {
+				name = "tnt_preset_btn_cancel"
+				layoutpolicy_horizontal = expanding
+				size = { 0 30 }
+				text = "tnt_btn_close"
+				onclick = "[GetVariableSystem.Clear( 'tnt_preset_menu' )]"
+			}
+		}
+	}
+
+
+	####################################################################
+	### 12d. THE SHARED COLUMN-PLATE HEAD   (user item 8 - picker uniformity)
+	###
+	### ONE pinned 26 px header line for every list plate in the mod. It began
+	### as two inline twins in gui\tnt_panel_multiselect.gui (user item 6 pinned
+	### them to 26 px because a header with no vertical bound was the only
+	### slack-absorbing child of an expanding column, so an EMPTY list fed it up
+	### to 195 px and the plate ballooned inversely to list fill); user item 8
+	### extracts the pinned shape into a TYPE so the single-pick panels and the
+	### multi-select columns cannot drift apart again. The arithmetic is the
+	### multiselect file's own: a 26 px line with margin { 10 3 } leaves 20 px
+	### for the 18 px Font_Size_Small line - the same sum as tnt_sheet_group
+	### (gui\tnt_panels.gui). Vanilla shapes for the pin:
+	###   maximumsize = { -1 N } on a flow child   GAME\gui\window_court_scene_editor.gui:856-858
+	###   explicit size on a text_single           GAME\gui\shared\buttons.gui:173-182
+	###   maximumsize on a text_single             GAME\gui\window_character.gui:4372-4397
+	####################################################################
+	type tnt_col_plate_head = text_single
+	{
+		name = "tnt_col_plate_head"
+		layoutpolicy_horizontal = expanding
+		size = { 0 26 }
+		maximumsize = { -1 26 }
+		autoresize = no
+		align = nobaseline|left
+		default_format = "#weak"
+		alwaystransparent = yes
+		fontsize_min = 12
+		margin = { 10 3 }
+		using = Font_Size_Small
+
+		block "tnt_col_plate_head_text"
+		{
+			text = "tnt_picker_available"
+		}
+	}
+
+
+	####################################################################
+	### 13. ONE PICKER PANEL
+	### Deliberately does NOT use Window_Decoration_Spike: that template
+	### injects icon children, which a vbox would lay out in its flow.
+	### Window_Background contributes only a background= block, which is
+	### not a flow child (proven: GAME\gui\activity_window_widgets\
+	### funeral_deceased_selection_widget.gui:85-90 puts a background in an hbox).
+	### scrollbox_content takes EXACTLY ONE child (GAME\gui\shared\lists.gui:3182).
+	###
+	### `parentanchor = center` on the panel itself is LEGAL: its parent is
+	### tnt_picker_overlay, a plain widget, which arranges nothing.
+	####################################################################
+	### V4 (user item 4): THE PANEL NOW FITS ITS CONTENTS.
+	###
+	### THE COMPLAINT: "the sub-windows are far too big". They were, and the cause was
+	### this one line - `size = { 540 640 }` on the shared panel type. Every picker got
+	### the same 640 px of height whether it listed twelve counties or two prisoners, so
+	### a two-row list arrived as a near-full-screen window with 500 px of empty space.
+	###
+	### HOW IT SIZES ITSELF NOW. The height is dropped from `size`, so a vbox measures
+	### its children - and the one child that would otherwise demand everything, the
+	### scrollbox, drops `layoutpolicy_vertical = expanding` and instead MEASURES its
+	### rows under a `maximumsize` cap (`autoresizescrollarea = yes` + size { 0 0 },
+	### the vanilla ledger pattern - see the box itself, user item 17(a)). A short
+	### list therefore produces a short panel; a long one grows to the cap and
+	### scrolls beyond it, which is what a scrollbox is for.
+	###
+	### THE CAP IS NOT ARBITRARY: it was cut at 560 as the old 640 minus the header and
+	### the footer that the type draws around the list, so the tallest panel is the same
+	### height it always was and nothing that used to fit stops fitting. Only the empty
+	### space is gone. (USER ITEM 8 later shaved it 560 -> 525 to pay for the plate
+	### head - the sum is on the scrollbox itself - so the ceiling still holds.)
+	###
+	### WIDTH STAYS FIXED at 540. A picker's rows are `layoutpolicy_horizontal = expanding`
+	### and their text is `autoresize = no`, so a variable width would make the same list
+	### jump in size as names change - the defect item 3.2 was about. Height is the
+	### dimension that varies with content; width is not.
+	type tnt_picker_panel = vbox
+	{
+		name = "tnt_picker_panel"
+		parentanchor = center
+		size = { 540 0 }
+		maximumsize = { 540 640 }
+		alwaystransparent = no
+
+		using = Window_Background
+
+		vbox = {
+			using = Window_Margins
+			layoutpolicy_horizontal = expanding
+			### NO layoutpolicy_vertical HERE - USER ITEM 4, and it is the one line
+			### that defeated everything the V4 note above promises. An expanding
+			### child asks its parent for everything, so this vbox pinned the panel
+			### at its `maximumsize` height regardless of how short the list was, and
+			### the surplus was then smeared over the plate's head / divider / list
+			### slots - which is why "Dostupno" floated in the middle of a tall empty
+			### band instead of sitting as a compact 26 px header above its list.
+			### The scrollbox below deliberately dropped this same policy for the
+			### same reason (autoresizescrollarea = yes + size { 0 0 } + a
+			### maximumsize cap); this line was the last thing overriding it.
+			### Height now follows content, which is what V4 intended.
+			spacing = 6
+
+			### VERIFIED FORM, do not "simplify" this away. Declaring a `block`
+			### INSIDE a `blockoverride` of a reusable `type`, and then having a
+			### consumer of that type in ANOTHER file override the inner block, is
+			### vanilla: 49 distinct block names in the shipped GUI are used this
+			### way. The exact analogue of the two nestings in this type is
+			### `type vbox_ledger` in GAME\gui\window_ledger.gui, which declares
+			###   blockoverride "scrollbox_empty" { block "scrollbox_empty_visibility" {} }
+			### at :3402-3407, overridden from a different file at
+			### GAME\gui\interaction_marriage.gui:474. Header-text case:
+			### GAME\gui\cooltip.gui:6034 (`block "title_text_inner"` inside a
+			### blockoverride in `type court_position_type_tooltip`), overridden at
+			### GAME\gui\window_court_positions.gui:621.
+			header_pattern = {
+				layoutpolicy_horizontal = expanding
+
+				blockoverride "header_text"
+				{
+					block "tnt_picker_panel_title"
+					{
+						text = "tnt_picker_title_title"
+					}
+				}
+
+				blockoverride "button_close_tooltip"
+				{
+					tooltip = "tnt_btn_close"
+				}
+
+				blockoverride "button_close"
+				{
+					onclick = "[TntExec('tnt_picker_close')]"
+				}
+			}
+
+			### USER ITEM 8 - THE PLATE. The single-pick list now sits on the same
+			### dark column plate, under the same pinned 26 px head and divider, as
+			### each column of the multi-select panels (gui\tnt_panel_multiselect.gui,
+			### tnt_multi_available_col: Background_Area_Dark + head + divider_light +
+			### capped scrollbox) - one visual grammar for every list in the mod. The
+			### head is the shared type tnt_col_plate_head (section 12d) and its key
+			### stays the default tnt_picker_available, because a single-pick list IS
+			### its available column; nothing here is a contract block, so the
+			### surviving consumers (hostage x2) inherit the plate without
+			### touching a line. (nonwar x2 and the read-only prisoner list were
+			### consumers too, until user items 1 and 7 retired them; ward x2 until
+			### V16 user item 5 retired the ward / fosterage family.)
+			vbox = {
+				name = "tnt_picker_plate"
+				layoutpolicy_horizontal = expanding
+				spacing = 4
+
+				background = {
+					using = Background_Area_Dark
+				}
+
+				tnt_col_plate_head = {
+					name = "tnt_picker_plate_head"
+				}
+
+				divider_light = {
+					layoutpolicy_horizontal = expanding
+				}
+
+				### THE CAP LIVES HERE, NOT ON THE PANEL. `layoutpolicy_vertical = expanding`
+				### is deliberately GONE: an expanding child asks its parent for everything
+				### going, which is precisely how the panel came to be 640 px tall for a
+				### two-row list. USER ITEM 17(a) CORRECTION: a `maximumsize` alone did NOT
+				### make the box track its rows - the base type is a scrollarea with a
+				### FIXED size = { 100 100 } (GAME\gui\shared\lists.gui:3186), and only
+				### `autoresizescrollarea = yes` makes a scrollarea measure its content. So
+				### the full vanilla ledger pattern applies here
+				### (GAME\gui\window_ledger.gui:9405-9408: autoresizescrollarea +
+				### maximumsize + size = { 0 0 }): the box is as tall as its rows until it
+				### reaches the cap, then it scrolls - and the panel, being a plain vbox,
+				### is as tall as the scrollbox plus its header and footer.
+				###
+				### 525, NOT THE OLD 560 (user item 8): the plate head (26), its divider
+				### (3) and their two plate spacings of 4 put ~35 px above this box, so
+				### the cap shrinks by the same amount and the tallest panel still lands
+				### on the type's own 640 ceiling instead of clipping its last child.
+				###
+				### `minimumsize` keeps a one-row list from looking like a glitch: 90 px is
+				### two rows' worth, so an almost-empty picker still reads as a list rather
+				### than as a stray line under a title bar. It is also what gives the "no
+				### candidates" message room to be seen.
+				scrollbox = {
+					name = "tnt_picker_scroll"
+					layoutpolicy_horizontal = expanding
+					autoresizescrollarea = yes
+					size = { 0 0 }
+					minimumsize = { 0 90 }
+					### D3(e) BELT: the WIDTH half of the cap was -1, i.e. left to the
+					### layout, and that is the axis that broke the multiselect twin. 460
+					### is this panel's own inner width (540 - 80 Window_Margins,
+					### GAME\gui\shared\windows.gui:122-128), so it never binds today - the
+					### bound on the empty label below is the actual fix. It is here so no
+					### future content can inflate the panel sideways and carry the close X
+					### out of it, exactly as 525 already forbids vertically.
+					maximumsize = { 460 525 }
+
+					### Item 3.2(b) again: explicit, not inherited. A picker row is
+					### `layoutpolicy_horizontal = expanding`, so without this its
+					### right edge sat 8 px from the 12 px bar.
+					blockoverride "scrollbox_margins"
+					{
+						margin_left = 10
+						margin_right = 26
+						margin_top = 8
+						margin_bottom = 8
+					}
+
+					### D3(e): THE SAME BOUND AS tnt_panel_multiselect.gui, AND THIS BOX
+					### IS THE NATURAL EXPERIMENT THAT PROVED THE MECHANISM.
+					### Vanilla's empty-state slot is a BARE text_single - block
+					### "scrollbox_empty" sits inside it (GAME\gui\shared\lists.gui:3218-3226)
+					### - so it inherits autoresize = yes, elide = right,
+					### alwaystransparent = no and Font_Size_Small (fontsize 15,
+					### GAME\gui\preload\fonts.gui:16-20) from type text_single
+					### (GAME\gui\preload\labels.gui:6-16). An autoresizing SINGLE-LINE
+					### textbox demands its whole sentence on ONE line, and neither this
+					### box (size = { 0 0 }, -1 on the width axis of the cap) nor any
+					### ancestor bounds the width. This panel has never inflated for ONE
+					### reason: both live consumers (tnt_panel_hostage_p / _r,
+					### tnt_panel_people.gui:128 and :182) pass the 20-character
+					### tnt_picker_empty. The multiselect twin, fed a 155-character string,
+					### broke on first sight - same shape, different string. Bound it here
+					### so the next long string cannot repeat it.
+					###
+					### multiline + autoresize + max_width is vanilla's own shape for a
+					### wrapping empty-state (GAME\gui\window_court.gui:300-306, PRISON_EMPTY,
+					### max_width 400; GAME\gui\interaction_modify_vassal_window.gui:543-549;
+					### GAME\gui\window_legends.gui:140-154), and on a text_single with this
+					### exact align at GAME\gui\window_artifact_details.gui:616-621.
+					### The inherited elide = right is not a hazard: vanilla's own
+					### type text_multi keeps it beside multiline = yes
+					### (GAME\gui\preload\labels.gui:19-31).
+					###
+					### BESIDE the nested block, never inside it: a consumer's plain
+					### blockoverride CONSUMES the named block, and both hostage panels
+					### override only text + visible. A plain property beside a nested block
+					### inside THIS blockoverride is vanilla at
+					### GAME\gui\window_ledger.gui:3402-3407.
+					###
+					### alwaystransparent = yes is the house rule (_docs/README.md item 4) -
+					### the inherited `no` makes a passive caption mouse-opaque. It also
+					### means this widget can never host a tooltip; do not hang one here.
+					###
+					### 400 = the 424 px of row this panel has (540 - 80 Window_Margins
+					### = 460, less the 10 + 26 scrollbox margins above), less slack; it is
+					### also the number vanilla itself uses at window_court.gui:305.
+					###
+					### tnt_panel_marriage.gui carries three more unbounded
+					### blockoverride "scrollbox_empty" sites of this same shape. They are
+					### DELIBERATELY LEFT ALONE: that panel ships visible = no
+					### (tnt_diplomacy_window.gui:2997-3000), so touching it is churn. Bound
+					### them the moment it is switched back on.
+					blockoverride "scrollbox_empty"
+					{
+						multiline = yes
+						autoresize = yes
+						max_width = 400
+						align = nobaseline|left
+						alwaystransparent = yes
+						fontsize_min = 12
+
+						block "tnt_picker_panel_empty"
+						{
+							text = "tnt_picker_empty"
+							visible = no
+						}
+					}
+
+					blockoverride "scrollbox_content"
+					{
+						block "tnt_picker_panel_list"
+						{
+							spacer = {}
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	####################################################################
+	### 14. PICKER ROWS
+	### Row shape copied from
+	###   GAME\gui\window_lease_out_baronies.gui:52-85 (title row + check)
+	###   GAME\gui\activity_window_widgets\funeral_deceased_selection_widget.gui:55-82
+	### Selection is OURS: ObjectsEqual against a stored character variable.
+	### Title.IsSelected / Character.IsSelected mean MAP selection - never used.
+	### Every row carries a fixed size (PDX: "required for performance reasons",
+	### GAME\gui\window_epidemics.gui:449).
+	###
+	### D2 fixes, was lines 1079 and 1133: the artifact icon and the character
+	### portrait carried `parentanchor = vcenter` as direct children of the row
+	### hbox. Both are wrapped in plain widgets now. Every row text also gains
+	### `autoresize = no` - a picker list is the other place a long title name
+	### used to widen its container.
+	###
+	### BUILD 3 - STATUS OF THE THREE ROW TYPES BELOW. Only tnt_picker_row_char is
+	### instantiated (twice, the non-aggression picker at tnt_diplomacy_window.gui
+	### :1711 and :1745). tnt_picker_row_title and tnt_picker_row_artifact have ZERO
+	### instantiations: item 2.2's multi-select replaced the single-object pickers,
+	### and gui\tnt_panel_multiselect.gui rolls its own row with a
+	### block "tnt_multi_row_click" instead of using these. They are LEFT DEFINED
+	### rather than deleted (an uninstantiated type costs nothing at load), but
+	### their default onclicks have been repointed - see the note on each. If a
+	### future author does instantiate one, the default must not write a variable
+	### that no longer exists.
+	####################################################################
+	type tnt_picker_row_title = button_standard_list
+	{
+		name = "tnt_picker_row_title"
+		layoutpolicy_horizontal = expanding
+		size = { 0 45 }
+		using = tooltip_es
+
+		### BUILD 3: was tnt_pick_title_p_set, one of the v1 single-object setters
+		### that writes var:tnt_title_p - a variable 30-V2-DESIGN section 3.1
+		### deletes and that nothing in the mod reads for the balance any more. The
+		### default now ADDS to the _p selection list, which is what the offer
+		### actually is. The _r side must still override this block, exactly as
+		### before. Do not restore the old name: an instantiation taking that
+		### default would have written a dead variable, priced 0, counted 0 terms,
+		### and transferred the title anyway through tnt_32_apply.txt's legacy leg.
+		block "tnt_row_onclick"
+		{
+			onclick = "[TntPickTitle('tnt_sel_title_p_add')]"
+		}
+
+		### BUILD 2, item 2.2. The default USED to be
+		###   down = "[ObjectsEqual( TntVar('tnt_title_p').Title, Title.Self )]"
+		### and tnt_title_p no longer exists - it is one of the six single-object
+		### variables 30-V2-DESIGN section 3.1 deletes in favour of the selection
+		### lists tnt_sel_title_p/_r, tnt_sel_claim_p/_r, tnt_sel_artifact_p/_r.
+		### In the two-list multi-select shape a row's "selected" state is not a
+		### comparison at all: an object is chosen exactly when it has MOVED from
+		### the available list into the chosen list, which is the entire reason the
+		### design picked two datamodels over one plus a membership test - no
+		### membership datafunction exists or is needed.
+		### `down = no` static is vanilla (GAME\gui\window_tax_slot_vassals.gui:776;
+		### `down = yes` at GAME\gui\window_ledger.gui:6808). Every instantiation
+		### site overrides this block anyway; the default only has to be harmless.
+		block "tnt_row_down"
+		{
+			down = no
+		}
+
+		hbox = {
+			layoutpolicy_horizontal = expanding
+			margin = { 10 0 }
+			spacing = 10
+
+			coa_title_tiny_crown = {}
+
+			text_single = {
+				name = "tnt_picker_row_text"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Title.GetNameNoTooltip|U]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+		}
+	}
+
+
+	type tnt_picker_row_artifact = button_standard_list
+	{
+		name = "tnt_picker_row_artifact"
+		layoutpolicy_horizontal = expanding
+		size = { 0 45 }
+		using = tooltip_es
+
+		tooltipwidget = {
+			artifact_tooltip = {}
+		}
+
+		### BUILD 3: was tnt_pick_artifact_p_set - same repointing and the same
+		### reason as tnt_picker_row_title's block above. This type has zero
+		### instantiations today; the default exists so that a future one is not
+		### silently wired to the deleted var:tnt_artifact_p.
+		block "tnt_row_onclick"
+		{
+			onclick = "[TntPickArtifact('tnt_sel_artifact_p_add')]"
+		}
+
+		### BUILD 2, item 2.2 - same reason as tnt_picker_row_title above:
+		### tnt_artifact_p is deleted, replaced by the list tnt_sel_artifact_p.
+		block "tnt_row_down"
+		{
+			down = no
+		}
+
+		hbox = {
+			layoutpolicy_horizontal = expanding
+			margin = { 10 0 }
+			spacing = 10
+
+			widget = {
+				name = "tnt_artifact_icon_holder"
+				size = { 32 100% }
+				alwaystransparent = yes
+
+				icon = {
+					name = "tnt_artifact_icon"
+					size = { 32 32 }
+					parentanchor = center
+					texture = "[Artifact.GetIcon]"
+					frame = "[Artifact.GetIconFrame]"
+					framesize = { 240 240 }
+					alwaystransparent = yes
+				}
+			}
+
+			text_single = {
+				name = "tnt_picker_row_text"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Artifact.GetNameNoTooltip]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+
+			text_single = {
+				name = "tnt_picker_row_rarity"
+				min_width = 130
+				max_width = 130
+				autoresize = no
+				text = "[Artifact.GetRarityAndSlotType]"
+				align = nobaseline|right
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
+		}
+	}
+
+
+	type tnt_picker_row_char = button_standard_list
+	{
+		name = "tnt_picker_row_char"
+		layoutpolicy_horizontal = expanding
+		size = { 0 45 }
+		using = tooltip_es
+
+		### DEFAULTS REPOINTED from the retired third-party non-aggression picker to
+		### the hostage picker when that term was withdrawn (see the FAMILY A
+		### tombstone). This type is SHARED and STAYS LIVE - hostage x2
+		### in gui\tnt_panel_people.gui instantiate it (ward x2 did too, until V16
+		### user item 5 retired that family; the count changed, the sharing did not)
+		### - and every consumer overrides
+		### BOTH blocks, so these bodies never reach a live widget. They are
+		### repointed rather than left alone because they would otherwise be the
+		### mod's last written references to two retired scripted_gui names.
+		### This is documentation of intent, not behaviour.
+		block "tnt_row_onclick"
+		{
+			onclick = "[TntPickChar('tnt_pick_hostage_p_set')]"
+		}
+
+		block "tnt_row_down"
+		{
+			down = "[ObjectsEqual( TntVar('tnt_hostage_p').Char, Character.Self )]"
+		}
+
+		hbox = {
+			layoutpolicy_horizontal = expanding
+			margin = { 8 0 }
+			spacing = 8
+
+			widget = {
+				name = "tnt_picker_row_portrait_holder"
+				size = { 38 100% }
+				alwaystransparent = yes
+
+				portrait_head_tiny = {
+					name = "tnt_picker_row_portrait"
+					size = { 38 38 }
+					parentanchor = center
+				}
+			}
+
+			text_single = {
+				name = "tnt_picker_row_text"
+				layoutpolicy_horizontal = expanding
+				autoresize = no
+				text = "[Character.GetUINameNoTooltip]"
+				align = nobaseline|left
+				default_format = "#high"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Medium
+			}
+		}
+	}
+
+
+	####################################################################
+	### 15. IN-WINDOW RESULT BANNER
+	### tnt_result is absent when there is no result, 1 = accepted, 2 = refused.
+	###
+	### The banner's OWN `parentanchor` + `position` are legal and stay: it is
+	### instantiated as a direct child of the window, and a window arranges
+	### nothing. Its CHILDREN were the problem - D2 fixes at former lines 1172,
+	### 1180, 1192 and 1206, four more sites that neither the log nor the design
+	### table listed. The icon and the dismiss button are wrapped; the two texts
+	### lose the anchor.
+	###
+	### DO NOT make the refusal branch close the window (30-V2-DESIGN D-Extra).
+	### M3 deliberately allows sending an offer that will be refused, and this
+	### banner plus "sweeten and retry" is the whole point of it. Only the accept
+	### option auto-closes (user item 3.5), and it does that from the event.
+	####################################################################
+	type tnt_result_banner = hbox
+	{
+		name = "tnt_result_banner"
+		parentanchor = top|hcenter
+		position = { 0 96 }
+		size = { 560 52 }
+		spacing = 10
+		margin = { 16 0 }
+		alwaystransparent = no
+		ignoreinvisible = yes
+		visible = "[TntOn('tnt_result')]"
+
+		background = {
+			using = Background_Area_Dark
+		}
+
+		widget = {
+			name = "tnt_banner_icon_holder"
+			size = { 34 100% }
+			alwaystransparent = yes
+
+			icon = {
+				name = "tnt_banner_icon"
+				size = { 34 34 }
+				parentanchor = center
+				texture = "gfx/interface/icons/character_interactions/scroll_scales.dds"
+				alwaystransparent = yes
+			}
+		}
+
+		text_single = {
+			name = "tnt_banner_accepted"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			text = "tnt_msg_accepted"
+			visible = "[EqualTo_CFixedPoint( TntNum('tnt_result'), '(CFixedPoint)1' )]"
+			align = nobaseline|left
+			default_format = "#P"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Medium
+		}
+
+		text_single = {
+			name = "tnt_banner_rejected"
+			layoutpolicy_horizontal = expanding
+			autoresize = no
+			text = "tnt_msg_rejected"
+			visible = "[EqualTo_CFixedPoint( TntNum('tnt_result'), '(CFixedPoint)2' )]"
+			align = nobaseline|left
+			default_format = "#N"
+			alwaystransparent = yes
+			fontsize_min = 12
+			using = Font_Size_Medium
+		}
+
+		block "tnt_banner_extra" {}
+
+		widget = {
+			name = "tnt_banner_dismiss_holder"
+			size = { 120 100% }
+
+			button_standard = {
+				name = "tnt_banner_dismiss"
+				size = { 120 30 }
+				parentanchor = center
+				text = "tnt_btn_close"
+				onclick = "[TntExec('tnt_clear_result')]"
+			}
+		}
+	}
+
+}

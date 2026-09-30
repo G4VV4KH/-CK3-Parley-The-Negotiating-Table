@@ -1,0 +1,30 @@
+{
+  "language": "en",
+  "links": {
+    "PARLEY_STEAM_URL": null,
+    "PARLEY_PARADOX_URL": null,
+    "PARLEY_NEXUS_URL": null,
+    "PARLEY_GITHUB_URL": null,
+    "MCA_STEAM_URL": null,
+    "MCA_PARADOX_URL": null,
+    "MCA_NEXUS_URL": null,
+    "MCA_GITHUB_URL": null,
+    "AGOT_MCA_STEAM_URL": null,
+    "AGOT_MCA_PARADOX_URL": null,
+    "AGOT_MCA_NEXUS_URL": null,
+    "AGOT_MCA_GITHUB_URL": null,
+    "CONTACT_EMAIL": null,
+    "DONATION_URL": null
+  },
+  "workshop_ids": {
+    "parley": null,
+    "marriage_calc_assistant": null,
+    "agot_marriage_calc_assistant": null
+  },
+  "github_remotes": {
+    "parley": null,
+    "marriage_calc_assistant": null,
+    "agot_marriage_calc_assistant": null
+  },
+  "notes": "Fill with user-provided values and assigned publication IDs. No inferred contact details or invented URLs. Empty optional links are omitted from rendered previews."
+}

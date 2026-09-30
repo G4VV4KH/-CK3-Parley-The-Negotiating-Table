@@ -1,0 +1,840 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — scripted effects, file 5 of 5
+# USER ITEM 2.3 (hook tiers) and USER ITEM 2.5 (the vassal contract template)
+#
+# Owner: hooks-contracts.  Five effects:
+#     H1  tnt_exec_hook_tier_effect      SIDE · GIVER · RECEIVER
+#     H2  tnt_hook_tier_up_effect        SIDE
+#     H3  tnt_hook_tier_down_effect      SIDE
+#     C1  tnt_exec_obligations_effect     SIDE · VASSAL · LIEGE
+#     C2  tnt_reset_hc_effect             no parameters
+#
+# root is ALWAYS THE PLAYER, on both the manual path and the planned AI path
+# (30-V2-DESIGN §6.2 Option A), exactly as in tnt_32_apply.txt. All nine
+# obligation variables and both hook variables live on the player, so every guard
+# below reads `var:...` in root scope and only the EFFECTS are re-scoped.
+#
+# $PARAM$ substitution is textual, which is why `var:tnt_hook_$SIDE$` resolves.
+#
+#=======================================================================
+# HOW THESE THREE REACH THE GAME — THE INTEGRATOR'S THREE LINES
+#=======================================================================
+# Nothing in this file has a caller of its own. R19: tnt_32_apply.txt and
+# tnt_30_effects.txt belong to the integrator, and the exact lines are listed in
+# NOTES3-hooks-contracts.md and in the structured output. In short:
+#   * tnt_32_apply.txt E23  tnt_exec_hook_effect's BODY becomes a one-line
+#     forward to H1, so tnt_apply_deal_effect's two hook call lines never move.
+#   * tnt_32_apply.txt E14  two new call lines for C1, immediately AFTER the two
+#     tnt_exec_vassal_effect lines. ORDER IS LOAD-BEARING: the subject contract
+#     does not exist until resolve_title_and_vassal_change has run inside
+#     tnt_exec_vassal_effect (report 41 §3.7, "fealty FIRST, obligations AFTER").
+#   * tnt_30_effects.txt   one line `tnt_reset_hc_effect = yes` inside
+#     tnt_reset_offer_effect.
+########################################################################
+
+
+########################################################################
+# H1 — tnt_exec_hook_tier_effect      params: SIDE, GIVER, RECEIVER
+#
+# THE TIER-AWARE REPLACEMENT FOR E23 (tnt_32_apply.txt:724-737). tnt_hook_p and
+# tnt_hook_r stopped being 0/1 flags and became TIER INDICES 0..3 — 0 or absent
+# none, 1 weak favour, 2 strong, 3 eternal (30-V2-DESIGN §3.2). Everything else
+# about the item is unchanged, which is why this is a body swap and not a new
+# call in tnt_apply_deal_effect (that file's own RESERVED banner, :169-174, says
+# so in advance).
+#
+# *** DIRECTION — PRESERVED EXACTLY AS SHIPPED, DO NOT "FIX" IT ***
+# add_hook run in scope Y with target = X means "Y gains a hook OVER X"
+# (GAME\common\character_interactions\00_grant_titles_interaction.txt:1065-1077,
+# where scope:actor, who did the favour, gains the hook on scope:recipient).
+# The deal item reads "owe the other party a favour they may call in", so the
+# side that GIVES this term must end up OWING: the RECEIVER gains the hook and
+# the GIVER is the one hooked. The parameters therefore look swapped relative to
+# every other exec effect. That is deliberate, it is what build 1 shipped, and
+# the task brief for this build repeats it: "run in the RECEIVER's scope".
+# Corroboration from the schema itself — _hooks.info:7-8: "Root is the character
+# using the hook. Scope:target is the character the hook is being used on."
+#
+# THE WRAPPER, and why this one of the three.
+# GAME\common\scripted_effects\00_hook_effects.txt:28-41
+#     add_hook_if_possible_default_length_effect = { TARGET = <char>  TYPE = <type> }
+# is the only wrapper that is BOTH can_add_hook-guarded AND duration-preserving.
+# The other one (:12-26) takes a mandatory YEARS and would override an eternal
+# type back to finite; the third (:43-56) is hardwired to favor_hook. A bare
+# add_hook would drop the guard.
+#
+# THE PRICE OF THAT GUARD (report 41 W-13): its body is
+# `if = { limit = { can_add_hook = { … } }  add_hook = { … } }`, so failure is
+# SWALLOWED SILENTLY and a deal can complete with the hook not granted. The
+# defence is tnt_hook_free_p_value / _r_value in tnt_55_hc_values.txt, read by
+# the tier setters' is_valid and by the row's `enabled` — vanilla gates the same
+# case the same way (00_invite_agent_to_scheme.txt:606-615). It is not re-tested
+# here on purpose: this effect is also rendered in TOOLTIP mode by
+# tnt_diplomacy.0001's refusal option, and a reporting trigger in a tooltip-mode
+# path is the D5 class of defect.
+#
+# No hidden_effect: add_hook tooltips correctly (report 41 §1.11), and the player
+# SHOULD read "grants a strong hook" in the deal preview.
+#
+# The three type ids are defined in common\hook_types\tnt_90_hook_types.txt.
+# `>= 3` on the last rung rather than `= 3`: the setters clamp to 3, but silently
+# granting nothing is the worse of the two failure modes.
+########################################################################
+tnt_exec_hook_tier_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_hook_$SIDE$
+			var:tnt_hook_$SIDE$ = 1
+		}
+		$RECEIVER$ = {
+			add_hook_if_possible_default_length_effect = {
+				TARGET = $GIVER$
+				TYPE = tnt_deal_favor_hook
+			}
+		}
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_hook_$SIDE$
+			var:tnt_hook_$SIDE$ = 2
+		}
+		$RECEIVER$ = {
+			add_hook_if_possible_default_length_effect = {
+				TARGET = $GIVER$
+				TYPE = tnt_deal_strong_hook
+			}
+		}
+	}
+	else_if = {
+		limit = {
+			exists = var:tnt_hook_$SIDE$
+			var:tnt_hook_$SIDE$ >= 3
+		}
+		$RECEIVER$ = {
+			add_hook_if_possible_default_length_effect = {
+				TARGET = $GIVER$
+				TYPE = tnt_deal_eternal_hook
+			}
+		}
+	}
+}
+
+
+########################################################################
+# H2 / H3 — tnt_hook_tier_up_effect · tnt_hook_tier_down_effect   param: SIDE
+#
+# THE 0..3 LADDER ITSELF, AS AN EFFECT AND NOT AS A SCRIPTED GUI, and that shape
+# is forced by a cross-file fact rather than chosen for elegance.
+#
+# gui\tnt_diplomacy_window.gui:710-711 and :1229-1230 already bind the hook rows:
+#     onclick      = "[TntExec('tnt_hook_p_toggle')]"
+#     onrightclick = "[TntExec('tnt_hook_p_toggle_back')]"
+# and its own comment (:675-683) explains why it kept the shipped forward name:
+# "if the reverse-cycle gui is late, only right-click is dead and the row still
+# works". But tnt_hook_p_toggle lives in tnt_20_scripted_guis.txt, which belongs
+# to the sgui author, and it is still the old 0/1 flip. A SCRIPTED GUI CANNOT CALL
+# ANOTHER SCRIPTED GUI — only a scripted EFFECT can be called from an effect
+# block — so the only way to keep one copy of the ladder while its two entry
+# points live in two authors' files is to put the ladder here.
+#
+# That makes the sgui author's edit a one-line body swap
+#     effect = { tnt_hook_tier_up_effect = { SIDE = p } }
+# and it makes the ladder's rules — the clamp, the gate, "absent is tier 0" — the
+# same on both sides of that file boundary. The reverse entry points
+# tnt_hook_{p,r}_toggle_back do not exist anywhere yet and ship in
+# tnt_22c_hooks_contracts.txt as two-line wrappers around H3.
+# Calling a parameterised scripted effect from a scripted_gui is already in this
+# build at tnt_22b_multiselect.txt:124 (`tnt_multi_prune_effect = { SEL = … }`).
+#
+# THE GATE LIVES IN H2, NOT ONLY IN is_valid. tnt_hook_free_$SIDE$_value > 0 is
+# "the receiver does not already hold a hook over the giver"
+# (tnt_55_hc_values.txt §1.2, vanilla's own guard at
+# GAME\common\character_interactions\00_invite_agent_to_scheme.txt:606-615). It is
+# tested inside the effect because the forward entry point is a scripted_gui this
+# author does not own: an is_valid the sgui author forgets to add would leave the
+# player able to compose a hook that the apply leg silently drops. The is_valid
+# row is still worth adding for the TOOLTIP — that is what tells the player why —
+# and the exact line is in the integration list.
+#
+# ABSENT IS TIER 0, mod-wide: TntOn reads an unset variable as 0,
+# tnt_items_count_value tests `exists` AND `> 0`, and TntHookTier falls through
+# to tnt_hook_tier_0 (data_binding\tnt_macros.txt:274-278). So H3 REMOVES the
+# variable at the bottom of the ladder rather than writing a 0, and the save stays
+# clean.
+#
+# H2 CLAMPS AT 3 AND DOES NOT WRAP TO 0. A cycler that silently resets a
+# 120-point term to nothing on one extra click is a trap; right-click is the way
+# back down. `min`/`max` inside the value block is the shipped clamp idiom
+# (24 uses across tnt_20_scripted_guis.txt and tnt_22_v2.txt; vocabulary confirmed
+# at GAME\common\scripted_effects\00_diarchy_scripted_effects.txt:1002-1011).
+########################################################################
+tnt_hook_tier_up_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_hook_$SIDE$
+			tnt_hook_free_$SIDE$_value > 0
+		}
+		change_variable = {
+			name = tnt_hook_$SIDE$
+			add = 1
+		}
+		set_variable = {
+			name = tnt_hook_$SIDE$
+			value = {
+				value = var:tnt_hook_$SIDE$
+				min = 0
+				max = 3
+			}
+		}
+	}
+	else_if = {
+		limit = { tnt_hook_free_$SIDE$_value > 0 }
+		set_variable = {
+			name = tnt_hook_$SIDE$
+			value = 1
+		}
+	}
+}
+
+tnt_hook_tier_down_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_hook_$SIDE$
+			var:tnt_hook_$SIDE$ > 1
+		}
+		change_variable = {
+			name = tnt_hook_$SIDE$
+			subtract = 1
+		}
+		set_variable = {
+			name = tnt_hook_$SIDE$
+			value = {
+				value = var:tnt_hook_$SIDE$
+				min = 0
+				max = 3
+			}
+		}
+	}
+	else = {
+		# tier 1, an explicit 0, or already absent -> off, and off is absent.
+		# No gate: taking a term OFF the table must never be refused.
+		remove_variable = tnt_hook_$SIDE$
+	}
+}
+
+
+########################################################################
+# C1 — tnt_exec_obligations_effect    params: SIDE, VASSAL, LIEGE
+#
+# USER ITEM 2.5, «у вассальной присяги должны быть возможность выбрать уровень
+# обязательств\религиозной защиты, а желательно зашить полноценный шаблон
+# договора». This is the shipped answer: eleven independent choices instead of
+# vanilla's five mutually exclusive presets.
+#
+# MUST RUN AFTER tnt_exec_vassal_effect FOR THE SAME SIDE. The subject contract
+# is BORN by resolve_title_and_vassal_change (tnt_32_apply.txt:877); before that
+# line there is no contract to modify and vassal_contract_set_obligation_level
+# writes error.log. Report 41 §3.7: "fealty FIRST, obligations AFTER
+# resolve_title_and_vassal_change. Never the other way round."
+#
+#-----------------------------------------------------------------------
+# THE NINE VARIABLES, AND WHY THEY CARRY NO SIDE SUFFIX
+#-----------------------------------------------------------------------
+#   tnt_ob_tax      0..4   feudal_government_taxes    level index
+#   tnt_ob_levy     0..4   feudal_government_levies   level index
+#   tnt_ob_relig    0/1    religious_rights           <- the user's "religious protection"
+#   tnt_ob_council  0/1    council_rights
+#   tnt_ob_revoke   0/1    title_revocation_rights
+#   tnt_ob_war      0/1    war_declaration_rights
+#   tnt_ob_fort     0/1    fortification_rights
+#   tnt_ob_coin     0/1    coinage_rights
+#   tnt_ob_succ     0/1    succession_rights          <- the one that favours the LIEGE
+# T11 already forbids both sides swearing fealty in one deal (and
+# tnt_vassal_p_toggle clears the other side on switch-on), so at most ONE
+# contract can ever be on the table and one variable set serves both directions
+# (30-V2-DESIGN §1 row 2.5). SIDE only picks WHICH tnt_vassal_* is the trigger
+# and who plays subject and liege.
+#
+# The eleven types are the complete feudal_vassal group minus special_contract
+# and jizya_special_rights — GAME\common\subject_contracts\groups\subject_contract_groups.txt:1-15,
+# read in this session:
+#     feudal_government_taxes  feudal_government_levies  special_contract
+#     religious_rights  fortification_rights  coinage_rights  succession_rights
+#     war_declaration_rights  council_rights  title_revocation_rights
+#     jizya_special_rights
+# special_contract is a radiobutton with tier and innovation gates on four of its
+# five levels and is left out of v2 deliberately; jizya_special_rights is left
+# out because its own is_shown requires the liege's faith to carry
+# tenet_tax_nonbelievers / special_doctrine_jizya, i.e. it is a narrow religious
+# case that the religious_rights row already covers more simply.
+# NO NEW OBLIGATION TYPE IS CREATED: wiring one into feudal_vassal would mean
+# overriding that vanilla file, which R1 forbids (report 41 §3.15, verdict RED).
+#
+#-----------------------------------------------------------------------
+# W-8 / RISK R-1 — WHY EVERY `level =` BELOW IS A LITERAL INTEGER
+#-----------------------------------------------------------------------
+# The compact form of this effect would be two lines instead of ten:
+#     vassal_contract_set_obligation_level = { type = feudal_government_taxes  level = var:tnt_ob_tax }
+# `level = var:x` IS NEVER WRITTEN IN VANILLA. Vanilla passes a literal int
+# (00_interaction_effects.txt:2159), a level key
+# (GAME\common\on_action\game_start.txt:7082-7084, `level = meritocratic_province_military`)
+# or an obligation-level scope (00_modifiy_vassal_contract.txt:283-286). Report
+# 41 W-8 calls it "the single highest-risk line in the whole v2 plan" and
+# 30-V2-DESIGN §8 R-1 says to prototype that one line in isolation, in game,
+# before building item 2.5 on it. THIS BUILD CANNOT LAUNCH THE GAME, so it ships
+# the design's own zero-risk fallback: five literal `if` branches per multi-level
+# contract, ten extra `if` blocks, no new grammar anywhere.
+#
+# THE OPTIMISATION TO TEST LATER, AND EXACTLY HOW. Uncomment nothing here until
+# a real session has proven the line. Test it alone: one vassalisation, one
+# obligation, `level = var:tnt_ob_tax`, then EXIT THE GAME (logs are buffered —
+# a clean log from a live session proves nothing) and grep error.log for
+# "Value of wrong type", "Unknown obligation level" and jomini_scriptvalue.cpp
+# naming this file. If it passes, each five-branch ladder collapses to one line
+# and this effect loses ~60 lines. If it fails, nothing needs doing: this is
+# already the fallback.
+#
+#-----------------------------------------------------------------------
+# THE TWO-LAYER GUARD — vanilla's, reproduced with its own comment
+#-----------------------------------------------------------------------
+# GAME\common\scripted_effects\00_interaction_effects.txt:2156-2164:
+#     hidden_effect = {
+#         if = {
+#             limit = { top_liege != this } # To avoid errors during tooltip generation (prior to the contract being generated)
+#             vassal_contract_set_obligation_level = { type = feudal_government_taxes level = 3 }
+#             ...
+#         }
+#     }
+#     custom_tooltip = high_obligations_taxes
+#
+#   LAYER 1  hidden_effect keeps the whole block out of the generated tooltip.
+#            The interaction/event option renders on_accept as a PREVIEW, and in
+#            that pass the contract does not exist yet.
+#   LAYER 2  `top_liege != this` is the runtime guard: it is true only for a
+#            character who really has a liege. This build adds a THIRD row to it,
+#            `is_vassal_of = $LIEGE$`, for a case vanilla never has — see below.
+#   LAYER 3  the custom_tooltip lines sit OUTSIDE hidden_effect and are the only
+#            thing the player reads. Skip them and the deal preview says nothing
+#            about the contract at all.
+#
+# WHY `is_vassal_of = $LIEGE$` IS NOT BELT-AND-BRACES. Vanilla runs this code
+# only inside the interaction that just created the contract. We run it after
+# tnt_exec_vassal_effect, which RE-VALIDATES tnt_can_vassalize_trigger and may
+# legitimately decide not to act (the world can change between composing the
+# offer and committing it). If the fealty did not happen and the intended vassal
+# already has some OTHER liege, `top_liege != this` is true and we would rewrite
+# a stranger's existing contract. `is_vassal_of = $LIEGE$` is exactly the missing
+# question: is this character now a direct vassal of the character we just swore
+# to? (flat form, GAME\common\scripted_triggers\00_scripted_triggers.txt:375
+# `is_vassal_of = liege`, plus ~200 further call sites in GAME\common.)
+#
+#-----------------------------------------------------------------------
+# GOVERNMENT BRANCHES
+#-----------------------------------------------------------------------
+# Ten of the eleven types exist only in the feudal_vassal group, so setting them
+# on a clan, tribal, republic, theocratic, administrative, nomad or mandala
+# subject names a type that is not in that subject's group and writes error.log.
+# Vanilla guards with `government_has_flag = government_is_feudal`
+# (00_interaction_effects.txt:2150-2153) and gives clans their own branch with
+# religious_rights alone (:2204-2216). Both are reproduced. Every other
+# government gets no contract terms at all, which is the honest outcome: report
+# 41 §3.3.F recommends hiding the row entirely for those, and the GUI does.
+#
+# The legality of each individual right is re-tested through the tnt_ob_*_ok
+# values of tnt_55_hc_values.txt §3 — the same gates the setter and the GUI use.
+# Report 41 W-9: it is UNKNOWN whether the engine enforces a level's own
+# is_valid, and vanilla never relies on it.
+########################################################################
+tnt_exec_obligations_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_vassal_$SIDE$
+			var:tnt_vassal_$SIDE$ > 0
+		}
+
+		#===============================================================
+		# THE APPLY LEG. Nothing in here is rendered in the deal preview;
+		# the custom_tooltip block at the bottom is what the player reads.
+		#===============================================================
+		hidden_effect = {
+			#-----------------------------------------------------------
+			# FEUDAL SUBJECT — taxes, levies and the seven rights
+			#-----------------------------------------------------------
+			if = {
+				limit = {
+					$VASSAL$ = {
+						government_has_flag = government_is_feudal
+						top_liege != this # To avoid errors during tooltip generation (prior to the contract being generated)
+						is_vassal_of = $LIEGE$
+					}
+				}
+
+				# --- feudal_government_taxes, levels 0..4 -------------
+				# Level keys, for the reader: 0 feudal_tax_exempt (tax 0,
+				# opinion +10, score 2) · 1 feudal_tax_low (0.025, +5, 1) ·
+				# 2 feudal_tax_normal DEFAULT (0.1, 0, 0) · 3 feudal_tax_high
+				# (0.15, -15, -2) · 4 feudal_tax_extortionate (0.25, -25, -3).
+				# GAME\common\subject_contracts\contracts\feudal.txt:1-126.
+				# The `else` catches BOTH an unset variable and any out-of-range
+				# value and writes the vanilla default, so this effect is
+				# self-sufficient: it does not depend on tnt_exec_vassal_effect
+				# having set 2/2 first, and it cannot leave a half-built contract.
+				if = {
+					limit = {
+						exists = var:tnt_ob_tax
+						var:tnt_ob_tax = 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_taxes
+							level = 0
+						}
+					}
+				}
+				else_if = {
+					limit = {
+						exists = var:tnt_ob_tax
+						var:tnt_ob_tax = 1
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_taxes
+							level = 1
+						}
+					}
+				}
+				else_if = {
+					limit = {
+						exists = var:tnt_ob_tax
+						var:tnt_ob_tax = 3
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_taxes
+							level = 3
+						}
+					}
+				}
+				else_if = {
+					limit = {
+						exists = var:tnt_ob_tax
+						var:tnt_ob_tax >= 4
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_taxes
+							level = 4
+						}
+					}
+				}
+				else = {
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_taxes
+							level = 2
+						}
+					}
+				}
+
+				# --- feudal_government_levies, levels 0..4 ------------
+				# 0 feudal_levies_exempt (0, +10, 2) · 1 _low (0.1, +5, 1) ·
+				# 2 _normal DEFAULT (0.25, 0, 0) · 3 _high (0.35, -15, -1) ·
+				# 4 _extortionate (0.5, -25, -2).  feudal.txt:128-189.
+				if = {
+					limit = {
+						exists = var:tnt_ob_levy
+						var:tnt_ob_levy = 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_levies
+							level = 0
+						}
+					}
+				}
+				else_if = {
+					limit = {
+						exists = var:tnt_ob_levy
+						var:tnt_ob_levy = 1
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_levies
+							level = 1
+						}
+					}
+				}
+				else_if = {
+					limit = {
+						exists = var:tnt_ob_levy
+						var:tnt_ob_levy = 3
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_levies
+							level = 3
+						}
+					}
+				}
+				else_if = {
+					limit = {
+						exists = var:tnt_ob_levy
+						var:tnt_ob_levy >= 4
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_levies
+							level = 4
+						}
+					}
+				}
+				else = {
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = feudal_government_levies
+							level = 2
+						}
+					}
+				}
+
+				# --- the seven 0/1 rights ----------------------------
+				# Every one is level = 1, a LITERAL, and never
+				# `level = <key>_level`: those index constants are hand-written
+				# script values and exist for taxes / levies / herd ONLY
+				# (GAME\common\script_values\00_goverment_values.txt:81-91).
+				# `religious_rights_protected_level` has ZERO hits in the whole
+				# game (report 41 §3.5) and is blacklisted. Vanilla writes the
+				# literal 1 in the same situation — 00_interaction_effects.txt:2185,
+				# :2212, :3055, :3086.
+				#
+				# Independent `if` blocks, NOT the if/else_if chain vanilla uses:
+				# vanilla's five send-options are mutually exclusive presets,
+				# while the user asked for a template where every line is chosen
+				# separately. That single change is the whole of item 2.5
+				# (report 41 §3.8 "WHAT V2 MUST CHANGE").
+				if = {
+					limit = {
+						exists = var:tnt_ob_relig
+						var:tnt_ob_relig > 0
+						tnt_ob_relig_ok_value > 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = religious_rights
+							level = 1
+						}
+					}
+				}
+				if = {
+					limit = {
+						exists = var:tnt_ob_council
+						var:tnt_ob_council > 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = council_rights
+							level = 1
+						}
+					}
+				}
+				if = {
+					limit = {
+						exists = var:tnt_ob_revoke
+						var:tnt_ob_revoke > 0
+						tnt_ob_revoke_ok_value > 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = title_revocation_rights
+							level = 1
+						}
+					}
+				}
+				if = {
+					limit = {
+						exists = var:tnt_ob_war
+						var:tnt_ob_war > 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = war_declaration_rights
+							level = 1
+						}
+					}
+				}
+				if = {
+					limit = {
+						exists = var:tnt_ob_fort
+						var:tnt_ob_fort > 0
+						tnt_ob_fort_ok_value > 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = fortification_rights
+							level = 1
+						}
+					}
+				}
+				if = {
+					limit = {
+						exists = var:tnt_ob_coin
+						var:tnt_ob_coin > 0
+						tnt_ob_coin_ok_value > 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = coinage_rights
+							level = 1
+						}
+					}
+				}
+				if = {
+					limit = {
+						exists = var:tnt_ob_succ
+						var:tnt_ob_succ > 0
+						tnt_ob_succ_ok_value > 0
+					}
+					$VASSAL$ = {
+						vassal_contract_set_obligation_level = {
+							type = succession_rights
+							level = 1
+						}
+					}
+				}
+			}
+
+			#-----------------------------------------------------------
+			# CLAN SUBJECT — religious_rights and nothing else
+			#
+			# clan_vassal carries religious_rights, war_declaration_rights,
+			# council_rights, title_revocation_rights and marriage_favor_rights
+			# but NOT feudal_government_taxes / _levies
+			# (subject_contract_groups.txt:29-41). v2 offers only religious
+			# protection here, matching vanilla's own religious_exemption_clan
+			# option (00_interaction_effects.txt:2204-2216) and the +30 it prices
+			# it at. Widening the clan branch to its other three rights is a
+			# v2.1 edit: add the same three `if` blocks as above, with
+			# tnt_ob_clan_value in place of tnt_ob_feudal_value in each gate.
+			#-----------------------------------------------------------
+			else_if = {
+				limit = {
+					$VASSAL$ = {
+						government_has_flag = government_is_clan
+						top_liege != this # To avoid errors during tooltip generation (prior to the contract being generated)
+						is_vassal_of = $LIEGE$
+					}
+					exists = var:tnt_ob_relig
+					var:tnt_ob_relig > 0
+					tnt_ob_relig_ok_value > 0
+				}
+				$VASSAL$ = {
+					vassal_contract_set_obligation_level = {
+						type = religious_rights
+						level = 1
+					}
+				}
+			}
+		}
+
+		#===============================================================
+		# WHAT THE PLAYER READS — layer 3, outside hidden_effect.
+		#
+		# These gate on the government and the variable ONLY, never on
+		# `top_liege != this` or `is_vassal_of`: at tooltip time the subject is
+		# still independent, so a tooltip that asked those questions would print
+		# nothing at all — which is the very failure the two-layer guard exists
+		# to avoid.
+		#
+		# SIX KEYS BELOW ARE VANILLA and are reused verbatim, translated into
+		# every language and self-updating, because their VALUES call
+		# GetSubjectContractType( '<type>' ).GetObligationName( '<level>' ):
+		#   low_obligations_taxes / normal_obligations_taxes / high_obligations_taxes
+		#   low_obligations_levies / normal_obligations_levies / high_obligations_levies
+		#   religious_protection_tt
+		# (GAME\localization\english\gui\specialinteractions_l_english.yml:63-76,
+		#  read in this session.) Vanilla has NO key for the exempt and
+		# extortionate rungs or for the six non-religious rights, so those are
+		# tnt_ keys written in the same style — see NOTES3-hooks-contracts.md.
+		#
+		# *** INTEGRATOR: tnt_exec_vassal_effect (E26) currently ends with an
+		# *** unconditional `custom_tooltip = normal_obligations_taxes` +
+		# *** `custom_tooltip = normal_obligations_levies` pair
+		# *** (tnt_32_apply.txt:893-894). DELETE THOSE TWO LINES. The ladder
+		# *** below always prints exactly one tax line and one levy line for a
+		# *** feudal subject, including the untouched-sheet case, so keeping
+		# *** E26's pair would show the player two contradictory tax lines. ***
+		#===============================================================
+		if = {
+			limit = { $VASSAL$ = { government_has_flag = government_is_feudal } }
+
+			# --- taxes ------------------------------------------------
+			if = {
+				limit = {
+					exists = var:tnt_ob_tax
+					var:tnt_ob_tax = 0
+				}
+				custom_tooltip = tnt_ob_tt_tax_exempt
+			}
+			else_if = {
+				limit = {
+					exists = var:tnt_ob_tax
+					var:tnt_ob_tax = 1
+				}
+				custom_tooltip = low_obligations_taxes
+			}
+			else_if = {
+				limit = {
+					exists = var:tnt_ob_tax
+					var:tnt_ob_tax = 3
+				}
+				custom_tooltip = high_obligations_taxes
+			}
+			else_if = {
+				limit = {
+					exists = var:tnt_ob_tax
+					var:tnt_ob_tax >= 4
+				}
+				custom_tooltip = tnt_ob_tt_tax_extortionate
+			}
+			else = {
+				custom_tooltip = normal_obligations_taxes
+			}
+
+			# --- levies -----------------------------------------------
+			if = {
+				limit = {
+					exists = var:tnt_ob_levy
+					var:tnt_ob_levy = 0
+				}
+				custom_tooltip = tnt_ob_tt_levy_exempt
+			}
+			else_if = {
+				limit = {
+					exists = var:tnt_ob_levy
+					var:tnt_ob_levy = 1
+				}
+				custom_tooltip = low_obligations_levies
+			}
+			else_if = {
+				limit = {
+					exists = var:tnt_ob_levy
+					var:tnt_ob_levy = 3
+				}
+				custom_tooltip = high_obligations_levies
+			}
+			else_if = {
+				limit = {
+					exists = var:tnt_ob_levy
+					var:tnt_ob_levy >= 4
+				}
+				custom_tooltip = tnt_ob_tt_levy_extortionate
+			}
+			else = {
+				custom_tooltip = normal_obligations_levies
+			}
+
+			# --- the seven rights -------------------------------------
+			if = {
+				limit = {
+					exists = var:tnt_ob_relig
+					var:tnt_ob_relig > 0
+					tnt_ob_relig_ok_value > 0
+				}
+				custom_tooltip = religious_protection_tt
+			}
+			if = {
+				limit = {
+					exists = var:tnt_ob_council
+					var:tnt_ob_council > 0
+				}
+				custom_tooltip = tnt_ob_tt_council
+			}
+			if = {
+				limit = {
+					exists = var:tnt_ob_revoke
+					var:tnt_ob_revoke > 0
+					tnt_ob_revoke_ok_value > 0
+				}
+				custom_tooltip = tnt_ob_tt_revoke
+			}
+			if = {
+				limit = {
+					exists = var:tnt_ob_war
+					var:tnt_ob_war > 0
+				}
+				custom_tooltip = tnt_ob_tt_war
+			}
+			if = {
+				limit = {
+					exists = var:tnt_ob_fort
+					var:tnt_ob_fort > 0
+					tnt_ob_fort_ok_value > 0
+				}
+				custom_tooltip = tnt_ob_tt_fort
+			}
+			if = {
+				limit = {
+					exists = var:tnt_ob_coin
+					var:tnt_ob_coin > 0
+					tnt_ob_coin_ok_value > 0
+				}
+				custom_tooltip = tnt_ob_tt_coin
+			}
+			if = {
+				limit = {
+					exists = var:tnt_ob_succ
+					var:tnt_ob_succ > 0
+					tnt_ob_succ_ok_value > 0
+				}
+				custom_tooltip = tnt_ob_tt_succ
+			}
+		}
+		else_if = {
+			limit = {
+				$VASSAL$ = { government_has_flag = government_is_clan }
+				exists = var:tnt_ob_relig
+				var:tnt_ob_relig > 0
+				tnt_ob_relig_ok_value > 0
+			}
+			custom_tooltip = religious_protection_tt
+		}
+	}
+}
+
+
+########################################################################
+# C2 — tnt_reset_hc_effect            no parameters
+#
+# R-CLEAN, 30-V2-DESIGN §3.5: "for every write, name the removal." These nine
+# variables are the complete write set of item 2.5, and this is their only
+# removal path. Wrapping them in one named effect rather than handing the
+# integrator nine loose lines is deliberate: nine lines pasted into a file this
+# author does not own is nine chances to drop one, and a dropped
+# remove_variable leaks into the player's save forever.
+#
+# INTEGRATION: one line, `tnt_reset_hc_effect = yes`, inside
+# tnt_reset_offer_effect (tnt_30_effects.txt:987-1274). OFFER state, not session
+# state, so it belongs in the reset and NOT in tnt_close_window_effect — the
+# footer's "Clear all" button must wipe the contract sheet along with everything
+# else on the table. (Contrast tnt_infl_ok_p/_r, which are session state and live
+# in the close for the reason given at tnt_30_effects.txt:123-132.)
+#
+# The two hook variables need NOTHING here: tnt_hook_p / tnt_hook_r keep their
+# names and are already removed by tnt_reset_offer_effect at :239 and :253. Only
+# their TYPE changed, from 0/1 to a 0..3 index, and remove_variable does not care.
+#
+# An unguarded remove_variable on an absent variable is silent (the header of
+# tnt_30_effects.txt says so), so these nine lines are already correct on a save
+# where the contract sheet was never opened.
+########################################################################
+tnt_reset_hc_effect = {
+	remove_variable = tnt_ob_tax
+	remove_variable = tnt_ob_levy
+	remove_variable = tnt_ob_relig
+	remove_variable = tnt_ob_council
+	remove_variable = tnt_ob_revoke
+	remove_variable = tnt_ob_war
+	remove_variable = tnt_ob_fort
+	remove_variable = tnt_ob_coin
+	remove_variable = tnt_ob_succ
+}

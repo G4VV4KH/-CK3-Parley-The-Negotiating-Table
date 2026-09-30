@@ -1,0 +1,719 @@
+﻿########################################################################
+# PARLEY — ITEM 21, THE CONSCIENCE OF THE SIGNATORY
+#
+# ONE EFFECT. ONE CALL SITE (tnt_32_apply.txt, slot 4 of the order of
+# operations). AT MOST ONE STRESS APPLICATION PER TREATY.
+#
+# The user's ruling on item 21 is the narrowest of the four in this pass:
+# stress stays NARROW — the threat, and a clearly one-sided deal, and NOT a
+# stress event on every transaction. Integration contract §1.D turns that
+# into a shape, and §5 R12 forbids it growing: no stress event, no stress on
+# the partner, no stress in the AI-AI sandbox, no second stress source, no
+# third leg. Every structural choice below exists to make one of those
+# prohibitions hold by construction rather than by discipline.
+#
+#=======================================================================
+# WHY stress_impact AND NOT add_stress - V30, AND THE OLD BOX WAS RIGHT
+#=======================================================================
+# THE BOX THAT STOOD HERE ARGUED FOR add_stress ON TWO GROUNDS. BOTH WERE
+# CORRECT AND BOTH SURVIVE THIS SWAP UNHARMED. It is repeated rather than
+# deleted, because a future author will re-derive it otherwise:
+#   * TRAIT-BY-TRAIT CONTROL OF THE GATE. One arm must fire and the others
+#     must not. TRUE, AND NOTHING CHANGED: the enforcement is still an
+#     `if` / `else_if` ladder, exactly as before. Vanilla nests stress_impact
+#     inside such ladders constantly -
+#       GAME\common\character_interactions\00_gift.txt:151-162
+#       GAME\common\character_interactions\00_prison_interactions.txt:340-353
+#       GAME\common\character_interactions\00_grant_titles_interaction.txt:999-1016
+#       GAME\common\character_interactions\00_artifact_interactions.txt:238-295
+#         (four rarity tiers, one arm each)
+#     ONE ARM EXECUTES -> ONE BLOCK -> ONE LINE -> ONE CHARGE. The invariant is
+#     preserved by the same construction as before, not by a new promise.
+#   * THE CONSTANT FAMILIES ARE DIFFERENT AND MIXING THEM MISPRICES.
+#     add_stress takes the *_stress_gain family (minor 20, medium 40, major
+#     60 - GAME\common\script_values\00_stress_values.txt:5-10); stress_impact
+#     takes the *_stress_impact_gain family (minor 20, medium 40, MAJOR 80)
+#     and its loss twin (miniscule -5, minor -15, medium -30, major -65,
+#     massive -100) - same file :26-35. The old box itself prescribed the
+#     cure at its last line: "swap BOTH the effect and the constants in the
+#     same edit". THAT IS WHAT THIS EDIT DID. Every constant below is from the
+#     *_stress_impact_* family and no *_stress_gain name remains in this file.
+#
+# WHAT THE SWAP BUYS, AND IT IS THE WHOLE OF THE USER'S REQUEST: THE ENGINE
+# NAMES THE TRAIT, IN NINE LANGUAGES, FOR ZERO LOCALIZATION KEYS.
+# add_stress renders unattributed lines - "You gain 40 stress" three times
+# over. stress_impact renders ONE line that says WHY:
+#   GAME\common\localization\english\effects_l_english.yml:664
+#     I_STRESS_IMPACT_GAIN:1 "You $ONLY$gain [stress_gain_i]$VALUE|-0$ [stress|E] $TRAITS$"
+#   :665 the LOSS twin; :676 STRESS_IMPACT_TRAIT; :684 STRESS_IMPACT_ONLY "only "
+#   :683 STRESS_IMPACT_TRAIT_LIST:3
+#     "because [Select_CString( CHARACTER.IsLocalPlayer, 'you', 'they' )] are $TRAITS$"
+# Paradox already ships the translation: Russian at
+#   GAME\common\localization\russian\effects_l_russian.yml:605-606 and :620-621.
+# So a mixed block reads "You only gain 5 stress because you are Arrogant and
+# Generous" - the tension between two traits is RENDERED, not summed away.
+#
+# IT IS DESCRIBABLE, AND THAT IS MEASURED RATHER THAN HOPED FOR:
+#   * the effect carries a common\effect_localization\ entry -
+#     GAME\common\effect_localization\00_character_effects.txt:521-534
+#     (first / first_neg / third / third_neg and the four past forms).
+#     Per house law 10's effect-side rule, an entried effect is describable.
+#   * it renders BEFORE THE CLICK at scale, as a bare child of a decision's
+#     `effect = {}` with no show_as_tooltip wrapper -
+#       GAME\common\decisions\10_religious_decisions.txt:270-280
+#       GAME\common\decisions\90_minor_decisions.txt:886-892
+#   * a row accepts a COMPUTED script value, not only a constant -
+#       GAME\common\scripted_effects\00_scheme_scripted_effects.txt:12747-12754
+#       + GAME\common\script_values\00_scheme_values.txt:2352
+#   * it works at the top level of a scripted effect, which is the shape this
+#     file needs -
+#       GAME\common\scripted_effects\00_diarchy_scripted_effects.txt:199-210
+#       GAME\common\scripted_effects\00_interaction_effects.txt:34-40
+#
+# THE ONE THING STILL UNVERIFIED IN GAME, STATED PLAINLY: what a stress_impact
+# block renders for a character who holds NONE of its traits. Strong indirect
+# evidence that it renders nothing: vanilla ships lose_weight_decision with a
+# single `gluttonous` row on a decision shown to every character over the
+# weight threshold (90_minor_decisions.txt:886-892) and its auto-rendered
+# tooltip is not a known vanilla defect. IF A DEGENERATE LINE EVER APPEARS
+# ("You gain 0 stress because you are "), the fix is one wrapper per arm:
+#   if = { limit = { OR = { has_trait = x  has_trait = y ... } } <the block> }
+# A `limit` body is never described (house law 10b), has_trait is pure, and it
+# stays inside the D5 discipline below. ARM A ALREADY CARRIES THAT WRAPPER FOR
+# AN UNRELATED REASON (the V18 free-opt-out fix), so only arms B and C are
+# exposed, and only until the acceptance hover is taken.
+#
+# DO NOT LET ANYONE "MIGRATE" THIS UNDER HOUSE LAW 10d. 10d is about the
+# BuildTooltip / trigger-DESCRIPTION path and its controlled slice is live
+# elsewhere. This layer is on the EFFECT path (events\tnt_events.txt:103, the
+# accept option's top level). A custom_tooltip wrapper here would SUPPRESS the
+# very line this whole design exists to produce.
+#
+#=======================================================================
+# WHY IT IS NOT IN hidden_effect
+#=======================================================================
+# On purpose, and it is the same argument tnt_apply_deal_effect already
+# makes for the item-9 favour block. This whole effect is rendered in
+# TOOLTIP MODE by tnt_diplomacy.0001's options before the player commits, so
+# "this will weigh on you" belongs in the confirm tooltip beside "he will
+# remember this". A player who is about to stress himself is entitled to
+# read it first. V30: stress_impact renders a NAMED stress line there - "You
+# gain 60 stress because you are Greedy and Ambitious" - which is the whole
+# point of the swap and the only surface this layer has ever had.
+#
+# TOOLTIP SAFETY (defect class D5). Nothing in this effect is a
+# custom_description, a custom_tooltip, or a scripted trigger carrying one:
+# every `limit` below is pure — a variable existence test, a SCOPE-VALUE
+# existence test (V18, the letter guard), a numeric comparison, a script-value
+# comparison, and has_trait. Nothing here reads a variable that only exists at
+# apply time.
+# A SCRIPT VALUE COMPARED TO A SCRIPT VALUE INSIDE A `limit` IS VANILLA'S OWN
+# SHAPE, and the citation this file used to carry for it (02_ep1_interactions
+# .txt:478) was an ai_chance modifier row, not a limit. The honest ones are
+#   GAME\common\council_tasks\00_steward_tasks.txt:524-529
+#     (`limit = { ... scope:county = { floored_development_value >
+#      floored_current_development_value } }`)
+#   GAME\common\scripted_effects\00_accolades_scripted_effects.txt:3881-3885
+# and this mod already reads a script value in a limit two effects up
+# (tnt_32_apply.txt:229).
+# Keep it that way; a reporting wrapper inside one of these limits is exactly
+# the D5 bug.
+# THE SCOPE-VALUE TEST IS SAFE ON THIS PATH BY CONSTRUCTION: the letter's
+# accept option saves it at the option's TOP LEVEL, before it calls
+# tnt_apply_deal_effect, so it exists during the tooltip walk as well as
+# during execution (the vanilla proof is cited at both ends). If it is ever
+# moved inside a hidden_effect, the accept tooltip starts advertising stress
+# that the letter path does not charge.
+#
+#=======================================================================
+# THE GUARD ON THE WHOLE EFFECT — THE MANUAL PATH ONLY
+#=======================================================================
+# *** V18, USER ITEM 3: THE GUARD IS NOW A SAVED SCOPE VALUE, NOT A
+# *** CHARACTER VARIABLE, AND THE TWO EARLIER FORMS ARE BOTH WRONG.
+# NOT = { exists = scope:tnt_deal_from_letter }. The scope value is written
+# by exactly one place — the letter's own Accept option, at the option's top
+# level so it exists in tooltip mode too (events\tnt_ai_events.txt:1453).
+# A saved scope value cannot outlive its own
+# execution, so "this deal came from a letter" is true of THE DEAL and of
+# nothing else.
+#
+# THE TWO FORMS THAT CAME BEFORE IT, AND WHY NEITHER MAY COME BACK:
+#   var:tnt_ai_offer_arch (V7a) — days = 200 for the GC's sake, while the
+#     letter event can legally sit unanswered for years. From day 201 the
+#     guard silently expired and the accept tooltip grew stress lines for
+#     taking the AI's own bargain. V7b defect 1.
+#   var:tnt_ai_letter (V7b..V17) — untimed, which fixed that, but it is a
+#     fact about the CHARACTER and not about the DEAL: it says "a letter
+#     exists somewhere in this man's feed". So while any unanswered letter
+#     sat there — up to 200 days, and the 2026-08-18 run composed 54 of them
+#     — EVERY MANUAL TREATY THE PLAYER SIGNED IN THE WINDOW WAS SILENTLY
+#     STRESS-FREE. Nothing in the game hinted at the cause. The window's own
+#     open path never touches tnt_ai_letter (tnt_30_effects.txt), so the two
+#     halves could not even disagree visibly.
+# The variable itself is NOT retired and must not be: tnt_wed_gc_effect
+# (declared tnt_34_marriage.txt:1458; the row that reads it is the
+# `NOT = { exists = var:tnt_ai_letter }` at :1434) legitimately means "a
+# letter exists anywhere" and must keep reading it. Only this guard moved.
+# THE CITATION SAID :1373 UNTIL V19 AND THAT LINE IS A CLOSING BRACE inside
+# tnt_wed_remove_pair_effect, 45 lines above the declaration - a reader sent
+# there finds no mention of tnt_ai_letter and concludes the last reader is
+# gone. Retiring it on that basis kills the leaked-state predicate at
+# tnt_34_marriage.txt:1462-1474, after which the yearly GC wipes tnt_wed_list
+# out from under a live unanswered AI marriage letter and the player's accept
+# applies a marriage-less treaty - the exact regression :1423-1433 records as
+# having shipped once already.
+#
+# IT IS NOT BELT-AND-BRACES, IT IS THE FEATURE. The AI composer's ULTIMATUM
+# archetype produces precisely the shape arm B tests for — a package where
+# the player hands over far more than he receives — and stressing the player
+# for accepting an AI's hard bargain is behaviour nobody designed and the
+# user never asked for (integration contract §4 C3). The composer does not
+# write tnt_threat_p today, so arm A is unreachable on that path anyway; the
+# guard is placed around ALL FIVE arms so that stays true if it ever does.
+# The AI-vs-AI sandbox never reaches tnt_apply_deal_effect at all
+# (tnt_32_apply.txt banner 4b), so no guard is needed for it and none is
+# added.
+#
+#=======================================================================
+# WHY THE FIVE ARMS ARE if / else_if AND NOT FIVE if - V30
+#=======================================================================
+# "At most once per treaty" is the user's ruling and this ladder is the whole
+# of its enforcement. ONE ARM EXECUTES -> ONE stress_impact BLOCK -> ONE
+# RENDERED LINE -> ONE CHARGE. That is STRONGER than what shipped before, not
+# weaker: until V30 the one-sided leg fired three separate add_stress calls
+# that rendered as three unattributed lines summing to 80. There is now one
+# summed line and it names the traits that produced it.
+#
+# THE ORDER IS: A (force) -> B grave -> B ordinary -> C grave -> C ordinary.
+#   A IS FIRST because it is the most specific and the most deliberate act -
+#   the unchanged rationale from the box this replaces. A man who leans on
+#   another has done a nameable thing; a lopsided treaty is an emergent
+#   property of a package.
+#   B BEATS C, INCLUDING B-ORDINARY OVER C-GRAVE, AND THAT IS DELIBERATE.
+#   A treaty large on BOTH sides clears both, and B wins because it is tested
+#   first, so content and humble never speak on a big mutual exchange. It is
+#   an asymmetry and it is stated here rather than discovered later - the same
+#   voice this file already uses for arm A shadowing the others. The defence
+#   is that VANILLA NEVER NETS: it prices the giving hand and gives no credit
+#   for anything received back (00_gift.txt:148-161,
+#   00_artifact_interactions.txt:277-294,
+#   00_grant_titles_interaction.txt:884-889 and :1003-1015). A conscience
+#   registers what it handed over, not the exchange rate.
+#
+# WHAT THIS COSTS, STATED HONESTLY: a compassionate ruler who threatens is
+# charged 20 and his greed goes unread, even on a treaty that would have cost
+# him 40 without the threat. That is a deliberate trade of arithmetic for the
+# guarantee, and it is the direction that under-charges.
+#
+# V18 CLOSED THE OTHER HALF OF THAT TRADE, WHICH WAS NOT DELIBERATE, AND V30
+# KEEPS THE FIX GENERALISED. Arm A's `if` used to be entered on the checkbox
+# alone, with the compassionate test one level deeper, so a NON-compassionate
+# ruler who ticked the box entered arm A, was charged nothing, and skipped the
+# rest - a free opt-out from every other charge in the layer, bought with a
+# checkbox that costs nothing to tick. Arm A's limit therefore still carries
+# its own trait test, now widened to the OR of all seven traits the arm can
+# read. ARMS B AND C NEED NO SUCH TEST AND MUST NOT GROW ONE: their fans are
+# the SAME SIX TRAITS in different directions, so a ruler who would be charged
+# nothing by B would be charged nothing by C as well and there is no free pass
+# to buy. Arm A's seven are disjoint from those six, which is exactly why only
+# arm A can shadow anything.
+#
+# THE CEILINGS ARE EXACT, NOT ESTIMATED, AND THE CONSTRUCTION IS WHY. Each of
+# arms B and C is three hot traits and their three exact opposites, and
+# vanilla's own `opposites` blocks make each pair unholdable together:
+#   greedy -> generous       GAME\common\traits\00_traits.txt:2417-2421
+#   ambitious -> content     :3476-3480
+#   arrogant -> humble       :2947-2951
+#   compassionate -> callous/sadistic  :4013-4018
+#   arbitrary -> just        :3632-3636
+#   honest -> deceitful      :3142-3146
+#   forgiving -> vengeful    :4412-4416
+#   trusting -> paranoid     :3961-3965
+# So no ruler can hold more than three rows of arm B or of arm C.
+#   ARM A   -30 .. +100   (five gain rows at 20, two relief rows at -15)
+#   ARM B   -60 .. +100  grave;  -15 .. +40  ordinary
+#   ARM C   -45 .. +100  grave;  -15 .. +40  ordinary
+# LAYER CEILING +100 GAIN (was +80) AND A NEW -60 RELIEF FLOOR. The +20 buys
+# the wider fan; the relief floor IS the feature. "The treaty can now REDUCE
+# stress" is genuinely new player-facing behaviour that has never shipped in
+# this mod, and it is vanilla's own reading of generosity - see arm B.
+#
+# THE RELIEF IS NOT AN EXPLOIT, AND THE NUMBER BELONGS HERE SO THE NEXT ROUND
+# DOES NOT RE-LITIGATE IT. Vanilla already sells a generous ruler
+# medium_stress_impact_loss (-30) for 50 gold with no cooldown on the stress -
+# gift_value = 50 at GAME\common\script_values\00_scheme_values.txt:243-244,
+# the cooldown being on gift_opinion only (00_gift.txt). That is ~1.7 gold per
+# stress point. Arm B's grave rung needs tnt_stress_gave_value >= 200, which
+# in this ledger's units is ~2,000 gold (3,000 to a duke-or-above partner) or
+# four to seven counties, for the same -30: ~67 gold per point, about FORTY
+# TIMES stingier than a button vanilla already gives every player. Parley is
+# by a wide margin the expensive way to shed stress, not a new cheap one.
+#
+# EVERY TRAIT ROW BELOW CARRIES ITS VANILLA file:line (house law 1). No
+# magnitude is invented; each is imported from a vanilla site that performs
+# the same deed. Twelve traits are IN and twelve are honestly OUT - the
+# refusals (deceitful, brave/craven, zealous/cynical, paranoid, vengeful,
+# patient/impatient, temperate/gluttonous) are argued in the design round and
+# summarised at the foot of this file.
+########################################################################
+tnt_stress_deal_effect = {
+	if = {
+		limit = { NOT = { exists = scope:tnt_deal_from_letter } }
+
+		#===============================================================
+		# ARM A — FORCE WAS USED. The player leaned on a man, or called in
+		# a debt, and it worked.
+		#
+		# Gated on the same rows tnt_apply_deal_effect's own two blocks read -
+		# the hook spend at tnt_32_apply.txt:587-594 (leg 11a2) and the price
+		# of the threat at tnt_32_apply.txt:627-638 (leg 11b; the citation in
+		# this file said :531-542 until V30 and :414-417 before V18, and both
+		# of those now land somewhere else entirely) - so the consequences of
+		# force can never disagree about whether force happened.
+		#
+		# THE STRENGTH ROW IS PART OF THE HOOK CONJUNCT ON PURPOSE. The apply
+		# leg refuses to spend a hook that has lapsed while the player
+		# negotiated (`tnt_usehook_strength_value >= 1`), and a conscience may
+		# not be charged for leverage that was never actually called in. Same
+		# row, same reason, same place.
+		#
+		# *** RULING 2, V30: THE HOOK JOINS THE THREAT IN THIS ARM. ***
+		# Calling in a hook cost nothing at all until now. Vanilla charges for
+		# both of its hook-spend interactions and even attaches stress to a
+		# hook type's own on_used:
+		#   GAME\common\character_interactions\00_perk_interactions.txt:770-772
+		#     (demand_payment_interaction: use_hook + forced gold ->
+		#      generous = medium_stress_impact_gain)
+		#   GAME\common\scripted_effects\00_interaction_effects.txt:34-40
+		#     (blackmail_interaction_effect, the five-row fan below)
+		#   GAME\common\hook_types\00_hook_types.txt:137-152
+		#     (blood_brother_hook.on_used - base = medium_stress_gain,
+		#      callous = minor_stress_impact_loss, arbitrary = the same)
+		# THIS IS THE ONE PLACE THE V30 DESIGN ADDS A TRIGGER RATHER THAN A
+		# FAN, i.e. a behaviour change on a shipped term, and it is why
+		# tnt_item_usehook_desc was amended in the same edit in all nine
+		# languages. A control that prices itself as a closed list while the
+		# code charges for it is the V19 positive-misstatement defect.
+		#
+		# THE SEVEN ROWS, AND VANILLA CHOSE EVERY TRAIT AND EVERY MAGNITUDE:
+		#   compassionate  +minor
+		#     GAME\common\character_interactions\00_prison_interactions.txt:344-347
+		#       - imprisoning a man you HAVE a reason to imprison charges
+		#         compassionate exactly one minor step. Coercion that is
+		#         arguably justified, at the cheapest rung there is. A treaty
+		#         extracted under pressure is the same act at lower intensity,
+		#         so it may not cost more. THE SHIPPED RUNG IS DELIBERATELY
+		#         NOT RAISED even though blackmail charges medium
+		#         (00_interaction_effects.txt:35).
+		#   just       +minor  00_interaction_effects.txt:38;
+		#                      00_perk_interactions.txt:464-466 (fabricate_hook)
+		#   honest     +minor  00_interaction_effects.txt:37
+		#   forgiving  +minor  00_interaction_effects.txt:39;
+		#                      00_prison_interactions.txt:346
+		#   trusting   +minor  00_interaction_effects.txt:36 - blackmail uses
+		#                      MEDIUM there; tempered to minor for the same
+		#                      "lower intensity" argument this file already
+		#                      makes for compassionate.
+		#   callous    -minor  00_hook_types.txt:146-150 - vanilla's own price
+		#   arbitrary  -minor  for SPENDING LEVERAGE, both directions, one block.
+		#
+		# generous WAS CONSIDERED AND REFUSED for this arm even though
+		# 00_perk_interactions.txt:770-772 charges it medium for use_hook plus
+		# a forced payment: generous already carries arms B and C, and a trait
+		# that speaks in every arm is a trait that says nothing.
+		# All seven verified real and category = personality in this install,
+		# one file - GAME\common\traits\00_traits.txt: compassionate :4013,
+		# just :3685, honest :3142, forgiving :4412, trusting :3961,
+		# callous :4085, arbitrary :3632.
+		#
+		# RANGE -30 .. +100. The five gain rows are pairwise compatible but
+		# statistically rare together; a typical ruler holds none or one, so
+		# the median charge on this arm is 0 or 20.
+		#
+		# root = { } is explicit rather than relied upon. The caller runs
+		# this at slot 4 where the current scope IS root, but naming the
+		# scope is what makes "the stress lands on the PLAYER and never on
+		# the partner" readable at the point of use — that is R12's second
+		# prohibition and it is one careless re-scope away from breaking.
+		#===============================================================
+		# V18 - THE TRAIT TEST IS PART OF THIS LIMIT, AND THAT IS A BEHAVIOUR
+		# FIX, NOT A TIDY-UP. It used to sit one level deeper, inside the root
+		# block, so the arm was ENTERED whenever the checkbox was ticked and
+		# every later arm was therefore skipped whether or not a single point
+		# had been charged. The threat box costs nothing to tick
+		# (tnt_20_scripted_guis.txt: "it does not declare anything, cost anything
+		# or reveal anything at the moment it is ticked"), so a ruler who was
+		# ambitious, arrogant and greedy but held none of arm A's traits could
+		# tick a free checkbox and pay 0 instead of up to 100.
+		# V30 WIDENS THE TEST TO THE OR OF ALL SEVEN, which is the same fix at
+		# the new fan's width. An arm that would charge nothing is not entered
+		# at all and the next arm gets its turn. "At most one application per
+		# treaty" is preserved exactly: the arms are still if / else_if.
+		# ARMS B AND C GET NO SUCH TEST - see the box above; their fans are the
+		# same six traits, so there is no free pass to buy there.
+		if = {
+			limit = {
+				OR = {
+					AND = {
+						exists = var:tnt_threat_p
+						var:tnt_threat_p > 0
+					}
+					AND = {
+						exists = var:tnt_usehook_p
+						var:tnt_usehook_p > 0
+						tnt_usehook_strength_value >= 1
+					}
+				}
+				OR = {
+					has_trait = compassionate
+					has_trait = just
+					has_trait = honest
+					has_trait = forgiving
+					has_trait = trusting
+					has_trait = callous
+					has_trait = arbitrary
+				}
+			}
+			# The current scope here IS root/the player - the paragraph above the
+			# limit says so, and the bare `var:tnt_*` rows only work for that
+			# reason, so the trait rows read the player too. root = { } stays
+			# spelled out on the charge itself for the reason given above: it is
+			# what makes "the stress lands on the PLAYER, never on the partner"
+			# readable at the point of use.
+			root = {
+				stress_impact = {
+					compassionate = minor_stress_impact_gain
+					just          = minor_stress_impact_gain
+					honest        = minor_stress_impact_gain
+					forgiving     = minor_stress_impact_gain
+					trusting      = minor_stress_impact_gain
+					callous       = minor_stress_impact_loss
+					arbitrary     = minor_stress_impact_loss
+				}
+			}
+		}
+
+		#===============================================================
+		# ARM B — I GAVE HEAVILY. The player handed the shop over.
+		#
+		# THE MEASURE IS GROSS, NOT NET, AND THAT IS THE V30 CORRECTION.
+		# tnt_stress_gave_value is a one-line alias of tnt_gain_total_value,
+		# i.e. everything the PARTNER receives, i.e. everything the player
+		# handed over. The full argument, the measurement that forced it and
+		# the three vanilla sites that never net are in the header of
+		# tnt_5a_stress_values.txt. The short form: the old net measure read
+		# treaty SIZE with the wrong sign, all twelve measured readings were
+		# negative against a +200 rung, and auto-balance - the mod's headline
+		# feature - is precisely what pinned it there.
+		#
+		# EVERY FEATURE OF THE MOD ROUTES ITSELF INTO THIS ARM OR ARM C WITHOUT
+		# A SINGLE PER-TERM ROW, and fealty is the proof. If the PLAYER kneels,
+		# tnt_val_vassal_p is a huge GAIN row -> arm B -> arrogant pays, which
+		# is exactly what vanilla charges the man who swears
+		# (GAME\common\character_interactions\03_fp2_interactions.txt:4886-4891,
+		# bargain_fealty, the side that swears: arrogant = medium). If HE
+		# kneels, tnt_val_vassal_r is a huge LOSS row -> arm C -> humble and
+		# content pay and arrogant is RELIEVED, which is exactly vanilla's
+		# price for taking a grand elevation
+		# (GAME\common\scripted_effects\00_major_decisions_scripted_effects_2.txt:230-234:
+		# base = major gain, humble = major gain, arrogant = medium LOSS).
+		#
+		# THE SIX ROWS AT THE GRAVE RUNG, EVERY MAGNITUDE IMPORTED:
+		#   greedy    +medium  anything of value handed over - gold, land, an
+		#                      artifact, a vassal, fealty.
+		#                      00_gift.txt:148-150 (hand over gold);
+		#                      00_artifact_interactions.txt:277-280;
+		#                      00_grant_titles_interaction.txt:1012-1015.
+		#   ambitious +medium  power or standing given away.
+		#                      00_character_interactions.txt:2211-2215
+		#                      (grant_independence_interaction.on_accept,
+		#                       declared :2132 - NOTE the interaction is named
+		#                       grant_independence_interaction and only its loc
+		#                       keys carry the longer grant_vassal_independence_*
+		#                       spelling, :2219 and :2223, so do not re-grep for
+		#                       the long one). MEDIUM is the shipped constant,
+		#                      unchanged; also :1014 of grant_titles.
+		#   arrogant  +minor   the descent implied by giving, and by kneeling.
+		#                      00_character_interactions.txt:2213;
+		#                      03_fp2_interactions.txt:4886-4890.
+		#   generous  -medium  THE SAME ACT, RELIEF. This row is the user's own
+		#                      acceptance test and vanilla decides it, not us:
+		#                      00_gift.txt:159-161 (hand over 50 gold ->
+		#                       generous = medium_stress_impact_loss);
+		#                      00_artifact_interactions.txt:279;
+		#                      00_grant_titles_interaction.txt:884-889, under
+		#                       the literal vanilla comment "# Generous
+		#                       characters enjoy giving away titles";
+		#                      00_prison_interactions.txt:2492-2495.
+		#                      "Nothing" is refused because it is what shipped
+		#                      and it is what produced the complaint; "a small
+		#                      gain" is refused because it inverts the trait -
+		#                      in this engine generous means GIVING IS HOW THIS
+		#                      MAN IS AT EASE, and vanilla's own gain rows for
+		#                      it are all about being made to KEEP or to EXTRACT.
+		#   humble    -minor   giving away without demanding rank in return -
+		#                      the mirror of 00_major_decisions_scripted_effects_2
+		#                      .txt:230-234, where CLAIMING grandeur charges
+		#                      humble major and relieves arrogant medium.
+		#   content   -minor   shedding what he never wanted - the mirror of
+		#                      00_perk_interactions.txt:121-123 and
+		#                      00_diarchy_scripted_effects.txt:208, where
+		#                      GRABBING charges content medium.
+		# Traits verified real and category = personality, one file,
+		# GAME\common\traits\00_traits.txt: greedy :2417, generous :2459,
+		# ambitious :3476, content :3557, arrogant :2947, humble :3006.
+		# RANGE -60 .. +100, and it is exact - see the opposites census above.
+		#
+		#---------------------------------------------------------------
+		# THE TWO RUNGS, AND WHY THERE ARE TWO
+		#---------------------------------------------------------------
+		# GAME\common\script_values\00_ai_values.txt:22-27 -
+		#   very_high_positive_ai_value = 75, dominant_positive_ai_value = 200.
+		# The contract required a named rung from that block and forbade a
+		# literal; both of these are named rungs from it.
+		# TWO RUNGS PER ARM IS VANILLA'S OWN GRADED IDIOM: artifact rarity x4
+		# (00_artifact_interactions.txt:238-295), grant_titles x2 by domain
+		# pressure (:999-1016), imprisonment x2 by justification
+		# (00_prison_interactions.txt:340-353).
+		# CALIBRATION, MEASURED AND PROVISIONAL. Against the twelve treaty
+		# sizes of the run-B log, 200 fires on 1 of 12 and 75 on 7 of 12 -
+		# grave is rare, ordinary is felt, silence stays the common outcome.
+		# Only TWO of those twelve were manual, so the rungs rest on n=2 and
+		# the next run decides them: that is what the gave= / took= fields
+		# added to both APPLY emitters are for.
+		# IN THIS LEDGER'S UNITS, MEASURED RATHER THAN GUESSED: 200 is ~2000
+		# gold handed over (3000 if the partner is a duke or above -
+		# tnt_gold_base_rate_value is 10 at tnt_50_values.txt:339-341 and
+		# tnt_gold_per_point_value adds 5 for a duke-or-above partner at
+		# :343-352; BOTH citations said :329-338 until V30 and that range is
+		# now a comment about the extraction); in land it is FOUR TO SEVEN
+		# COUNTIES (base 30 at tnt_50_values.txt:508, times at most 1.4 de jure
+		# at :1569 x 1.25 culture at :1577 x 1.2 neighbour at :1581 = 63
+		# apiece; the base citation said :494 until V30 and that line is prose
+		# about a penalty this mod does not copy). A kingdom can never be ceded at
+		# all - T3 tnt_can_cede_title_trigger is `tier = tier_county` and not
+		# `tier >= tier_county` (tnt_40_triggers.txt:404-405, a standing
+		# ruling) - so no SINGLE title of any kind reaches the grave rung.
+		#===============================================================
+		else_if = {
+			limit = {
+				tnt_stress_gave_value >= dominant_positive_ai_value
+				# *** THE ARM MUST BE ABLE TO CHARGE THE MAN IN FRONT OF IT. ***
+				# V30 skeptic, and it is arm A's own lesson applied to the rest.
+				# An if/else_if ladder hands the whole treaty to the FIRST arm
+				# whose value row passes, so without this test a ruler who trips
+				# this rung while holding none of its traits is charged nothing
+				# AND the later arm that could have spoken never runs. The
+				# measured case: a large MUTUAL exchange enters arm B, whose
+				# ordinary rung has a fan of three, and a `content` ruler leaves
+				# with nothing while arm C's grave rung - which has a row for
+				# him - is skipped. Arm A has carried this wrapper since the
+				# checkbox-that-costs-nothing defect; arms B and C carry it now
+				# for the same reason. B and C share ONE six-trait family with
+				# the signs inverted, so each OR is simply the rows that rung
+				# actually writes.
+				OR = {
+					has_trait = greedy
+					has_trait = ambitious
+					has_trait = arrogant
+					has_trait = generous
+					has_trait = humble
+					has_trait = content
+				}
+			}
+			root = {
+				stress_impact = {
+					greedy    = medium_stress_impact_gain
+					ambitious = medium_stress_impact_gain
+					arrogant  = minor_stress_impact_gain
+					generous  = medium_stress_impact_loss
+					humble    = minor_stress_impact_loss
+					content   = minor_stress_impact_loss
+				}
+			}
+		}
+
+		#===============================================================
+		# ARM B, ORDINARY RUNG. A large but not ruinous gift.
+		# Three rows only, one step down each: the two hot traits that vanilla
+		# charges most consistently for giving, and the relief that is the
+		# whole point of the arm. arrogant, humble and content are silent here
+		# on purpose - a merely large gift is not a descent and not an
+		# abdication, and a rung that says everything says nothing.
+		# RANGE -15 .. +40.
+		#===============================================================
+		else_if = {
+			limit = {
+				tnt_stress_gave_value >= very_high_positive_ai_value
+				# Arm B's ordinary rung writes three rows, so it tests three.
+				# Full argument at the grave rung above.
+				OR = {
+					has_trait = greedy
+					has_trait = ambitious
+					has_trait = generous
+				}
+			}
+			root = {
+				stress_impact = {
+					greedy    = minor_stress_impact_gain
+					ambitious = minor_stress_impact_gain
+					generous  = minor_stress_impact_loss
+				}
+			}
+		}
+
+		#===============================================================
+		# ARM C — I TOOK HEAVILY. The player carried the shop off.
+		#
+		# tnt_stress_took_value is the one-line alias of tnt_loss_total_value,
+		# i.e. everything the PARTNER hands over, i.e. everything the player
+		# took in. THE LAYER HAD NO ARM FOR THIS DIRECTION AT ALL UNTIL V30:
+		# every previous rung measured only what the player GAVE, so a ruler
+		# who carried the shop off felt exactly nothing, whatever he was.
+		# THE MOTIVATION IS THE MISSING DIRECTION, NOT A LOG READING. An
+		# earlier draft of this comment cited run-B's twelve negative osided
+		# figures as proof that treaties were lopsided in the player's favour.
+		# That reads the sign backwards - osided is
+		# tnt_gain_total_value - 2 x tnt_loss_total_value (tnt_5a header), so a
+		# NEGATIVE reading means the player took MORE than twice what he gave,
+		# which is this arm's own case but says nothing about how often it
+		# happens; and all twelve of those records were letters the AI wrote,
+		# where the manual-only guard suppresses the whole layer anyway. The
+		# run measured that this arm had never had a chance to fire, not that
+		# it would have fired often.
+		#
+		# THE SIX ROWS AT THE GRAVE RUNG:
+		#   content   +medium  land, a vassal, fealty, artifacts, coin taken in.
+		#                      00_perk_interactions.txt:121-123
+		#                       (claim_throne_interaction, medium);
+		#                      00_diarchy_scripted_effects.txt:208.
+		#   humble    +medium  the elevation implied by taking.
+		#                      00_major_decisions_scripted_effects_2.txt:232
+		#                       (MAJOR there - tempered to medium here, because
+		#                        a treaty is not a caliphate);
+		#                      00_diarchy_scripted_effects.txt:207.
+		#   generous  +minor   taking heavily from another man.
+		#                      00_perk_interactions.txt:770-772;
+		#                      00_modifiy_vassal_contract.txt:251-257
+		#                       (tightening a contract: just + generous, both
+		#                        gain, gated on the tyranny row being non-zero).
+		#   ambitious -minor   00_diarchy_scripted_effects.txt:202 - vanilla
+		#   arrogant  -minor   relieves both for the self-serving act;
+		#                      :203, and 00_major_decisions_scripted_effects_2
+		#                      .txt:233 (medium there).
+		#   greedy    -minor   the mirror of 00_gift.txt:149 and
+		#                      00_artifact_interactions.txt:249-252, where
+		#                      PARTING with a thing is what charges him.
+		# RANGE -45 .. +100.
+		#
+		# WHY just IS NOT HERE even though 00_modifiy_vassal_contract.txt:254
+		# charges it: `just` already speaks in arm A, and the obligations sheet
+		# is subsumed by arms A and B rather than given a row of its own. A
+		# trait that speaks in every arm says nothing.
+		#===============================================================
+		else_if = {
+			limit = {
+				tnt_stress_took_value >= dominant_positive_ai_value
+				# Arm C's grave rung - the same six-trait family as arm B with
+				# the signs inverted. Argument at arm B's grave rung.
+				OR = {
+					has_trait = content
+					has_trait = humble
+					has_trait = generous
+					has_trait = ambitious
+					has_trait = arrogant
+					has_trait = greedy
+				}
+			}
+			root = {
+				stress_impact = {
+					content   = medium_stress_impact_gain
+					humble    = medium_stress_impact_gain
+					generous  = minor_stress_impact_gain
+					ambitious = minor_stress_impact_loss
+					arrogant  = minor_stress_impact_loss
+					greedy    = minor_stress_impact_loss
+				}
+			}
+		}
+
+		#===============================================================
+		# ARM C, ORDINARY RUNG. A large but not ruinous haul.
+		# Three rows, mirroring arm B's ordinary rung exactly: the two hot
+		# traits and the one relief.
+		# RANGE -15 .. +40.
+		#===============================================================
+		else_if = {
+			limit = {
+				tnt_stress_took_value >= very_high_positive_ai_value
+				# Arm C's ordinary rung writes three rows, so it tests three.
+				OR = {
+					has_trait = content
+					has_trait = humble
+					has_trait = greedy
+				}
+			}
+			root = {
+				stress_impact = {
+					content = minor_stress_impact_gain
+					humble  = minor_stress_impact_gain
+					greedy  = minor_stress_impact_loss
+				}
+			}
+		}
+	}
+}
+
+########################################################################
+# THE TWELVE PAIRS, AND THE TWELVE TRAITS HONESTLY LEFT OUT
+#
+# Vanilla couples all 36 personality traits to stress in both directions
+# (12,058 stress_impact blocks parsed under common\ and events\), so "vanilla
+# has no row for it" is never the reason. The reason is always that NOTHING AT
+# A PARLEY SIGNING IS THE DEED VANILLA CHARGES FOR. Written down so the next
+# round does not re-derive it, and so a future addition arrives as a ruling:
+#
+#   greedy / generous       IN, arms B and C, both directions.
+#   ambitious / content     IN, arms B and C, both directions.
+#   arrogant / humble       IN, arms B and C. Carries fealty both ways free.
+#   compassionate / callous IN, arm A. Callous relief is 00_hook_types.txt:148,
+#                           vanilla's own, not invented.
+#   just / arbitrary        IN, arm A.
+#   honest / deceitful      honest IN. DECEITFUL OUT: vanilla charges deceitful
+#                           for TELLING THE TRUTH (expose_secret_interaction,
+#                           00_character_interactions.txt:2556). Nothing at
+#                           this table is a lie and nothing is a confession.
+#   trusting / paranoid     trusting IN (arm A). PARANOID OUT AT SIGNING:
+#                           vanilla's paranoid rows are TAKING A STRANGER IN
+#                           (00_courtier_and_guest_interactions.txt:132-135)
+#                           and HANDING REAL POWER TO A PERSON
+#                           (00_diarch_interactions.txt:9411-9416, where
+#                           trusting = massive_stress_impact_loss). Parley's
+#                           courtier, hostage and transferred-vassal terms
+#                           genuinely fit that - AND THEY ARE EXACTLY THE
+#                           PER-TERM ROWS THE USER HAS TWICE REFUSED. Stated,
+#                           refused, and kept on the shelf as the one honest
+#                           future extension.
+#   forgiving / vengeful    forgiving IN (arm A). VENGEFUL OUT: its vanilla
+#                           rows are about a specific person wronged
+#                           (00_dynast_interactions.txt, murder). A treaty has
+#                           no grievance in it.
+#   brave / craven          BOTH OUT. Craven's rows are war commitments and
+#                           physical danger; brave's are being made to STOP
+#                           fighting. Parley's nonwar promise is a third-party
+#                           clause, not a personal risk.
+#   zealous / cynical       BOTH OUT. All 22 vanilla zealous stress rows are
+#                           faith acts - conversion, vows, pilgrimage. Signing
+#                           a treaty with a heathen is not one, and trading
+#                           piety across faiths is far too thin to spend a row.
+#   patient / impatient     BOTH OUT. Vanilla's one relevant row is abandoning
+#                           a journey. Negotiation has no clock the layer reads.
+#   temperate / gluttonous  BOTH OUT. Every vanilla row for this pair is food,
+#                           weight or feasting. Nothing at this table is edible.
+#
+# MOD-LOAD SAFETY (house law 2) IS SATISFIED AND MUST BE RE-CHECKED IF THE FAN
+# EVER GROWS: all thirteen traits named in the code above are vanilla
+# personality traits with verified line numbers in
+# GAME\common\traits\00_traits.txt and exist in a vanilla-only game. Any future
+# addition is verified there, never from a wiki.
+########################################################################

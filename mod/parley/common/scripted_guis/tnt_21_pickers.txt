@@ -1,0 +1,590 @@
+﻿######################################################################################
+# PARLEY: THE NEGOTIATING TABLE — SCRIPTED GUIS, FILE 2 OF 2: THE PICKERS
+#
+# Owner: sgui.  Contract: 10-CONTRACT.md §5 groups C, D, E  =  4 + 4 + 5 = 13 entries.
+# (Group C grew from 8 to 10 in build 2 — the two prisoner openers at the end of it —
+# and fell to 6 when the non-aggression and prisoner families were RETIRED: the two
+# nonwar openers, the two prisoner openers, the two nonwar setters and the two nonwar
+# clearers are all commented out below. The two tombstones head E25 and E22 in
+# common\scripted_effects\tnt_32_apply.txt; nothing is deleted anywhere.)
+# V13, USER ITEM 1 — THE GRANTED CLAIM IS RETIRED, and it takes two more entries out of
+# each group: group C 6 -> 4 (tnt_pick_claim_p/_r_open), group D 6 -> 4
+# (tnt_pick_claim_p/_r_set), group E 7 -> 5 (tnt_claim_p/_r_clear). 19 -> 13 live
+# entries. All six had ALREADY LOST THEIR CALLERS to the multi-select rebuild before
+# this round; they are tombstoned now so the dead V1 path cannot be mistaken for live
+# code. TOMBSTONE C heads the family in tnt_32_apply.txt. Nothing is deleted.
+# The other 33 scripted_guis (steppers, toggles, lifecycle, send gate, banner) live in
+# tnt_20_scripted_guis.txt.
+#
+# Legal keys only: scope, saved_scopes, effect, the shown-gate and is_valid. The shown-gate is
+# used by no entry in this mod. is_valid appears on exactly 2 entries here
+# (tnt_pick_title_p_open, tnt_pick_title_r_open — ceding a title is game-rule gated).
+#
+# HOW A PICKER WORKS, end to end
+#   1. "Choose..." button -> an OPENER (group C). It writes tnt_picker = <item index, R0.8>
+#      and tnt_picker_side (0 = _p, 1 = _r), then calls the matching fill effect so the
+#      variable list is current. MakeScope.GetList is a saved variable list, not a live query.
+#   2. The overlay shows because tnt_picker > 0; the individual panel shows because
+#      EqualTo_CFixedPoint( TntNum('tnt_picker'), '<index>' ) and the same test on
+#      tnt_picker_side. No GetScriptedGui(...) is ever called from a visible.
+#   3. A row click -> a SETTER (group D). The row object arrives as scope:tnt_picked through
+#      exactly ONE .AddScope('tnt_picked', <X>.MakeScope) — two chained AddScope calls are
+#      unverified anywhere and must never be written.
+#      The setter stores the object and removes tnt_picker, which closes the panel.
+#   4. The row's selected state is ours alone:
+#      down = "[ObjectsEqual( TntVar('tnt_title_p').Title, Title.Self )]".
+#      Title.IsSelected / Character.IsSelected mean MAP selection and are not usable here.
+#   5. The little X on a filled row -> a CLEARER (group E). One line each, deliberately
+#      dumber than a toggle so that no object-equality test is ever needed.
+#
+# Item indices (R0.8): 6 = title, 10 = artifact.
+# 7 (claim, V13 user item 1), 8 (prisoners) and 11 (nonwar) are RETIRED, not free:
+# never renumbered, never reused, exactly as index 2 (the yearly tribute) has been
+# since it was withdrawn. The full retired-not-free list after V13 is
+# 2, 3, 4, 7, 8, 11, 13.
+#
+#-------------------------------------------------------------------------------------
+# v2 AUDIT — WHAT THE WAVE-2/3c REBUILD WILL STOP CALLING. NOTHING IS DELETED YET.
+#
+# 30-V2-DESIGN §3.1 deletes the six single-object variables this file writes —
+# tnt_title_p/_r, tnt_claim_p/_r, tnt_artifact_p/_r — and replaces them with the six
+# SELECTION LISTS tnt_sel_title_p/_r, tnt_sel_claim_p/_r, tnt_sel_artifact_p/_r
+# (item 2.2, multi-select). Consequences, entry by entry:
+#
+#   GROUP C, the 10 OPENERS  -> ALL SURVIVE UNCHANGED. They only write tnt_picker /
+#       tnt_picker_side and call a fill effect; the two-datamodel picker panel of §2.2
+#       needs exactly that and nothing more.
+#
+#   GROUP D, 6 of the 8 SETTERS  -> SUPERSEDED, not yet dead.
+#       tnt_pick_title_p_set, tnt_pick_title_r_set, tnt_pick_claim_p_set,
+#       tnt_pick_claim_r_set, tnt_pick_artifact_p_set, tnt_pick_artifact_r_set
+#       are replaced by MOVE setters that add to / remove from a selection list
+#       (`add_to_variable_list` + `remove_list_variable`, both with
+#       target = scope:tnt_picked) and that do NOT remove tnt_picker, because the panel
+#       must stay open for the next pick. Those new entries belong in tnt_22_v2.txt.
+#       tnt_pick_nonwar_p_set / _r_set STAYED single-object (§3.4 kept tnt_nonwar_p/_r
+#       as plain variables) — until the whole non-aggression family was RETIRED; both
+#       setters are commented out below and the §3.4 question is moot.
+#
+#   GROUP E, 6 of the 9 CLEARERS  -> SUPERSEDED.
+#       tnt_title_p_clear, tnt_title_r_clear, tnt_claim_p_clear, tnt_claim_r_clear,
+#       tnt_artifact_p_clear, tnt_artifact_r_clear become `clear_variable_list`
+#       equivalents. tnt_nonwar_p_clear / _r_clear were the two that stayed; they are
+#       RETIRED with their family. tnt_picker_close stays and is shared by every panel.
+#
+# NOT DELETED HERE, ON PURPOSE: every one of these 12 entries is live in the shipped
+# build and the GUI still calls each of them. Deleting them before the multi-select
+# GUI and the multi-select valuation land would leave the rows with dead onclicks and
+# no way to compose a deal at all. The single commit that adds the list setters is the
+# commit that removes these — and it must also drop the two per-object rows from
+# tnt_send_offer's is_valid in tnt_20_scripted_guis.txt, since tnt_title_p/_r stop
+# existing at that moment.
+#
+# NO is_valid IN THIS FILE IS ON A HOT PATH. The only two are on the title openers and
+# they test one variable (`exists = var:tnt_advanced`). No entry here is bound to a
+# per-row visible or down (Law R11), and no GetScriptedGui appears in any row's
+# visible/down in the GUI — the row's selected state is an ObjectsEqual test on a
+# variable, never a scripted_gui call.
+#-------------------------------------------------------------------------------------
+######################################################################################
+
+
+######################################################################################
+# GROUP C — PICKER OPENERS (10)
+######################################################################################
+
+# Cede a title, player's side: candidates are the PLAYER's held titles, tier >= county,
+# excluding the primary title and the capital (tnt_can_cede_title_trigger does the filtering).
+tnt_pick_title_p_open = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 6
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+		tnt_fill_title_p_effect = yes
+		# ITEM 3 — THE ORDER. These four v1 single-object openers share their
+		# candidate lists with the multi-select panel, so a fill here would leave
+		# tnt_list_title_p in engine order while every multi-select entry keeps it in
+		# key order — two panels, two orders, one list. The rule this file now obeys
+		# with the rest of the subsystem is simply "every fill is followed by a
+		# sort"; argument in common\scripted_effects\tnt_35a_sort.txt.
+		tnt_sort_all_effect = yes
+	}
+}
+
+# Cede a title, partner's side: candidates are the PARTNER's held titles, same filter.
+tnt_pick_title_r_open = {
+	scope = character
+
+	is_valid = {
+		custom_description = {
+			text = tnt_err_advanced_off
+			exists = var:tnt_advanced
+		}
+	}
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 6
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 1
+		}
+		tnt_fill_title_r_effect = yes
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_pick_title_p_open above
+	}
+}
+
+# RETIRED - THE GRANTED CLAIM, both generations. See TOMBSTONE C in
+# common\scripted_effects\tnt_32_apply.txt.
+# THESE TWO HAD NO CALLER BEFORE THE RETIREMENT EITHER - see finding E4. A grep for
+# tnt_pick_claim over gui\** returns nothing: the multi-select rebuild moved every
+# opener to tnt_multi_claim_p/_r_open in tnt_22b_multiselect.txt, and those are now
+# retired too. Tombstoned rather than left standing so the next reader does not mistake
+# the V1 single-object path for live code.
+# Grant a claim, player's side: the claim is granted on one of the PLAYER's OWN held titles
+# (symmetric with the _r side, and a real concession rather than a free fabrication).
+# tnt_pick_claim_p_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 7
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 0
+# 		}
+# 		tnt_fill_claim_p_effect = yes
+# 	}
+# }
+#
+# tnt_pick_claim_r_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 7
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 1
+# 		}
+# 		tnt_fill_claim_r_effect = yes
+# 	}
+# }
+
+# Artifacts: the list is built in script with every_character_artifact and read back as
+# Scope.Artifact. Character.GetInventory.GetArtifacts is a real datamodel but vanilla only ever
+# wraps it in IsDataModelEmpty(), never as datamodel =, so it is not used in v1.
+tnt_pick_artifact_p_open = {
+	scope = character
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 10
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 0
+		}
+		tnt_fill_artifact_p_effect = yes
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_pick_title_p_open above
+	}
+}
+
+tnt_pick_artifact_r_open = {
+	scope = character
+
+	effect = {
+		set_variable = {
+			name = tnt_picker
+			value = 10
+		}
+		set_variable = {
+			name = tnt_picker_side
+			value = 1
+		}
+		tnt_fill_artifact_r_effect = yes
+		tnt_sort_all_effect = yes		# ITEM 3, see tnt_pick_title_p_open above
+	}
+}
+
+# RETIRED - THE TWO NON-AGGRESSION OPENERS (item index 11). Full tombstone: the
+# FAMILY A block that heads E25 in common\scripted_effects\tnt_32_apply.txt. The
+# mechanic was built, shipped and played, then considered and withdrawn for an
+# indefinite period: a term about somebody who is not at the table, for which the
+# other side owes nothing in return, is surplus to pleasant play. Nothing is deleted.
+# The two .gui rows that called these by name are retired in the same pass — an
+# onclick on a commented-out scripted_gui is a name the engine cannot resolve.
+# # "Promise not to attack X": TWO lists, one per column, each built from the PROMISER's
+# # vantage (user item 7) — rulers whose realm borders the promiser's by land plus holders
+# # of titles the promiser claims, filtered by T8 (which also drops the two parties, the
+# # promiser's allies and anyone already under his truce). Each opener therefore calls its
+# # own side's fill: _p = the player promising, _r = the partner promising.
+# tnt_pick_nonwar_p_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 11
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 0
+# 		}
+# 		tnt_fill_nonwar_p_effect = yes
+# 	}
+# }
+#
+# tnt_pick_nonwar_r_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 11
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 1
+# 		}
+# 		tnt_fill_nonwar_r_effect = yes
+# 	}
+# }
+
+#-------------------------------------------------------------------------------------
+# RETIRED - THE TWO PRISONER OPENERS (item index 8). Full tombstone: the FAMILY B
+# block that heads E22 in common\scripted_effects\tnt_32_apply.txt. In one line: the
+# mechanic was built, shipped and played, then considered and withdrawn for an
+# indefinite period, because doing prisoners properly means leaning on the VANILLA
+# prisoner system rather than on this mod's own bookkeeping. Nothing is deleted.
+# The two dungeon panels and the two round "view" buttons that called these openers
+# are retired in the same pass, for the atomic-pair reason stated in the tombstone.
+#-------------------------------------------------------------------------------------
+# #-------------------------------------------------------------------------------------
+# # THE TWO PRISONER OPENERS (item index 8) — added by the build-2 fix pass.
+# #
+# # These are the ONLY openers of overlay index 8, and without them the whole
+# # prisoner panel that the D3 redesign asked for
+# # (50-RUNTIME-LOG-FINDINGS.md:71, 30-V2-DESIGN §9 D3: «пункт "пленники" должен
+# # стать нормальной панелью выбора, как остальные, а не тултипом») is unreachable
+# # dead code: gui\tnt_diplomacy_window.gui's tnt_panel_prisoners_p / _r and the
+# # type tnt_prisoner_row in gui\tnt_panels.gui. The two round "view" buttons in the
+# # prisoner rows' tnt_toggle_extra slot call them by name through TntExec.
+# #
+# # NO FILL EFFECT, and that is the difference from every other opener above.
+# # Both panels read the ENGINE datamodel `[Character.GetPrisoners]` off an explicit
+# # datacontext (`[GetPlayer]` on the _p panel, `[TntPartner]` on the _r panel), so
+# # there is no tnt_list_prisoner_* variable list to build and nothing to refresh.
+# #
+# # NOT game-rule gated: the prisoners item itself is not one of the three Tier-4
+# # terms behind tnt_advanced (marriage / title / fealty), so no is_valid here — same
+# # as the claim, artifact and nonwar openers above.
+# #
+# # The panels are READ-ONLY in build 1: the term stays the all-or-nothing
+# # tnt_prisoners_p/_r toggle. Releasing SOME prisoners needs the wave-3c
+# # multi-select machinery. Closing is the shipped tnt_picker_close.
+# #-------------------------------------------------------------------------------------
+# tnt_pick_prisoners_p_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 8
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 0
+# 		}
+# 	}
+# }
+#
+# tnt_pick_prisoners_r_open = {
+# 	scope = character
+#
+# 	effect = {
+# 		set_variable = {
+# 			name = tnt_picker
+# 			value = 8
+# 		}
+# 		set_variable = {
+# 			name = tnt_picker_side
+# 			value = 1
+# 		}
+# 	}
+# }
+
+
+######################################################################################
+# GROUP D — PICKER SETTERS (6, was 8 before the two nonwar setters retired)
+#
+# saved_scopes = { tnt_picked } on all 6, and on these 6 only.
+# GUI macro used per type (exactly one AddScope in each):
+#   titles    -> TntPickTitle('...')     AddScope( 'tnt_picked', Title.MakeScope )
+#   artifacts -> TntPickArtifact('...')  AddScope( 'tnt_picked', Artifact.MakeScope )
+#   rulers    -> TntPickChar('...')      AddScope( 'tnt_picked', Character.MakeScope )
+#
+# The `exists = scope:tnt_picked` guard costs nothing and keeps error.log clean if the row's
+# object is gone by the time the click lands (report 02 §2.3 recommends guarding GUI-supplied
+# scopes for exactly this reason).
+#
+# Removing tnt_picker closes the panel, because the panel's visible tests tnt_picker.
+# tnt_picker_side is left alone here — it is harmless residue, is overwritten by the next
+# opener, and is removed by tnt_reset_offer_effect and by tnt_picker_close.
+######################################################################################
+
+tnt_pick_title_p_set = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = { exists = scope:tnt_picked }
+			set_variable = {
+				name = tnt_title_p
+				value = scope:tnt_picked
+			}
+		}
+		remove_variable = tnt_picker
+	}
+}
+
+tnt_pick_title_r_set = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = { exists = scope:tnt_picked }
+			set_variable = {
+				name = tnt_title_r
+				value = scope:tnt_picked
+			}
+		}
+		remove_variable = tnt_picker
+	}
+}
+
+# RETIRED with the granted claim. See TOMBSTONE C in tnt_32_apply.txt.
+# THESE TWO HAD NO CALLER BEFORE THE RETIREMENT EITHER - see finding E4; the codebase
+# already said so at tnt_20_scripted_guis.txt's V11 note ("nothing writes those any
+# more ... the four tnt_pick_*_set entries in tnt_21_pickers.txt have no caller left").
+# They were the ONLY writers of tnt_claim_p / tnt_claim_r, so with them commented out
+# those two variable names have zero writers AND zero live readers.
+# tnt_pick_claim_p_set = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = scope:tnt_picked }
+# 			set_variable = {
+# 				name = tnt_claim_p
+# 				value = scope:tnt_picked
+# 			}
+# 		}
+# 		remove_variable = tnt_picker
+# 	}
+# }
+#
+# tnt_pick_claim_r_set = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = scope:tnt_picked }
+# 			set_variable = {
+# 				name = tnt_claim_r
+# 				value = scope:tnt_picked
+# 			}
+# 		}
+# 		remove_variable = tnt_picker
+# 	}
+# }
+
+# OPEN RISK (contract §12.3): writing an ARTIFACT into a character variable was never observed
+# verbatim in vanilla, although the read-back (.Artifact / Scope.Artifact) was. Same shape as
+# the confirmed character and title writes. Check error.log on the first artifact pick.
+tnt_pick_artifact_p_set = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = { exists = scope:tnt_picked }
+			set_variable = {
+				name = tnt_artifact_p
+				value = scope:tnt_picked
+			}
+		}
+		remove_variable = tnt_picker
+	}
+}
+
+tnt_pick_artifact_r_set = {
+	scope = character
+	saved_scopes = { tnt_picked }
+
+	effect = {
+		if = {
+			limit = { exists = scope:tnt_picked }
+			set_variable = {
+				name = tnt_artifact_r
+				value = scope:tnt_picked
+			}
+		}
+		remove_variable = tnt_picker
+	}
+}
+
+# RETIRED - THE TWO NON-AGGRESSION SETTERS. Tombstone: E25 in tnt_32_apply.txt.
+# The rows that called them through TntPickChar are retired in the same pass.
+# tnt_pick_nonwar_p_set = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = scope:tnt_picked }
+# 			set_variable = {
+# 				name = tnt_nonwar_p
+# 				value = scope:tnt_picked
+# 			}
+# 		}
+# 		remove_variable = tnt_picker
+# 	}
+# }
+#
+# tnt_pick_nonwar_r_set = {
+# 	scope = character
+# 	saved_scopes = { tnt_picked }
+#
+# 	effect = {
+# 		if = {
+# 			limit = { exists = scope:tnt_picked }
+# 			set_variable = {
+# 				name = tnt_nonwar_r
+# 				value = scope:tnt_picked
+# 			}
+# 		}
+# 		remove_variable = tnt_picker
+# 	}
+# }
+
+
+######################################################################################
+# GROUP E — PICKER CLEARERS (6, was 8 before the two nonwar clearers retired)
+#           + THE PANEL CLOSER (1)
+#
+# Bound to the clear-X inside tnt_item_row_picker (tooltip tnt_btn_none) and to the close
+# button of tnt_picker_panel's header_pattern.
+# remove_variable on an absent variable is silent — vanilla removes the same variable twice in
+# one block (GAME\common\tutorial_lessons\00_tutorial_lessons_china.txt:1264 and :1273).
+######################################################################################
+
+tnt_title_p_clear = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_title_p
+	}
+}
+
+tnt_title_r_clear = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_title_r
+	}
+}
+
+# RETIRED with the granted claim. See TOMBSTONE C in tnt_32_apply.txt.
+# THESE TWO HAD NO CALLER BEFORE THE RETIREMENT EITHER - see finding E4.
+# They must go with the setters above and not be left standing: a remove_variable
+# COUNTS AS A USE, so a live clearer beside a commented-out setter is precisely the
+# "Variable tnt_claim_p is used but is never set" error this codebase has already paid
+# for once (26 engine errors in one round).
+# tnt_claim_p_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		remove_variable = tnt_claim_p
+# 	}
+# }
+#
+# tnt_claim_r_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		remove_variable = tnt_claim_r
+# 	}
+# }
+
+tnt_artifact_p_clear = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_artifact_p
+	}
+}
+
+tnt_artifact_r_clear = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_artifact_r
+	}
+}
+
+# RETIRED - THE TWO NON-AGGRESSION CLEARERS. Tombstone: E25 in tnt_32_apply.txt.
+# The variables themselves are still removed by tnt_reset_offer_effect
+# (tnt_30_effects.txt) for one more version, as the old-save sweep — that removal is
+# what makes a save taken before the retirement safe, and it is deliberately NOT
+# commented out.
+# tnt_nonwar_p_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		remove_variable = tnt_nonwar_p
+# 	}
+# }
+#
+# tnt_nonwar_r_clear = {
+# 	scope = character
+#
+# 	effect = {
+# 		remove_variable = tnt_nonwar_r
+# 	}
+# }
+
+# Dismiss the open panel without choosing anything.
+tnt_picker_close = {
+	scope = character
+
+	effect = {
+		remove_variable = tnt_picker
+		remove_variable = tnt_picker_side
+	}
+}

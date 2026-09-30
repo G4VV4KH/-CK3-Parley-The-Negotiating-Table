@@ -1,0 +1,161 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — THE THREE TRADEABLE HOOK TYPES
+# USER ITEM 2.3 «крючок-влияние можно расширить: слабое, сильное, "вечное"»
+#
+# Owner: hooks-contracts.  This path is NEW — GAME\common\hook_types\ holds
+# exactly two files (00_hook_types.txt 4351 B, _hooks.info 542 B) and neither
+# is named tnt_90_hook_types.txt, so R1 (zero vanilla overrides) holds.
+#
+#=======================================================================
+# WHY THIS DIRECTORY IS SAFE TO ADD A FILE TO   (risk R-2 / warning W-1)
+#=======================================================================
+# common/hook_types/ is not listed in GAME\paths.settings (30 lines) nor in
+# GAME\paths_checksummed.settings — both only remap gfx/tools paths — so it is
+# a hard-coded, wholesale-scanned database directory of the same class as
+# common/script_values/, which this mod already ships into.
+#
+# PROVEN, not inferred: an installed 1.19 mod does exactly this, in its own
+# additive file beside its own copy of the vanilla one. Verified byte-for-byte
+# in this session:
+#   MODS\Warcraft-Guardians-of-Azeroth-2-dev\common\hook_types\
+#       00_hook_types.txt   4146 B   (a full vanilla override — we do NOT do this)
+#       wc_hook_types.txt    186 B   (the additive file — this is our precedent)
+#       _hooks.info          530 B
+#   wc_hook_types.txt, in full, is four types of exactly the shape below:
+#       minion_hook = { strong = yes }
+#       possess_hook = { strong = yes }
+#       mindcontrol_hook = { expiration_days = 365  strong = yes }
+#       voidborne_hook = { expiration_days = 3650  strong = yes }
+#
+# Hook-type keys are GLOBAL and a duplicate silently overrides (W-2), which is
+# why all three ids below carry the tnt_ prefix (R15). W-3: if WGoA2 is loaded
+# alongside us its 00_hook_types.txt override and ours never touch, because we
+# add a file and never redefine a vanilla key.
+#
+#=======================================================================
+# THE SCHEMA — GAME\common\hook_types\_hooks.info:1-12, QUOTED IN FULL
+#=======================================================================
+#   hook_name = {
+#       expiration_days = 3650  # How long does it last? -1 or unset for no expiry
+#       strong = yes            # Is the hook considered strong? Strong hooks don't get
+#                               # used up; they're instead put on cooldown (unless
+#                               # script explicitly removes it)
+#       perpetual = no          # Can hook be reused? Strong hook is always perpetual.
+#                               # Default: no
+#       requires_secret = yes   # Does the hook need to have an associated secret?
+#
+#       # Root is the character using the hook.
+#       # Scope:target is the character the hook is being used on.
+#       on_used = { <effect> }
+#   }
+#
+# THAT IS THE ENTIRE FIELD SET: expiration_days · strong · perpetual ·
+# requires_secret · on_used. Searched GAME\common\hook_types\ for every field an
+# implementer reaches for and every one has ZERO hits, so all of these are
+# blacklisted inside a hook type and must never appear here:
+#   is_strong · strength · hook_strength · weak · can_be_used_on_liege · icon ·
+#   name · desc · on_added · on_expired
+# There is no per-type icon either: the UI picks a frame from one shared texture,
+# frame = "[Character.GetHookOrHookableSecretsFrame]" on
+# gfx/interface/icons/portraits/hook_secret.dds (GAME\gui\shared\lists.gui:2501-2504).
+#
+#=======================================================================
+# THE THREE ORTHOGONAL AXES — do not confuse them
+#=======================================================================
+# 1. EXPIRY      — expiration_days omitted OR = -1  =>  never expires
+#                  (_hooks.info:2; house_head_hook = { expiration_days = -1 },
+#                   00_hook_types.txt:77-79).
+# 2. CONSUMPTION — a weak hook is USED UP by use_hook. perpetual = yes makes it
+#                  reusable; strong = yes is IMPLICITLY perpetual (_hooks.info:4
+#                  "Strong hook is always perpetual") but goes on a cooldown of
+#                  HOOK_COOLDOWN_DURATION_YEARS = 5 (GAME\common\defines\00_defines.txt:270).
+# 3. WEIGHT      — strong = yes is what has_strong_hook tests and what doubles
+#                  vanilla's own AI bonus (00_scheme_scripted_modifiers.txt:615-628).
+#
+# requires_secret is NEVER set below, deliberately: the engine would then demand
+# an associated secret and can_add_hook would fail, so the deal would complete
+# with the hook silently not granted. Only vanilla's three blackmail types use it.
+#
+#=======================================================================
+# WHO READS THESE IDS
+#=======================================================================
+#   common\scripted_effects\tnt_36_hooks_contracts.txt  tnt_exec_hook_tier_effect
+#       — the only place they are named in script, once per tier, through
+#         vanilla's guarded wrapper add_hook_if_possible_default_length_effect
+#         (GAME\common\scripted_effects\00_hook_effects.txt:28-41), which is the
+#         only wrapper that is BOTH can_add_hook-guarded AND duration-preserving.
+#         Passing YEARS to the other wrapper would override an eternal type back
+#         to finite, which is why it is not used.
+#   localization\{english,russian}\tnt_l_*.yml  one key per id, NO _desc.
+#       Vanilla's own file is GAME\localization\english\hook_types_l_english.yml
+#       (45 lines, 40 keys, e.g. ` favor_hook:0 "Favor"`). Five vanilla types and
+#       the modded minion_hook have NO key and render their raw id in the UI —
+#       so the three keys below are REQUIRED, not cosmetic (R14).
+#
+# AI PRICES (tnt_55_hc_values.txt, tnt_val_hook_tier_*_value): 30 / 70 / 120.
+# Anchored on vanilla's price for RECEIVING an offered hook — +20 weak / +50
+# strong (00_scheme_scripted_modifiers.txt:615-628) — NOT on the +100/+200 for
+# SPENDING one you already hold (00_marriage_scripted_modifiers.txt:11-22), which
+# is a different mechanic. 30-V2-DESIGN §2 C-1 settles that contradiction
+# explicitly; the 85/210/300 table in report 41 §1.9 must not be used.
+#
+# ENCODING: UTF-8 WITH BOM (R16). Vanilla's own 00_hook_types.txt begins
+# EF BB BF — verified in this session.
+########################################################################
+
+
+########################################################################
+# TIER 1 — "a favour owed": ten years, single use, not strong.
+#
+# Shape copied verbatim from vanilla favor_hook (00_hook_types.txt:16-18):
+#     favor_hook = { expiration_days = 3650 }
+# 3650 is also the value of default_favor_duration
+# (GAME\common\script_values\00_basic_values.txt:466), i.e. this is exactly the
+# hook vanilla hands out when one ruler does another a favour.
+########################################################################
+tnt_deal_favor_hook = {
+	expiration_days = 3650
+}
+
+
+########################################################################
+# TIER 2 — "an oath debt": twenty years, reusable, counts as STRONG.
+#
+# Shape copied verbatim from vanilla strong_favor_hook (00_hook_types.txt:22-25):
+#     strong_favor_hook = { strong = yes  expiration_days = 7300 }
+# `perpetual` is deliberately NOT written: _hooks.info:4 says a strong hook is
+# always perpetual, and vanilla never spells both on the same type.
+#
+# PDX's own warning above strong_favor_hook (:20-21), worth honouring in the
+# tooltip we ship for this tier:
+#   "# With a reminder that a favour this strong means you can compel someone to
+#    help murder their child.  ## Use it, but use it with caution."
+########################################################################
+tnt_deal_strong_hook = {
+	strong = yes
+	expiration_days = 7300
+}
+
+
+########################################################################
+# TIER 3 — "eternal": never expires, never consumed, counts as STRONG.
+#
+# expiration_days is OMITTED, which _hooks.info:2 defines as no expiry, and
+# strong = yes makes it perpetual. Exactly the shape of vanilla loyalty_hook
+# (:48-50), strong_obligation_hook (:31-33) and saved_my_life_hook (:173-175),
+# and of the modded minion_hook / possess_hook.
+#
+# TUNING NOTE, NOT A TODO. If an eternal STRONG hook ever proves too powerful,
+# the softer form is eternal-but-weak — `{ perpetual = yes  expiration_days = -1 }`,
+# vanilla's filial_piety_hook (:231-234), the only vanilla type that spells both
+# axes out. It is deliberately NOT defined here: an unused hook type is a global
+# id and a loc key that nothing reaches. Changing THIS type's two lines is the
+# cheaper edit and needs no new id.
+#
+# The 120-point price of this tier is INVENTED — vanilla has no anchor for an
+# infinite, never-consumed hook (30-V2-DESIGN §11 item 3, report 41 W-4). It is
+# 50 (strong) x ~2.4 and should be tuned by play, not by argument.
+########################################################################
+tnt_deal_eternal_hook = {
+	strong = yes
+}

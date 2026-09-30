@@ -1,0 +1,176 @@
+﻿########################################################################
+# PARLEY - THE ENVOY OPT-OUT AS A REVERSIBLE DECISION PAIR (USER ITEM 11)
+#
+# The AI-offer letter (events/tnt_ai_events.txt, tnt_ai_offer.0002) used to
+# carry a fourth option, "decline and hear no more embassies" - a ten-year
+# overwrite of the player's tnt_ai_offer_cooldown via tnt_ai_offer_hush_effect.
+# The user found an opt-out jarring inside a letter he was already answering,
+# and a one-shot option cannot be taken back. These two decisions replace it.
+# Exactly one of the pair is visible at any moment: each is_shown is the
+# negation of the other, on one variable that only these two effects touch.
+#
+# THE STATE IS TWO VARIABLES ON THE PLAYER, AND WHY IT MUST BE TWO:
+#
+#   tnt_envoys_refused     UNTIMED; set and removed ONLY here. The display
+#                          state of this pair AND the enforcement: it is the
+#                          row tnt_ai_offer.0001's trigger tests, so no letter
+#                          can fire while it stands. Untimed because "until I
+#                          say otherwise" is not a duration; and the event
+#                          door is where it must be tested, because the
+#                          pulse's three cooldown gates (tnt_37_ai_offer.txt)
+#                          all sit inside trigger_if wrappers that SKIP them
+#                          at the `test` rate setting - only a rule-blind row
+#                          holds at every setting. DELIBERATE PERMANENT STATE,
+#                          exempt from the "every variable dies" table in
+#                          tnt_37_ai_offer.txt's R-CLEAN header the same way
+#                          vanilla's own opt-out flag is permanent
+#                          (GAME\events\dlc\fp1\fp1_trade_events.txt:335,
+#                          "AI don't need an opt-out").
+#
+#   tnt_ai_offer_cooldown  byte-for-byte the write the retired hush option
+#                          made (value = 1, years = 10): pulse-side economy,
+#                          so for ten years no AI even reaches the composer
+#                          for this player (the three candidate gates already
+#                          test it). Kept TIMED because R-CLEAN documents that
+#                          variable as always timed and the telemetry reads it
+#                          as "rate wait" (tnt_3b_log.txt). When it lapses
+#                          while the refusal still stands, the rare wasted
+#                          composition is dropped at .0001's own door instead,
+#                          the proposer paying its lock - the same documented,
+#                          accepted price as the tnt_open queued-event race.
+#
+# WHY THE REFUSE EFFECT DOES NOT CALL tnt_ai_offer_hush_effect: that effect
+# ends in tnt_ai_offer_clear_effect, which wipes the table - right for a
+# letter OPTION that is itself the answer, wrong for a decision the player can
+# take while a letter lies unanswered. The letter's Accept and Counter read
+# the table; wiping it from outside would strand a window the player may be
+# looking at. So: an embassy already standing in the hall is still heard out,
+# and the refusal governs the NEXT one. (tnt_ai_offer_hush_effect keeps its
+# definition in tnt_37_ai_offer.txt this wave - another author's file - but
+# nothing calls it any more; its retirement is reported to that file's owner.)
+#
+# THE REVERSE DECISION MUST FULLY RESTORE ELIGIBILITY, so it removes BOTH
+# variables: the pulse's three gates read tnt_ai_offer_cooldown, .0001's
+# trigger reads tnt_envoys_refused, and nothing else in the mod reads either
+# on the player side ("now receiving" means now - the ten-year residue must
+# not outlive the reversal).
+#
+# DECISION GRAMMAR verified against vanilla's own toggle pair,
+# gain_weight_decision / stop_gain_weight_decision,
+# GAME\common\decisions\90_minor_decisions.txt:794-861: picture reference
+# (:795-797), explicit desc / selection_tooltip keys (:798-799),
+# ai_check_interval = 0 so the AI never even evaluates it (:801, :844),
+# is_shown on the state (:803, :846), effect flips the state (:816, :850),
+# ai_potential = { always = no } (:827) and ai_will_do = { base = 0 } (:831).
+# Title and confirm-button text use the engine defaults <key> and
+# <key>_confirm (GAME\common\decisions\_decisions.info:11, :121-123).
+# `major` IS NOT A DECISION FIELD IN 1.19 - zero occurrences under
+# GAME\common\decisions - "not a major decision" is spelled by NOT writing
+# decision_group_type (default group 'decisions', _decisions.info:34).
+# custom_tooltip as a decision-effect line:
+# GAME\common\decisions\00_artifact_decisions.txt:400; hidden_effect inside a
+# decision effect: same file, :431 (set/remove_variable draw no tooltip of
+# their own, so the custom_tooltip carries the player-facing consequence -
+# the same split the letter's options use).
+#
+# NOT AN OVERRIDE: vanilla common/decisions contains no file of this name.
+# ENCODING: UTF-8 WITH BOM (new .txt, re-written per the BOM recipe).
+########################################################################
+
+# "This court receives no more embassies." Shown while the door stands open.
+tnt_refuse_envoys_decision = {
+	picture = {
+		# 90_minor_decisions.txt:796 - the generic minor-decision plate.
+		reference = "gfx/interface/illustrations/decisions/decision_misc.dds"
+	}
+	desc = tnt_refuse_envoys_decision_desc
+	selection_tooltip = tnt_refuse_envoys_decision_tooltip
+
+	ai_check_interval = 0
+
+	is_shown = {
+		NOT = { exists = var:tnt_envoys_refused }
+	}
+
+	effect = {
+		custom_tooltip = tnt_refuse_envoys_decision_effect_tt
+		hidden_effect = {
+			# The display/enforcement state. UNTIMED - holds until the paired
+			# decision removes it. See the header.
+			set_variable = {
+				name = tnt_envoys_refused
+				value = 1
+			}
+			# Pulse-side economy: the exact write the letter's retired option
+			# made (tnt_ai_offer_hush_effect, tnt_37_ai_offer.txt).
+			set_variable = {
+				name = tnt_ai_offer_cooldown
+				value = 1
+				years = 10
+			}
+		}
+	}
+
+	ai_potential = {
+		always = no
+	}
+
+	ai_will_do = {
+		base = 0
+	}
+}
+
+# "This court receives embassies again." Shown while the door is barred.
+tnt_accept_envoys_decision = {
+	picture = {
+		# 90_minor_decisions.txt:796 - the same plate: one matter, two faces.
+		reference = "gfx/interface/illustrations/decisions/decision_misc.dds"
+	}
+	desc = tnt_accept_envoys_decision_desc
+	selection_tooltip = tnt_accept_envoys_decision_tooltip
+
+	ai_check_interval = 0
+
+	is_shown = {
+		exists = var:tnt_envoys_refused
+	}
+
+	effect = {
+		custom_tooltip = tnt_accept_envoys_decision_effect_tt
+		hidden_effect = {
+			# *** ORDER IS LOAD-BEARING, 2026-08-24. THE PROVEN NAME GOES
+			# *** LAST. *** is_shown above proves exactly one thing about this
+			# player: exists = var:tnt_envoys_refused. So while that name is
+			# still on him his variable store is non-empty, which is what
+			# makes the removal below silent even if he has no cooldown.
+			# The retracted comment that stood here said "remove_variable on
+			# an absent variable is a no-op - the mod already leans on that in
+			# tnt_ai_offer_clear_effect". THAT IS FALSE, and it is the same
+			# misreading that cost 576 error lines in one 20-minute run: the
+			# fault is STORE-level, not per-name. remove_variable on a scope
+			# with NO variable store at all throws
+			#   Error: remove_variable effect [ This scope does not have variables ]
+			# while a scope carrying ANY variable is silent for names it lacks.
+			# Read whole, vanilla says the same - GAME\common\scripted_effects
+			# \00_scripted_effects.txt:60-79 leaves the two GUARANTEED loan
+			# variables unguarded at :61-62 and wraps every OPTIONAL one in its
+			# own exists = var: pair at :67-70, :71-74 and :75-78.
+			# In the old order the hush was dropped first, so a player whose
+			# 10-year hush had outlived his rate wait had his LAST variable
+			# taken away and the next line threw. Swapping them costs nothing
+			# and needs no guard at all.
+			# Clears the hush residue AND any ordinary rate wait, so "now
+			# receiving" takes effect immediately.
+			remove_variable = tnt_ai_offer_cooldown
+			remove_variable = tnt_envoys_refused
+		}
+	}
+
+	ai_potential = {
+		always = no
+	}
+
+	ai_will_do = {
+		base = 0
+	}
+}

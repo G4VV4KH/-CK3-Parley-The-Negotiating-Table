@@ -1,0 +1,16 @@
+{
+  "format": "mca-frozen-patch-v1",
+  "release": "MCA 2.2.0",
+  "reviewed_on": "2026-09-30",
+  "upstream": "CK3 1.19.0.6 gui/interaction_marriage.gui",
+  "normalization": "ReadAllLines joined with LF, no final LF",
+  "vanilla_sha256": "6858C536CF377009515346C6CBF60D7A4A067EA13B7D288C5BEBE06604FED35C",
+  "vanilla_byte_sha256_at_review": "5DD66BB90983A4841EF9BA53F3B24D65AB5108882EEA10B466A8F40C4DCCE5BF",
+  "patch_file": "tnt_mca_22_marriage.patch",
+  "patch_sha256": "997A3D52D631FECF72304551C1EDCAB97D72C6225BC7B8DBC0765D5538D88571",
+  "mca_sha256": "B3AE283FDA936E861589CC569B13F68F75B7F252FD80C0399DA021CA139CEA18",
+  "mca_byte_sha256_at_review": "935835615650EE44D04BB08891C40958F306349A70A96D7D6B1CF19D156E4BD3",
+  "provenance": "Reviewed tests/mca/interaction_marriage.vanilla.patch and release-2.2.0.sha256 from the MCA source workspace. Run 10 proves candidate projection; production smoke remains separate.",
+  "approved_scope": "Lifecycle cleanup; explicit score/native controls; two full-list collectors; snapshot context/score/character-reference guards; a native-item sorted projection; three derived row instances. Native controls and callbacks retained, base grid/row 630x110.",
+  "update_procedure": "Review upstream and functional changes, regenerate the unified diff against the reviewed vanilla baseline, prove exact reconstruction, and update all three normalized hashes together. Never replace these hashes from an unreviewed live MCA file."
+}

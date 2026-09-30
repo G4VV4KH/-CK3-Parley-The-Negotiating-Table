@@ -1,0 +1,176 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — USING A HOOK YOU ALREADY HOLD   (V4, user item 2)
+#
+# THE REQUEST: "add 'use a hook of influence', if there is one, and count its
+# strength (weak / strong etc.)."
+#
+# ===========================================================================
+# THIS IS THE OPPOSITE OF THE HOOK ITEM THAT WAS ALREADY HERE
+# ===========================================================================
+# tnt_hook_p means "I GRANT the partner a hook on me" - a concession, priced as a
+# gift. This new item means "I SPEND the hook I hold ON HIM" - leverage, priced as
+# pressure. Two different directions with two different variables; the old one is
+# untouched.
+#
+# VANILLA'S TWO STRENGTHS, and they are what the request asks to count:
+#   has_weak_hook     a one-use favour. Vanilla SPENDS it: `use_hook = <target>`
+#                     consumes a weak hook and leaves a strong one alone
+#                     (00_alliance.txt:1346 and 94 other sites).
+#   has_strong_hook   blackmail-grade leverage that survives being used. 178 vanilla
+#                     call sites, e.g. 00_artifact_interactions.txt:1463
+#                     (`scope:actor = { has_strong_hook = scope:recipient }`).
+# `has_weak_hook` has only 7 vanilla sites against `has_strong_hook`'s 178 because
+# most vanilla code asks "any hook" and then spends it; both are real triggers.
+#
+# ===========================================================================
+# THE PRICES, AND WHY THEY ARE WHAT THEY ARE
+# ===========================================================================
+#   weak    +45     one favour, called in. It is roughly 675 gold of pressure at
+#                   the mod's anchor (300 gold = +20), which is what a favour is
+#                   worth when it is the last time you can ask.
+#   strong  +120    permanent leverage. Vanilla's own reading of a strong hook is
+#                   near-coercion - a great many of its interactions simply skip the
+#                   acceptance question when one exists - so this is the heaviest
+#                   single term in the window short of a maxed threat.
+# Neither is a veto-breaker on its own: the lineality veto for a hated match is
+# 1000, and a strong hook does not buy a treaty the partner would rather die than
+# sign. That is deliberate - a hook is leverage, not mind control.
+#
+# ===========================================================================
+# IT SITS OUTSIDE tnt_gain_total_value, WITH THE THREAT
+# ===========================================================================
+# The V4 model multiplies everything in the gift total by the modifier stack, so a
+# partner who hates you values your gifts at nothing. Leverage must not work that
+# way: a hook is precisely the instrument for a ruler who cannot be charmed or
+# bought. So this value is its own row of tnt_ai_accept_value and it joins the
+# threat in the balance panel's fifth figure, "Pressure".
+#
+# THE STRENGTH IS READ ONCE, HERE. Nothing else in the mod asks how strong our hook
+# is, and the executor spends it through vanilla's own `use_hook`, which knows the
+# difference by itself.
+###############################################################################
+tnt_usehook_strength_value = {
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = { scope:tnt_p ?= { always = yes } }
+		if = {
+			limit = { has_strong_hook = scope:tnt_p }
+			add = 2
+		}
+		else_if = {
+			limit = { has_weak_hook = scope:tnt_p }
+			add = 1
+		}
+	}
+}
+
+tnt_val_usehook_p_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_usehook_p
+			var:tnt_usehook_p > 0
+			exists = var:tnt_partner
+		}
+		if = {
+			limit = { tnt_usehook_strength_value >= 2 }
+			add = 120
+		}
+		else_if = {
+			limit = { tnt_usehook_strength_value >= 1 }
+			add = 45
+		}
+	}
+}
+
+###############################################################################
+# THE FIFTH FIGURE'S CONTENTS — pressure is the threat plus the hook
+#
+# The balance panel prints ONE figure for everything that works on a ruler who
+# cannot be charmed. Both terms are separate rows of tnt_ai_accept_value so the
+# breakdown tooltip names them individually; this value exists only so the panel
+# does not need two more figures to stay in step with the headline.
+###############################################################################
+tnt_val_pressure_p_value = {
+	value = 0
+	add = tnt_val_threat_p_value
+	add = tnt_val_usehook_p_value
+}
+
+###############################################################################
+# THE MIRROR: THE PARTNER CALLS IN A HOOK HE HOLDS ON US   (V4 item A2)
+#
+# ===========================================================================
+# THE SIGN IS THE WHOLE DESIGN DECISION, SO IT IS ARGUED HERE ONCE
+# ===========================================================================
+# tnt_ai_accept_value answers ONE question: how willing is the PARTNER to sign. Our own
+# hook (tnt_usehook_p) adds to it, because leverage over him makes him willing.
+#
+# A hook HE holds over US cannot make him more willing - it makes him more DEMANDING.
+# He believes the debt is already part of the price, so at any given set of terms he is
+# LESS satisfied, not more. Hence a NEGATIVE row.
+#
+# WHAT THAT PRODUCES IN PLAY, and it is why this is the right shape rather than a
+# cosmetic one: the AI's own composer balances a package until the headline clears its
+# margin, so a negative row means the AI ASKS FOR MORE when it holds a hook on the
+# player - which is exactly what calling in a debt looks like from the other side. And
+# the player is told why: the row appears in his window with its own name and number.
+#
+# THIS IS ALSO WHY THE THREAT WAS NOT MIRRORED. Fear only works on a balance, and the
+# player is not one - he simply clicks yes or no, so an AI threat would inflate demands
+# and get refused. A hook is different: it is a real, spendable resource with a vanilla
+# effect behind it, and spending it is something the AI can be made to pay for.
+#
+# IT IS OUTSIDE BOTH COLUMN TOTALS, like its twin. The gift total is multiplied by the
+# modifier stack and demands are not scaled at all; this is neither a gift nor a demand,
+# it is the partner's leverage, and it must keep its weight whatever he thinks of us.
+###############################################################################
+tnt_usehook_r_strength_value = {
+	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
+	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
+	# value or effect may already hold tnt_me and re-saving it is an error in itself.
+	if = {
+		limit = { NOT = { exists = scope:tnt_me } }
+		if = {
+			limit = { exists = scope:actor }
+			scope:actor = { save_temporary_scope_as = tnt_me }
+		}
+		else = { save_temporary_scope_as = tnt_me }
+	}
+	value = 0
+	if = {
+		limit = { NOT = { exists = scope:tnt_p } }
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+	}
+	if = {
+		limit = { scope:tnt_p ?= { has_strong_hook = scope:tnt_me } }
+		add = 2
+	}
+	else_if = {
+		limit = { scope:tnt_p ?= { has_weak_hook = scope:tnt_me } }
+		add = 1
+	}
+}
+
+tnt_val_usehook_r_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = var:tnt_usehook_r
+			var:tnt_usehook_r > 0
+			exists = var:tnt_partner
+		}
+		if = {
+			limit = { tnt_usehook_r_strength_value >= 2 }
+			add = -120
+		}
+		else_if = {
+			limit = { tnt_usehook_r_strength_value >= 1 }
+			add = -45
+		}
+	}
+}

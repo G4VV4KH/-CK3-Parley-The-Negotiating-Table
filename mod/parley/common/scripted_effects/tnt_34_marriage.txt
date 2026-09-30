@@ -1,0 +1,2688 @@
+﻿########################################################################
+# PARLEY: THE NEGOTIATING TABLE — EXTENDED MARRIAGE: lists, state, and the wedding
+#
+# USER ITEM 2.1. Build 1 shipped marriage as a single toggle over a pair the
+# script picked for the player (tnt_pick_marriage_pair_effect, one random
+# unwed child each side, betrothal only). This file replaces all of that:
+# the player chooses BOTH spouses out of two real candidate lists, chooses
+# the LINE, and the engine is asked for a wedding or a betrothal according
+# to who is an adult.
+#
+# Owner: marriage (wave 3d). Companion files, same owner:
+#   common\script_values\tnt_52_marriage_values.txt   the seven price values
+#   common\scripted_guis\tnt_22a_marriage.txt         openers, setters, line
+#   gui\tnt_panel_marriage.gui                        the editor panel (types)
+#
+# ---------------------------------------------------------------------------
+# EVERYTHING IN THIS FILE RUNS WITH root = THE PLAYER
+# ---------------------------------------------------------------------------
+# ...because every caller is either a scripted_gui (GuiScope.SetRoot(
+# GetPlayer.MakeScope )) or tnt_apply_deal_effect, which itself runs in the
+# interaction's scope:actor. Both candidate lists therefore live ON THE
+# PLAYER whichever side they describe, exactly like the seven v1 picker
+# lists, so the GUI can always read them off GetPlayer.MakeScope.GetList
+# (10-CONTRACT §3, and the shipped tnt_fill_title_r_effect is the same shape
+# for the partner's own titles — tnt_31_lists.txt:109-130).
+#
+# R-CLEAN-2: nothing here writes a variable onto anything but a character.
+#
+# ===========================================================================
+# v3 ITERATION 6 — THE MARRIAGE EDITOR IS NOW THE VANILLA MATCHMAKER PANEL.
+# ===========================================================================
+# THE USER asked for the classic beautiful marriage-arranging panel to be the
+# deal's marriage editor: choose the spouses, the line and the grand wedding
+# there, and have the deal's points counted from it.
+#
+# It is borrowed, not rebuilt, by a companion interaction —
+#   common\character_interactions\tnt_12_marriage_picker.txt
+# which sets `interface = marriage` (the C++ matchmaker window) and deliberately
+# OMITS `special_interaction = arrange_marriage_interaction` (the key that
+# actually marries people, per Paradox's own schema
+# GAME\common\character_interactions\_character_interactions.info:576-580).
+# Result: the vanilla picker, with NOBODY GETTING MARRIED, and the two chosen
+# people arriving in script as scope:secondary_actor (OUR side) and
+# scope:secondary_recipient (THEIRS).
+#
+# THIS FILE'S SHARE OF THAT IS ONE EFFECT: tnt_wed_stage_pair_effect, immediately
+# after tnt_wed_add_pair_effect. It loads the staging cursor from the panel's two
+# scopes and then CALLS tnt_wed_add_pair_effect — it does not append, does not
+# write tnt_wed_partner and does not write tnt_wed_matri. THERE IS STILL EXACTLY
+# ONE WAY A PAIR ENTERS THE DEAL. Everything in the ITERATION 4 model below is
+# unchanged and still governs; iteration 6 added a second door onto the same lock,
+# not a second lock.
+#
+# The other iteration-6 change to this file is bookkeeping: the seven-row host
+# gate that was copy-pasted three times is now tnt_wed_host_gate_trigger (T44,
+# common\scripted_triggers\tnt_41_gates.txt) and copy 2 here calls it. See THE
+# HOST GATE block.
+#
+# ===========================================================================
+# v3 ITERATION 4 — ONE PAIR BECAME A LIST OF PAIRS. READ THIS BEFORE EDITING.
+# ===========================================================================
+# The user asked for an UNLIMITED number of marriages in one deal plus a grand
+# wedding. The single pair tnt_spouse_p / tnt_spouse_r did not grow a second
+# copy: it was DEMOTED TO A STAGING CURSOR. Nothing prices it and nothing
+# executes it any more. The deal is now the list tnt_wed_list.
+#
+# THE STORAGE MODEL (30-V2-DESIGN would call it the object-variable trick, and
+# it is the same one that made multi-select work). A CK3 variable list holds
+# single objects and there is NO index access from script or from GUI, so two
+# parallel lists cannot be zipped. Therefore:
+#
+#     tnt_wed_list      ON THE PLAYER   one entry per pair: the PLAYER-SIDE
+#                                       spouse. This entry IS the pair's key.
+#     tnt_wed_partner   ON THAT ENTRY   the other side's spouse.
+#     tnt_wed_matri     ON THAT ENTRY   1 = matrilineal, absent = patrilineal.
+#     tnt_wed_principal ON THE PLAYER   which entry is the grand-wedding pair.
+#     tnt_wed_grand     ON THE PLAYER   0/1, the grand-wedding toggle.
+#     tnt_wed_dup       ON THE PLAYER   0/1 mirror: the staged pair reuses
+#                                       somebody already spoken for.
+#
+# *** tnt_wed_partner AND tnt_wed_matri DO NOT LIVE ON THE PLAYER. ***
+# They live on OTHER CHARACTERS — a courtier, a child, the partner's daughter —
+# who may later be dead, inherited or entirely irrelevant. If they are not
+# removed they sit in the savegame forever on people nobody will ever look at
+# again. THE ORDER OF REMOVAL IS NOT OPTIONAL: iterate the list and strip both
+# variables FIRST, clear the list SECOND. Clear the list first and every one of
+# those characters becomes unreachable — a permanent leak with no repair path.
+# That whole obligation is discharged in one place PER LIST, and every cleanup
+# path calls it: tnt_wed_clear_all_effect for tnt_wed_list, and the addon hooks
+# tnt_ma_grade_strip_p/_r/_all_effect for the two candidate lists. Add a write to
+# a list member and you MUST add its removal IN THE STRIPPER THAT OWNS THAT LIST.
+# ---------------------------------------------------------------------------
+# WHAT THIS FILE OWNS, AND WHAT THE INTEGRATOR MUST WIRE
+# ---------------------------------------------------------------------------
+# WRITES  on the PLAYER, 11 variables:
+#             STAGING (the picker cursor, priced by nothing)
+#               tnt_spouse_p, tnt_spouse_r, tnt_marriage_matri,
+#               tnt_marriage_legal, tnt_marriage_betroth,
+#               tnt_marriage_line_shown, tnt_wed_dup
+#             THE DEAL
+#               tnt_wed_principal, tnt_wed_grand
+#             THE TWO MUTUAL FLAGS (pre-existing names, new meaning: they now
+#             follow the LIST, not the staging cursor)
+#               tnt_marriage_p, tnt_marriage_r
+#         on EACH LIST MEMBER, 2 variables:
+#               tnt_wed_partner, tnt_wed_matri
+#         3 lists : tnt_wed_list, tnt_list_spouse_p, tnt_list_spouse_r
+# REMOVES everything above through tnt_reset_marriage_effect (variables, which
+#         now OPENS with tnt_wed_clear_all_effect) and
+#         tnt_clear_spouse_lists_effect (the two candidate lists).
+#         tnt_reset_marriage_effect is already called by tnt_reset_offer_effect
+#         (tnt_30_effects.txt:585), which is itself called by the window open,
+#         the footer's Clear all, tnt_close_window_effect (tnt_30_effects.txt:346)
+#         and tnt_apply_deal_effect (tnt_32_apply.txt:374) — so ONE call site
+#         covers four paths. The fifth is the yearly tnt_wed_gc_effect.
+#         Full audit at the foot of this file.
+#
+# THE THREE MIRRORS (tnt_marriage_legal / _betroth / _line_shown) exist for
+# one reason each, and all three are the same reason in the end: neither a
+# GUI `visible` nor a scripted_gui `is_valid` may run an EFFECT, and turning
+# `var:tnt_spouse_r` into the `CHARACTER = <scope>` argument that vanilla's
+# can_marry_character_trigger demands needs a save_temporary_scope_as, which
+# is proven inside an effect and NOT proven inside a scripted trigger
+# (30-V2-DESIGN risk R-10, 42-marriage-extended.md W-2). R-10's own named
+# fallback is "do the conversion in the spouse setter and store a plain 0/1
+# tnt_marriage_legal variable", and that is what this file does — so R-10
+# does not apply to this build at all. The mirrors are rewritten by
+# tnt_marriage_sync_effect on every pick, every clear, every list refill and
+# every window open; the apply leg re-validates from scratch, so a mirror
+# that went stale while the window sat open can at worst price a marriage
+# that then does not happen — never the reverse.
+#
+# ---------------------------------------------------------------------------
+# LEGALITY IS NOT REIMPLEMENTED. TWO STAGES, BOTH VANILLA'S OWN.
+# ---------------------------------------------------------------------------
+# PER ROW  marriage_interaction_can_be_picked_trigger = yes
+#          GAME\common\scripted_triggers\00_marriage_triggers.txt:354-360,
+#          no parameters, and it already carries can_marry_trigger
+#          (= can_marry_common_trigger + allowed_more_spouses) plus
+#          is_available_quick = { hostage = no  imprisoned = no }. Real call
+#          sites: GAME\common\character_interactions\00_marriage_interactions.txt:354
+#          (is_shown) and :554 (can_be_picked).
+#          We add exactly two things on top: is_betrothed = no (a pending
+#          betrothal is not ours to trade away) and the matchmaker rule below.
+# PER PAIR can_marry_character_trigger = { CHARACTER = <scope> }
+#          00_marriage_triggers.txt:184-212 — gender + the same-sex game rule
+#          and doctrine, recent divorce, consanguinity in BOTH faiths,
+#          polygamy slots, concubine bookkeeping. Real call sites:
+#          00_marriage_interactions.txt:55-57, :172; 00_marriage_triggers.txt:415.
+#          NOT the could_ form: vanilla uses the can_ form for BOTH the
+#          marriage and the betrothal branch of
+#          marriage_interaction_valid_target_trigger (:415 and :426), so v1's
+#          could_ was too weak.
+#
+# marriage_interaction_valid_target_trigger is NEVER called: it hard-codes
+# scope:secondary_actor / scope:secondary_recipient / scope:actor and wraps
+# every row in interaction-flavoured custom_description
+# (00_marriage_triggers.txt:362-441).
+#
+# WHOSE MARRIAGE IS MINE TO OFFER — V18, USER RULING, ITEM 2. DO NOT REMOVE.
+# The candidate must pass T51 tnt_may_offer_spouse_trigger
+# (common\scripted_triggers\tnt_41_gates.txt), which is vanilla's own rule from
+# marry_off_interaction's is_shown,
+# GAME\common\character_interactions\00_marriage_interactions.txt:1429-1438,
+# under vanilla's own comment "#Is this someone I can marry off?": my courtier,
+# my own child who is inside my liege chain, or myself — plus our one widening,
+# a pool guest at my court, argued in T51's header. It is stated three more
+# times independently in vanilla (00_marriage_triggers.txt:620-645;
+# 00_marriage_actions.txt:175-233; the matchmaker redirect at
+# 00_marriage_interactions.txt:94-160 with MARRIAGE_OWNER_IS_MATCHMAKER = yes,
+# GAME\common\defines\ai\00_ai.txt:270-275).
+#
+# WHAT USED TO STAND HERE, AND WHY IT IS THE DEFECT AND NOT A DECISION. The
+# shipped rule was a PERMISSIVE matchmaker test — "they have no matchmaker, or
+# they are their own, or it is the ruler on their side of the table" — with a
+# "TO REMOVE: delete the one trigger_if" note attached, on the premise that no
+# vanilla site tests ownership from outside an interaction. That premise is
+# false (four sites, listed above), and the middle disjunct, "they are their
+# own matchmaker", IS A LANDED ADULT RULER — this mod says so itself at
+# tnt_12_marriage_picker.txt:195. That one line put every landed adult vassal
+# kinsman of either principal on the table, which is precisely what the user
+# reported. The permissive form is gone; the removal note with it.
+#
+# `matchmaker` is still a real link (00_marriage_interactions.txt:350) and is
+# still how the ENGINE ROUTES a proposal — but it is not a fifth condition on
+# who may be offered, and T51 deliberately carries no matchmaker row: vanilla
+# asks none of secondary_actor, so a fostered or hostage child in my court
+# whose matchmaker is his father abroad stays marriageable by me, as in vanilla.
+#
+# IF THIS ROW SET CHANGES, CHANGE THE AI COMPOSER'S TOO. arch16 in
+# tnt_37_ai_offer.txt copies this limit by hand at six sites and its header
+# claims it "can never nominate someone the window would not have listed" —
+# a claim that is only true while the two lists agree, and that was false for
+# three rounds.
+########################################################################
+
+
+########################################################################
+# tnt_spouse_try_add_effect
+#     LIST  = the variable list to append to
+#     OWNER = a scope holding that list (always the player)
+#     SIDE  = a scope for the ruler whose household is being listed
+#
+# Scope: A CANDIDATE. Appends `this` to $LIST$ on $OWNER$ if the candidate
+# passes the per-row filter and is not already in the list.
+#
+# One parameterised effect instead of eight copied blocks: the four passes
+# below run twice each (player side, partner side) and every one of the eight
+# needs the identical filter plus the identical de-duplication guard. A
+# scripted TRIGGER would have been the natural home for the filter, but
+# common\scripted_triggers\tnt_40_triggers.txt belongs to another author
+# (R18), so the filter is inlined here, once.
+#
+# WHY THE DE-DUPLICATION IS MANDATORY, NOT COSMETIC:
+# every_close_family_member yields "father, mother, siblings, children,
+# grandparents" (EXE:260878) — i.e. it re-yields every child that
+# every_child has already added. Without the guard the picker shows the
+# player's own son twice and both rows light up under the same
+# ObjectsEqual "chosen" test.
+# has_variable_list guarding is_target_in_variable_list is how vanilla pairs
+# them — GAME\common\character_interactions\00_character_interactions.txt:1060-1064
+# — and the shape is shipped at tnt_31_lists.txt:301-313.
+#
+# save_temporary_scope_as at the head of the body, then read back inside both
+# the limit and the write, is the shipped idiom of tnt_gc_promises_effect
+# (tnt_31_lists.txt:372-377) and of vanilla's own
+# GAME\common\story_cycles\story_cycle_infidelity_confrontation.txt:45-64.
+# It is used in preference to `prev` on purpose: `prev` inside a
+# parameterised effect that is itself called from inside an iterator is
+# correct but unreadable, and one wrong nesting level silently stores the
+# WRONG CHARACTER in the player's savegame.
+########################################################################
+tnt_spouse_try_add_effect = {
+	save_temporary_scope_as = tnt_sp_one
+
+	if = {
+		limit = {
+			# --- vanilla's own per-row gate ----------------------------
+			marriage_interaction_can_be_picked_trigger = yes
+
+			# --- ours, one line: a pending betrothal is not ours to sell
+			# REAL: GAME\common\activities\intents\wedding_intents.txt:72;
+			#       GAME\common\scripted_triggers\00_marriage_triggers.txt:188
+			is_betrothed = no
+
+			# --- ours, one line: a dragon is not a bride (V12, user item 3) -
+			# tnt_42_people_gates.txt P19. REDUNDANT IN AGOT AS SHIPPED — AGOT
+			# overrides marriage_interaction_can_be_picked_trigger above and its
+			# can_marry_common_trigger carries `is_human = yes`
+			# (AGOT 00_marriage_triggers.txt:36, reached from :420-421 -> :81-82),
+			# so no dragon has ever reached this line. It is here so the spouse
+			# lists stop depending on ANOTHER MOD'S OVERRIDE of a vanilla trigger,
+			# and it is the same one gate the courtier list calls. Cost: one
+			# global-list scan per candidate, 8 passes per picker open.
+			tnt_person_is_beast_trigger = no
+
+			# --- ours, one line: a man who took the black is nobody's groom
+			# (V15, USER ITEM 3) - tnt_42_people_gates.txt P20.
+			# THIS IS THE ONLY ROW THAT CAN CATCH HIM. Every ruler-level door is
+			# already shut by T48 (tnt_40_triggers.txt), but the two fills above
+			# this effect iterate every_child and every_close_family_member, which
+			# are NOT court-bounded - so the player's own son or brother who took
+			# the black is still a legal groom in a negotiation with a third ruler.
+			# Only the last pass of each fill is bounded to a court.
+			# REDUNDANT IN AGOT AS SHIPPED, for the same reason as the dragon row
+			# above and with the same refusal to rely on it: AGOT's own
+			# can_marry_common_trigger refuses him only for want of
+			# scope:willing_marriage, a story scope this path never saves
+			# (AGOT 00_marriage_triggers.txt:21-31, reached from :420 -> :81 -> :18).
+			# The lists must not depend on ANOTHER MOD'S OVERRIDE of a vanilla
+			# trigger. In a vanilla-only game P20 is constant false.
+			# Cost: one liege-chain walk per candidate on a CLICK path, cheaper than
+			# the global-list scan on the line above, 8 passes per picker open.
+			tnt_person_is_sworn_brother_trigger = no
+
+			# --- ours: "is this someone $SIDE$ could marry off in vanilla?"
+			# V18, USER ITEM 2, AND THIS ONE LINE REPLACED THE BUG HE REPORTED.
+			# What stood here was a permissive matchmaker rule whose FIRST
+			# disjunct was `matchmaker = scope:tnt_sp_one` - "the candidate is his
+			# own matchmaker". A LANDED ADULT RULER IS HIS OWN MATCHMAKER (this
+			# mod's own note, tnt_12_marriage_picker.txt:195, and the picker's
+			# redirect depends on it), so that single disjunct admitted every
+			# landed adult vassal kinsman of the player, and of the partner, into
+			# both spouse lists. Pass 3 below is every_close_family_member, which
+			# is not court-bounded, so it is the pass that carried them.
+			# T51 is vanilla's own rule instead - my courtier, my guest, my own
+			# child inside my liege chain, or myself - cited row by row at
+			# tnt_41_gates.txt. DO NOT REMOVE IT: user ruling, item 2.
+			tnt_may_offer_spouse_trigger = { SIDE = $SIDE$ }
+
+			# --- de-duplication ----------------------------------------
+			trigger_if = {
+				limit = { $OWNER$ = { has_variable_list = $LIST$ } }
+				NOT = {
+					$OWNER$ = {
+						is_target_in_variable_list = {
+							name = $LIST$
+							target = scope:tnt_sp_one
+						}
+					}
+				}
+			}
+		}
+
+		$OWNER$ = {
+			add_to_variable_list = {
+				name = $LIST$
+				target = scope:tnt_sp_one
+			}
+		}
+
+		# ====== THE CANDIDATE GRADE - NOW THE ADDON'S, VIA A HOOK (V23) ======
+		# Until V23 the grade was stamped right here. The split moved the body,
+		# the SIGN doctrine, the two-variable correctness argument, the alias
+		# rationale and the no-bare-else discriminator to the Marriage
+		# Calculation Assistant (common\scripted_effects\tnt_ma_10_grade.txt),
+		# which redefines the hook below; tnt_1f_addon_hooks.txt defines it as
+		# an empty stub, and '1' < 'm' guarantees the addon's body wins the
+		# last-parsed race whenever the addon is loaded.
+		# THE REASONS THE CALL SITS EXACTLY HERE DID NOT MOVE:
+		#   1. This is the one place every candidate on both sides passes
+		#      through - eight call sites, all inside the two fills below.
+		#   2. The de-duplication guard above means a candidate met again on a
+		#      later pass never reaches this line, so he is stamped exactly ONCE
+		#      per list membership and the cost is |list|, not 4 x |list|.
+		#   3. IT IS INSIDE THE `if`. A candidate who fails the filter is never
+		#      added to a list, so stamping him would orphan a variable at the
+		#      moment of writing - nothing would ever be able to name him again.
+		# OWNER and SIDE are both in hand at this site and the candidate is the
+		# ambient scope - that is the hook's whole argument surface.
+		tnt_ma_grade_stamp_effect = { OWNER = $OWNER$  SIDE = $SIDE$ }
+	}
+}
+
+
+########################################################################
+# tnt_fill_spouse_p_effect
+#
+# The people the PLAYER may put forward. Four passes, in this order:
+#   1. the ruler themselves
+#   2. every_child                  — the classic dynastic marriage
+#   3. every_close_family_member    — the unwed sister, the widowed brother
+#   4. every_courtier_or_guest      — the court
+#
+# THE RULER IS INCLUDED ON PURPOSE, and it is vanilla's own choice:
+# populate_actor_list opens with `scope:actor = { add_to_list = characters }`
+# (GAME\common\character_interactions\00_marriage_interactions.txt:163-164)
+# and populate_recipient_list with the recipient (:253-254). A ruler marrying
+# the partner's daughter is the single most valuable use of this feature and
+# v1 could not express it at all.
+#
+# ITERATOR PROOFS (all in an effect context, which is what this is):
+#   every_child                GAME\common\character_interactions\00_marriage_interactions.txt:189
+#   every_close_family_member  GAME\common\scripted_effects\00_culture_effects.txt:134, :276
+#   every_courtier_or_guest    GAME\common\activities\guest_invite_rules\activity_invite_rules.txt:406, :497
+#                              GAME\common\court_positions\tasks\00_court_brewmaster_tasks.txt:86
+#
+# THE THREE ENGINE "spouse candidate" ITERATORS ARE NOT USED, and must never
+# be: every_spouse_candidate / every_opposite_sex_spouse_candidate /
+# every_same_sex_spouse_candidate carry PDX's own doubled warning "WARNING:
+# THIS IS VERY SLOW DO NOT DO IT OFTEN" (EXE:260934-260958), and the search
+# is capped per title tier by MAX_NUMBER_OF_SPOUSE_CANDIDATES — which is
+# **0 for the bottom two tiers** (GAME\common\defines\ai\00_ai.txt:291-303),
+# so an unlanded or barony-tier negotiator would get an EMPTY picker. They
+# also search the whole world, which is the wrong candidate set for a treaty.
+#
+# every_pool_character, every_dynasty_member and every_house_member are also
+# out: the first needs a `province =` parameter and drags in unlandeds with
+# no relationship to either party, and the other two are mostly other
+# rulers' courtiers we have no right to promise.
+#
+# COST (42-marriage-extended.md W-9): an emperor's court can be 30-50 rows,
+# and a variable list is savegame state. Both lists are rebuilt on every
+# picker open and cleared by tnt_clear_spouse_lists_effect on window close,
+# so nothing accumulates. Do not add every_courtier_away or every_pool_guest
+# without measuring first.
+########################################################################
+tnt_fill_spouse_p_effect = {
+	# *** FIRST STATEMENT, AND IT MAY NOT MOVE BELOW THE CLEAR. ***
+	# STRIP BEFORE CLEAR. The list is the only thing that can still name the
+	# characters tnt_spouse_grade_p sits on, and this fill head is NOT a corner
+	# case - it runs far more often than the window close: every window open,
+	# every _show transition, every post-apply refill, every AI counter-offer and
+	# every one of the three picker openers. Applying a deal is the proof: the
+	# two people just married fail marriage_interaction_can_be_picked_trigger on
+	# the very next fill and drop out of the list GUARANTEED, so clear-first would
+	# orphan exactly the people the treaty married, on every marriage the mod ever
+	# concludes. It calls the p-named hook and only the p-named hook: the
+	# other list is still live and still naming its grades.
+	tnt_ma_grade_strip_p_effect = yes
+
+	clear_variable_list = tnt_list_spouse_p
+
+	save_temporary_scope_as = tnt_sp_owner
+
+	# --- 1. the ruler themselves ------------------------------------
+	tnt_spouse_try_add_effect = {
+		LIST  = tnt_list_spouse_p
+		OWNER = scope:tnt_sp_owner
+		SIDE  = scope:tnt_sp_owner
+	}
+
+	# --- 2. own children --------------------------------------------
+	every_child = {
+		tnt_spouse_try_add_effect = {
+			LIST  = tnt_list_spouse_p
+			OWNER = scope:tnt_sp_owner
+			SIDE  = scope:tnt_sp_owner
+		}
+	}
+
+	# --- 3. close family (parents, siblings, grandparents, children) -
+	every_close_family_member = {
+		tnt_spouse_try_add_effect = {
+			LIST  = tnt_list_spouse_p
+			OWNER = scope:tnt_sp_owner
+			SIDE  = scope:tnt_sp_owner
+		}
+	}
+
+	# --- 4. the court -----------------------------------------------
+	every_courtier_or_guest = {
+		tnt_spouse_try_add_effect = {
+			LIST  = tnt_list_spouse_p
+			OWNER = scope:tnt_sp_owner
+			SIDE  = scope:tnt_sp_owner
+		}
+	}
+}
+
+
+########################################################################
+# tnt_fill_spouse_r_effect
+#
+# The same four passes on the PARTNER, stored on the PLAYER so the GUI still
+# reads the list off GetPlayer. Shape copied from the shipped
+# tnt_fill_title_r_effect (tnt_31_lists.txt:447-468): save the player, save
+# the partner, then re-scope into the partner and iterate.
+#
+# Law R13: the partner is guarded twice — `exists` in the limit and the
+# optional link `?=` at every dereference.
+########################################################################
+tnt_fill_spouse_r_effect = {
+	# *** FIRST STATEMENT, AND IT MUST SIT OUTSIDE THE PARTNER GUARD BELOW. ***
+	# STRIP BEFORE CLEAR, exactly as tnt_fill_spouse_p_effect above, and for the
+	# same reason. It is OUTSIDE the `if = { limit = { exists = var:tnt_partner } }`
+	# for the same reason the clear is: if the partner variable has gone, this
+	# fill still clears without refilling, and a strip inside the guard would let
+	# precisely that case orphan the whole right column.
+	tnt_ma_grade_strip_r_effect = yes
+
+	clear_variable_list = tnt_list_spouse_r
+
+	if = {
+		limit = { exists = var:tnt_partner }
+
+		save_temporary_scope_as = tnt_sp_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_sp_side }
+
+		var:tnt_partner ?= {
+			# --- 1. the partner themselves ---------------------------
+			tnt_spouse_try_add_effect = {
+				LIST  = tnt_list_spouse_r
+				OWNER = scope:tnt_sp_owner
+				SIDE  = scope:tnt_sp_side
+			}
+
+			# --- 2. their children -----------------------------------
+			every_child = {
+				tnt_spouse_try_add_effect = {
+					LIST  = tnt_list_spouse_r
+					OWNER = scope:tnt_sp_owner
+					SIDE  = scope:tnt_sp_side
+				}
+			}
+
+			# --- 3. their close family -------------------------------
+			every_close_family_member = {
+				tnt_spouse_try_add_effect = {
+					LIST  = tnt_list_spouse_r
+					OWNER = scope:tnt_sp_owner
+					SIDE  = scope:tnt_sp_side
+				}
+			}
+
+			# --- 4. their court --------------------------------------
+			every_courtier_or_guest = {
+				tnt_spouse_try_add_effect = {
+					LIST  = tnt_list_spouse_r
+					OWNER = scope:tnt_sp_owner
+					SIDE  = scope:tnt_sp_side
+				}
+			}
+		}
+	}
+}
+
+
+########################################################################
+# tnt_marriage_sync_effect
+#
+# Recomputes the three mirrors, then forces the item off the table if the
+# pair is no longer both-chosen-and-legal.
+#
+#   tnt_marriage_legal       1 = vanilla's can_marry_character_trigger says
+#                                these two may marry RIGHT NOW
+#   tnt_marriage_betroth     1 = at least one of them is a minor, so the deal
+#                                creates a BETROTHAL rather than a wedding
+#   tnt_marriage_line_shown  1 = the line is a meaningful choice for this pair
+#
+# ABSENT MEANS ZERO, so every `else` REMOVES rather than writing 0 — that
+# keeps TntOn() honest in the GUI and the savegame smaller. Same rule the
+# shipped tnt_refresh_v2_mirrors_effect follows (tnt_30_effects.txt:572-599).
+#
+# WHY THE ADULTHOOD MIRROR AND NOT A TASTE SETTING: the engine forbids
+# create_betrothal unless at least one of the two is a child —
+# EXE:287130 verbatim, "Betroth the scope character to the target character,
+# create_betrothal = target (at least one of the characters need to not be
+# adult)". So betrothal-versus-wedding is not a preference the player gets to
+# express; it is a fact about the pair, and the summary line says which it is.
+#
+# WHY THE LINE MIRROR: vanilla hides its own matrilineal send_option when
+# BOTH candidates are male and shows it otherwise — the exact test, verbatim
+# from GAME\common\character_interactions\00_marriage_interactions.txt:880-885:
+#     NAND = { scope:secondary_actor ?= { is_male = yes }
+#              scope:secondary_recipient ?= { is_male = yes } }
+# Note it is NAND, not "opposite sex": two women CAN be married
+# matrilineally, and vanilla lets you choose.
+#
+# ITERATION 4 ADDS A FOURTH MIRROR AND MOVES THE ANTI-PHANTOM RULE.
+#   tnt_wed_dup  1 = one of the two STAGED candidates is already spoken for by
+#                a committed pair, on either side. The add gate cannot compute
+#                that itself: `is_target_in_variable_list` needs
+#                `target = <scope>` and an is_valid may not run
+#                save_temporary_scope_as (R-10, the same reason
+#                tnt_marriage_legal exists). So it is computed here, in an
+#                effect, and read as a plain 0/1 — Law R9.
+# THE ANTI-PHANTOM RULE now lives in tnt_wed_sync_effect, because
+# tnt_marriage_p / _r stopped describing the staging cursor and started
+# describing the LIST. A staged-but-uncommitted pair must NOT put the term on
+# the table: that is what "Add this couple" is for.
+########################################################################
+tnt_marriage_sync_effect = {
+	remove_variable = tnt_marriage_legal
+	remove_variable = tnt_marriage_betroth
+	remove_variable = tnt_marriage_line_shown
+	remove_variable = tnt_wed_dup
+
+	if = {
+		limit = {
+			exists = var:tnt_spouse_p
+			exists = var:tnt_spouse_r
+		}
+
+		var:tnt_spouse_p ?= { save_temporary_scope_as = tnt_sync_p }
+		var:tnt_spouse_r ?= { save_temporary_scope_as = tnt_sync_r }
+		# V18, USER ITEM 2 - the two absolute handles the ownership rows below
+		# need. The current scope here IS the player (every variable read in this
+		# effect is bare), and a macro parameter must never be a relative handle,
+		# so the owner is saved rather than written as `this`. The partner is
+		# guarded by `?=` per law R13 and the rows that read it are wrapped in
+		# their own exists test, so an open window with no partner chosen yet is
+		# not misjudged.
+		save_temporary_scope_as = tnt_sync_owner
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_sync_side }
+
+		if = {
+			limit = {
+				exists = scope:tnt_sync_p
+				exists = scope:tnt_sync_r
+			}
+
+			# --- may they actually marry? -----------------------------
+			# The self test is ours: could_marry_character_trigger's
+			# "Cannot marry self" row is
+			# `NOT = { scope:can_marry_check = { is_spouse_of = $CHARACTER$ } }`
+			# (00_marriage_triggers.txt:430-433), which does not catch the
+			# same character on both sides of the table — and both lists
+			# can legitimately contain the same person when the partner is
+			# the player's own close family.
+			if = {
+				limit = {
+					NOT = { scope:tnt_sync_p = { this = scope:tnt_sync_r } }
+					scope:tnt_sync_p = {
+						is_alive = yes
+						can_marry_character_trigger = { CHARACTER = scope:tnt_sync_r }
+					}
+					scope:tnt_sync_r = { is_alive = yes }
+					# V18, USER ITEM 2 - IS EACH SIDE STILL THEIRS TO OFFER?
+					# The staging cursor (var:tnt_spouse_p / _r) is NOT cleared
+					# when the candidate lists are rebuilt on picker open, so a
+					# cursor left pointing at somebody who has since been
+					# enfeoffed - or who was staged before this rule existed -
+					# would otherwise stay "legal" and the Add button would
+					# commit him. This is the mirror the Add button reads
+					# (tnt_22a_marriage.txt, five plain variable rows, no
+					# trigger), so the whole of the button's behaviour comes
+					# from here. Refusing here greys the button and it explains
+					# itself with the EXISTING tnt_err_pair_illegal string - no
+					# new loc key, so 570 = 570 still holds (house law 9).
+					# T51 is vanilla's rule; see it in tnt_41_gates.txt.
+					trigger_if = {
+						limit = { exists = scope:tnt_sync_side }
+						scope:tnt_sync_p = {
+							tnt_may_offer_spouse_trigger = { SIDE = scope:tnt_sync_owner }
+						}
+						scope:tnt_sync_r = {
+							tnt_may_offer_spouse_trigger = { SIDE = scope:tnt_sync_side }
+						}
+					}
+				}
+				set_variable = {
+					name = tnt_marriage_legal
+					value = 1
+				}
+			}
+
+			# --- wedding now, or a betrothal? (EXE:287130) -------------
+			if = {
+				limit = {
+					OR = {
+						scope:tnt_sync_p = { is_adult = no }
+						scope:tnt_sync_r = { is_adult = no }
+					}
+				}
+				set_variable = {
+					name = tnt_marriage_betroth
+					value = 1
+				}
+			}
+
+			# --- is the line worth asking about? ----------------------
+			if = {
+				limit = {
+					NOT = {
+						AND = {
+							scope:tnt_sync_p = { is_male = yes }
+							scope:tnt_sync_r = { is_male = yes }
+						}
+					}
+				}
+				set_variable = {
+					name = tnt_marriage_line_shown
+					value = 1
+				}
+			}
+		}
+	}
+
+	# --- tnt_wed_dup: is either staged candidate already spoken for? --
+	# TWO tests per side, because a character can be in a committed pair on
+	# EITHER side and neither test finds the other:
+	#   * the PLAYER-SIDE spouses are the list itself -> is_target_in_variable_list,
+	#     paired with has_variable_list exactly as vanilla pairs them
+	#     (GAME\common\character_interactions\00_character_interactions.txt:1060-1064).
+	#   * the PARTNER-SIDE spouses are var:tnt_wed_partner on a list member, so
+	#     they can only be found by asking every member. `any_in_list` over a
+	#     VARIABLE list — REAL: GAME\common\script_values\00_scheme_values.txt:2290
+	#     (`any_in_list = { variable = host_should_prevent_seduce_schemes_list … }`)
+	#     and GAME\common\casus_belli_types\07_ep3_wars.txt:5868. (V15 CORRECTION:
+#     the folder read `script_values`; the file lives in casus_belli_types and the
+#     line number was right. A genuine script-value call site for the same
+#     `any_in_list` shape is GAME\common\script_values\00_scheme_values.txt
+#     :2289-2291.)
+	#     `var:x ?= { this = scope:y }` is this mod's own shipped read-back
+	#     (tnt_70_on_actions.txt:174) and is preferred over `var:x ?= scope:y`
+	#     for that reason.
+	# Guarded by has_variable_list so an empty deal costs one lookup.
+	if = {
+		limit = { has_variable_list = tnt_wed_list }
+
+		if = {
+			limit = { exists = var:tnt_spouse_p }
+			var:tnt_spouse_p ?= { save_temporary_scope_as = tnt_dup_check }
+			if = {
+				limit = {
+					exists = scope:tnt_dup_check
+					OR = {
+						is_target_in_variable_list = {
+							name = tnt_wed_list
+							target = scope:tnt_dup_check
+						}
+						any_in_list = {
+							variable = tnt_wed_list
+							var:tnt_wed_partner ?= { this = scope:tnt_dup_check }
+						}
+					}
+				}
+				set_variable = {
+					name = tnt_wed_dup
+					value = 1
+				}
+			}
+		}
+
+		if = {
+			limit = { exists = var:tnt_spouse_r }
+			var:tnt_spouse_r ?= { save_temporary_scope_as = tnt_dup_check }
+			if = {
+				limit = {
+					exists = scope:tnt_dup_check
+					OR = {
+						is_target_in_variable_list = {
+							name = tnt_wed_list
+							target = scope:tnt_dup_check
+						}
+						any_in_list = {
+							variable = tnt_wed_list
+							var:tnt_wed_partner ?= { this = scope:tnt_dup_check }
+						}
+					}
+				}
+				set_variable = {
+					name = tnt_wed_dup
+					value = 1
+				}
+			}
+		}
+	}
+
+	# --- the two mutual flags follow the LIST -------------------------
+	tnt_wed_sync_effect = yes
+}
+
+
+########################################################################
+# THE PAIR LIST — tnt_wed_list AND ITS SIX EFFECTS
+#
+# tnt_wed_strip_effect       remove every per-character variable (SCOPE: a member)
+#                            partner, matri, gain, loss, net and - since the
+#                            alliance round, 2026-08-23 - ally
+# tnt_wed_clear_all_effect   strip everybody, THEN empty the list
+# tnt_wed_sync_effect        the anti-phantom rule + keep the principal honest
+# tnt_wed_add_pair_effect    commit the staged pair
+# tnt_wed_drop_pair_effect   uncommit one pair          (param WHO)
+# tnt_wed_gc_effect          the yearly repair pass for an abandoned session
+#
+# WHY THERE IS NO "PICK BOTH IN ONE CLICK". Law R8 forbids chaining two
+# .AddScope() calls, and data_binding\tnt_macros.txt:92-96 (TntPickChar)
+# passes exactly ONE row object as scope:tnt_picked. Two characters cannot
+# reach a scripted_gui in one click, full stop. So the two existing per-side
+# setters keep staging into tnt_spouse_p / tnt_spouse_r — one AddScope each,
+# unchanged, already shipped and already GUI-wired — and a THIRD button with no
+# saved_scopes at all commits what is staged. That is why the single-pair
+# machinery was demoted rather than deleted: it is the only legal way to
+# assemble a two-character object from a mouse.
+########################################################################
+
+
+########################################################################
+# tnt_wed_strip_effect            no params
+#
+# SCOPE: A MEMBER OF tnt_wed_list, i.e. a character who is NOT the player.
+#
+# THE ENTIRE CLEANUP OBLIGATION OF THIS ITERATION IS THESE TWO LINES, and the
+# only reason they are a named effect rather than inlined is that they must be
+# impossible to get half right: every path that stops caring about a pair calls
+# this, so a future author adding a third per-member variable has exactly one
+# place to add its removal.
+#
+# CORRECTED 2026-08-24 - THE SENTENCE THAT USED TO STAND HERE ("unguarded
+# remove_variable on an absent variable is silent and is what vanilla does") WAS A
+# MISREADING OF TWO VANILLA LINES, AND ITS TWO COPIES IN THE MCA PAIR COST 576
+# ERROR LINES IN ONE 20-MINUTE RUN.
+# Unguarded remove_variable is silent ONLY where the scope is guaranteed to carry at
+# least one variable. That is what vanilla actually does:
+# GAME\common\scripted_effects\00_scripted_effects.txt:61-62 leaves the two
+# GUARANTEED loan variables unguarded - you can only clear a loanee who HAS a loan -
+# and wraps every OPTIONAL one in its own exists = var: guard at :67-70 and :71-74.
+# On a scope with NO variables at all the effect is an ENGINE ERROR.
+# VANILLA SHIPS THE CURE TOO, and it is now on this effect's only caller: a
+# per-member variable mutation inside a variable-list walk carries its own limit -
+# GAME\events\religion_events\holy_order_events.txt:293-296 (limit = { exists =
+# var:years_since_loan }) and
+# GAME\events\death_events\death_management_events.txt:145-153 (limit = { is_alive =
+# yes  NOR = { ... exists = var:loan_holder } }).
+# THIS BODY STAYS UNGUARDED AND THAT IS NOW CORRECT RATHER THAN LUCKY:
+# tnt_wed_clear_all_effect's walk admits only members carrying var:tnt_wed_partner -
+# the very first name removed below - so every scope that reaches here is guaranteed
+# non-empty, which is exactly vanilla's :61-62 precondition.
+########################################################################
+tnt_wed_strip_effect = {
+	remove_variable = tnt_wed_partner
+	remove_variable = tnt_wed_matri
+
+	# V3: the two stored prices belong to the pair, so they die with it. These are
+	# variables on a character who is NOT the player, and this effect is the only
+	# thing that removes them - miss them here and a courtier carries a stale price
+	# in the save forever.
+	remove_variable = tnt_wed_gain
+	remove_variable = tnt_wed_loss
+	remove_variable = tnt_wed_net
+
+	# ALLIANCE ROUND, 2026-08-23 - THE FOURTH PER-MEMBER VARIABLE, AND THE HEADER
+	# ABOVE IS THE REASON IT GOES HERE: "a future author adding a third per-member
+	# variable has exactly one place to add its removal". tnt_wed_ally is the
+	# engine's own yields_alliance verdict for THIS pair, written by
+	# tnt_wed_reprice_all_effect below. Same holder class as the three prices - a
+	# courtier or a child, never the player - and the same failure if it is missed:
+	# a stale verdict carried in the save forever. The player-side flag it feeds,
+	# tnt_wed_ally_any, is removed by tnt_wed_clear_all_effect and re-derived at the
+	# top of every reprice.
+	remove_variable = tnt_wed_ally
+}
+
+
+########################################################################
+# tnt_wed_reprice_all_effect            SCOPE: the player
+#
+# A stored price is a snapshot taken when the pair was added. Anything that
+# changes a candidate afterwards - a death, an inheritance, a title gained,
+# somebody else marrying them - would leave the snapshot behind. This walks the
+# committed list and prices every pair again from scratch, with exactly the same
+# three scope aliases and the same two values tnt_wed_add_pair_effect uses, so a
+# repriced pair and a freshly added one cannot disagree.
+#
+# Called from tnt_wed_sync_effect, which already runs after every add, every
+# removal and at window open - so the numbers refresh whenever the table changes
+# and never go stale for longer than one edit.
+#
+# Note the ORDER: the aliases must be re-saved per pair INSIDE the iterator,
+# because tnt_sp and tnt_sr mean "this pair" and change on every step.
+########################################################################
+tnt_wed_reprice_all_effect = {
+	# ALLIANCE ROUND, 2026-08-23 - THE BRIDGE'S PLAYER-SIDE FLAG, CLEARED FIRST AND
+	# DELIBERATELY OUTSIDE THE `if` BELOW. tnt_wed_ally_any is the ONLY thing
+	# tnt_val_alliance_p_value (tnt_50_values.txt) reads, so a table that has been
+	# emptied, or whose remaining couples no longer open an alliance, must lower it.
+	# Put the removal inside the guard and an emptied list keeps yesterday's verdict
+	# alive with nothing on the table to justify it - the same phantom
+	# tnt_wed_sync_effect's own anti-phantom rule exists to prevent.
+	# remove_variable on an absent variable is silent - vanilla
+	# GAME\common\scripted_effects\00_scripted_effects.txt:61-62.
+	remove_variable = tnt_wed_ally_any
+
+	if = {
+		# has_variable_list FIRST, AND IT IS NOT DECORATION. `variable_list_size` on
+		# a list that was never created is an engine error, not a zero: the run
+		# logged 40x `variable_list_size trigger [ Could not find list from read
+		# name flag tnt_wed_list ]` from this effect and 120x from tnt_wed_sync -
+		# every window opened before the first pair was added. In an AND-context the
+		# guard is also semantically free: no list means no pairs means the same
+		# `no`. REAL: 76 vanilla sites use has_variable_list this way.
+		limit = {
+			has_variable_list = tnt_wed_list
+			variable_list_size = { name = tnt_wed_list  value > 0 }
+		}
+
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+		# V14, USER ITEM 4. The PLAYER's own scope, for value 8 of
+		# tnt_52_marriage_values.txt (the rank gulf between the two houses).
+		# It sits OUTSIDE the loop with tnt_p because it is a property of the
+		# two rulers at the table, not of the pair. The name is not tnt_me:
+		# tnt_marriage_liege_value and tnt_marriage_grand_value both save that
+		# one unguarded, and value 8 must not collide with them.
+		# THE DOUBLE SAVE ON THE STAGE PATH IS BENIGN AND IS NOT WORTH GUARDING.
+		# tnt_wed_stage_pair_effect calls tnt_wed_add_pair_effect (which saves
+		# this scope) and then tnt_wed_sync_effect -> this effect (which saves it
+		# again) inside ONE effect execution. tnt_p one line above has had exactly
+		# that exposure since V3 and the 2026-08-16 run is error-clean across
+		# 2,188 TNTLOG lines, so a re-save of a TEMPORARY scope is not the error
+		# the tnt_me guards are about - those are about a permanent/temporary
+		# name collision (defect D4). Do not "fix" this with an exists guard;
+		# tnt_p would need the same one and it demonstrably does not.
+		save_temporary_scope_as = tnt_gulf_me
+
+		every_in_list = {
+			variable = tnt_wed_list
+			limit = {
+				is_alive = yes
+				exists = var:tnt_wed_partner
+				var:tnt_wed_partner ?= { is_alive = yes }
+			}
+
+			save_temporary_scope_as = tnt_sp
+			var:tnt_wed_partner ?= { save_temporary_scope_as = tnt_sr }
+
+			set_variable = {
+				name = tnt_wed_gain
+				value = tnt_marriage_pair_gain_value
+			}
+			set_variable = {
+				name = tnt_wed_loss
+				value = tnt_marriage_pair_loss_value
+			}
+			set_variable = {
+				name = tnt_wed_net
+				value = {
+					value = tnt_marriage_pair_gain_value
+					subtract = tnt_marriage_pair_loss_value
+				}
+			}
+
+			# =================================================================
+			# THE ALLIANCE BRIDGE - USER RULING, 2026-08-23.
+			# =================================================================
+			# WHY A BRIDGE AND NOT A ROW INSIDE THE PRICE. `yields_alliance` has
+			# ZERO call sites in all of GAME\common\script_values - re-measured
+			# this round, and tnt_52_marriage_values.txt:240-247 recorded the same
+			# count and refused the import on exactly that ground. House law 1
+			# makes that refusal binding: a script value may not call it. Vanilla
+			# asks it inside an EFFECT's `limit`, which is the shape used here -
+			# GAME\common\scripted_effects\00_marriage_interaction_effects.txt:1660-1669
+			# (`if = { limit = { yields_alliance = { ... } } break_alliance = ... }`).
+			# House law 6 is satisfied by construction: this runs once per table
+			# edit, never on a per-frame path.
+			#
+			# THE SCOPE MAPPING IS VANILLA'S ARRANGER-SCOPE SHAPE VERBATIM -
+			# GAME\common\scripted_rules\00_rules.txt:804-811:
+			#     scope:actor = { yields_alliance = {
+			#         candidate = scope:secondary_actor
+			#         target = scope:recipient
+			#         target_candidate = scope:secondary_recipient } }
+			#   scope:tnt_gulf_me = the PLAYER, our arranger
+			#   scope:tnt_sp      = OUR side's spouse (this list member)
+			#   scope:tnt_p       = the PARTNER ruler, the other arranger
+			#   scope:tnt_sr      = THEIR side's spouse
+			# The engine's own condition behind the predicate is a family-distance
+			# SUM, NMarriage.MAX_ALLIANCE_FAMILY_DISTANCE_SUM = 4
+			# (GAME\common\defines\00_defines.txt:433-436). It has zero script
+			# readers and is C++ only, which is why the PREDICATE is asked and the
+			# define is not restated.
+			#
+			# THE ALREADY-ALLIED GUARD LIVES HERE, NOT IN THE PRICE, so the price
+			# and the grant die together. Vanilla puts
+			# `NOT = { is_allied_to = scope:actor }` on all three of its stance rows
+			# (GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:216,
+			# :309, :345).
+			#
+			# NO `is_adult` ROW AND NO GRAND-WEDDING REFUSAL HERE, DELIBERATELY.
+			# Vanilla evaluates `yields_alliance` on a BETROTHED pair twice
+			# (00_marriage_interaction_effects.txt:1658-1669 and
+			# GAME\common\scripted_triggers\00_marriage_triggers.txt:669-675), so an
+			# arranged betrothal carries the alliance as well, and an adulthood row
+			# here would under-price every betrothal the deal makes.
+			# (THE OLD TEXT OF THIS PARAGRAPH POINTED AT T52
+			# tnt_pair_opens_alliance_trigger as the thing that "carries both". T52
+			# retired to an orphan later the same day - it answered "may I ASK for an
+			# alliance", a question the grant made moot - so the sentence is rewritten
+			# rather than left pointing at dead code. The distinction it drew was
+			# right and is kept: the two predicates are provably not the same and must
+			# never be conflated.)
+			#
+			# *** THE PREDICATE IS CALLED, NOT COPIED. *** This block used to write
+			# `yields_alliance` inline, which made it the SECOND hand-written binding
+			# of a three-argument engine trigger that is SILENT WHEN SWAPPED - the
+			# exact drift T54 was created to stop, and the same class of defect as the
+			# host gate's four copies and T51 against the composer. The arguments were
+			# bound correctly, so nothing behaved wrongly; the copy count was the
+			# defect. It now calls T54 tnt_pair_yields_alliance_trigger
+			# (common\scripted_triggers\tnt_41_gates.txt) with the same four handles
+			# the grant and the ALLY telemetry row use. COPY COUNT IS ONE. The
+			# scope-mapping paragraph above is kept because it is the argument for WHY
+			# these four handles map onto vanilla's binding.
+			if = {
+				limit = {
+					exists = scope:tnt_p
+					exists = scope:tnt_gulf_me
+					exists = scope:tnt_sp
+					exists = scope:tnt_sr
+					scope:tnt_p ?= { NOT = { is_allied_to = scope:tnt_gulf_me } }
+					tnt_pair_yields_alliance_trigger = {
+						P     = scope:tnt_sp
+						R     = scope:tnt_sr
+						ME    = scope:tnt_gulf_me
+						OTHER = scope:tnt_p
+					}
+				}
+				# per pair, on the bride - stripped by tnt_wed_strip_effect
+				set_variable = { name = tnt_wed_ally  value = 1 }
+				# and the one flag the price reads, on the player
+				scope:tnt_gulf_me = { set_variable = { name = tnt_wed_ally_any  value = 1 } }
+			}
+			else = { remove_variable = tnt_wed_ally }
+		}
+	}
+}
+
+
+########################################################################
+# tnt_wed_clear_all_effect        no params
+#
+# SCOPE: THE PLAYER. Empties the whole deal.
+#
+# *** THE ORDER OF THE FIRST TWO STATEMENTS IS THE LOAD-BEARING FACT OF THIS
+# *** WHOLE ITERATION AND MAY NOT BE SWAPPED. ***
+# clear_variable_list is the ONLY way back to those characters. Clear first and
+# every tnt_wed_partner / tnt_wed_matri written this session is orphaned in the
+# save with no code path left that can ever name the character it sits on.
+# Strip first, clear second.
+#
+# THE LOOP CARRIES ONE `limit` SINCE 2026-08-24, AND THE OLD "NO limit ON PURPOSE"
+# RULE IS NOT OVERTURNED BY IT - it is finally implementable. The rule said: every
+# other loop in this file skips dead or incoherent members, this one must visit them
+# anyway, because a dead member's variables are exactly the ones nothing else will
+# ever remove. It still visits them - for as long as one of them carries anything.
+# The limit tests for the PAIR, not for the member's health: tnt_wed_partner is the
+# pair's defining variable and tnt_wed_strip_effect removes it FIRST, so its presence
+# is the exact precondition for all five of that body's unguarded removes, and a
+# member without it owns nothing this loop could take away.
+# THE CORE ALREADY SHIPPED THIS SHAPE TWICE and this walk was the odd one out: the
+# reprice walk above (`limit = { is_alive = yes  exists = var:tnt_wed_partner ... }`)
+# and tnt_3b_log.txt's emitter walk (`limit = { exists = var:tnt_wed_partner }`) both
+# carry it, and neither produced one error line in the whole 2026-08-24 run, while
+# the addon pair's limit-less twins produced 576.
+# `every_in_list = { variable = <list>  limit = { ... } ... }` - REAL:
+#   GAME\events\religion_events\holy_order_events.txt:293-296 and
+#   GAME\events\death_events\death_management_events.txt:145-153.
+#   The bare form is real in VANILLA ONLY - GAME\common\story_cycles\
+#   story_cycle_infidelity_confrontation.txt:45-64. In this mod that form is
+#   TOMBSTONED, not shipped (tnt_gc_promises_effect: header tnt_31_lists.txt:773,
+#   body from :815) - reading it as licence is how a bare walk ships 576 errors.
+#
+# clear_variable_list and remove_variable on absent state are silent ONLY WHERE THE
+# SCOPE HAS A VARIABLE STORE AT ALL - the corrected rule, with its vanilla citations
+# and its measurement, is on tnt_wed_strip_effect above. With the guard in place this
+# is still safe to call unconditionally and is still called unconditionally - from
+# the reset, from the close, from the apply leg and from the yearly pass. Being
+# idempotent is what lets four callers stop worrying about each other.
+########################################################################
+tnt_wed_clear_all_effect = {
+	every_in_list = {
+		variable = tnt_wed_list
+		# THE STORE GUARD, 2026-08-24 - the header carries the reasoning, the
+		# measurement and the two vanilla shapes. This is the SAME limit the core
+		# already uses at the reprice walk above and in tnt_3b_log.txt, so the core
+		# gains no novel shape here, only internal consistency.
+		limit = { exists = var:tnt_wed_partner }
+		tnt_wed_strip_effect = yes
+	}
+
+	clear_variable_list = tnt_wed_list
+
+	remove_variable = tnt_wed_principal
+	remove_variable = tnt_wed_grand
+	remove_variable = tnt_wed_dup
+
+	# ALLIANCE ROUND, 2026-08-23. The player-side half of the alliance bridge.
+	# tnt_wed_reprice_all_effect already clears it at the top of every reprice, so
+	# this line is the BELT for the paths that empty the deal without repricing
+	# afterwards (the reset, the close, the apply leg, the yearly pass - the four
+	# callers this effect's own header names). A stale tnt_wed_ally_any on the
+	# player is the one way tnt_val_alliance_p_value could price an alliance for a
+	# table with no couple on it.
+	remove_variable = tnt_wed_ally_any
+
+	# an empty list is not an offer — the same anti-phantom rule as below,
+	# stated here too so that clearing the deal can never leave the term
+	# switched on with nothing in it.
+	remove_variable = tnt_marriage_p
+	remove_variable = tnt_marriage_r
+}
+
+
+########################################################################
+# tnt_wed_sync_effect             no params
+#
+# SCOPE: THE PLAYER. Two jobs, both cheap, both idempotent.
+#
+# 1. THE ANTI-PHANTOM RULE, inherited from tnt_marriage_sync_effect's old tail.
+#    tnt_marriage_p / _r are read by FOUR foreign files —
+#    tnt_50_values.txt:2821-2840 and :3069-3081 (the two breakdown rows),
+#    tnt_50_values.txt:3962-3970 (tnt_items_count_value, the SEND GATE),
+#    tnt_panels.gui:604 and :778 (the deal sheet), tnt_diplomacy_window.gui:606-609
+#    and :1375-1378 (the two row checkboxes) — and their meaning is unchanged:
+#    "marriage is on the table". What changed is what makes it true: the LIST
+#    being non-empty, not the staging cursor being full. Keeping the two names
+#    is what lets item 2.1 grow a list without editing one foreign file.
+#    An empty list therefore lowers both flags, and the first committed pair
+#    raises them (tnt_wed_add_pair_effect).
+#
+# 2. THE PRINCIPAL PAIR must be a live member of the list or absent. It is set
+#    once, by the FIRST successful add, and re-designated here only if the
+#    player removed it or the character died. `variable_list_size` as a trigger —
+#    REAL: GAME\common\casus_belli_types\07_ep3_wars.txt:5916 (`value > 0`) and
+#    :5959 (`value <= 0`). (V15 CORRECTION: the folder read `script_values`; the
+#    file lives in casus_belli_types and both line numbers were right.)
+#
+#    THE RE-DESIGNATION TAKES AN ARBITRARY SURVIVING PAIR, and that is honest
+#    rather than lazy: a variable list has no index access, so "the next one"
+#    is not expressible. The loop writes only a TEMPORARY SCOPE and the variable
+#    is written once after it, so nothing can be clobbered mid-loop. The player
+#    can always re-designate explicitly (tnt_wed_set_principal), and the
+#    localization must therefore name the principal pair by reading
+#    tnt_wed_principal — never by saying "the first one".
+########################################################################
+tnt_wed_sync_effect = {
+	# --- 0. refresh every stored pair price (V3) ----------------------
+	# A stored price is a snapshot from when the pair was added. This runs after
+	# every add, every removal and at window open, so a snapshot is never older
+	# than the last edit to the table. It is NOT per-frame work: the balance only
+	# reads the stored numbers, it never re-derives them.
+	tnt_wed_reprice_all_effect = yes
+
+	# --- 1. the flags follow the list --------------------------------
+	if = {
+		# "no list at all" and "a list with nothing in it" must reach the same
+		# branch, and the first one may not be asked with variable_list_size - see
+		# tnt_wed_reprice_all_effect for the 160 errors that cost. This is the
+		# NEGATED form, so the guard needs its own OR rather than a leading row.
+		limit = {
+			OR = {
+				NOT = { has_variable_list = tnt_wed_list }
+				NOT = { variable_list_size = { name = tnt_wed_list  value > 0 } }
+			}
+		}
+		remove_variable = tnt_marriage_p
+		remove_variable = tnt_marriage_r
+	}
+
+	# --- 2a. drop a principal that is no longer a live member --------
+	if = {
+		limit = { exists = var:tnt_wed_principal }
+
+		var:tnt_wed_principal ?= { save_temporary_scope_as = tnt_wed_prin }
+
+		if = {
+			limit = {
+				OR = {
+					NOT = { exists = scope:tnt_wed_prin }
+					NOT = { scope:tnt_wed_prin ?= { is_alive = yes } }
+					NOT = { has_variable_list = tnt_wed_list }
+					NOT = {
+						is_target_in_variable_list = {
+							name = tnt_wed_list
+							target = scope:tnt_wed_prin
+						}
+					}
+				}
+			}
+			remove_variable = tnt_wed_principal
+		}
+	}
+
+	# --- 2b. designate one if the deal has pairs but no principal ----
+	if = {
+		limit = {
+			NOT = { exists = var:tnt_wed_principal }
+			has_variable_list = tnt_wed_list
+			variable_list_size = { name = tnt_wed_list  value > 0 }
+		}
+
+		every_in_list = {
+			variable = tnt_wed_list
+			limit = {
+				is_alive = yes
+				exists = var:tnt_wed_partner
+			}
+			save_temporary_scope_as = tnt_wed_prin_pick
+		}
+
+		if = {
+			limit = { exists = scope:tnt_wed_prin_pick }
+			set_variable = {
+				name = tnt_wed_principal
+				value = scope:tnt_wed_prin_pick
+			}
+		}
+	}
+
+	# --- 2c. no principal => no grand wedding ------------------------
+	if = {
+		limit = { NOT = { exists = var:tnt_wed_principal } }
+		remove_variable = tnt_wed_grand
+	}
+}
+
+
+########################################################################
+# tnt_wed_add_pair_effect         no params
+#
+# SCOPE: THE PLAYER. Commits the staged pair and re-arms the cursor.
+#
+# THE GATE IS NOT REPEATED HERE. Every reason a pair may not be added is a
+# custom_description row in tnt_wed_add's is_valid (tnt_22a_marriage.txt), so
+# the player is told WHY instead of facing a dead button — and a scripted_gui
+# will not run its effect when its own is_valid fails, which is the whole
+# point of putting the gate there. The `if` below is therefore not the gate but
+# the R10 guard: two object variables are dereferenced and both are optional.
+#
+# WHAT IS FROZEN INTO THE PAIR: the partner, and the LINE. The line is a
+# per-pair bargain — a matrilineal match hands our house's children to them and
+# a patrilineal one does the reverse — so the deal-wide staging toggle
+# tnt_marriage_matri is COPIED onto the member at commit time and the row owns
+# it from then on (flip it later with tnt_wed_row_line_flip_effect). Absent
+# means patrilineal, the convention the whole mod uses (tnt_30_effects.txt:171).
+#
+# THE CURSOR IS CLEARED at the end so the next pair starts from a blank slot
+# and the "already spoken for" mirror cannot fire against the pair that was
+# just committed. tnt_marriage_matri is deliberately NOT cleared: a player
+# arranging three matrilineal matches should not re-tick it three times.
+########################################################################
+tnt_wed_add_pair_effect = {
+	if = {
+		limit = {
+			exists = var:tnt_spouse_p
+			exists = var:tnt_spouse_r
+		}
+
+		var:tnt_spouse_p ?= { save_temporary_scope_as = tnt_wed_new_p }
+		var:tnt_spouse_r ?= { save_temporary_scope_as = tnt_wed_new_r }
+
+		if = {
+			limit = {
+				exists = scope:tnt_wed_new_p
+				exists = scope:tnt_wed_new_r
+				NOT = { scope:tnt_wed_new_p = { this = scope:tnt_wed_new_r } }
+			}
+
+			add_to_variable_list = {
+				name = tnt_wed_list
+				target = scope:tnt_wed_new_p
+			}
+
+			scope:tnt_wed_new_p = {
+				set_variable = {
+					name = tnt_wed_partner
+					value = scope:tnt_wed_new_r
+				}
+			}
+
+			if = {
+				limit = { exists = var:tnt_marriage_matri }
+				scope:tnt_wed_new_p = {
+					set_variable = {
+						name = tnt_wed_matri
+						value = 1
+					}
+				}
+			}
+			else = {
+				scope:tnt_wed_new_p = { remove_variable = tnt_wed_matri }
+			}
+
+			# *** THE PAIR IS PRICED HERE, ONCE, AND THE NUMBER IS STORED. ***
+			#
+			# This is the answer to "can we not compute the points when both spouses
+			# are chosen, and then use those same points in the deal?" - yes, and it
+			# is strictly better than pricing twice. The balance used to re-derive all
+			# seven sub-values for every pair on every frame; now it sums stored
+			# numbers, so there is only ever ONE computation per pair and a preview
+			# and a final price cannot disagree, because there is no second price.
+			#
+			# The three scope names are the ones the seven sub-values read, exactly as
+			# tnt_marriage_offer_p_value already aliases them inside its own iterator.
+			# save_scope_value_as evaluates the value HERE, at the player's `this`, and
+			# stores a plain number - so re-scoping to the bride afterwards cannot
+			# change what was computed.
+			var:tnt_partner ?= { save_temporary_scope_as = tnt_p }
+			# V14, USER ITEM 4 - the fourth alias, and it is the PLAYER himself.
+			# Value 8 of tnt_52_marriage_values.txt prices the rank gulf between the
+			# two RULERS at the table, so it needs both sides by name. Kept in step
+			# with tnt_wed_reprice_all_effect above, or a freshly added pair and a
+			# repriced one would disagree - which is the one thing that effect's own
+			# header promises cannot happen. See it for why the name is not tnt_me.
+			save_temporary_scope_as = tnt_gulf_me
+			scope:tnt_wed_new_p = { save_temporary_scope_as = tnt_sp }
+			scope:tnt_wed_new_r = { save_temporary_scope_as = tnt_sr }
+
+			save_scope_value_as = {
+				name = tnt_pair_gain
+				value = tnt_marriage_pair_gain_value
+			}
+			save_scope_value_as = {
+				name = tnt_pair_loss
+				value = tnt_marriage_pair_loss_value
+			}
+
+			# Stored ON THE BRIDE, beside tnt_wed_partner and tnt_wed_matri, so one
+			# list entry carries everything about its pair. tnt_wed_strip_effect
+			# already removes that pair's variables and both of these are added to it.
+			scope:tnt_wed_new_p = {
+				set_variable = {
+					name = tnt_wed_gain
+					value = scope:tnt_pair_gain
+				}
+				set_variable = {
+					name = tnt_wed_loss
+					value = scope:tnt_pair_loss
+				}
+				# The net, stored so the deal sheet can print ONE number per couple
+				# without doing arithmetic in a localization string. It is the same
+				# two halves the balance sums, subtracted here once.
+				set_variable = {
+					name = tnt_wed_net
+					value = {
+						value = scope:tnt_pair_gain
+						subtract = scope:tnt_pair_loss
+					}
+				}
+			}
+
+			# V3: THE FIRST PAIR IS NO LONGER MADE PRINCIPAL AUTOMATICALLY.
+			# It used to be, unconditionally, which is why a deal with any
+			# marriage in it always showed a grand wedding and the user reported
+			# it as "mandatory, at least one". A feast is a term the player pays
+			# for and it must be opt-in like every other term.
+			#
+			# tnt_wed_principal is now set ONLY by an explicit act:
+			#   tnt_wed_set_principal        - the player designates a committed pair,
+			#   the grand-wedding branch of  - the player ticked the feast checkbox
+			#   tnt_stage_marriage_commit      inside the vanilla matchmaker.
+			# And tnt_wed_sync_effect still clears tnt_wed_grand the moment there is
+			# no live principal, so "no principal" and "no feast" cannot disagree.
+			#
+			# The deal is still on the table - that is tnt_marriage_p below, which
+			# is what every other file tests. Only the feast became optional.
+
+			set_variable = {
+				name = tnt_marriage_p
+				value = 1
+			}
+			set_variable = {
+				name = tnt_marriage_r
+				value = 1
+			}
+
+			# re-arm the cursor for the next couple
+			remove_variable = tnt_spouse_p
+			remove_variable = tnt_spouse_r
+		}
+	}
+
+	tnt_marriage_sync_effect = yes
+}
+
+
+########################################################################
+# tnt_wed_stage_pair_effect       P = <character scope>   R = <character scope>
+#                                 v3 ITERATION 6 — THE BORROWED PANEL'S DOOR
+#
+# SCOPE: THE PLAYER. Called from exactly one place —
+#   common\character_interactions\tnt_12_marriage_picker.txt, on_accept,
+#   inside scope:actor = { }, with
+#       P = scope:secondary_actor        OUR side's spouse
+#       R = scope:secondary_recipient    THEIR side's spouse
+#
+# ===========================================================================
+# THE USER ASKED FOR THE CLASSIC MARRIAGE PANEL AS THE DEAL'S MARRIAGE EDITOR.
+# THIS EFFECT IS THE ONLY THING THE PANEL IS ALLOWED TO DO.
+# ===========================================================================
+# The picker interaction sets `interface = marriage` and deliberately OMITS
+# `special_interaction = arrange_marriage_interaction`, which is the key that
+# marries people (Paradox's own schema, _character_interactions.info:576-580).
+# So the beautiful C++ matchmaker appears, the player picks two people, ticks the
+# line and possibly the grand wedding, clicks the confirm button — AND NOTHING
+# HAPPENS TO EITHER CHARACTER'S MARITAL STATE. Their choice arrives here as two
+# ordinary character scopes and gets written into the deal sheet. The wedding is
+# still tnt_exec_marriage_pair_effect's job, still only at treaty-apply time.
+#
+# *** THIS EFFECT CONTAINS NO marry, marry_matrilineal, create_betrothal OR
+# *** create_betrothal_matrilineal, AND MUST NEVER GROW ONE. *** Those four
+# appear in this mod at four places, all in tnt_wed_plain_pair_effect and
+# tnt_wed_grand_pair_effect, both reachable only from
+# tnt_exec_marriage_pair_effect. Staging and marrying are two call trees with no
+# edge between them, and that separation is the acceptance criterion of the whole
+# iteration.
+#
+# ---------------------------------------------------------------------------
+# THERE IS EXACTLY ONE WAY A PAIR ENTERS THE DEAL, AND THIS IS NOT A SECOND ONE.
+# ---------------------------------------------------------------------------
+# The whole body below is: load the staging cursor, then call
+# tnt_wed_add_pair_effect. It does NOT append to tnt_wed_list, does NOT write
+# tnt_wed_partner and does NOT write tnt_wed_matri — every one of those is
+# tnt_wed_add_pair_effect's, unchanged, so the principal-pair designation, the
+# two mutual flags tnt_marriage_p / _r, the line freeze onto the member and the
+# cursor re-arm all happen exactly as they do for our own Add button. A second,
+# divergent path is precisely what this shape refuses to become: if a future
+# author changes how a pair is stored, they change one effect and both doors
+# follow.
+#
+# ---------------------------------------------------------------------------
+# THE LINE: THE PANEL WINS, AND HERE IS WHY THAT IS ONE RULE AND NOT TWO.
+# ---------------------------------------------------------------------------
+# Two controls now express the line: our own staging toggle tnt_marriage_matri,
+# and the panel's matrilineal checkbox (interaction_marriage.gui:261,
+# MarriageInfo.ToggleMatrilineal), which reaches script as scope:matrilineal.
+# Two sources of truth for one flag is how a feature becomes unpredictable, so
+# there is ONE rule:
+#
+#     tnt_marriage_matri IS THE LINE CURSOR. WHOEVER LAST EXPRESSED A LINE OWNS
+#     IT, AND THE PAIR FREEZES IT AT COMMIT.
+#
+# It is enforced from both ends. On the way IN, the picker's send_option carries
+#     starts_enabled = { scope:actor = { exists = var:tnt_marriage_matri } }
+# so the checkbox OPENS in the cursor's state and the panel never contradicts our
+# own toggle. On the way OUT, step 1 below writes the checkbox back into the
+# cursor before the commit. The player therefore always gets the line shown on
+# the control he is looking at, and a run of matrilineal matches stays one tick —
+# the same convenience tnt_wed_add_pair_effect already preserves by not clearing
+# tnt_marriage_matri.
+#
+# `scope:matrilineal = yes` IS READ BARE, WITH NO `exists` GUARD, ON PURPOSE.
+# It is a send_option FLAG scope, not an object-valued variable, so Law R10 does
+# not reach it; and bare is vanilla's own shape for exactly these two flags —
+# GAME\common\character_interactions\00_marriage_interactions.txt:660
+# (`scope:grand_wedding_promise = yes`) and :809, :1092 (`scope:matrilineal = yes`).
+# An unticked or never-shown option simply fails the test, which is what the
+# `else` is for. ABSENT MEANS PATRILINEAL, the convention the whole mod uses
+# (tnt_30_effects.txt:171), so the else REMOVES rather than writing 0.
+#
+# ---------------------------------------------------------------------------
+# THE GATE IS T42, AND IT IS THE REAL TRIGGER RATHER THAN A MIRROR.
+# ---------------------------------------------------------------------------
+# tnt_can_stage_pair_trigger (tnt_41_gates.txt) tests, on live data: not the same
+# person, vanilla's own can_marry_character_trigger both ways round, both alive,
+# and that neither candidate is already spoken for by a committed pair on either
+# side. Our own Add button cannot do that — an is_valid may not run
+# save_temporary_scope_as, which is why tnt_marriage_legal and tnt_wed_dup exist
+# (see THE THREE MIRRORS in this file's header). ON THIS PATH THE TWO SPOUSES ARE
+# ALREADY REAL SCOPES, handed over by the C++, so no mirror is involved and there
+# is no staleness window at all. The mirrors stay: the other door still needs them.
+#
+# The interaction reports the same four refusals to the player before the confirm
+# button lights up (T43, from has_valid_target_showing_failures_only, reusing the
+# Add button's own four loc keys). T42 here is the re-validation, in the same
+# spirit as tnt_wed_one_pair_effect re-validating at apply time: the C++ panel can
+# sit on screen while the world moves.
+#
+# tnt_open / tnt_partner are re-checked as well, even though the interaction's
+# is_shown already requires both. on_accept is the last line of defence for a
+# variable write, and the cost is two map lookups.
+#
+# ---------------------------------------------------------------------------
+# THE GRAND WEDDING (step 4) IS DESIGNATION, NOT A SECOND PROMISE MECHANISM.
+# ---------------------------------------------------------------------------
+# A deal has ONE grand wedding: tnt_wed_grand = 1 plus tnt_wed_principal naming
+# the couple. The panel's checkbox therefore does two things and only two —
+# force THIS pair to be the principal, and raise tnt_wed_grand. Nothing here
+# calls set_grand_wedding_betrothal_variables or creates an activity; that is
+# tnt_wed_grand_pair_effect's job at apply time, unchanged.
+#
+# FOUR GUARDS, and each closes a real hole:
+#   * `NOT = { exists = var:tnt_wed_grand }` — one grand wedding per deal. The
+#     picker's send_option refuses the tick when one is already promised, so this
+#     is the enforcement behind that refusal: staging a second pair may never
+#     silently move the feast to it.
+#   * T44 tnt_wed_host_gate_trigger — vanilla's seven host rows, now a named
+#     trigger instead of the third hand-written copy. See its header.
+#   * `is_target_in_variable_list` — proof that step 3 actually committed. If
+#     tnt_wed_add_pair_effect refused (its own R10 guard), there is no pair to be
+#     principal OF, and writing tnt_wed_principal would point at a non-member that
+#     tnt_wed_sync_effect would then have to clean up.
+#   * vanilla's PAIR half of the grand-wedding gate, :799-824 — our candidate must
+#     be close-or-extended family of the host and must be the DOMINANT side
+#     (female => matrilineal, male => patrilineal), because the host's family
+#     holds the wedding. Applied here so the deal is not priced for a feast that
+#     tnt_wed_one_pair_effect will refuse at :1269-1288 and quietly downgrade.
+#
+# The host is captured as a temporary scope FIRST. `root` is not dependable inside
+# an interaction effect (tnt_10_interaction.txt:297-299 makes the same point about
+# is_shown), and `is_close_or_extended_family_of` needs a real target.
+#
+# The closing tnt_wed_sync_effect is belt and braces and is idempotent: 2a leaves
+# a live-member principal alone, 2b has nothing to designate, 2c cannot fire
+# because a principal now exists. It is there so that a future author who adds a
+# rule to that effect gets it applied on this path too.
+########################################################################
+tnt_wed_stage_pair_effect = {
+	save_temporary_scope_as = tnt_stage_host
+
+	if = {
+		limit = {
+			exists = var:tnt_open
+			exists = var:tnt_partner
+			tnt_can_stage_pair_trigger = {
+				P = $P$
+				R = $R$
+			}
+		}
+
+		# --- 1. THE LINE: the panel's checkbox becomes the cursor -------
+		if = {
+			limit = { scope:matrilineal = yes }
+			set_variable = {
+				name = tnt_marriage_matri
+				value = 1
+			}
+		}
+		else = {
+			remove_variable = tnt_marriage_matri
+		}
+
+		# --- 2. load the staging cursor --------------------------------
+		set_variable = {
+			name = tnt_spouse_p
+			value = $P$
+		}
+		set_variable = {
+			name = tnt_spouse_r
+			value = $R$
+		}
+
+		# --- 3. THE ONE DOOR INTO THE DEAL -----------------------------
+		# Appends to tnt_wed_list, writes tnt_wed_partner and tnt_wed_matri on
+		# the member, designates the first pair as principal, raises
+		# tnt_marriage_p / _r, re-arms the cursor and re-syncs. Not one line of
+		# that is duplicated here.
+		tnt_wed_add_pair_effect = yes
+
+		# --- 4. THE GRAND WEDDING, if the panel asked for one ----------
+		if = {
+			limit = {
+				scope:grand_wedding_promise = yes
+				NOT = { exists = var:tnt_wed_grand }
+				tnt_wed_host_gate_trigger = yes
+
+				# step 3 really did commit this pair
+				has_variable_list = tnt_wed_list
+				is_target_in_variable_list = {
+					name = tnt_wed_list
+					target = $P$
+				}
+
+				# vanilla's pair half of the gate (:799-824)
+				$P$ = {
+					is_close_or_extended_family_of = scope:tnt_stage_host
+				}
+				OR = {
+					AND = {
+						$P$ = { is_female = yes }
+						scope:matrilineal = yes
+					}
+					AND = {
+						$P$ = { is_male = yes }
+						NOT = { scope:matrilineal = yes }
+					}
+				}
+			}
+
+			set_variable = {
+				name = tnt_wed_principal
+				value = $P$
+			}
+			set_variable = {
+				name = tnt_wed_grand
+				value = 1
+			}
+
+			tnt_wed_sync_effect = yes
+		}
+	}
+}
+
+
+########################################################################
+# tnt_wed_drop_pair_effect        WHO = a scope holding the pair's key
+#
+# SCOPE: THE PLAYER. Uncommits one pair.
+#
+# STRIP FIRST, REMOVE FROM THE LIST SECOND — the same rule as
+# tnt_wed_clear_all_effect and for the same reason. remove_list_variable is
+# vanilla's own name and is paired with is_target_in_variable_list here exactly
+# as vanilla pairs them at
+# GAME\common\character_interactions\00_character_interactions.txt:1060-1064
+# and as this mod already ships at tnt_31_lists.txt:301-313.
+#
+# The principal is dropped only if it WAS this pair; tnt_wed_sync_effect then
+# re-designates from whatever is left, or clears the grand wedding if nothing
+# is (2c). No branch here has to know which of those happened.
+########################################################################
+tnt_wed_drop_pair_effect = {
+	if = {
+		limit = {
+			has_variable_list = tnt_wed_list
+			is_target_in_variable_list = {
+				name = tnt_wed_list
+				target = $WHO$
+			}
+		}
+
+		$WHO$ = { tnt_wed_strip_effect = yes }
+
+		remove_list_variable = {
+			name = tnt_wed_list
+			target = $WHO$
+		}
+
+		if = {
+			limit = {
+				exists = var:tnt_wed_principal
+				var:tnt_wed_principal ?= { this = $WHO$ }
+			}
+			remove_variable = tnt_wed_principal
+		}
+	}
+
+	tnt_marriage_sync_effect = yes
+}
+
+
+########################################################################
+# tnt_wed_gc_effect               no params
+#
+# SCOPE: any playable character, once a year (tnt_70_on_actions.txt).
+#
+# THE CASE THIS EXISTS FOR, and it is the only one the four reset paths cannot
+# reach: the player opens the editor, adds three pairs, and then the session
+# ends WITHOUT the window closing — a crash, a save-and-quit with the panel up,
+# an alt-F4. tnt_close_window_effect never ran, so three courtiers are carrying
+# tnt_wed_partner and tnt_wed_matri in the savegame. Re-opening the window
+# would strip them (the open path resets), but nothing guarantees the player
+# ever opens it again.
+#
+# THE GUARD IS tnt_open, NOT A TIMER. While the negotiation window is open the
+# pair list is live state being edited and must not be touched; the moment it
+# is closed the list is garbage by definition, because every legitimate path
+# that closes the window has already emptied it. So "list exists and window is
+# not open" is exactly the leaked-state predicate — no heuristics, no age.
+#
+# has_variable_list first, so this costs one map lookup a year for every
+# playable character in the world and nothing else. AI characters never carry
+# the list at all.
+########################################################################
+tnt_wed_gc_effect = {
+	if = {
+		limit = {
+			has_variable_list = tnt_wed_list
+			NOT = { exists = var:tnt_open }
+			# V9, THE MARRIAGE ARCHETYPE'S ONE REAL BLOCKER (release gate F1). The
+			# predicate above was written when only the EDITOR could create pairs,
+			# and there it is exact: every legitimate window-close empties the
+			# list, so a list without a window is garbage. Archetype A16 broke
+			# that theorem: the composer stages a pair onto the player with NO
+			# window open, and the letter may sit unanswered across a year
+			# boundary - at which point this GC wiped the pair out from under a
+			# live offer, and the accept applied a marriage-less treaty. The
+			# untimed letter marker (tnt_ai_letter, written in .0001's immediate,
+			# removed on every letter exit) is exactly "an offer is live without
+			# a window", so its absence completes the leaked-state predicate.
+			NOT = { exists = var:tnt_ai_letter }
+		}
+		tnt_wed_clear_all_effect = yes
+	}
+
+	# --- V22: THE CANDIDATE LISTS AND THEIR GRADES, THE SAME SWEEP -------
+	# A SECOND `if` BESIDE THE ONE ABOVE, NOT A CHANGE TO IT: the two lists are
+	# built and cleared independently of tnt_wed_list, so the pair sweep's own
+	# has_variable_list row cannot stand for them.
+	#
+	# THIS IS LOAD-BEARING, NOT BELT-AND-BRACES, and the path that needs it is
+	# MAINLINE. tnt_apply_deal_effect runs tnt_refill_all_lists_effect after every
+	# applied deal, and the AI-letter path applies a deal WITH NO WINDOW AT ALL
+	# (tnt_32_apply.txt says so in as many words in its own header) - all 7
+	# concluded deals of the 08-18 run took it. So a letter accepted from the feed
+	# builds both lists, stamps 60-100 foreign characters, and no close ever
+	# follows. The fill heads catch it the next time the player opens the window
+	# or a picker; this catches the player who never negotiates again, on his next
+	# birthday. Residue window: at most one year, and the lists still name every
+	# stamp throughout - residue, not an orphan.
+	#
+	# THE PREDICATE IS THE PAIR SWEEP'S, so there is one thing to reason about: a
+	# live editing session (tnt_open) or a live letter (tnt_ai_letter) is never
+	# touched, whatever the date. ONE CALL AND NOT TWO: tnt_clear_spouse_lists_effect
+	# strips before it clears, so naming the stripper here as well would only walk
+	# both lists a second time to find nothing.
+	#
+	# COST: two has_variable_list lookups a year per playable character, the same
+	# order as the block above, and an AI never carries either list.
+	if = {
+		limit = {
+			# the list test is FIRST for the same reason it is first in the block
+			# above: an AI never carries either list, so this costs two map
+			# lookups a year and stops there for everybody who is not mid-pick.
+			OR = {
+				has_variable_list = tnt_list_spouse_p
+				has_variable_list = tnt_list_spouse_r
+			}
+			NOT = { exists = var:tnt_open }
+			NOT = { exists = var:tnt_ai_letter }
+		}
+		tnt_clear_spouse_lists_effect = yes
+	}
+}
+
+
+########################################################################
+# tnt_fill_spouse_lists_effect
+#
+# The fan-out. Called by both picker openers (tnt_22a_marriage.txt) so the
+# editor always opens on fresh lists even if nothing else is wired, and
+# intended for tnt_refill_all_lists_effect as well — see the integration
+# lines in NOTES3-marriage.md.
+#
+# The sync call at the end is what makes it safe to call this at any time:
+# rebuilding the lists cannot invalidate a chosen spouse, but the world may
+# have moved on since the pick, so the mirrors are refreshed in the same pass.
+########################################################################
+tnt_fill_spouse_lists_effect = {
+	tnt_fill_spouse_p_effect = yes
+	tnt_fill_spouse_r_effect = yes
+	tnt_marriage_sync_effect = yes
+}
+
+
+########################################################################
+# V23: THE GRADE STRIPPERS MOVED TO THE ADDON.
+# tnt_spouse_grade_strip_effect and tnt_spouse_grade_strip_all_effect
+# stood here until the split; their bodies, the STRIP-BEFORE-CLEAR
+# doctrine and its vanilla evidence moved with the badge to the Marriage
+# Calculation Assistant (common\scripted_effects\tnt_ma_10_grade.txt).
+# The core keeps the SHAPE: each of the three clear sites in this file
+# still opens with its hook - tnt_ma_grade_strip_p/_r/_all_effect,
+# defined as empty stubs in tnt_1f_addon_hooks.txt and redefined by the
+# addon. Grep `clear_variable_list = tnt_list_spouse`: four lines at
+# those three sites (the session clear empties both lists), each site
+# opening with its hook. The ORDER is the core's; the removals the addon's.
+########################################################################
+
+
+########################################################################
+# tnt_clear_spouse_lists_effect
+#
+# R-CLEAN, the list half. For tnt_clear_lists_effect (tnt_31_lists.txt:53-61),
+# which is called by tnt_close_window_effect. clear_variable_list on an
+# absent list is silent, exactly like remove_variable.
+########################################################################
+tnt_clear_spouse_lists_effect = {
+	# *** FIRST STATEMENT, AND IT MAY NOT MOVE BELOW THE TWO CLEARS. ***
+	# The candidate grades sit on characters who are not the player and the two
+	# lists are the only handles on them. Strip first, clear second. Every caller
+	# of this effect gets that for free, which is why the garbage collector and
+	# any future cleanup path need only call this one.
+	tnt_ma_grade_strip_all_effect = yes
+
+	clear_variable_list = tnt_list_spouse_p
+	clear_variable_list = tnt_list_spouse_r
+}
+
+
+########################################################################
+# tnt_reset_marriage_effect
+#
+# R-CLEAN, the variable half — all six of this feature's variables, for
+# tnt_reset_offer_effect (tnt_30_effects.txt:987-1274). The chosen pair and
+# the line ARE the offer, so they belong in the reset and not only in the
+# close: the footer's "Clear all" must empty them too.
+#
+# NOTE FOR WHOEVER EDITS tnt_reset_offer_effect: the three mirrors are offer
+# state here, unlike tnt_infl_ok_p/_r which are SESSION state and live in
+# tnt_close_window_effect. The difference is that the mirrors are cheap to
+# recompute and are recomputed by every path that can change them, whereas
+# the influence mirrors are only written on window open — put those in the
+# reset and the influence rows vanish for the rest of the session
+# (tnt_30_effects.txt:123-132 explains that bug).
+#
+# Unguarded remove_variable on an absent variable is silent and is what
+# vanilla does — GAME\common\scripted_effects\00_scripted_effects.txt:61-62.
+########################################################################
+tnt_reset_marriage_effect = {
+	# *** FIRST STATEMENT, AND IT MAY NOT MOVE DOWN. ***
+	# ITERATION 4. This one line is what makes the reset path discharge the
+	# per-character cleanup obligation: it strips tnt_wed_partner and
+	# tnt_wed_matri off every list member and only then empties tnt_wed_list,
+	# and it also clears tnt_wed_principal, tnt_wed_grand, tnt_wed_dup and the
+	# two mutual flags. Because tnt_reset_offer_effect (tnt_30_effects.txt:987)
+	# is called by the window open, the footer's Clear all,
+	# tnt_close_window_effect and tnt_apply_deal_effect, adding it HERE wires
+	# four of the five cleanup paths at once. The fifth is tnt_wed_gc_effect.
+	tnt_wed_clear_all_effect = yes
+
+	# --- the staging cursor -------------------------------------------
+	remove_variable = tnt_spouse_p
+	remove_variable = tnt_spouse_r
+	remove_variable = tnt_marriage_matri
+	remove_variable = tnt_marriage_legal
+	remove_variable = tnt_marriage_betroth
+	remove_variable = tnt_marriage_line_shown
+	remove_variable = tnt_wed_dup
+}
+
+
+########################################################################
+# tnt_marriage_default_line_effect
+#
+# Sets the initial state of the line control from the PLAYER's own realm and
+# faith, so the common case needs no click at all.
+#
+# This mirrors the DEFAULT BRANCH of vanilla's scripted_rule
+# ai_wants_matrilineal_marriage — GAME\common\scripted_rules\00_rules.txt:678-684:
+#     OR = { # Either Matrilineal Marriages are the norm
+#         has_realm_law = female_only_law
+#         has_realm_law = female_preference_law
+#         faith = { has_doctrine_parameter = female_dominated_law }
+#     }
+# The rule itself CANNOT be invoked (0 script invocations anywhere — it is an
+# engine hook, 42-marriage-extended.md §3.3c), so the three cheap rows are
+# copied and the rest of that branch — which reasons about
+# scope:secondary_actor's place in the line of succession — is dropped,
+# because there is no chosen spouse yet when this runs.
+#
+# `has_realm_law = female_only_law` / `female_preference_law` — REAL:
+#   GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:1069-1070
+# `faith = { has_doctrine_parameter = female_dominated_law }` — REAL:
+#   GAME\common\scripted_rules\00_rules.txt:682-684,
+#   GAME\common\culture\traditions\00_realm_traditions.txt:960
+#
+# CALLED WHILE NOTHING IS CHOSEN ONLY. The two openers guard it with "no
+# spouse on either side yet" and window open runs it after the reset, so the
+# player's own choice of line is never overwritten once they have started.
+########################################################################
+tnt_marriage_default_line_effect = {
+	remove_variable = tnt_marriage_matri
+
+	if = {
+		limit = {
+			OR = {
+				has_realm_law = female_only_law
+				has_realm_law = female_preference_law
+				faith ?= { has_doctrine_parameter = female_dominated_law }
+			}
+		}
+		set_variable = {
+			name = tnt_marriage_matri
+			value = 1
+		}
+	}
+}
+
+
+########################################################################
+# tnt_exec_marriage_pair_effect        no params, fires at most once
+#
+# THE WEDDING. Replaces the body of tnt_exec_marriage_effect (E19,
+# tnt_32_apply.txt:534-570) — see the integration lines in NOTES3-marriage.md;
+# the call site at tnt_32_apply.txt:129 does not move.
+#
+# FOUR-WAY DISPATCH, and the reference implementation is vanilla's own at
+# GAME\events\interaction_events\marriage_interaction_events.txt:1016-1034,
+# which branches exactly this way (on the engine's betrothal flags rather
+# than on our variables):
+#     if matrilinear_betrothal  -> create_betrothal_matrilineal
+#     else_if patrilinear_betrothal -> create_betrothal
+#     else_if matrilinear_marriage  -> marry_matrilineal
+#     else                          -> marry
+#
+# ADULTHOOD DECIDES BETROTHAL VERSUS WEDDING. Not preference, not taste.
+#   EXE:287130 "Betroth the scope character to the target character,
+#   create_betrothal = target (at least one of the characters need to not be
+#   adult)"
+# and `marry` is the converse. The branch is load-bearing, not defensive
+# (42-marriage-extended.md W-1).
+#
+# LINEALITY IS DECIDED BY THE EFFECT NAME AND THE GENDERS — NOT BY THE SCOPE
+# THE EFFECT RUNS IN. This is the one thing about this feature that is easy
+# to get backwards. Verbatim proof,
+# GAME\common\scripted_effects\00_marriage_effects.txt:71-81:
+#     marry_spouse_1_dominant = {
+#         if = { limit = { $SPOUSE_1$ = { is_male = yes } }
+#             $SPOUSE_1$ = { marry = $SPOUSE_2$ } }
+#         else = { $SPOUSE_1$ = { marry_matrilineal = $SPOUSE_2$ } }
+#     }
+# i.e. marry / create_betrothal = PATRILINEAL = the MALE is dominant;
+# marry_matrilineal / create_betrothal_matrilineal = the FEMALE is dominant.
+# Corroborated at GAME\common\scripted_effects\00_game_rule_effects.txt:22-28.
+# Children take the dominant parent's house —
+# GAME\localization\english\game_concepts_l_english.yml:554.
+#
+# create_betrothal_matrilineal IS PROVEN, and v1's "known but unexercised"
+# verdict on it was wrong: real, non-tooltip call site at
+# GAME\common\scripted_effects\04_dlc_ep2_wedding_effects.txt:105
+# (create_grand_wedding_betrothal). Resolved as contradiction C-3 in
+# 30-V2-DESIGN §2.
+#
+# marry            26 uses, EXE:287117-287118
+# marry_matrilineal 17 uses, EXE:287119-287121
+# create_betrothal  49 uses, EXE:287130-287131
+# create_betrothal_matrilineal 3 uses, EXE:287132-287133
+#
+# THE PAIR IS RE-VALIDATED HERE FROM SCRATCH, ignoring tnt_marriage_legal.
+# The window stays open while the confirmation event is on screen, and either
+# spouse can die, marry or be betrothed elsewhere between the click and the
+# accept option. Watch error.log for the engine's own refusals if this ever
+# slips: "Characters aren't allowed to betroth or marry one another"
+# (EXE:287128) and "%s is not allowed to marry %s" (EXE:287129).
+#
+# NO show_as_tooltip / custom_tooltip IS NEEDED. This effect is also rendered
+# in tooltip mode by tnt_diplomacy.0001's refusal option, and all four
+# effects carry vanilla effect localization already translated into every
+# language — WILL_MARRY_EFFECT, WILL_MARRY_MATRILINEALLY_EFFECT,
+# CREATE_BETROTHAL_EFFECT, CREATE_BETROTHAL_MATRILINEAL_EFFECT
+# (GAME\localization\english\effects_l_english.yml:182,185,189,192,468,469).
+# That is why no tnt_ loc key is invented for the tooltip.
+#
+# SCOPES ARE TEMPORARY. 30-V2-DESIGN §3.5(e) lists tnt_wed_p/_r among the
+# permanent survivors; they do not need to be. Neither marry nor
+# create_betrothal documents needing a real scope, both are consumed inside
+# this one invocation, and a permanent save_scope_as would serialise two more
+# tnt_-named scopes into the savegame that nothing removes — which is exactly
+# the class of leak defect D4 came out of. m10 discipline applies.
+#
+# ======================================================================
+# MULTI-PAIR DEALS AND THE ALLIANCE (round 11, 2026-08-23).
+# EACH QUALIFYING PAIR IN tnt_wed_list RUNS THE TEST AND THE GRANT
+# INDEPENDENTLY. THERE IS NO `is_allied_to` GUARD AND THAT IS DELIBERATE.
+# The grant itself is in tnt_wed_one_pair_effect below, above its
+# grand/plain dispatch; this note is the argument for why the loop around
+# it needs nothing.
+#
+# WHAT A SECOND create_alliance ON AN ALREADY-ALLIED PAIR DOES - stated as
+# three hypotheses, because exactly one thing here is unproven and it must
+# not be written down as if it were settled.
+#
+#   PROVEN: AN ALLIANCE CARRIES A LIST OF REASON PAIRS, NOT ONE.
+#     on_alliance_broken's own contract declares two PARALLEL LISTS -
+#     GAME\common\on_action\alliance_on_actions.txt:290-294, "List 'first' =
+#     The \"left\" half of the reason characters ... The two lists are
+#     ordered together so the top of first and the top of second together
+#     make one alliance reason pair" - and it iterates them in a `while`
+#     over list_size (:312-345), breaking the betrothal of each pair in
+#     turn (:331-338). Vanilla would not ship a loop over a single pair.
+#     The binary agrees: CPdxHybridInlineBufferAllocator<SAllianceReason,
+#     CActiveRelation,2,int> at EXE 88732944 - a growable vector of reasons
+#     with two stored inline.
+#
+#   PROVEN: A DUPLICATE CALL IS NOT AN ERROR PATH.
+#     No "already allied" string exists anywhere in ck3.exe - full scan of
+#     every ASCII run containing "lliance", 91 hits, none is such a message.
+#     And vanilla ships at least one UNGUARDED create_alliance on a path
+#     that can hit an already-allied pair: the blood-brother on_action,
+#     GAME\common\on_action\relations\relation_on_actions.txt:1728-1732,
+#     with no is_allied_to row anywhere in it.
+#
+#   NOT PROVEN, AND IT IS THE ONE THING THE NEXT RUN MUST MEASURE:
+#     whether yields_alliance itself goes FALSE once the two arrangers are
+#     ALREADY allied. Nothing in vanilla or the binary answers this.
+#     *** DO NOT WRITE A SENTENCE ANYWHERE CLAIMING REASONS STACK UNTIL A
+#     *** TWO-COUPLE ALLY ROW HAS BEEN READ OFF A REAL RUN. ***
+#
+# THE SHIPPED DESIGN IS CORRECT UNDER ALL THREE, WHICH IS WHY IT NEEDS NO
+# RULING AND NO GUARD:
+#   - reasons stack        -> N reason pairs on ONE alliance, which is
+#                             exactly vanilla's own semantics: the alliance
+#                             survives while ANY of the deal's marriages
+#                             stands. Best case, and the reason the guard
+#                             is omitted.
+#   - yields goes false    -> pairs 2..N grant nothing. One alliance, one
+#                             reason. Harmless.
+#   - second call no-ops   -> the alliance from pair 1 still stands and the
+#                             deal continues. A refused engine effect logs
+#                             and continues, which this project has already
+#                             measured (the 36 change_title_holder
+#                             capital-barony lines, CLAUDE.md section 4).
+# The ONLY case the omitted guard would hurt is "a second call BREAKS the
+# first alliance", for which there is no evidence of any kind.
+#
+# WHY THE OBVIOUS GUARD IS REFUSED RATHER THAN MERELY OMITTED. Adding
+# `NOT = { is_allied_to } ` would actively LOSE behaviour: a pre-existing
+# alliance from an earlier deal would mean THIS marriage is never registered
+# as a reason, so the pact would die with the OLD marriage while the new one
+# still stands - a silent, delayed defect of exactly the kind
+# is_alliance_valid exists to prevent.
+#
+# WHAT SETTLES IT IN ONE RUN: the `pre=` field of the ALLY telemetry row
+# (tnt_3b_log.txt, L20 tnt_log_wedally_effect), which records whether the two
+# arrangers were already allied AT THE MOMENT OF THE CALL - which is why that
+# emitter runs BEFORE the grant. Stage two qualifying couples in one treaty
+# and read the second row: yield=1 pre=1 with the alliance surviving means
+# reasons stack; yield=0 pre=1 means the engine excludes an existing alliance.
+# Either way, record the measurement, do not guess.
+# ======================================================================
+########################################################################
+tnt_exec_marriage_pair_effect = {
+	if = {
+		limit = {
+			# The item is mutual: either flag being up means it is on the
+			# table (tnt_32_apply.txt fires this leg once for both sides).
+			OR = {
+				AND = {
+					exists = var:tnt_marriage_p
+					var:tnt_marriage_p > 0
+				}
+				AND = {
+					exists = var:tnt_marriage_r
+					var:tnt_marriage_r > 0
+				}
+			}
+			has_variable_list = tnt_wed_list
+			variable_list_size = { name = tnt_wed_list  value > 0 }
+		}
+
+		# --- the two things the loop needs and cannot read for itself --
+		# Inside every_in_list the current scope is the LIST MEMBER, so a
+		# `var:tnt_partner` written inside the loop would resolve against a
+		# courtier and silently read nothing. Both are therefore converted to
+		# temporary scopes HERE, in the player's own scope, exactly once.
+		save_temporary_scope_as = tnt_wed_host
+		var:tnt_partner ?= { save_temporary_scope_as = tnt_wed_promisee }
+
+		# The grand wedding, if it was promised and still may be, is carried
+		# into the loop as a scope too — one designated pair, never all of them
+		# (see tnt_wed_grand_pair_effect).
+		if = {
+			limit = {
+				exists = var:tnt_wed_grand
+				var:tnt_wed_grand > 0
+				exists = var:tnt_wed_principal
+
+				# THE HOST GATE. *** v3 ITERATION 6 — THE SEVEN HAND-COPIED ROWS
+				# THAT USED TO SIT HERE ARE GONE. *** They are now the named
+				# trigger tnt_wed_host_gate_trigger (T44,
+				# common\scripted_triggers\tnt_41_gates.txt), which is this
+				# author's file, and this is the call. Every vanilla line number
+				# the seven rows come from is in that trigger's header. Copy 2 of
+				# 3 is retired; see THE HOST GATE block below for what remains.
+				tnt_wed_host_gate_trigger = yes
+			}
+			var:tnt_wed_principal ?= { save_temporary_scope_as = tnt_wed_gw_pair }
+		}
+
+		every_in_list = {
+			variable = tnt_wed_list
+			limit = {
+				is_alive = yes
+				exists = var:tnt_wed_partner
+			}
+			tnt_wed_one_pair_effect = yes
+		}
+
+		# --- the cleanup, in the mandated order -----------------------
+		# The loop above skipped every dead or incoherent member, so those
+		# members still carry tnt_wed_partner - which is exactly what clear_all's
+		# own limit tests since 2026-08-24, so it strips them anyway; then the
+		# list is emptied. Doing it HERE and not only in the reset later in
+		# tnt_apply_deal_effect is deliberate: this effect is the one that knows
+		# the pairs have been consumed, and both calls are idempotent so the
+		# second is a no-op.
+		tnt_wed_clear_all_effect = yes
+	}
+}
+
+
+########################################################################
+# THE HOST GATE — *** NOW A NAMED TRIGGER. THE COPY-PASTE IS ENDING. ***
+#
+# v3 ITERATION 6. The seven rows are tnt_wed_host_gate_trigger, T44 in
+# common\scripted_triggers\tnt_41_gates.txt — a file this author owns, which is
+# what changed. The old note said the rows "cannot be factored out" because the
+# only home for them, tnt_40_triggers.txt, belongs to somebody else; that stopped
+# being true the moment tnt_41_gates.txt existed, and the borrowed marriage panel
+# forced the issue by needing a fourth copy.
+#
+# STATUS OF THE THREE OLD COPIES:
+#   copy 2  tnt_exec_marriage_pair_effect (above)  ** RETIRED — calls T44 **
+#   copy 1  tnt_wed_grand_toggle's is_valid, common\scripted_guis\tnt_22a_marriage.txt
+#           STILL HAND-WRITTEN. Not this author's file (R14). The replacement is
+#           one line: delete the seven rows and put `tnt_wed_host_gate_trigger = yes`
+#           inside the custom_tooltip that already wraps them. Reported in the handoff.
+#   copy 3  tnt_marriage_grand_value, common\script_values\tnt_52_marriage_values.txt
+#           STILL HAND-WRITTEN. Same treatment, same reason.
+#   copy 4  which the picker would have been, was never written: the picker's
+#           grand_wedding_promise send_option calls T44
+#           (common\character_interactions\tnt_12_marriage_picker.txt).
+#
+# UNTIL COPIES 1 AND 3 SWITCH, **T44 IS THE AUTHORITATIVE LIST** — the gate, the
+# price and the execution must agree or the player is charged for a wedding that
+# never happens, and the two stragglers are now the ones that can be wrong. The
+# vanilla line numbers below are kept here as the record; T44's own header repeats
+# them, so a reader who lands on either finds the evidence.
+#
+# Every row verbatim from vanilla's own grand_wedding_promise
+# send_option, GAME\common\character_interactions\00_marriage_interactions.txt:763-793:
+#   :765   highest_held_title_tier > tier_barony
+#   :766   is_landed_or_landless_administrative = yes
+#   :774   has_dlc_feature = tours_and_tournaments
+#   :775   has_dlc_feature = advanced_activities
+#   :785   gold >= real_wedding_cost_actor_scope   -> we use base_wedding_cost
+#          (GAME\common\script_values\04_ep2_wedding_values.txt:857-892), which is
+#          the same number BEFORE vanilla's era multiplier and is the only form
+#          that is scope-free — real_wedding_cost_actor_scope reads scope:actor
+#          and scope:host, neither of which exists in a scripted_gui is_valid.
+#          Deliberately the LENIENT bound: the promise costs nothing, the
+#          activity does, and vanilla itself lets a promise expire.
+#   :786   is_available = yes
+#   :789-792 NOR = { var:promised_grand_wedding_marriage_countdown ?= { is_alive = yes }
+#                    has_variable = grand_wedding_promise_pending }
+#          — one host, one outstanding promise. Reading a vanilla variable with
+#          `?=` inside a TRIGGER is vanilla's own shape at that very line.
+#
+# THE PAIR GATE, also vanilla's, applied to the PRINCIPAL pair only:
+#   :799-818  grand_wedding_only_dominant_side — OUR candidate must be the
+#             dominant partner: female => the match must be matrilineal, male
+#             => patrilineal. The host's family holds the wedding, so vanilla
+#             refuses to let the non-dominant side host.
+#   :819-824  grand_wedding_only_family — our candidate must be
+#             is_close_or_extended_family_of the host.
+########################################################################
+
+
+########################################################################
+# tnt_wed_one_pair_effect         no params
+#
+# SCOPE: ONE MEMBER OF tnt_wed_list, i.e. the player-side spouse of one pair.
+# Reads root's world only through the three scopes saved by the caller.
+#
+# THE WRAP THAT KEEPS ONE BAD PAIR FROM KILLING THE DEAL is two-layered and
+# both layers are needed:
+#   * the caller's `limit` skips a member who died or lost its partner
+#     variable — every_in_list simply moves to the next member, it does not
+#     abort (GAME\common\script_values\00_diarchy_values.txt:3746-3756 is the
+#     same shape);
+#   * the `if` below re-validates the pair FROM SCRATCH against vanilla's own
+#     can_marry_character_trigger, ignoring the tnt_marriage_legal mirror
+#     entirely. The window stays open while the confirmation event is on
+#     screen, so between the click and the accept option either spouse can die,
+#     marry, or be betrothed elsewhere. A pair that fails is silently dropped
+#     and the remaining pairs still execute — which is the behaviour the deal
+#     needs: nine good marriages must not be lost to one dead bride.
+# Watch error.log for the engine's own refusals if that ever slips:
+# "Characters aren't allowed to betroth or marry one another" (EXE:287128) and
+# "%s is not allowed to marry %s" (EXE:287129).
+#
+# THE FOUR-WAY DISPATCH IS UNCHANGED FROM THE SINGLE-PAIR BUILD except that the
+# line is read PER PAIR off the member itself (var:tnt_wed_matri) instead of off
+# the player. Reference implementation, branching the same four ways:
+# GAME\events\interaction_events\marriage_interaction_events.txt:1016-1034.
+# ADULTHOOD DECIDES BETROTHAL VERSUS WEDDING — EXE:287130, "at least one of the
+# characters need to not be adult" — and lineality is decided by the effect NAME,
+# not by the scope it runs in: marry / create_betrothal = PATRILINEAL = the male
+# is dominant (GAME\common\scripted_effects\00_marriage_effects.txt:71-81).
+########################################################################
+tnt_wed_one_pair_effect = {
+	save_temporary_scope_as = tnt_wed_p
+	var:tnt_wed_partner ?= { save_temporary_scope_as = tnt_wed_r }
+
+	if = {
+		limit = {
+			exists = scope:tnt_wed_r
+			NOT = { scope:tnt_wed_p = { this = scope:tnt_wed_r } }
+			scope:tnt_wed_p = {
+				is_alive = yes
+				can_marry_character_trigger = { CHARACTER = scope:tnt_wed_r }
+			}
+			scope:tnt_wed_r = { is_alive = yes }
+			# V18, USER ITEM 2 - THE LAST GATE BEFORE THE WEDDING ACTUALLY
+			# HAPPENS, and the direct answer to "what about a match that is
+			# ALREADY staged". A committed pair is re-validated here from
+			# scratch (see the header), so this is where a pair that has become
+			# un-offerable is caught: the kinsman was enfeoffed while the deal
+			# sat, or the letter's 200 days ran while he took a title, or the
+			# pair was committed before this rule existed. Such a pair is
+			# silently dropped and the rest of the treaty still executes - the
+			# behaviour the header already documents for a stale pair, and the
+			# pricing loops already skip dead pairs
+			# (tnt_52_marriage_values.txt:1265-1274).
+			# The two handles are the caller's own saved scopes
+			# (tnt_exec_marriage_pair_effect above): tnt_wed_host is the player,
+			# tnt_wed_promisee is var:tnt_partner. Both absolute; the wrapper
+			# means a call without a partner scope is not misjudged.
+			# T51 is vanilla's rule - tnt_41_gates.txt.
+			trigger_if = {
+				limit = { exists = scope:tnt_wed_promisee }
+				scope:tnt_wed_p = {
+					tnt_may_offer_spouse_trigger = { SIDE = scope:tnt_wed_host }
+				}
+				scope:tnt_wed_r = {
+					tnt_may_offer_spouse_trigger = { SIDE = scope:tnt_wed_promisee }
+				}
+			}
+		}
+
+		#===============================================================
+		# THE ALLIANCE. A DEAL MARRIAGE NOW BEHAVES LIKE A VANILLA ONE.
+		# USER RULING, 2026-08-23, ROUND 11. It REVERSES a standing ruling
+		# and the distinction is written out in CLAUDE.md section 4: the
+		# ALLIANCE TERM FAMILY STAYS RETIRED - nobody buys an alliance on
+		# the sheet, there is no tnt_alliance_p/_r and there will not be.
+		# What is restored is a CONSEQUENCE that vanilla's own marriage
+		# already carries and that our borrowed panel silently dropped.
+		#
+		# WHY IT HAD TO BE WRITTEN AT ALL. A vanilla arrange-marriage DOES
+		# create an alliance, entirely in C++, switched on by
+		# `special_interaction = arrange_marriage_interaction`
+		# (GAME\common\character_interactions\_character_interactions.info:580,
+		# repeated verbatim :661 - "It automatically marries/betroths the
+		# secondary participants and sets up alliances and hands out
+		# prestige"). OUR picker deliberately omits that key, and that
+		# omission IS the mod's marriage design and MUST NOT be reversed -
+		# so the bundle's alliance half never fired for us. There is no
+		# script path to inherit either: ~40 create_alliance sites in
+		# vanilla and not one on the marriage path. Vanilla itself proves
+		# script `marry` grants nothing, by contradiction - it marries by
+		# script at GAME\events\dlc\fp1\fp1_trade_events.txt:2242 and writes
+		# create_alliance on the NEXT line (:2243).
+		#
+		# WHY THE TEST AND THE GRANT SIT HERE, ABOVE THE DISPATCH, AND NOT
+		# INSIDE tnt_wed_plain_pair_effect OR tnt_wed_grand_pair_effect.
+		# Three reasons, each load-bearing on its own:
+		#   (1) THE PREDICATE IS A QUESTION ABOUT A MARRIAGE THAT HAS NOT
+		#       HAPPENED. The binary documents yields_alliance at EXE
+		#       70954656 as "Checks if the character WOULD get an alliance
+		#       with the target character THROUGH SUCH A MARRIAGE". All
+		#       nine vanilla sites ask it of a pair carrying no bond -
+		#       including the one post-hoc site, which breaks the betrothal
+		#       FIRST (00_marriage_interaction_effects.txt:1658) and asks
+		#       SECOND (:1662). Asking after `marry` would be asking a
+		#       question no vanilla site has ever asked.
+		#   (2) TOOLTIP HONESTY, and this is the one that would have
+		#       shipped a defect. This chain is RENDERED IN TOOLTIP MODE
+		#       from events\tnt_events.txt:103 and
+		#       events\tnt_ai_events.txt:1455. In tooltip mode nothing
+		#       above has executed, so a test placed AFTER the dispatch
+		#       would read the PRE-wedding world in the tooltip and the
+		#       POST-wedding world at run time - exactly the divergence
+		#       that produced the user-reported DOUBLE BETROTHAL LINE in
+		#       the confirmation tooltip and forced the hidden_effect
+		#       further down this file (the grand leg's fallback). Testing
+		#       before the dispatch makes the tooltip's answer and the
+		#       run's answer the same answer, by construction.
+		#   (3) NO DOUBLE-FIRE, AND ONE PLACE COVERS ALL THREE BRANCHES.
+		#       Plain marriage, plain betrothal and grand-wedding betrothal
+		#       are all downstream of the dispatch below. And
+		#       tnt_wed_grand_pair_effect FALLS BACK to
+		#       tnt_wed_plain_pair_effect when the engine refuses an
+		#       adult-adult betrothal, so a grant inside either leg would
+		#       fire twice on that path. A grant above the dispatch cannot.
+		#
+		# GRANTING BEFORE THE BOND EXISTS IS SAFE, AND IT IS VANILLA'S OWN
+		# ORDER TOO: the defensive-negotiations branch calls create_alliance
+		# at 00_alliance.txt:1514-1520 and only THEN adds the opinion
+		# modifier that is_alliance_valid demands (:1521-1526, against
+		# 00_rules.txt:367-375). Vanilla ships an alliance whose reason is
+		# invalid at the instant of creation - the engine does not validate
+		# a reason at creation time.
+		#
+		# A BETROTHAL IS A REAL ALLIANCE CARRIER IN THIS ENGINE, which is
+		# why the betrothal branches are included rather than special-cased.
+		# Four independent proofs: is_alliance_valid accepts
+		# `betrothed = scope:second` as a standing reason (00_rules.txt:354);
+		# on_alliance_broken BREAKS the betrothal of each reason pair
+		# (alliance_on_actions.txt:331-338); breaking a betrothal breaks the
+		# alliance when yields_alliance (00_marriage_interaction_effects.txt
+		# :1659-1668) - you cannot break what was never made; and vanilla's
+		# own combined site creates the alliance in BOTH branches of
+		# marry-or-betroth (fp1_trade_events.txt:2231-2247).
+		#
+		# THE REASON CHARACTERS ARE THE TWO SPOUSES, NOT THE TWO RULERS, and
+		# that is the half that keeps the alliance honest afterwards. The
+		# engine's own doc string (EXE 71691488): "Create an alliance between
+		# the scoped character and the target. The allied through characters
+		# determine who gets checked against for if the alliance should
+		# persist or not." is_alliance_valid (00_rules.txt:346-400) re-checks
+		# the REASON pair with root = allied_through_owner and
+		# scope:second = allied_through_target, and passes on
+		# `any_spouse = { this = scope:second }` (:351-353) or
+		# `betrothed = scope:second` (:354). Pass the SPOUSES and the
+		# alliance lives exactly as long as the match does and dies with it
+		# through vanilla's own machinery, with NO opinion modifier of ours
+		# anywhere and msg_expired_alliance protection for free. Pass the
+		# RULERS and the pact would need a kinship or an opinion modifier to
+		# survive the next validity sweep - which is precisely the defect the
+		# retired alliance term had to patch with
+		# event_negotiated_alliance_opinion (its tombstone is at
+		# tnt_32_apply.txt:920-948). REFERENCE SHAPE, ours verbatim:
+		# 00_alliance.txt:1502-1508, `scope:actor = { create_alliance = {
+		# target = scope:recipient  allied_through_owner = scope:actor_spouse
+		# allied_through_target = scope:recipient_spouse } }` - executed in an
+		# arranger's scope, target the OTHER arranger, reasons two relatives
+		# married to each other and neither of them a ruler. The degenerate
+		# sibling where the rulers ARE the couple is :1380-1386.
+		#
+		# THE PARTNER HANDLE IS scope:tnt_deal_partner AND NOTHING ELSE.
+		# NOT var:tnt_partner and NOT scope:tnt_wed_promisee, even though the
+		# latter is saved two lines above and looks convenient.
+		# tnt_apply_deal_effect GUARANTEES the deal scope on both paths and
+		# opens by testing it (tnt_32_apply.txt:140-142); every other exec leg
+		# in that file takes it. scope:tnt_wed_promisee is derived from
+		# var:tnt_partner with `?=` - a WINDOW variable which this file only
+		# converts opportunistically and which the currency legs' own header
+		# names as untrustworthy at apply time
+		# (tnt_33_currency_apply.txt:163-168). On a stale-letter case that
+		# would ally the player to whoever he last opened a window on.
+		#
+		# NO `is_allied_to` GUARD, DELIBERATELY. See the three-hypothesis
+		# argument in tnt_exec_marriage_pair_effect's header above: a guard
+		# would LOSE behaviour, because a pre-existing alliance would mean
+		# this new marriage is never registered as a reason and the pact would
+		# then die with the OLD marriage while the new one still stands.
+		#
+		# *** AND THAT IS WHY THIS BLOCK AND THE PRICE BRIDGE DISAGREE ON THE
+		# *** GUARD ON PURPOSE. DO NOT HARMONISE THEM. *** The alliance bridge
+		# in tnt_wed_reprice_all_effect (this file, above) DOES carry
+		# `NOT = { is_allied_to }`, and it is right to: it answers "should the
+		# player be CHARGED for this alliance", and a pact he already holds is
+		# worth nothing new, which is vanilla's own reasoning on all three of
+		# its stance rows (00_marriage_scripted_modifiers.txt:216, :309, :345).
+		# This block answers a different question - "should this marriage be
+		# REGISTERED as a reason the pact survives on" - and the answer there is
+		# yes even when a pact already exists. Charging twice would be a defect;
+		# registering twice is the whole point. Two questions, two guards.
+		#
+		# SPELLING TRAP THE MOD BLACKLISTS: it is `target`, NEVER `with`; and
+		# `allied_through_target`, NEVER `..._recipient`.
+		#
+		# ZERO NEW LOC KEYS. create_alliance has an effect_localization entry
+		# (00_additional_effects.txt:59-62) so the confirmation tooltip renders
+		# "Forms an alliance with <partner>" out of Paradox's own
+		# CREATE_ALLIANCE_EFFECT in all nine languages. on_alliance_added
+		# (alliance_on_actions.txt:4-28) notifies both sides for free.
+		#===============================================================
+		# The row is emitted BEFORE the grant so it can record the pre-state
+		# (`pre=`), which is the field that settles the multi-pair stacking
+		# question. hidden_effect is mandatory: this chain is rendered as a
+		# tooltip (see (2) above) and error_log has no effect_localization
+		# entry. Same idiom this file already uses further down.
+		hidden_effect = {
+			tnt_log_wedally_effect = yes
+		}
+
+		if = {
+			limit = {
+				exists = scope:tnt_deal_partner
+				# T54 - the ONE binding of yields_alliance in the mod.
+				# tnt_41_gates.txt. Never inline the engine trigger:
+				# the three arguments are silent when swapped.
+				tnt_pair_yields_alliance_trigger = {
+					P     = scope:tnt_wed_p
+					R     = scope:tnt_wed_r
+					ME    = scope:tnt_wed_host
+					OTHER = scope:tnt_deal_partner
+				}
+			}
+			scope:tnt_wed_host = {
+				create_alliance = {
+					target = scope:tnt_deal_partner
+					allied_through_owner = scope:tnt_wed_p
+					allied_through_target = scope:tnt_wed_r
+				}
+			}
+		}
+
+		# --- is THIS the pair the grand wedding was promised for? -----
+		if = {
+			limit = {
+				exists = scope:tnt_wed_gw_pair
+				exists = scope:tnt_wed_promisee
+				scope:tnt_wed_p = { this = scope:tnt_wed_gw_pair }
+				# the pair half of vanilla's gate (:799-824)
+				scope:tnt_wed_p = { is_close_or_extended_family_of = scope:tnt_wed_host }
+				OR = {
+					AND = {
+						scope:tnt_wed_p = { is_female = yes }
+						exists = var:tnt_wed_matri
+					}
+					AND = {
+						scope:tnt_wed_p = { is_male = yes }
+						NOT = { exists = var:tnt_wed_matri }
+					}
+				}
+			}
+			tnt_wed_grand_pair_effect = yes
+		}
+		# --- an ordinary pair ----------------------------------------
+		else = {
+			tnt_wed_plain_pair_effect = yes
+		}
+	}
+}
+
+
+########################################################################
+# tnt_wed_plain_pair_effect       no params
+#
+# SCOPE: one member of tnt_wed_list, with scope:tnt_wed_p and scope:tnt_wed_r
+# already saved by the caller and the pair already re-validated.
+#
+# Split out of tnt_wed_one_pair_effect for exactly one reason: the grand-wedding
+# leg needs the identical four rows as its FALLBACK when the engine refuses to
+# betroth (see there), and copying them would be two places to get the
+# lineality backwards in.
+#
+# NO show_as_tooltip / custom_tooltip IS NEEDED anywhere in this chain. It is
+# also rendered in tooltip mode by tnt_diplomacy.0001's refusal option, and all
+# four engine effects carry vanilla effect localization already translated into
+# every language — WILL_MARRY_EFFECT, WILL_MARRY_MATRILINEALLY_EFFECT,
+# CREATE_BETROTHAL_EFFECT, CREATE_BETROTHAL_MATRILINEAL_EFFECT
+# (GAME\localization\english\effects_l_english.yml:182,185,189,192,468,469).
+# That is why no tnt_ loc key is invented for the tooltip, and it is why a
+# multi-pair deal's tooltip reads as N sentences with no work from us.
+########################################################################
+tnt_wed_plain_pair_effect = {
+	# --- both adults: they wed at once --------------------------------
+	if = {
+		limit = {
+			scope:tnt_wed_p = { is_adult = yes }
+			scope:tnt_wed_r = { is_adult = yes }
+		}
+		if = {
+			limit = { exists = var:tnt_wed_matri }
+			scope:tnt_wed_p = { marry_matrilineal = scope:tnt_wed_r }
+		}
+		else = {
+			scope:tnt_wed_p = { marry = scope:tnt_wed_r }
+		}
+	}
+	# --- at least one minor: a betrothal ------------------------------
+	else = {
+		if = {
+			limit = { exists = var:tnt_wed_matri }
+			scope:tnt_wed_p = { create_betrothal_matrilineal = scope:tnt_wed_r }
+		}
+		else = {
+			scope:tnt_wed_p = { create_betrothal = scope:tnt_wed_r }
+		}
+	}
+}
+
+
+########################################################################
+# tnt_wed_grand_pair_effect       no params        THE GRAND WEDDING
+#
+# SCOPE: the principal pair's player-side spouse, with scope:tnt_wed_p,
+# scope:tnt_wed_r, scope:tnt_wed_host and scope:tnt_wed_promisee saved and both
+# halves of vanilla's gate already passed by the caller.
+#
+# ===========================================================================
+# WE DO NOT START AN ACTIVITY. WE RIDE VANILLA'S PROMISE MECHANISM.
+# ===========================================================================
+# THE RESEARCH, because the next author will want to know why there is no
+# create_activity call here.
+#
+# activity_wedding is defined in
+# GAME\common\activities\activity_types\wedding.txt — 109 KB of phases, options,
+# intents, guest invite rules and locale machinery. Nothing here reimplements
+# any part of it, and nothing here schedules it either. Vanilla does not
+# schedule it at promise time: it writes THREE VARIABLES and lets the host plan
+# the activity himself before a timeout.
+#
+# WHO WRITES promised_grand_wedding_marriage_countdown (wedding.txt:32-33 reads
+# it): exactly one effect, GAME\common\scripted_effects\04_dlc_ep2_wedding_effects.txt:6-31,
+#     set_grand_wedding_betrothal_variables = { SPOUSE_1 SPOUSE_2 HOST PROMISEE }
+# and it does four things and only four:
+#   * promised_grand_wedding_by = HOST on BOTH spouses (:8, :12)
+#   * promised_grand_wedding_marriage_countdown = SPOUSE_1 on the HOST, with
+#     `years = grand_wedding_timeout` (:16-20)
+#   * promised_grand_wedding_to = PROMISEE on the HOST (:21-24)
+#   * trigger_event = { id = ep2_wedding.0001  days = grand_wedding_timeout_notification }
+#     — vanilla's own "your promise is about to expire" notification (:26-29)
+# It is SELF-CONTAINED: `grand_wedding_timeout`
+# (GAME\common\script_values\00_age_values.txt:90-102) reads scope:spouse_1 and
+# scope:spouse_2, and the effect itself saves both scopes at :9 and :13 before
+# using them. It needs no scope:activity, no scope:host and no running activity.
+#
+# MAY A MOD USE IT? YES, and vanilla's own header says so in as many words at
+# 04_dlc_ep2_wedding_effects.txt:1-2: "they must already have been betrothed by
+# the code hook in the marry interaction or by manually setting a betrothal. For
+# manual betrothal setting prefer using create_grand_wedding_betrothal." That
+# sibling effect (:97-120) is create_betrothal followed by exactly this call and
+# has THREE real non-tooltip call sites outside the interaction system:
+#   GAME\events\court_events\court_events_general.txt:621
+#   GAME\events\government_events\clan_events.txt:100 and :221
+# so the manual route is a supported, exercised path and not an internal.
+#
+# WHY WE DO NOT CALL create_grand_wedding_betrothal ITSELF: it forces the line
+# from the genders — `if SPOUSE_1 is_female -> create_betrothal_matrilineal`
+# (:98-112) — which would silently overrule the line the player chose for this
+# pair. So the betrothal is created here with the player's line and vanilla's
+# variable-writer is called afterwards, which is precisely the "already
+# betrothed" entry point its own header documents.
+#
+# WHY THE PAIR IS BETROTHED AND NOT MARRIED, even when both are adults: the
+# grand wedding IS the wedding. Vanilla's interaction converts an adult-adult
+# marriage into a betrothal through a hard-coded code hook we cannot call
+# (00_marriage_interaction_effects.txt:201-212 sets the variables; the toast at
+# :223-238 shows vanilla treating a promised pair as betrothed regardless of
+# adulthood), and grand_wedding_timeout is 3 years + the younger's
+# years_to_adulthood, i.e. 3 years for two adults. So a betrothal for adults is
+# vanilla's intent, not a workaround.
+#
+# AND THIS IS WHY THE ATTEMPT IS VERIFIED. EXE:287130 documents create_betrothal
+# as needing at least one non-adult, and no vanilla site proves the adult-adult
+# case, so the engine may refuse. `betrothed` is read back to see whether it
+# took — `scope:X.betrothed = scope:Y` is vanilla's own test at
+# GAME\common\character_interactions\00_marriage_interactions.txt:639 — and if it
+# did not, the pair falls back to the ordinary dispatch and MARRIES. The couple
+# always ends up wed or betrothed; the only thing that can be lost is the feast.
+# NOTHING IS FAKED and nothing is left half-done.
+#
+# THE PROMISE IS A PROMISE, AND THE LOCALIZATION MUST SAY SO. Vanilla's own
+# promise expires (ep2_wedding.0001) and breaking it costs
+# broke_betrothal_grand_wedding_opinion (00_marriage_interactions.txt:2321). The
+# host still has to plan and pay for the activity — base_wedding_cost, scaled by
+# era — and wedding.txt:27 gates activity_wedding on
+# `is_activity_type_on_cooldown = activity_wedding`, so a host who has just held
+# a wedding cannot immediately hold another. Our toggle promises a promise. See
+# the handoff note on the loc keys.
+#
+# WE WRITE FOUR VANILLA VARIABLES AND WE MUST NEVER GARBAGE-COLLECT THEM.
+# promised_grand_wedding_by, promised_grand_wedding_marriage_countdown and
+# promised_grand_wedding_to become VANILLA'S state the instant they are written,
+# and vanilla owns their whole lifecycle: clean_grand_wedding_betrothal_variables
+# (04_dlc_ep2_wedding_effects.txt:33-40), the host-death handover
+# (GAME\common\on_action\death.txt:515-545), the title handover
+# (title_on_actions.txt:4104-4130), the war path (00_war_effects.txt:290) and the
+# broken-betrothal path (00_marriage_interactions.txt:2232-2239). tnt_wed_gc_effect
+# touches tnt_-named state ONLY. Removing one of these would break vanilla's
+# machinery, not clean up after ours.
+#
+# ONE NAMING HAZARD, INHERITED: set_grand_wedding_betrothal_variables does
+# `save_scope_as = spouse_1` / `spouse_2` (:9, :13) — permanent, in whatever
+# scope container is running. Nothing in this mod may ever use either name.
+# Everything of ours is tnt_-prefixed, so there is no collision today; defect D4
+# was exactly this class of bug and is the reason it is written down here.
+########################################################################
+tnt_wed_grand_pair_effect = {
+	# --- the betrothal, with the player's own line ---------------------
+	if = {
+		limit = { exists = var:tnt_wed_matri }
+		scope:tnt_wed_p = { create_betrothal_matrilineal = scope:tnt_wed_r }
+	}
+	else = {
+		scope:tnt_wed_p = { create_betrothal = scope:tnt_wed_r }
+	}
+
+	# --- did the engine accept it? -------------------------------------
+	# HIDDEN FROM THE TOOLTIP, AND THE HIDING IS A FIX, NOT A TIDY-UP. At
+	# tooltip-build time the create_betrothal above has not EXECUTED, so
+	# the read-back below is FALSE and the walker rendered the else's
+	# dispatch as a SECOND wedding line for the same pair — the user's
+	# double «Заключает помолвку…» on every surface that renders
+	# tnt_apply_deal_effect in tooltip mode (tnt_events.txt accept option
+	# and refusal preview, tnt_ai_events.txt letter accept option).
+	# hidden_effect executes normally and renders nothing — PDX's own
+	# comment on exactly this pattern is at
+	# GAME\common\scripted_effects\00_interaction_effects.txt:2158 ("To
+	# avoid errors during tooltip generation"), already load-bearing in
+	# this mod at tnt_32_apply.txt's tnt_exec_vassal_effect. The rare
+	# REAL fallback (the engine refuses an adult-adult betrothal,
+	# EXE:287130) then marries without its own tooltip line — the trade
+	# the header above already accepts: "the only thing that can be lost
+	# is the feast".
+	hidden_effect = {
+		if = {
+			limit = { scope:tnt_wed_p = { betrothed ?= scope:tnt_wed_r } }
+
+			set_grand_wedding_betrothal_variables = {
+				SPOUSE_1 = scope:tnt_wed_p
+				SPOUSE_2 = scope:tnt_wed_r
+				HOST     = scope:tnt_wed_host
+				PROMISEE = scope:tnt_wed_promisee
+			}
+		}
+		# --- it did not: they simply marry, and no promise is made -----
+		else = {
+			tnt_wed_plain_pair_effect = yes
+		}
+	}
+}
+
+
+########################################################################
+# THE VARIABLE AUDIT — EVERY WRITE, AND WHERE IT IS REMOVED
+#
+# R-CLEAN in full. Read down the WROTE column; every row must have a REMOVED
+# column entry, and every removal must be reachable without the window.
+#
+# ON THE PLAYER
+#   tnt_wed_list        LIST. tnt_wed_add_pair_effect
+#                       -> tnt_wed_clear_all_effect  (clear_variable_list, AFTER the strip loop)
+#   tnt_wed_principal   tnt_wed_add_pair_effect (first pair), tnt_wed_sync_effect (2b),
+#                       tnt_wed_set_principal (sgui)
+#                       -> tnt_wed_clear_all_effect; also dropped by
+#                          tnt_wed_drop_pair_effect and by tnt_wed_sync_effect 2a
+#                          when it stops being a live member
+#   tnt_wed_grand       tnt_wed_grand_toggle (sgui)
+#                       -> tnt_wed_clear_all_effect; also by tnt_wed_sync_effect 2c
+#                          the moment there is no principal pair
+#   tnt_wed_dup         tnt_marriage_sync_effect
+#                       -> tnt_marriage_sync_effect's own first lines (recomputed
+#                          from scratch every call), tnt_reset_marriage_effect,
+#                          tnt_wed_clear_all_effect
+#   tnt_marriage_p/_r   tnt_wed_add_pair_effect (and the two pre-existing toggles
+#                       in tnt_20_scripted_guis.txt, which are not ours)
+#                       -> tnt_wed_sync_effect (empty list), tnt_wed_clear_all_effect,
+#                          tnt_30_effects.txt:533 and :547 (the reset, pre-existing)
+#   tnt_spouse_p/_r, tnt_marriage_matri, tnt_marriage_legal,
+#   tnt_marriage_betroth, tnt_marriage_line_shown
+#                       -> tnt_reset_marriage_effect, unchanged from build 3
+#   tnt_list_spouse_p/_r  LISTS -> tnt_clear_spouse_lists_effect, unchanged
+#
+# ITERATION 6 ADDS NO VARIABLE AND NO LIST. tnt_wed_stage_pair_effect writes only
+# names that are already in this audit — tnt_marriage_matri, tnt_spouse_p,
+# tnt_spouse_r, tnt_wed_principal, tnt_wed_grand — and it appends to tnt_wed_list
+# only by CALLING tnt_wed_add_pair_effect, never itself. So every removal path
+# above already covers the borrowed panel, and there is nothing new to strip. That
+# is the whole reason the panel was wired through the existing commit effect
+# instead of being given its own append.
+#
+# ON A CHARACTER WHO IS NOT THE PLAYER  *** THE DANGEROUS TWO ***
+#   tnt_wed_partner     tnt_wed_add_pair_effect
+#   tnt_wed_matri       tnt_wed_add_pair_effect, tnt_wed_row_line_flip (sgui)
+#                       -> BOTH, and only ever together, in tnt_wed_strip_effect,
+#                          which is called from exactly three places:
+#                            tnt_wed_clear_all_effect   (every member, no limit)
+#                            tnt_wed_drop_pair_effect   (one member)
+#                          and nowhere else. Nothing else may write them.
+#   tnt_wed_gain/_loss/_net   tnt_wed_add_pair_effect (at commit) and
+#                       tnt_wed_reprice_all_effect (every table edit)
+#                       -> tnt_wed_strip_effect, exactly as above
+#   tnt_wed_ally        ALLIANCE ROUND, 2026-08-23. tnt_wed_reprice_all_effect,
+#                       which writes it on the pairs whose match satisfies
+#                       vanilla's own `yields_alliance` and REMOVES it on the
+#                       pairs that do not, in the same iteration
+#                       -> tnt_wed_strip_effect, exactly as above, plus the
+#                          uninstall sweep's world walk
+#                          (common\decisions\tnt_86_uninstall.txt step 5)
+#   ON THE PLAYER, THE FLAG THOSE PAIRS FEED:
+#   tnt_wed_ally_any    tnt_wed_reprice_all_effect only
+#                       -> the top of that same effect (unconditional, every
+#                          call), tnt_wed_clear_all_effect, and the uninstall
+#                          sweep's player pass (tnt_86_uninstall.txt step 2)
+#
+# ON A CHARACTER WHO IS NOT THE PLAYER  *** THE ADDON'S GRADE FAMILY, V23 ***
+# A DIFFERENT FAMILY WITH A DIFFERENT OWNER LIST AND A DIFFERENT STRIPPER FROM
+# THE TWO ABOVE. tnt_wed_strip_effect DOES NOT COVER THESE and must never be made
+# to: it is keyed to tnt_wed_list, and these are keyed to the candidate lists.
+# SINCE THE V23 SPLIT THE FAMILY BELONGS TO THE MARRIAGE CALCULATION ASSISTANT:
+# the core calls four tnt_ma_grade_* hooks (empty stubs in tnt_1f_addon_hooks.txt,
+# redefined by the addon's tnt_ma_10_grade.txt) and never touches the variables.
+#   tnt_spouse_grade_p  written by the addon's stamp hook at the moment
+#                       tnt_spouse_try_add_effect appends to tnt_list_spouse_p
+#   tnt_spouse_grade_r  same, for tnt_list_spouse_r
+#                       -> removed by the addon's strip hooks, whose four
+#                          shipped call sites in the core are:
+#                            tnt_fill_spouse_p_effect       first line, strip_p
+#                            tnt_fill_spouse_r_effect       first line, strip_r
+#                            tnt_clear_spouse_lists_effect  first line, strip_all
+#                              - which is what the window close
+#                              (tnt_close_window_effect ->
+#                              tnt_clear_lists_effect) reaches
+#                            tnt_wed_gc_effect              both, via that same
+#                              clear, once a year, for the letter path that
+#                              applies a deal with no window at all
+#                          and nowhere else. With the addon absent every hook is
+#                          an empty stub and the family simply never exists.
+#
+# THE INVARIANT, IN ONE SENTENCE: the core guarantees the ORDER - every
+# clear_variable_list of either candidate list is directly preceded by its own
+# strip hook, at all three clear sites, and there is no fourth site; what the
+# hooks write and remove is the addon's (tnt_ma_10_grade.txt).
+#
+# *** ONE HOLE IS STILL OPEN, AND IT IS OLDER THAN THIS FAMILY. ***
+# THE PLAYER DIES MID-PICK. The two lists sit on a dead character:
+# yearly_playable_pulse never fires on the dead, so tnt_wed_gc_effect never runs
+# on him, and tnt_partner_death_cleanup (tnt_70_on_actions.txt) only sweeps when
+# the dead man is somebody's PARTNER - here he is the negotiator. THE IDENTICAL
+# HOLE ALREADY EXISTS for tnt_wed_partner / _matri / _gain / _loss / _net on
+# tnt_wed_list, by the same argument, so this family did not create it. The catch
+# is a guarded block in the effect that already runs with the dead man as root
+# (it opens `save_temporary_scope_as = tnt_dead`), placed before its every_player
+# block, and it closes BOTH families at once:
+#     if = {
+#         limit = {
+#             OR = {
+#                 has_variable_list = tnt_list_spouse_p
+#                 has_variable_list = tnt_list_spouse_r
+#             }
+#         }
+#         tnt_clear_spouse_lists_effect = yes
+#     }
+#     if = {
+#         limit = { has_variable_list = tnt_wed_list }
+#         tnt_wed_clear_all_effect = yes
+#     }
+# BOTH ARE GUARDED because on_death fires for every character in the world, and
+# an unguarded iteration there would walk a list that does not exist on every
+# peasant who dies. That file is not this owner's, so the block is written down
+# here rather than shipped.
+#
+# THE FIVE PATHS THAT REACH tnt_wed_clear_all_effect
+#   1. window open        tnt_open_window_effect -> tnt_reset_offer_effect
+#                         -> tnt_reset_marriage_effect  (its FIRST line)
+#   2. footer "Clear all" tnt_reset_offer_effect -> same
+#   3. window close       tnt_close_window_effect:178 -> tnt_reset_offer_effect -> same
+#   4. deal applied       tnt_exec_marriage_pair_effect's own last line, and again
+#                         via tnt_apply_deal_effect:339 -> tnt_reset_offer_effect
+#   5. the year turns     tnt_yearly_cleanup -> tnt_wed_gc_effect, which is the
+#                         only path that survives a crash or an alt-F4
+# Paths 1-4 all funnel through ONE line (tnt_reset_marriage_effect's first), which
+# is deliberate: there is no second place to forget.
+#
+# WHAT IS NOT OURS AND MUST NEVER BE GARBAGE-COLLECTED
+#   promised_grand_wedding_by, promised_grand_wedding_marriage_countdown,
+#   promised_grand_wedding_to, grand_wedding_promise_pending — vanilla's, with
+#   vanilla's own five-path lifecycle. See tnt_wed_grand_pair_effect's header.
+#   The scope names spouse_1 / spouse_2 are likewise vanilla's; nothing in this
+#   mod may use either.
+########################################################################

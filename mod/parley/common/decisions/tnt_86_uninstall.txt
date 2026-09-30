@@ -1,0 +1,723 @@
+﻿########################################################################
+# PARLEY - THE CORE UNINSTALL DECISION (PRE-UNSUBSCRIBE SAVE HYGIENE)
+#
+# Take this decision, save, THEN disable the mod: it removes every piece
+# of persistent state Parley keeps anywhere in the world, so the save
+# loads clean without the mod. Concluded deal OUTCOMES are vanilla-typed
+# state - marriages and betrothals, transferred titles, moved courtiers,
+# vanilla hostage state, vassalage and independence changes (their truce
+# is granted under a VANILLA name), paid currencies, stress, and the
+# vanilla opinion modifiers the apply legs grant - and are deliberately
+# NOT touched: they are the game the player played, fully defined
+# without the mod.
+#
+# WHAT IS SWEPT, IN ORDER (root = the decision taker; a decision effect
+# runs in character scope, _decisions.info:140):
+#   (0) THE STORE SENTINEL, first statement, 2026-08-24 - one timed
+#       variable written on root so that every root-scope removal in
+#       this effect, including the ~80 that steps (1) delegates to
+#       other files, meets a store that exists. The argument is at the
+#       code; the rule is in the paragraph below;
+#   (1) the letter and the window, through the mod's own two exits -
+#       never re-implemented here;
+#   (2) the FOUR player variables no exit path removes
+#       (tnt_ai_offer_cooldown, tnt_envoys_refused, and - B2,
+#       2026-08-23 - tnt_demand_lock and tnt_demand_pts, the demand
+#       archetype's exposure cap and its stored pressure), plus one
+#       BELT that does have exits: tnt_wed_ally_any, the alliance
+#       bridge's player-side flag (the alliance round, 2026-08-23);
+#   (3) the auto-balance belt - five transient bridges that survive
+#       only a torn effect run;
+#   (4) the one global (tnt_intro_shown);
+#   (5) one every_living_character walk for the holder classes that are
+#       NOT enumerable: AI proposer locks and decline flags, sandbox
+#       pair locks, telemetry bridges, orphaned staged-wedding
+#       variables, opinion modifiers toward and hooks with the decision
+#       taker - AND, since B2, the decision taker's OWN tnt_threat_opinion
+#       toward each of them, which is the direction archetype A21 writes
+#       and which no leg of this decision used to reach;
+#   (6) a SEVERABLE every_ruler x every_ruler block for the strictly
+#       AI-to-AI residue - threat opinions and favor hooks between two
+#       AI rulers, unreachable from any single anchor;
+#   (7) THE SENTINEL COMES OFF, last statement - removed while the
+#       store still holds it, which is why that removal is silent too.
+#       Nothing of the mod is left on the player after it.
+#
+# WHAT THE DECISION MUST NOT NAME, AND WHY:
+#   * retired-family names (ward, non-aggression, prisoners, alliance,
+#     truce, claim, tribute, retired tnt_show_* gates): zero writers
+#     since before first publication, so they cannot exist in any
+#     subscriber save - and a remove_variable COUNTS AS A USE, so
+#     naming one buys a 'used but is never set' error line per run
+#     (measured repeatedly, tnt_30_effects.txt:944-948), violating the
+#     zero-tnt-error acceptance.
+#     "alliance" in that list means the retired TERM variable
+#     tnt_alliance_p, which still has no writer anywhere in the mod.
+#     The alliance round of 2026-08-23 restored the CONSEQUENCE, not
+#     the term: its two names tnt_wed_ally and tnt_wed_ally_any are a
+#     different family with live writers, and they ARE swept, in
+#     steps (2) and (5);
+#   * the two always=no declaration shims (tnt_31_lists.txt:225-256):
+#     never written at runtime, nothing to sweep;
+#   * the addon family's state (candidate grade stamps, the matchmaker
+#     session marker and its list): the ADDON's own uninstall decision
+#     owns them - naming them here would log never-set reads in every
+#     Parley-only game, and the seam contract is nine names (CLAUDE.md
+#     section 3);
+#   * engine-owned timed state the mod merely triggered (use_hook's
+#     strong-hook cooldown, truce timers, decay of vanilla opinions):
+#     self-managing.
+#
+# RESIDUAL, ACCEPTED AND STATED: tnt_ variables on characters ALREADY
+# DEAD at click time (a pre-existing crash-orphan whose holder later
+# died) are unreachable - script has no dead-character iterator - and
+# are inert bytes with no reader. In multiplayer the opinion/hook legs
+# are root-relative, so each human player takes the decision once.
+#
+# COST BOUND: the player block is O(1) (~15 removals + two reused
+# exits + one ten-row OR). Walk (5) is N living characters x ~30 cheap
+# map lookups - the same order as one yearly GC tick, sub-second, once,
+# on a click. THE 2026-08-24 STORE GUARD MOVED THAT FIGURE FROM ~25 AND
+# THE TRADE IS STATED RATHER THAN HIDDEN: on the common character (no
+# store at all) it spends nineteen exists tests and then skips nineteen
+# removals, so the per-character work is unchanged in order while the
+# ERROR output falls from nineteen lines to zero.
+# Block (6) is the expensive one and its cost is stated as a bound, not a
+# promise: ordered pairs of COUNT-TIER-AND-ABOVE rulers only (both walks
+# rank-limited to the sandbox's own participation gate - the argument is
+# at the block itself), two cheap has_* lookups per pair. UNMEASURED in a
+# running game; it is severable by design and the block says how.
+#
+# DECISION GRAMMAR verified against vanilla's gain_weight_decision,
+# GAME\common\decisions\90_minor_decisions.txt:794-834: picture
+# reference (:795-797), explicit desc / selection_tooltip keys
+# (:798-799), ai_check_interval = 0 so the AI never evaluates it ("An
+# interval of 0 means the AI will never check" - _decisions.info:109;
+# shape verbatim at 90_minor_decisions.txt:801 and :844),
+# ai_potential = { always = no } (:827-829), ai_will_do = { base = 0 }
+# (:831-833). Title and confirm-button text are the engine defaults
+# <key> and <key>_confirm (_decisions.info:11, :121-123).
+# NO is_shown: the default is { always = yes } (_decisions.info:125) -
+# that IS "shown always".
+# NOT A MAJOR DECISION - AND, SINCE THE GROUP ROUND, NOT IN THE DEFAULT
+# GROUP EITHER. `major` is NOT a decision field in 1.19 (zero `major =`
+# hits under GAME\common\decisions; tnt_85_decisions.txt's header
+# records the same measurement); the field of this patch is
+# decision_group_type, and OMITTING it drops the decision into the
+# default 'decisions' group (_decisions.info:34) - beside the ordinary
+# play decisions, which is exactly the clutter the user reported. This
+# decision therefore names the mod's OWN group, tnt_uninstall, declared
+# in common\decision_group_types\tnt_92_decision_groups.txt (that file's
+# header carries the whole argument: why a new group is additive rather
+# than an override, why sort_order = 0, why no gui_tags, and the stated
+# residue of the Parley-less addon configuration). Being collapsible
+# costs nothing and is not ours to build - EVERY decision group in the
+# panel is a foldout, GAME\gui\window_decisions.gui:294-311, and the
+# engine's own schema calls the field "Foldable" at _decisions.info:34.
+# No cost, no cooldown, no is_valid: a second click is a no-op by
+# construction, because every removal below is either GUARDED or stands
+# on a scope already proven to carry a variable store.
+#
+# *** CORRECTED 2026-08-24, AND THE OLD SENTENCE IS QUOTED HERE ON
+# *** PURPOSE SO NOBODY RE-DERIVES IT: "every removal below is silent on
+# *** absent state - unguarded remove_variable is a shipped vanilla
+# *** shape (00_scripted_effects.txt:61-62)". THAT WAS A MISREADING OF
+# *** TWO VANILLA LINES, AND THE SAME MISREADING COST 576 ERROR LINES IN
+# *** ONE 20-MINUTE RUN FROM THE ADDON'S COPY OF IT. ***
+# The fault is STORE-LEVEL, not per-name. remove_variable on a scope
+# with NO variable store at all throws
+#   Error: remove_variable effect [ This scope does not have variables ]
+# while a scope carrying ANY variable is silent even for names it does
+# not have - measured, not assumed: tnt_34_marriage.txt's else-branch
+# removal of tnt_wed_ally fires on brides who carry tnt_wed_partner and
+# produced ZERO of run C's 632 store faults.
+# Read WHOLE, vanilla says exactly that:
+# GAME\common\scripted_effects\00_scripted_effects.txt:60-79
+# (clear_loanee_variables_effect) leaves the two GUARANTEED loan
+# variables unguarded at :61-62 - which is all the old citation quoted -
+# and then wraps every OPTIONAL one in its own
+#   if = { limit = { exists = var:X }  remove_variable = X }
+# at :67-70, :71-74 and :75-78.
+# THE GUARD SHAPE USED BELOW is one if over an OR of exists = var: rows,
+# the same shape the addon family's strip walks carry and the same shape
+# vanilla writes at GAME\events\dlc\bp2\bp2_hostage_system.txt:909-913.
+# One passing row proves the store exists, which makes every removal
+# inside the block silent - that is why the OR may list every name
+# instead of guarding each one separately.
+#
+# NOT AN OVERRIDE: vanilla common/decisions contains no file of this
+# name, and no other mod file has it. The filename sorts after
+# tnt_85_decisions.txt, so no existing citation shifts.
+# ENCODING: UTF-8 WITH BOM (new .txt, created per the BOM recipe).
+########################################################################
+
+tnt_uninstall_decision = {
+	picture = {
+		# 90_minor_decisions.txt:796 - the generic minor-decision plate.
+		reference = "gfx/interface/illustrations/decisions/decision_misc.dds"
+	}
+
+	# THE MOD-REMOVAL GROUP - one collapsible foldout at the bottom of the
+	# decisions panel (sort_order = 0, below every ordinary play group and
+	# above debug), shared with the MCA addon's tnt_ma_uninstall_decision
+	# so the family's housekeeping never sits between real decisions.
+	# Declared in common\decision_group_types\tnt_92_decision_groups.txt.
+	# Field placement copies vanilla - after picture, before desc:
+	# GAME\common\decisions\80_major_decisions.txt:85 and
+	# GAME\common\decisions\00_cultural_tradition_decisions.txt:39.
+	decision_group_type = tnt_uninstall
+
+	desc = tnt_uninstall_decision_desc
+	selection_tooltip = tnt_uninstall_decision_tooltip
+
+	ai_check_interval = 0
+
+	effect = {
+		# set_variable / remove_variable draw no auto-tooltip - the effect
+		# walker skips entry-less effects (CLAUDE.md law 10, measured) - so
+		# this custom_tooltip carries the whole player-facing consequence.
+		# custom_tooltip as a decision-effect line:
+		# GAME\common\decisions\00_artifact_decisions.txt:400;
+		# hidden_effect inside a decision effect: same file, :431.
+		custom_tooltip = tnt_uninstall_decision_effect_tt
+		hidden_effect = {
+
+			# --- (0) THE STORE SENTINEL - FIRST STATEMENT, ALWAYS. --------
+			# *** ADDED 2026-08-24. IT IS WHAT MAKES EVERY ROOT-SCOPE
+			# *** REMOVAL IN THIS EFFECT SAFE, INCLUDING THE ~80 THIS FILE
+			# *** DOES NOT WRITE ITSELF. ***
+			# The rule is in this file's header: remove_variable on a scope
+			# with NO variable store at all is an engine error. root is not
+			# guaranteed to carry one - a player who installed Parley,
+			# never opened the window, never received a letter and now
+			# removes the mod carries nothing of ours, and step (1) below
+			# then delegates roughly eighty bare removals through
+			# tnt_ai_offer_clear_effect and tnt_close_window_effect (and
+			# through E3 tnt_reset_offer_effect under it) onto that empty
+			# store. Eighty error lines on the single click that is meant
+			# to be the mod's clean exit.
+			# WHY A SENTINEL AND NOT AN OR OF exists = var: ROWS. The OR
+			# would have to enumerate every name those effects touch, in a
+			# file that does not own any of them, and would silently start
+			# LEAKING the day somebody adds a name to a callee and not to
+			# the list here. set_variable CREATES the store and cannot
+			# throw, so one write makes every removal below silent by
+			# construction, with no list to keep in step. The removals that
+			# find nothing still find nothing - a no-op on a live store is
+			# exactly what the old comment wrongly believed it always was.
+			# The world walk at step (5) still needs its own guard: this
+			# sentinel is on root, and that walk's removals are on other
+			# characters.
+			# days = 1 so a torn effect run cannot leave it behind; it is
+			# removed explicitly as the LAST statement of this block, while
+			# the store still holds it, which is itself the safe order.
+			# It keeps a live writer - this line - so it buys no
+			# 'used but is never set' audit line.
+			set_variable = {
+				name = tnt_uninstall_sweep
+				value = 1
+				days = 1
+			}
+
+			# --- (1) THE LETTER AND THE WINDOW - the mod's own exits. -----
+			# tnt_ai_offer_clear_effect (tnt_37_ai_offer.txt E-AI-4) removes
+			# tnt_ai_offer_live / tnt_ai_offer_arch / tnt_ai_goal /
+			# tnt_ai_gift and the UNTIMED tnt_ai_letter, then calls the
+			# close GUARDED - it skips the close while a window is open.
+			# The unconditional second close covers exactly that one edge
+			# (window open at click time). E2 tnt_close_window_effect
+			# (tnt_30_effects.txt) is removal-only ("no toasts, no
+			# trigger_event, no scope writes") and idempotent; through E3
+			# tnt_reset_offer_effect it wipes ALL player deal/session state
+			# and ALL player lists, and its marriage reset walks
+			# tnt_wed_list stripping tnt_wed_partner / matri / gain / loss /
+			# net / ally off every member that still carries the pair -
+			# dead ones INCLUDED, because since 2026-08-24 that walk's
+			# limit tests for var:tnt_wed_partner, not for health
+			# (tnt_34_marriage.txt:1021-1052) - that walk MUST run while the
+			# list still exists, which is why step (1) precedes everything.
+			# `ally` joined the strip in the alliance round, 2026-08-23; the
+			# same effect also drops the player's own tnt_wed_ally_any.
+			tnt_ai_offer_clear_effect = yes
+			tnt_close_window_effect = yes
+
+			# --- (2) THE TWO PLAYER VARIABLES NO EXIT PATH REMOVES. -------
+			# *** STORE GUARD, 2026-08-24 - A SECOND BELT, DELIBERATELY
+			# *** REDUNDANT SINCE STEP (0). READ THAT STEP FIRST: the
+			# *** sentinel it writes already makes every root-scope removal
+			# *** in this whole effect silent, so THIS block is not what
+			# *** carries the safety and must never be quoted as if it
+			# *** were. It is kept because it costs one OR on one click and
+			# *** it keeps steps (2) and (3) correct on their own terms if
+			# *** the sentinel is ever removed or moved below them. ***
+			# ONE if COVERS STEPS (2) AND (3): every name in both sits on
+			# root, and one passing row proves the store, after which every
+			# removal inside the block is silent even for names he lacks.
+			# The section markers stay where they are so the header's
+			# six-step order still reads.
+			# NOT AN INVARIANT ANY MORE: a name added below and forgotten
+			# here is still safe, because the sentinel covers it. Add it
+			# anyway - a belt that is only half a belt is worse than none,
+			# since the next reader cannot tell which half was intended.
+			if = {
+				limit = {
+					OR = {
+						exists = var:tnt_ai_offer_cooldown
+						exists = var:tnt_envoys_refused
+						exists = var:tnt_demand_lock
+						exists = var:tnt_demand_pts
+						exists = var:tnt_wed_ally_any
+						exists = var:tnt_ab_margin
+						exists = var:tnt_ab_ceiling
+						exists = var:tnt_ab_lumpy_n
+						exists = var:tnt_ab_net
+						exists = var:tnt_ab_snap
+					}
+				}
+
+				# The player-side letter lock (6m/1y/3y at the rate rules,
+				# tnt_37_ai_offer.txt:722-746; 10y from the refuse-envoys
+				# overwrite, tnt_85_decisions.txt:106-110) and the UNTIMED
+				# envoy opt-out (tnt_85_decisions.txt:100-103) - otherwise
+				# removed only by the paired accept-envoys decision
+				# (tnt_85:141-146).
+				remove_variable = tnt_ai_offer_cooldown
+				remove_variable = tnt_envoys_refused
+				# B2, 2026-08-23 - THE DEMAND ARCHETYPE'S TWO PLAYER-ONLY
+				# NAMES. tnt_demand_lock is the player's exposure cap (30
+				# days .. 20 years by the tnt_ai_offer_rate rule, written in
+				# events\tnt_ai_events.txt at the point the demand letter is
+				# known to exist) and is DELIBERATELY not removed by
+				# tnt_ai_offer_clear_effect - it must outlive the letter it
+				# was paid for, so this decision and its own timer are its
+				# only two exits. tnt_demand_pts is the stored pressure,
+				# timed days = 200 and normally removed with the arch and
+				# goal indices by step (1) above; it is named here for the
+				# torn-run case, exactly as the auto-balance bridges below
+				# are. Both keep live writers (tnt_37_ai_offer.txt,
+				# archetype A21), so neither buys a
+				# 'used but is never set' line.
+				remove_variable = tnt_demand_lock
+				remove_variable = tnt_demand_pts
+				# ALLIANCE ROUND, 2026-08-23 - THE PLAYER-SIDE HALF OF THE
+				# ALLIANCE BRIDGE. tnt_wed_ally_any means "at least one
+				# committed couple on this table opens an alliance" and is
+				# the only thing tnt_val_alliance_p_value reads. It DOES
+				# have live exits - the unconditional clear at the top of
+				# tnt_wed_reprice_all_effect and tnt_wed_clear_all_effect,
+				# both reached by step (1) above - so this is a BELT for
+				# the torn-run case exactly like the auto-balance bridges
+				# in step (3), not a name with no other exit. It keeps a
+				# live writer (tnt_34_marriage.txt), so it buys no
+				# 'used but is never set' line.
+				remove_variable = tnt_wed_ally_any
+
+				# --- (3) BELT: the auto-balance bridges. ------------------
+				# Transient inside one tnt_39_autobalance.txt call and
+				# removed there; they can outlive only a TORN effect run,
+				# which E3 does not cover. All five keep live writers, so no
+				# never-set audit lines. They are inside the SAME store
+				# guard as step (2) - see its comment above.
+				remove_variable = tnt_ab_margin
+				remove_variable = tnt_ab_ceiling
+				remove_variable = tnt_ab_lumpy_n
+				remove_variable = tnt_ab_net
+				remove_variable = tnt_ab_snap
+			}
+
+			# --- (4) THE GLOBAL. ------------------------------------------
+			# The once-per-campaign intro guard (tnt_73_intro.txt:85-88).
+			# remove_global_variable form:
+			# GAME\common\epidemics\00_epidemics.txt:491
+			# (remove_global_variable = black_death).
+			remove_global_variable = tnt_intro_shown
+
+			# --- (5) THE WORLD WALK - holders that are NOT enumerable. ----
+			# The player and his live partner are reachable; AI proposers
+			# (letter locks, decline flags), sandbox parties
+			# (tnt_ai_world_cd, threat opinions, favor hooks) and offered
+			# spouses (decline flag, orphaned wed variables) are ANY
+			# character, so the complete form is one pass with cheap
+			# per-name tests, run ONCE, on the click. Iterator:
+			# GAME\common\scripted_effects\00_setup_tests_effect.txt:3-12;
+			# a world walk fired from a one-off decision chain:
+			# GAME\events\decisions_events\middle_east_decisions_events.txt:128-131.
+			# R7/R13 clean: no var-to-var comparison and no object-variable
+			# read anywhere in this walk. *** THAT CLAIM WAS TRUE AND
+			# IRRELEVANT TO THE 2026-08-24 DEFECT: R13 governs READS of an
+			# object variable, while a bare remove_variable on a scope with
+			# no variable store is a STORE-LEVEL fault on a WRITE. Do not
+			# read "R7/R13 clean" as "the removals below are safe". ***
+			# *** THE WALK ITSELF CARRIES NO limit, AND THAT IS DELIBERATE.
+			# *** The obvious fix - hanging the store guard on the walk -
+			# *** WOULD BREAK THIS SWEEP. Opinions and hooks live in their
+			# *** OWN stores, so the characters this walk exists for are
+			# *** exactly the ones a variable guard would skip: the partner
+			# *** who was threatened carries tnt_threat_opinion and no
+			# *** variable of ours, and the partner who gained a hook
+			# *** carries neither. The guard therefore wraps ONLY the
+			# *** variable removals; every flag, opinion and hook block
+			# *** below keeps its own guard at the walk's top level and
+			# *** still visits every living character. ***
+			every_living_character = {
+				# Re-saved per iteration - the shipped pattern of
+				# tnt_wed_reprice_all_effect (tnt_34_marriage.txt:875-876).
+				save_temporary_scope_as = tnt_sweep_c
+
+				# *** THE STORE GUARD, 2026-08-24. THE HEADER CARRIES THE
+				# *** RULE AND THE MEASUREMENT; THIS IS WHY IT IS HERE AND
+				# *** NOT ON THE WALK. ***
+				# The overwhelming majority of the world - peasants,
+				# courtiers, children, every AI who never met Parley -
+				# carries no variable store at all, and nineteen bare
+				# removals against each of them is nineteen store faults
+				# per character. Measured order of magnitude, from run C's
+				# own save: 35,447 living characters at 1178.12.31, so one
+				# click projects to roughly 665,000 [E] lines against a
+				# 100,000-line engine cap - the log would be truncated to
+				# uselessness in the very session in which the removal is
+				# being tested. The addon's twelve-row version of this
+				# shape produced 576 lines from twenty-four members.
+				# One passing row proves the store; every removal inside is
+				# then silent even for the names this character lacks.
+				if = {
+					limit = {
+						OR = {
+							exists = var:tnt_wed_partner
+							exists = var:tnt_wed_matri
+							exists = var:tnt_wed_gain
+							exists = var:tnt_wed_loss
+							exists = var:tnt_wed_net
+							exists = var:tnt_wed_ally
+							exists = var:tnt_ai_offer_cooldown
+							exists = var:tnt_ai_world_cd
+							exists = var:tnt_log_b
+							exists = var:tnt_log_n1
+							exists = var:tnt_log_n2
+							exists = var:tnt_log_n3
+							exists = var:tnt_log_n4
+							exists = var:tnt_log_n5
+							exists = var:tnt_log_n6
+							exists = var:tnt_log_n7
+							exists = var:tnt_log_n8
+							exists = var:tnt_log_n9
+							exists = var:tnt_log_c1
+						}
+					}
+
+					# THE OR LISTS EVERY NAME THE BLOCK REMOVES, AND THAT
+					# IS THE INVARIANT: add a removal here and add its
+					# name to the OR in the same edit, or the new name
+					# becomes the one case that still throws.
+
+					# Orphan insurance for the six untimed staged-wedding
+					# variables (holder: the player-side spouse of a
+					# staged pair - a courtier or child, never the
+					# player). Step (1) already stripped every LISTED
+					# member; this catches a holder orphaned by a
+					# pre-existing torn run.
+					remove_variable = tnt_wed_partner
+					remove_variable = tnt_wed_matri
+					remove_variable = tnt_wed_gain
+					remove_variable = tnt_wed_loss
+					remove_variable = tnt_wed_net
+					# ALLIANCE ROUND, 2026-08-23 - the SIXTH staged-wedding
+					# variable, same holder class and same orphan story as
+					# the five above: written per pair by
+					# tnt_wed_reprice_all_effect from vanilla's own
+					# yields_alliance, stripped by tnt_wed_strip_effect.
+					remove_variable = tnt_wed_ally
+
+					# Proposer-side letter locks, up to 6 years
+					# (tnt_37_ai_offer.txt:658-689) - the same name as the
+					# player lock in step (2), a different holder class.
+					remove_variable = tnt_ai_offer_cooldown
+
+					# Sandbox pair locks, 3 years, timer-only
+					# (tnt_38_ai_world.txt:702-717).
+					remove_variable = tnt_ai_world_cd
+
+					# Telemetry bridges - write/remove pairs a few lines
+					# apart throughout tnt_3b_log.txt; the W-emitters run
+					# in AI scope, so any ruler can carry a torn-run
+					# leftover.
+					remove_variable = tnt_log_b
+					remove_variable = tnt_log_n1
+					remove_variable = tnt_log_n2
+					remove_variable = tnt_log_n3
+					remove_variable = tnt_log_n4
+					remove_variable = tnt_log_n5
+					remove_variable = tnt_log_n6
+					# V32 skeptic: the ALLY emitter (L20
+					# tnt_log_wedally_effect) added three numeric bridges
+					# and ONE CHARACTER-OBJECT bridge. The object one
+					# matters most - an unremoved character variable pins
+					# the referenced character in the savegame, which is a
+					# heavier leak than a number and exactly the orphan
+					# class this family has already paid for once.
+					remove_variable = tnt_log_n7
+					remove_variable = tnt_log_n8
+					remove_variable = tnt_log_n9
+					remove_variable = tnt_log_c1
+				}
+
+				# The two timed decline flags (events\tnt_ai_events.txt:
+				# 1329-1332 the AI proposer, :1357-1360 every offered
+				# spouse). Guarded pair verbatim vanilla:
+				# GAME\common\scripted_effects\00_animal_effects.txt:1320-1325.
+				if = {
+					limit = { has_character_flag = tnt_declined_by_player }
+					remove_character_flag = tnt_declined_by_player
+				}
+				if = {
+					limit = { has_character_flag = tnt_declined_marriage }
+					remove_character_flag = tnt_declined_marriage
+				}
+				# V26 - the transferred-vassal ping-pong latch, 3 years
+				# (tnt_3a_people.txt P23, read by P21 in
+				# tnt_42_people_gates.txt). Timed, so it expires on its own -
+				# it is swept here anyway because this decision's contract is
+				# "every persistent name Parley has written", and a player who
+				# takes the decision and unsubscribes the same day should not
+				# be left with an unexplained flag for three years.
+				if = {
+					limit = { has_character_flag = tnt_subject_moved }
+					remove_character_flag = tnt_subject_moved
+				}
+
+				# Opinions THEY hold toward the decision taker - root is
+				# absolute inside iterators. Guarded remove_opinion form:
+				# GAME\common\scripted_effects\00_adultery_effects.txt:63-73
+				# and 00_councillor_effects.txt:27-38.
+				if = {
+					limit = {
+						has_opinion_modifier = {
+							modifier = tnt_threat_opinion
+							target = root
+						}
+					}
+					remove_opinion = {
+						modifier = tnt_threat_opinion
+						target = root
+					}
+				}
+				# *** B2, 2026-08-23 - AND THE OTHER DIRECTION, WHICH NO LEG
+				# *** OF THIS DECISION USED TO REACH. ***
+				# Until archetype A21 (the AI's demand letter) there was only
+				# ever one direction to sweep: the manual threat writes
+				# tnt_threat_opinion on the PARTNER toward the player
+				# (tnt_32_apply.txt:592-603), which the block above removes.
+				# A21 writes the mirror - on the PLAYER toward the AI
+				# (tnt_demand_paid_effect / tnt_demand_refused_effect in
+				# tnt_37_ai_offer.txt) - because that is the direction
+				# tnt_threat_unspent_trigger reads for the 15-year lockout.
+				# Without this leg a player who takes the removal decision
+				# would keep a -100 opinion of a stranger for fifteen years
+				# with the mod gone and nothing left to explain it.
+				# THE SEVERABLE every_ruler BLOCK AT THE END OF THIS EFFECT
+				# ALSO HAPPENS TO COVER IT, and that is exactly why this leg
+				# exists: that block's own header authorises deleting it whole
+				# if the one-off hitch is unacceptable, and the player's own
+				# ledger must not depend on a block somebody is invited to
+				# delete. The cost is one opinion test per living character on
+				# a walk that already runs - an order of magnitude below the
+				# nested pair walk it makes independent of us.
+				# root = { ... } inside an iterator: root is absolute, so this
+				# re-enters the decision taker's scope while scope:tnt_sweep_c
+				# names the character being visited.
+				root = {
+					if = {
+						limit = {
+							has_opinion_modifier = {
+								modifier = tnt_threat_opinion
+								target = scope:tnt_sweep_c
+							}
+						}
+						remove_opinion = {
+							modifier = tnt_threat_opinion
+							target = scope:tnt_sweep_c
+						}
+					}
+				}
+				if = {
+					limit = {
+						has_opinion_modifier = {
+							modifier = tnt_treaty_favor_opinion
+							target = root
+						}
+					}
+					remove_opinion = {
+						modifier = tnt_treaty_favor_opinion
+						target = root
+					}
+				}
+
+				# Hooks THEY hold over the decision taker - all three
+				# mod-defined types (tnt_90_hook_types.txt:116 / :134 /
+				# :159; tnt_deal_eternal_hook NEVER expires, so these legs
+				# are the only removal it can ever meet). has_hook_of_type
+				# form: GAME\events\blackmail_events.txt:157-159;
+				# remove_hook { target type }:
+				# GAME\common\scripted_effects\00_secret_effects.txt:1070-1072.
+				if = {
+					limit = {
+						has_hook_of_type = {
+							target = root
+							type = tnt_deal_favor_hook
+						}
+					}
+					remove_hook = {
+						target = root
+						type = tnt_deal_favor_hook
+					}
+				}
+				if = {
+					limit = {
+						has_hook_of_type = {
+							target = root
+							type = tnt_deal_strong_hook
+						}
+					}
+					remove_hook = {
+						target = root
+						type = tnt_deal_strong_hook
+					}
+				}
+				if = {
+					limit = {
+						has_hook_of_type = {
+							target = root
+							type = tnt_deal_eternal_hook
+						}
+					}
+					remove_hook = {
+						target = root
+						type = tnt_deal_eternal_hook
+					}
+				}
+
+				# Hooks the decision taker holds over THEM - the same three
+				# types, the other direction.
+				root = {
+					if = {
+						limit = {
+							has_hook_of_type = {
+								target = scope:tnt_sweep_c
+								type = tnt_deal_favor_hook
+							}
+						}
+						remove_hook = {
+							target = scope:tnt_sweep_c
+							type = tnt_deal_favor_hook
+						}
+					}
+					if = {
+						limit = {
+							has_hook_of_type = {
+								target = scope:tnt_sweep_c
+								type = tnt_deal_strong_hook
+							}
+						}
+						remove_hook = {
+							target = scope:tnt_sweep_c
+							type = tnt_deal_strong_hook
+						}
+					}
+					if = {
+						limit = {
+							has_hook_of_type = {
+								target = scope:tnt_sweep_c
+								type = tnt_deal_eternal_hook
+							}
+						}
+						remove_hook = {
+							target = scope:tnt_sweep_c
+							type = tnt_deal_eternal_hook
+						}
+					}
+				}
+			}
+
+			# --- (6) THE AI-TO-AI RESIDUE - SEVERABLE BLOCK. --------------
+			# Sandbox threat opinions (tnt_38_ai_world.txt:2022-2027) and
+			# favor hooks (:519-526) live between arbitrary ruler pairs,
+			# unreachable from any single anchor, so the complete form is a
+			# nested walk (every_ruler:
+			# GAME\common\scripted_effects\00_setup_tests_effect.txt:13-24).
+			# ONLY these two names belong here: the sandbox writes nothing
+			# else pairwise, and strong/eternal hooks are reachable only
+			# from the player's own window (tnt_38_ai_world.txt:514-517),
+			# so walk (5) already closes every UNTIMED case. Every ordered
+			# ruler pair (A,B) is visited both ways round, so one direction
+			# per visit covers both directions. IF THE ONE-OFF HITCH PROVES
+			# UNACCEPTABLE IN PLAYTEST, DELETE THIS BLOCK WHOLE: everything
+			# it removes is timed (favor hook 3650 days, threat opinion 15
+			# years, decaying) and self-expires.
+			#
+			# *** BOTH WALKS ARE RANK-LIMITED, AND THE LIMIT IS NOT A GUESS -
+			# IT IS THE SANDBOX'S OWN PARTICIPATION GATE. *** V26 skeptic:
+			# an unlimited every_ruler enumerates EVERY landed character,
+			# barons, mayors and bishops included - thousands in a full
+			# start, so the ordered-pair count runs to tens of millions and
+			# the earlier "seconds at worst" claim was unmeasured. But no
+			# such pair can carry sandbox residue: the pulse only fires for
+			# `highest_held_title_tier >= tier_county`
+			# (tnt_72_ai_world.txt:376) and its counterparty is drawn by
+			# random_neighboring_realm_same_rank_owner /
+			# random_neighboring_top_liege_realm_owner
+			# (tnt_38_ai_world.txt:1024, :1030) - realm owners, never a
+			# barony holder inside someone else's realm. Limiting both
+			# walks to the same rank therefore removes ZERO reachable
+			# residue while cutting the pair count by roughly an order of
+			# magnitude. Still the most expensive statement in the mod, and
+			# still one click, once.
+			every_ruler = {
+				limit = { highest_held_title_tier >= tier_county }
+				save_temporary_scope_as = tnt_sweep_a
+				every_ruler = {
+					limit = { highest_held_title_tier >= tier_county }
+					if = {
+						limit = {
+							has_opinion_modifier = {
+								modifier = tnt_threat_opinion
+								target = scope:tnt_sweep_a
+							}
+						}
+						remove_opinion = {
+							modifier = tnt_threat_opinion
+							target = scope:tnt_sweep_a
+						}
+					}
+					if = {
+						limit = {
+							has_hook_of_type = {
+								target = scope:tnt_sweep_a
+								type = tnt_deal_favor_hook
+							}
+						}
+						remove_hook = {
+							target = scope:tnt_sweep_a
+							type = tnt_deal_favor_hook
+						}
+					}
+				}
+			}
+
+			# --- (7) THE STORE SENTINEL COMES OFF - LAST STATEMENT. -------
+			# Step (0) explains why it went on. It is removed here, not
+			# earlier, because every root-scope removal above depends on it,
+			# and the store still holds it at this moment - so this removal
+			# is itself silent by the same rule. Nothing of the mod is left
+			# on the player after this line.
+			remove_variable = tnt_uninstall_sweep
+		}
+	}
+
+	ai_potential = {
+		always = no
+	}
+
+	ai_will_do = {
+		base = 0
+	}
+}

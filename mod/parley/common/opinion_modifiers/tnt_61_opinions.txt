@@ -1,0 +1,124 @@
+﻿###############################################################################
+# PARLEY: THE NEGOTIATING TABLE — OPINION MODIFIERS
+#
+# TWO ENTRIES — the stick and the carrot of one ledger. The FIRST is the PRICE
+# OF THE THREAT (V4 expansion 1); the SECOND, tnt_treaty_favor_opinion (user
+# item 9), carries its own header further down. The user's rule for the threat:
+# "after a threat is used in the treaty, an opinion penalty is applied - provide a
+# size on the order of 'hatred', or a custom 'diplomatic threat'." This is the
+# custom one.
+#
+# WHY AN OPINION MODIFIER AND NOT A CHARACTER MODIFIER. The mod also ships
+# common\modifiers\tnt_60_modifiers.txt (a retired-mechanic shim), but that file
+# is for modifiers a character CARRIES. What is wanted here is one ruler's memory of what
+# another did to him - which is an opinion modifier, applied with
+#     add_opinion = { target = <the threatener>  modifier = tnt_threat_opinion }
+# and it is why this new folder exists. A folder CK3 already reads needs no
+# registration and overrides nothing.
+#
+# THE SIZE, PLACED AGAINST VANILLA'S OWN LADDER FOR BEING WRONGED:
+#   blackmailing_me_opinion            -15   permanent   00_intrigue_scheme_opinions.txt:56
+#   refused_bribe_opinion              -10   1 year      00_opinion_modifiers.txt:1526
+#   refused_alliance_opinion           -25   100 years   00_marriage_opinions.txt:11
+#   scheme_refused_my_advice_opinion   -30   5 y decay   00_intrigue_scheme_opinions.txt:106
+#   refused_the_great_khan_opinion     -50   20 years    00_crime_and_prison_opinions.txt:519
+# V5 ITEM 4: RAISED FROM -30 TO -100 ON THE USER'S INSTRUCTION — "штраф к мнению за
+# исполненную угрозу нужно сделать гораздо крупнее, возможно даже -100, чтобы не
+# было абуза чередой сделок через угрозу".
+#
+# -100 is the heaviest opinion modifier this mod writes, and it is meant to be: it
+# is hatred, not annoyance. Every piece of vanilla diplomacy with the victim is
+# poisoned by it for years, which is the real price of taking terms by fear.
+# It still DECAYS over 15 years, so the man can be won back — slowly, and by
+# something other than threats.
+#
+# WHAT THE NUMBER DOES *NOT* DO, and this must not be re-litigated by raising it
+# further: it cannot stop a second threat by itself. The threat row sits OUTSIDE
+# the opinion multiplier on purpose (tnt_50_values.txt:3598-3604 — fear has to keep
+# working precisely on the partner who hates you, or the item is pointless), so no
+# opinion value blocks a repeat arithmetically. The lockout is a GATE:
+# tnt_threat_unspent_trigger refuses a second threat while this modifier is still
+# on the victim, and this modifier's own 15-year decay is therefore the cooldown.
+# The two work as a pair — the number is the punishment, the gate is the limit.
+#
+# THE FEEDBACK LOOP IS INTENTIONAL AND WORTH STATING. Fix 5 made opinion a
+# multiplier on gifts, so a threat makes every FUTURE gift of yours worth less to
+# this ruler: take by fear today and you cannot buy him tomorrow. At -100 the
+# multiplier floor (tnt_deal_floor_value) means your gifts to him are worth
+# nothing at all until the memory fades — which is exactly the "locked out after
+# 1-2 uses" the user asked for, arrived at honestly.
+###############################################################################
+# *** THIS NUMBER IS QUOTED VERBATIM IN PROSE, IN ALL NINE LANGUAGES. ***
+# tnt_item_threat_desc (the threat row's own tooltip) prints it as
+# `#high -100#!` - one occurrence per language file, nine files. It was
+# raised from -30 here and the prose was NOT updated, so for several rounds
+# the control told the player a threatened treaty cost -30 while it cost
+# -100; the V26 skeptic caught it. CHANGE THE TWO TOGETHER OR NOT AT ALL.
+# The years = 15 below is quoted in the same sentence ("fifteen years").
+# This is the second instance of the hard-coded-number-in-prose class
+# (V19's stress line was the first, CLAUDE.md section 3); the standing
+# preference is to name a figure only where the game itself prints it.
+tnt_threat_opinion = {
+	opinion = -100
+	years = 15
+	decaying = yes
+}
+
+
+###############################################################################
+# THE MEMORY OF A GOOD BARGAIN (user item 9) — the carrot
+#
+# A treaty that closes at a positive headline leaves the partner better
+# disposed toward the player: +1 opinion per headline point. The grant lives
+# in tnt_apply_deal_effect (tnt_32_apply.txt, directly after the telemetry
+# call, where the term variables are still uncleared) as
+#     add_opinion = { modifier = tnt_treaty_favor_opinion  target = root
+#                     opinion = scope:tnt_treaty_favor }
+# so the AMOUNT comes entirely from the caller — which is why this entry has
+# no `opinion =` line. That caller-priced shape is vanilla's own gift memory,
+# sent_herd_opinion (00_opinion_modifiers.txt:484-487): no base opinion,
+# monthly_change = 0.25, decaying = yes, granted with a dynamic amount
+# (09_mpo_interactions.txt:8096-8101, opinion = sent_herd_opinion_value).
+#
+# stacking = yes WITH max = 50 is vanilla's own repeat-grant pair, verbatim
+# from chancellor_bestow_royal_favor_opinion (00_council_task_opinions.txt:42-47):
+# every closed deal stacks its own grant, and the TOTAL from this source
+# stops at +50.
+#
+# WHY THE CAP IS THE ANTI-FARM CONTROL, argued once, here. The player->AI
+# interaction has no cooldown (only the AI-offer path is cooldown-locked,
+# tnt_71_ai.txt), so nothing stops a chain of small gift deals except this
+# ceiling: past +50 total, further deals grant nothing until the 0.25/month
+# decay (3 points a year) frees room — and at the mod's going rate of roughly
+# 30-45 gold per headline point, a refill is slower and dearer than vanilla's
+# sway scheme. An opinion engine this is not.
+#
+# WHY IT CANNOT WASH A THREAT CLEAN, either — the arithmetic, stated once:
+#   * the grant subtracts the pressure rows (threat, called-in hook) from the
+#     headline before pricing, so a deal carried by intimidation grants 0 —
+#     only the honestly gifted surplus counts;
+#   * the cap is HALF of tnt_threat_opinion's -100 above: a threatened victim
+#     bought back with honest gifts reads -100 + 50 = -50 at best until the
+#     15-year memory fades;
+#   * there is no threat-SPAM for this reward to launder in the first place:
+#     tnt_threat_unspent_trigger (tnt_41_gates.txt) forbids a second threat
+#     while the first modifier is still on the victim, and fix 5's multiplier
+#     floor means a fresh victim values gifts at next to nothing anyway — the
+#     positive headline needed to earn favour is itself hard to reach.
+# So no extra has_opinion_modifier gate is needed at the grant site; the
+# reward is arithmetically incapable of outrunning the penalty.
+#
+# RUNTIME CHECK TO SCHEDULE (the mod's static-vs-runtime discipline): the
+# chancellor precedent reads as "max caps the stacked TOTAL", but the cap's
+# semantics are engine-side and not provable from script. After two large
+# deals with the same partner, open his opinion breakdown: if the stacks read
+# more than +50 combined, the cap is per-stack, and the grant in
+# tnt_32_apply.txt then needs a has_opinion_modifier gate plus a stored
+# running total instead.
+###############################################################################
+tnt_treaty_favor_opinion = {
+	monthly_change = 0.25
+	decaying = yes
+	stacking = yes
+	max = 50
+}
