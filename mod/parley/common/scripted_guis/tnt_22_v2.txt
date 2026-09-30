@@ -1966,74 +1966,12 @@ tnt_influence_r_none = {
 
 
 ######################################################################################
-# GROUP V5 — THE AUTO-BALANCE BUTTON (1)   user ADD-3, v3 iteration 3
-#
-# One click; the machinery is tnt_autobalance_effect in
-# common\scripted_effects\tnt_39_autobalance.txt section C, whose header carries the
-# whole design. In one paragraph: it computes the gap between the current headline
-# and the acceptance point IN ACCEPTANCE POINTS, converts that gap to an amount of
-# currency at that currency's own vanilla unit price (one multiplication, not a
-# search), then runs a hard-bounded two-pass correction to absorb rounding, the
-# personality riders and the affordability clamps. It sweetens when the partner
-# would refuse and TRIMS when he would accept comfortably — the trim half is the
-# one that stops the player overpaying, and it is the half the user asked for by
-# saying "minimum acceptable value".
-#
-# *** THE PROMISE THIS HEADER USED TO MAKE IS NO LONGER TRUE, AND THAT IS ITEM 5. ***
-# It read: "it moves gold, prestige, piety and influence and NOTHING else: no
-# title, no claim, no artifact, no marriage, no hook, no prisoner, no fealty."
-# What it moves NOW is:
-#   * the four currencies, on BOTH columns, exactly as before; and
-#   * on a surplus the partner's purse cannot cover, ONE OF THREE LUMPY TERMS ON
-#     HIS SIDE ONLY — fealty, a ceded title, a granted claim — up to three of them
-#     per press, each one taken only when its worst-case price fits inside the
-#     surplus, so the headline can never be driven below +1 by the taking.
-# What it still NEVER moves, in either direction: an artifact, a marriage, a hook,
-# a truce, an alliance, a contract obligation, and none of item 19's four people
-# terms. (A prisoner was on that list until the prisoner terms were retired.)
-# And nothing at all on the PLAYER's side beyond currency: the
-# button cannot cede the player's county, ever (integration contract R9).
-# The whole of it is section D of common\scripted_effects\tnt_39_autobalance.txt.
-#
-# MARGIN 2 / CEILING 6 — derived in that file's C1 header. In short: 2 points is
-# about 30 gold at duke tier, which is the tightest margin that survives the ±1.5
-# points of rounding slop on the mod's three `round = yes` aggregates, and the 6
-# point dead band is narrower than one right-click of the fine gold stepper, so the
-# button is never a worse move than clicking by hand.
-#
-# THE GUARD. With no partner there is no deal to balance and every valuation reads
-# 0, so the button is a no-op rather than a write of eight zeroes.
-#
-# WHAT THE GUI READS FOR THE TOOLTIP — `tnt_ab_state` on the player, a plain
-# variable, never a GetScriptedGui call in a per-frame binding (Law R9):
-#     1  balanced          the deal now sits just inside his acceptance point
-#     2  already minimal   it was already there; nothing was changed
-#     3  cannot be reached  still refused after spending everything you can pay
-#   absent  the button has not been pressed, or an amount has changed since
-#           (every entry in groups V3 and V4 removes it, and so does the effect
-#            itself before it starts)
-# Bind it as three triggered_desc rows on `var:tnt_ab_state = 1` / `= 2` / `= 3`,
-# which are variable-against-literal tests (Law R7). Loc keys are reported in the
-# handoff.
-######################################################################################
-
-### V4: THE TARGET IS EXACTLY 1, AND THE BUTTON IS DEAD ABOVE 0.
-###
-### The user's rule: "the balance button must only be available when the points are
-### below 1, and must balance strictly to 1 - or to the smallest positive number it
-### can reach." MARGIN is the number the loop aims at and CEILING is the dead band
-### above it, so MARGIN = 1 / CEILING = 1 says "get to 1 and stop", with no slack in
-### which the button could overshoot into generosity.
-###
-### THE GATE IS THE SAME QUESTION THE LOOP ASKS. tnt_ab_deficit_value is
-### `margin - tnt_ai_accept_value` with `min = 0`, so it is above zero exactly when
-### the treaty is short of 1 - which is what "available only below 1" means. It is a
-### named value against a literal, which is what Law R7 permits, and it costs one
-### evaluation of the deciding value that the window is drawing anyway.
-###
-### `tnt_ab_margin` has to be SET for the deficit to read anything, and the effect
-### sets it - so the gate cannot use tnt_ab_deficit_value before the first press.
-### It tests the deciding value directly instead, against the same literal.
+# GROUP V5 - AUTO-BALANCE
+# Section C of tnt_39_autobalance.txt searches the actual rounded acceptance.
+# Target +1; if currency granularity prevents it, retain the smallest payable
+# acceptable result and show state 4. State 2 means no table change.
+# Keep the button available at +1 as well: older saves may contain offsetting
+# payments at that score, and normalization must remain reachable.
 tnt_autobalance = {
 	scope = character
 
@@ -2075,13 +2013,6 @@ tnt_autobalance = {
 					var:tnt_threat_p > 0
 					tnt_val_threat_p_value > 0
 				}
-			}
-		}
-		custom_description = {
-			text = tnt_err_ab_already_fair
-			OR = {
-				tnt_ai_accept_value < 1
-				tnt_ai_accept_value > 1
 			}
 		}
 

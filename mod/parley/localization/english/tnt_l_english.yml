@@ -1970,6 +1970,7 @@
  tnt_ab_state_balanced:0 "#P Balanced.#! The offer now sits just inside what they will accept."
  tnt_ab_state_minimal:0 "Already minimal. Nothing needed changing."
  tnt_ab_state_unreachable:0 "#N Out of reach.#! They still refuse, even with everything you can pay."
+ tnt_ab_state_closest:0 "Acceptable. Auto-balance could not reach +1 with the available currencies."
  # THE TWO LUMPY LINES, both in the button's own tooltip
  # (common\scripted_guis\tnt_22_v2.txt:2246, :2256).
  # tnt_ab_lumpy_hint is bound with `always = yes` and NO trigger_if, so it is

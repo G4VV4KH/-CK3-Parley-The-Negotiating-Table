@@ -550,719 +550,114 @@ tnt_infl_r_frac_effect = {
 
 
 ########################################################################
-# SECTION C - AUTO-BALANCE (user ADD-3, verbatim: "let us add an auto-balance
-# button - i.e. add conditions that bring the deal to the minimum acceptable
-# value (this can also be used to optimise the AI's deals)")
-#
-#=======================================================================
-# C.0  WHAT IT IS ALLOWED TO TOUCH, AND WHAT IT WILL NEVER TOUCH
-#=======================================================================
-# THE FOUR CURRENCIES ON BOTH COLUMNS: tnt_gold_p/_r, tnt_prestige_p/_r,
-# tnt_piety_p/_r, tnt_influence_p/_r.
-#
-# PLUS, SINCE USER ITEM 5's SECOND HALF, LUMPY TERMS ON THE PARTNER'S
-# COLUMN ONLY - fealty (tnt_vassal_r) and a ceded title (tnt_sel_title_r). There
-# were THREE until V13 user item 1 retired the granted claim (tnt_sel_claim_r) with
-# its whole family - TOMBSTONE C in common\scripted_effects\tnt_32_apply.txt - and
-# the parchment rung D5 went with it. Section D is the whole of it. The `_p` side is
-# NOT symmetric and never will be: integration-contract R9 rejects the
-# "aggressive balancing" toggle outright, because a button that can cede the
-# PLAYER's county to make the sum work is a trap, not a convenience. Demanding
-# more from a partner the player is demonstrably over-paying is the opposite
-# move, and it is the one the user asked for.
-#
-# IT STILL NEVER TOUCHES: an artifact, a marriage, a hook, an
-# alliance, a truce, a contract obligation, and none of item 19's three surviving
-# people terms - hostage, courtier, independence - which integration-contract C4
-# closes to the balancer in both directions. Two of those three move PEOPLE,
-# and a button that silently puts the player's child on the table is the same
-# trap seen from the other side.
-# (The WARD was the fourth people term and carried the same closure. It is RETIRED
-#  mod-wide - V16, user item 5 - so there is nothing left to forbid, and THIS FILE
-#  NEEDED NO CODE CHANGE for the retirement: verified by grep, the balancer names
-#  no people-term variable anywhere in its 102 KB. TOMBSTONE W in
-#  common\scripted_effects\tnt_32_apply.txt.)
-#
-# AND ONLY THE CURRENCIES THE LOBBY ALLOWS (user item 16): every prestige seed
-# and rung in sections C3..C9 carries tnt_trade_prestige_trigger = { A = root
-# B = var:tnt_partner } and every piety one tnt_trade_piety_trigger with the
-# same arguments (T2b / T2c, tnt_40_triggers.txt; rules in tnt_80_game_rules.txt),
-# so a currency the game rules made untradeable is never seeded, never swept
-# in, never trimmed and never paid by the AI.
-#
-# *** W2 - WHY A TRIGGER CALL AND NOT has_game_rule, AND THE TRAP UNDER IT ***
-# The twelve rows used to read has_game_rule = tnt_trade_<cur>_on. The two
-# currency rules are LADDERS since W2 - piety off / same faith / same religion /
-# always, prestige off / peers-and-below / always - and a hand-written `_on`
-# test cannot see a middle rung: it reads FALSE for a rung that is TRUE for this
-# pair, and the AI would stop paying that currency to exactly the partners the
-# lobby still allows. So all twelve now call the named trigger instead.
-# THE TRAP, AND IT WOULD HAVE BEEN COMPLETELY SILENT: a rung must NEVER read the
-# bridge variable var:tnt_trade_prest_on / var:tnt_trade_pty_on, the thing the
-# four .gui rows gate on. Only two effects write a bridge - E1
-# tnt_open_window_effect and tnt_ai_offer_counter_effect - and NEITHER runs on
-# the composition path: tnt_ai_offer_settle_effect calls
-# tnt_ai_pricebalance_effect straight out of tnt_ai_offer.0001, with no window
-# anywhere. A bridge read here would therefore evaluate 0 on every AI letter and
-# the AI would quietly stop paying prestige and piety at all, with nothing in
-# any log to say so.
-# THE ARGUMENTS ARE ALWAYS { A = root  B = var:tnt_partner } AND BOTH PATHS
-# SATISFY THEM: in the window E1 writes tnt_partner as its first statement; on
-# the letter path tnt_ai_offer.0001 writes it in its immediate before it
-# composes, and tnt_ai_offer_settle_effect will not even call the price balance
-# without `exists = var:tnt_partner`. If the handle were missing anyway the
-# trigger answers NO (it opens each relational rung with an exists guard), which
-# skips the rung - the same, safe direction the rule's own `off` setting takes. GOLD and INFLUENCE have no such
-# rule - gold on purpose, influence because its government gate
-# (tnt_influence_ok_value) is stricter already. Skipping a rung is this
-# ladder's designed behaviour - the next currency sees whatever deficit is
-# left (C.2) - so no other line changes. The exact-landing pass needs no gate:
-# it moves GOLD only. The ungated readers stay safe because every valuation
-# and every tidy block tests `exists` first (tnt_53_currency_values.txt
-# section 2, C5/C6 below). has_game_rule takes the SETTING id; real vanilla
-# call site: GAME\common\character_interactions\00_adoption.txt:16.
-#
-#=======================================================================
-# C.1  WHY IT IS NOT A SEARCH, AND WHY THERE IS STILL A LOOP
-#=======================================================================
-# The headline is a clean sum (tnt_50_values.txt tnt_ai_accept_value):
-#     gain - loss + eight relation rows - threshold,  round = yes,  > 0 accepts
-# and NOTHING in it depends on the currency amounts except the gain and loss
-# columns. tnt_threshold_value reads only the partner's ai_greed / ai_boldness /
-# ai_rationality and the tier edge (tnt_50_values.txt:3429-3460), so it does not
-# move when the table changes; the eight relation rows do not either.
-#
-# GOLD IS EXACTLY LINEAR in the headline: tnt_val_gold_p_value is
-# `var:tnt_gold_p / tnt_gold_per_point_value` with NO personality rider
-# (tnt_50_values.txt:592-604). So the gold that closes a gap of D acceptance
-# points is D x tnt_gold_per_point_value, EXACTLY, and that is one multiplication
-# rather than a search. This is the main reason gold is the preferred currency
-# here and not merely the traditional one.
-#
-# THE THREE OTHER CURRENCIES ARE LINEAR TOO BUT NOT EXACT: prestige, piety and
-# influence carry the partner's personality rider, x1.5 for arrogant / zealous /
-# ambitious and x0.5 for humble / content (tnt_53_currency_values.txt section 2),
-# so a nominal per-point price under- or over-shoots by that factor. Add the
-# `round = yes` on the two column totals and on the headline itself (up to about
-# 1.5 points of slop) and the affordability clamps, and a single arithmetic step
-# can land a point or two off.
-#
-# THAT is what the bounded loop absorbs, and it is bounded by a hard COUNT and
-# not merely by a condition:
-#     while = { count = 2  limit = { tnt_ab_deficit_value > 0 }  <one pass> }
-# `while` taking BOTH a count and a limit is proven verbatim in vanilla at
-# GAME\common\on_action\game_start.txt:7711-7718 (`count = 7` next to a `limit`),
-# and `while` inside a scripted effect at
-# GAME\common\scripted_effects\00_administrative_effects.txt:447 (count) and
-# GAME\common\scripted_effects\00_courtier_guest_management_effects.txt:1288
-# (limit). The count is the ceiling; the limit only lets it stop EARLY. PDX warn
-# that a script value "has to be calculated every single time it is evaluated"
-# (GAME\common\script_values\_script_values.info:13-14), which is precisely why
-# the ceiling is 2 and not 20.
-#
-# WORST-CASE COST OF ONE BUTTON PRESS: the direct pass plus two corrective passes,
-# each pass reading tnt_ab_deficit_value once per currency step, so about 16
-# evaluations of the value chain for one click. The AI path uses count = 1.
-#
-#=======================================================================
-# C.2  BOTH DIRECTIONS, BECAUSE "MINIMUM ACCEPTABLE" HAS TWO HALVES
-#=======================================================================
-# SWEETEN  the partner would refuse (headline below MARGIN)   -> raise the _p
-#          currencies until he just signs.
-# TRIM     the partner would sign comfortably (headline above CEILING) -> LOWER
-#          the _p currencies until the deal is only just acceptable. This is the
-#          more valuable half: it stops the player overpaying.
-#
-# THE `_r` COLUMN IS RAISED, NEVER SHRUNK. The surplus branch asks the partner
-# for MORE - first in currency (tnt_ab_ai_pay_effect, called from the player's
-# button since the "ask before you take back" change below) and then, only when
-# his purse is empty, in kind (section D). What it will not do is DELETE a
-# demand the player typed: that column is the player's wish list, and silently
-# shrinking it to make the arithmetic work is the same trap as silently ceding a
-# county, only mirrored. The paragraph this replaces claimed the button never
-# touched `_r` at all; that stopped being true the day the surplus branch
-# started calling the pay ladder.
-#
-# GOLD FIRST IN BOTH DIRECTIONS. Spending order gold -> prestige -> piety ->
-# influence, and trimming order the same. Symmetry is deliberate: pressing the
-# button twice, once when it sweetened and once when the world moved and it must
-# trim, takes back exactly what it put in. It also means the exact currency (gold)
-# does as much of the work as it can in both directions.
-#
-# NOTHING THE PLAYER TYPED IS OVERWRITTEN. Every step reads var:X and adds to or
-# subtracts from it; no step assigns an absolute amount. A deliberate 500 piety
-# on the table stays 500 piety unless the arithmetic genuinely needs it moved.
-#
-# THE FALL-THROUGH NEEDS NO "HAS GOLD RUN OUT" TEST. Each currency step re-reads
-# tnt_ab_deficit_value, which re-evaluates the headline against the amounts the
-# PREVIOUS step just wrote. Gold pays what its affordability clamp allows; what is
-# left of the deficit is what prestige sees; and so on. One mechanism, no state.
-#
-#=======================================================================
-# C.3  THE REPORTED OUTCOME - tnt_ab_state, ON THE PLAYER
-#=======================================================================
-#   1  BALANCED          the button moved the deal and it now sits just inside
-#                        the partner's acceptance point
-#   2  ALREADY MINIMAL   the headline was already inside [MARGIN, CEILING];
-#                        nothing was changed, and that is the honest answer
-#   3  CANNOT BE REACHED the headline is still <= 0 after spending everything the
-#                        player can actually pay
-# Absent means "the button has not been pressed, or something else has since
-# changed an amount" - every amount helper in sections A and B removes it.
-# The GUI reads it as a plain variable (Law R9): `[TntNum('tnt_ab_state')|0]`
-# or three triggered_desc rows on `var:tnt_ab_state = 1|2|3`, which are
-# variable-against-literal tests (Law R7).
-#
-# STATE 3 IS DECIDED LAST AND OVERRIDES STATE 1, by one named-value-against-
-# literal test, `tnt_ai_accept_value <= 0` - which is the mod's single acceptance
-# test, unchanged, and exactly 0 declines (tnt_50_values.txt:3537-3543).
-# It can never clobber state 2, because state 2 means the deficit was already 0,
-# which for any MARGIN >= 1 means the headline was already >= 1.
-#
-#=======================================================================
-# C.4  MARGIN AND CEILING ARE PARAMETERS, AND WHY THEY TRAVEL AS VARIABLES
-#=======================================================================
-# A script value cannot take a parameter, so the two targets are written onto the
-# player as tnt_ab_margin / tnt_ab_ceiling at the top of the entry point and read
-# from there by tnt_ab_deficit_value / tnt_ab_surplus_value
-# (tnt_53_currency_values.txt section 4). Both are removed again at the bottom of
-# the same effect, so neither can become save residue and neither value can
-# return anything but 0 outside a call. That is also what makes the two loop
-# conditions Law R7 clean: every test in this file is a NAMED VALUE against the
-# LITERAL 0, never a variable against a variable.
-#
-# MARGIN MUST BE >= 1. At MARGIN = 0 the target would be "exactly 0", which
-# DECLINES.
+# SECTION C - CURRENCY BALANCING
+# Both the window and incoming AI letters use the actual acceptance value.
+# This includes personality, relationship scaling, signed obligations and all
+# three rounding stages. Nominal currency prices are not an inverse of it.
+# Net first; remove overpayment before requesting a new payment. Never create
+# two directions of the same currency. A rounded +2 can be the minimum: do not
+# manufacture a counterpayment merely to make that number look like +1.
+# World AI-to-AI trades use their separate dispatcher, not these effects.
 ########################################################################
 
-#=======================================================================
-# C1 - tnt_autobalance_effect        root = THE PLAYER      { MARGIN CEILING }
-#
-# The player's button. MARGIN 1 / CEILING 1 is what the scripted_gui passes
-# (tnt_22_v2.txt) - the band collapsed to the single point "+1 exactly" when the
-# exact-landing pass shipped: the ladder walks coarse-to-fine and
-# tnt_ab_exact_land_effect closes the last few points with one exact gold
-# multiplication, so no dead band is needed to stop churn any more. (The band was
-# 2/6 before exact landing existed; that arithmetic is history, not law.)
-#=======================================================================
-###############################################################################
-# tnt_ab_exact_land_effect    NO PARAMETERS    root = the player (or the AI actor)
-#
-# THE EXACT LANDING - what makes "+1" literal rather than "about +1".
-#
-# THE COMPLAINT IT ANSWERS, translated (this file is ASCII-only, see the header):
-# "AI deals land on +5 and the like where they could have been +1".
-# The currency ladder walks four rungs with a `round = yes` on each and a
-# wallet clamp under each, so it lands NEAR the band and stops; the residue is
-# whatever rounding and clamping left behind.
-#
-# WHY ONE MULTIPLICATION IS EXACT, AND A LOOP WOULD BE WASTE. Gold on the `_r`
-# column enters the headline through tnt_loss_total_value, which is NOT scaled by
-# tnt_deal_mult_value - the demands side never was. So one gold is worth exactly
-# 1/tnt_gold_per_point_value of a point, always, whatever the partner thinks of us.
-# Adding (headline - ceiling) x tnt_gold_per_point_value moves the headline down by
-# exactly that difference and lands on the ceiling with no residue - which is +1
-# everywhere except a capped-gift letter (see the ceiling note below).
-# tnt_gold_per_point_value is an integer (10, or 15 for a duke and above) and the
-# headline is an integer (tnt_ai_accept_value ends in round = yes), so the product
-# is exact and the `round = yes` below is a formality. A 1-gold-at-a-time loop
-# would cost ten to fifteen full evaluations of the value chain per point of
-# overshoot.
-#
-# SURPLUS DIRECTION ONLY. It can only ever make the PARTNER pay more, i.e. move the
-# deal toward the player. The deficit direction is left to the sweeten ladder,
-# because asking the player for more after a letter is composed is precisely what
-# the "-15 drift tolerance" argument in events/tnt_ai_events.txt forbids.
-#
-# IT LANDS ON THE CEILING, NOT ON THE LITERAL +1 (items 5+9). The step is sized
-# by tnt_ab_surplus_value, which is `headline - var:tnt_ab_ceiling, min 0`
-# (tnt_53_currency_values.txt section 4). On the player's button the ceiling is
-# always 1, so this is byte-for-byte the old "(headline - 1) x price" arithmetic.
-# On the letter path the generosity cap in C2 may have RAISED the ceiling so the
-# AI's gift is bounded; sizing off the literal 1 here would have paid the whole
-# rel-funded windfall back out and silently undone that cap. Outside an entry
-# point the ceiling variable is absent, the surplus reads exactly 0, and this
-# effect is a no-op - strictly safer than the old `accept > 1` test, which could
-# fire on a stray call. The exactness argument above survives unchanged: the
-# surplus is an integer difference of the integer headline and the integer
-# ceiling, so the product with the integer per-point price is exact.
-#
-# ITS OWN scope:tnt_cap_giver: the saves in the pay and sweeten passes are
-# temporary and per-block, so reusing one here would read whatever the last block
-# happened to leave behind.
-###############################################################################
-tnt_ab_exact_land_effect = {
+# Move one amount toward BOUND. Increasing acceptance finds the SMALLEST
+# movement reaching the target. Decreasing acceptance finds the LARGEST
+# movement that still meets it. Endpoint probes handle exhausted wallets.
+# Probe exact endpoints, including fractional wallets; integer-sized moves halve
+# the interval to <=1 unit. Preserve the accepting bound. 32 is a hard ceiling.
+# floor is native (00_council_values.txt); parameterized variable names already
+# occur in the amount helpers above. Every search variable is removed on exit.
+tnt_ab_search_effect = {
+	set_variable = { name = tnt_ab_search_base value = var:$VAR$ }
+	set_variable = { name = tnt_ab_search_direction value = $DIRECTION$ }
+	set_variable = { name = tnt_ab_search_lo value = 0 }
+	set_variable = {
+		name = tnt_ab_search_hi
+		value = { value = $BOUND$ subtract = var:tnt_ab_search_base multiply = $STEP$ min = 0 }
+	}
 	if = {
-		limit = {
-			tnt_ab_surplus_value > 0
-			# V14 (item 3, deep check): `exists = var:tnt_gold_r` was MISSING here,
-			# although the body reads var:tnt_gold_r arithmetically two rows below -
-			# the D5 "Failed to fetch variable" class this file's own C3/C4 header
-			# names at :1458-1461. It was saved only by an ensure pass happening to
-			# run ahead of it on both current call sites (:1127, :1445), i.e. by
-			# luck at the call site rather than by the effect's own contract.
-			# tnt_ab_ai_pay_effect has always carried the row (:1894).
-			exists = var:tnt_gold_r
-			exists = var:tnt_partner
-			var:tnt_partner ?= { gold >= 1 }
-		}
-		var:tnt_partner ?= { save_temporary_scope_as = tnt_cap_giver }
+		limit = { var:tnt_ab_search_hi > 0 }
 		set_variable = {
-			name = tnt_gold_r
-			value = {
-				value = var:tnt_gold_r
-				add = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_gold_per_point_value
+			name = $VAR$
+			value = { value = var:tnt_ab_search_hi multiply = $STEP$ add = var:tnt_ab_search_base }
+		}
+		if = {
+			limit = {
+				OR = {
+					AND = { var:tnt_ab_search_direction > 0 tnt_ab_search_gap_value <= 0 }
+					AND = { var:tnt_ab_search_direction < 0 tnt_ab_search_gap_value > 0 }
 				}
-				min = 0
-				round = yes
+			}
+			while = {
+				count = 32
+				limit = { tnt_ab_search_span_value > 1 }
+				set_variable = {
+					name = tnt_ab_search_mid
+					value = { value = var:tnt_ab_search_lo add = var:tnt_ab_search_hi divide = 2 floor = yes }
+				}
+				set_variable = {
+					name = $VAR$
+					value = { value = var:tnt_ab_search_mid multiply = $STEP$ add = var:tnt_ab_search_base }
+				}
+				if = {
+					limit = {
+						OR = {
+							AND = { var:tnt_ab_search_direction > 0 tnt_ab_search_gap_value <= 0 }
+							AND = { var:tnt_ab_search_direction < 0 tnt_ab_search_gap_value > 0 }
+						}
+					}
+					set_variable = { name = tnt_ab_search_hi value = var:tnt_ab_search_mid }
+				}
+				else = { set_variable = { name = tnt_ab_search_lo value = var:tnt_ab_search_mid } }
+			}
+			if = {
+				limit = { var:tnt_ab_search_direction > 0 }
+				set_variable = {
+					name = $VAR$
+					value = { value = var:tnt_ab_search_hi multiply = $STEP$ add = var:tnt_ab_search_base }
+				}
+			}
+			else = {
+				set_variable = {
+					name = $VAR$
+					value = { value = var:tnt_ab_search_lo multiply = $STEP$ add = var:tnt_ab_search_base }
+				}
 			}
 		}
-		# The wallet clamp stays last, exactly as every other rung does it. If the
-		# partner cannot afford the exact landing the deal simply stays above +1 -
-		# a partner too poor to be fair is a real state of the world, not an error.
-		set_variable = {
-			name = tnt_gold_r
-			value = {
-				value = var:tnt_gold_r
-				min = 0
-				# V14 item 3 (F2) + item 2 (I2-B): was
-				# `max = scope:tnt_cap_giver.gold`, the partner's WHOLE purse.
-				# A composed promise now keeps A FIFTH in reserve - vanilla's
-				# own eighty_percent_of_max_military_strength fraction. The
-				# argument, and why it was 0.9 for one commit, are in
-				# tnt_56_ai_values.txt above tnt_ai_pay_cap_value. THE FRACTION
-				# LIVES THERE AND NOWHERE ELSE; do not inline one here.
-				max = tnt_ai_pay_cap_value
-			}
-		}
+	}
+	remove_variable = tnt_ab_search_base
+	remove_variable = tnt_ab_search_direction
+	remove_variable = tnt_ab_search_lo
+	remove_variable = tnt_ab_search_hi
+	remove_variable = tnt_ab_search_mid
+}
+
+tnt_ab_close_deficit_currency_effect = {
+	if = {
+		limit = { tnt_ab_deficit_value > 0 var:$R$ > 0 }
+		tnt_ab_search_effect = { VAR = $R$ BOUND = 0 STEP = -1 DIRECTION = 1 }
+	}
+	if = {
+		limit = { tnt_ab_deficit_value > 0 var:$R$ <= 0 }
+		tnt_ab_search_effect = { VAR = $P$ BOUND = $CAP$ STEP = 1 DIRECTION = 1 }
 	}
 }
 
-
-tnt_autobalance_effect = {
-	set_variable = {
-		name = tnt_ab_margin
-		value = $MARGIN$
-	}
-	set_variable = {
-		name = tnt_ab_ceiling
-		value = $CEILING$
-	}
-	remove_variable = tnt_ab_state
-
-	# HOW MANY LUMPY TERMS THIS PRESS TOOK. Zeroed here rather than incremented
-	# across presses, because the tooltip line it feeds (tnt_ab_lumpy_line, bound in
-	# tnt_22_v2.txt) says what THIS press did. Section D increments it; the tail of
-	# this effect removes it again when it is still 0, so the mod's "absent means
-	# nothing happened" convention survives a press that took nothing.
-	set_variable = {
-		name = tnt_ab_lumpy_n
-		value = 0
-	}
-
-	tnt_ab_ensure_p_effect = yes
-	# BOTH COLUMNS ARE ENSURED NOW, because the surplus branch below writes the
-	# partner's column and reading an absent variable arithmetically is the D5
-	# defect class this file exists to avoid.
-	tnt_ab_ensure_r_effect = yes
-
+tnt_ab_trim_currency_effect = {
 	if = {
-		limit = { tnt_ab_deficit_value > 0 }
-		set_variable = {
-			name = tnt_ab_state
-			value = 1
-		}
-		tnt_ab_sweeten_effect = yes
-		while = {
-			count = 2
-			limit = { tnt_ab_deficit_value > 0 }
-			tnt_ab_sweeten_effect = yes
-		}
+		limit = { tnt_ab_search_gap_value <= 0 var:$VAR$ > 0 }
+		tnt_ab_search_effect = { VAR = $VAR$ BOUND = 0 STEP = -1 DIRECTION = -1 }
 	}
-	else_if = {
-		limit = { tnt_ab_surplus_value > 0 }
-		set_variable = {
-			name = tnt_ab_state
-			value = 1
-		}
-		#===============================================================
-		# ASK BEFORE YOU TAKE BACK - THE USER'S REQUIREMENT, VERBATIM:
-		# translated: "push the score far into the plus, press Balance, and terms
-		# are ADDED to bring it as close to +1 as it can get".
-		#
-		# This branch used to call tnt_ab_trim_effect only, i.e. it balanced a
-		# too-generous treaty by DELETING the player's own gift. That is a
-		# defensible reading of "balance" and the wrong one: it destroys what the
-		# player deliberately put on the table instead of collecting the value it
-		# has earned him. The right move on a surplus is to raise the PARTNER's
-		# column until the deal sits at +1 - the same ladder the AI uses when it
-		# pays for a windfall, clamped to what the partner actually holds.
-		#
-		# REUSED, NOT COPIED. tnt_ab_ai_pay_effect is named for its first caller
-		# but its body is direction-neutral: "raise the _r currencies, clamp each
-		# to the partner's stock". A verbatim copy under a second name would be
-		# two ladders to keep in step, and they would drift.
-		#===============================================================
-		tnt_ab_ai_pay_effect = yes
-		while = {
-			count = 3
-			limit = { tnt_ab_surplus_value > 0 }
-			tnt_ab_ai_pay_effect = yes
-		}
-		#===============================================================
-		# HIS PURSE IS EMPTY. ASK HIM FOR SOMETHING THAT IS NOT MONEY.
-		#
-		# Reached only when four passes of tnt_ab_ai_pay_effect have taken every
-		# coin, every point of prestige, of piety and of influence the partner
-		# owns and the treaty is STILL above +1. At that point the old code had
-		# exactly one move left - delete the player's own gift - and item 5's
-		# second half is the better one: the partner pays in kind.
-		#
-		# IT SITS HERE AND NOWHERE ELSE, above the trim block and below the pay
-		# ladder, because both neighbours are load-bearing. Above the pay ladder
-		# it would demand a county for a debt of forty gold. Below the trim block
-		# it would never fire, because trimming always drives the surplus to 0.
-		#
-		# Three passes maximum, so one press can take at most three lumpy terms.
-		# Every pass re-snapshots the surplus, so pass two prices its candidate
-		# against what pass one left behind - the fit test is never stale.
-		#===============================================================
-		if = {
-			limit = { tnt_ab_surplus_value > 0 }
-			tnt_ab_lumpy_r_effect = yes
-			while = {
-				count = 2
-				limit = { tnt_ab_surplus_value > 0 }
-				tnt_ab_lumpy_r_effect = yes
-			}
-		}
-
-		# ONLY WHEN HE HAS NOTHING LEFT TO GIVE AT ALL - no coin and nothing
-		# lumpy that fits - do we fall back to taking the gift back. A treaty
-		# left far above +1 is a treaty the player is overpaying for.
-		if = {
-			limit = { tnt_ab_surplus_value > 0 }
-			tnt_ab_trim_effect = yes
-			while = {
-				count = 2
-				limit = { tnt_ab_surplus_value > 0 }
-				tnt_ab_trim_effect = yes
-			}
-		}
-		# THE SAFETY TOP-UP, and it is not decoration. A trim step that had to
-		# take back prestige from an arrogant partner removes 1.5 points per
-		# nominal point and can overshoot past the acceptance point. One sweeten
-		# pass puts back exactly what the overshoot cost, so the button can never
-		# turn a deal the partner WOULD have signed into one he refuses.
-		if = {
-			limit = { tnt_ab_deficit_value > 0 }
-			tnt_ab_sweeten_effect = yes
-		}
-	}
-	else = {
-		set_variable = {
-			name = tnt_ab_state
-			value = 2
-		}
-	}
-
-	# The same exact landing the AI's letters get: close the last few points by
-	# raising the partner's gold by an exact multiple of its per-point price.
-	tnt_ab_exact_land_effect = yes
-
-	if = {
-		limit = { tnt_ai_accept_value <= 0 }
-		set_variable = {
-			name = tnt_ab_state
-			value = 3
-		}
-	}
-
-	tnt_ab_tidy_p_effect = yes
-	tnt_ab_tidy_r_effect = yes
-	# The lumpy counter follows the same "absent means nothing on the table"
-	# convention as the eight amounts C5/C6 have just tidied. The tooltip row in
-	# tnt_22_v2.txt tests `exists` first, so a press that took nothing prints no
-	# line at all rather than "0 terms taken".
-	if = {
-		limit = { var:tnt_ab_lumpy_n < 1 }
-		remove_variable = tnt_ab_lumpy_n
-	}
-
-	# ITEM 3 - THE ORDER. The lumpy ladder stages a partner county by itself
-	# (tnt_ab_lumpy_title_r_effect, section D): it APPENDS to tnt_sel_title_r and
-	# shortens tnt_list_title_r, so both columns of the land family come out of a
-	# press in press order. One line here covers every rung, because this is the
-	# tail of the only entry point and the button's scripted_gui
-	# (tnt_22_v2.txt:2114) is its only caller. Argument: tnt_35a_sort.txt.
-	tnt_sort_all_effect = yes
-
-	remove_variable = tnt_ab_margin
-	remove_variable = tnt_ab_ceiling
 }
 
-#=======================================================================
-# C2 - tnt_ai_pricebalance_effect    root = THE PLAYER      { MARGIN CEILING }
-#
-# THE SAME MACHINERY, USED BY THE AI COMPOSER - the second half of what the user
-# asked for. Called from tnt_ai_offer_settle_effect (tnt_37_ai_offer.txt), where
-# root is already the player and var:tnt_partner is already the AI, so every
-# value in the chain keeps its exact meaning with zero re-rooting.
-#
-# THE ONE DIFFERENCE FROM C1, and it is forced by the path rather than chosen: on
-# the AI path the player's column is EMPTY (no archetype writes a currency on the
-# _p side; A6 writes tnt_prestige_r, which is the AI's own prestige). There is
-# therefore nothing to trim. When the AI is being handed a windfall it must
-# instead PAY FOR IT out of its own pocket - raise the _r column - which lowers
-# the headline because tnt_loss_total_value enters tnt_ai_accept_value with
-# `multiply = -1`. Without that branch a "value-fair" AI would only ever beg.
-#
-# THE LOOP CEILING HERE IS count = 6 (argued at the loop itself); 30-V2-DESIGN
-# 6.4 constraint 3's "one archetype plus one bounded correction" is satisfied
-# because the whole of this effect is that ONE correction - the count is a fixed
-# ceiling inside it, not a retry of the offer - and an offer that is still
-# unacceptable afterwards is abandoned by the existing go/no-go in
-# tnt_ai_offer.0001 rather than iterated at. (This paragraph used to claim
-# "count = 1"; the body moved to 6 when the multiplier-divided step landed and
-# the claim was not updated - fixed with the items-1/5/9 pass.)
-#
-# THE TAIL, IN ORDER, SINCE THE ITEMS-1/5/9 PASS: exact landing (on the
-# ceiling), the GOLD/PRESTIGE NETTING pass, the BAND RESTORE, then tidy. The
-# ceiling may have been RAISED at the top by the generosity cap (letter path
-# only). Each block carries its own argument.
-#
-# IT DOES NOT WRITE tnt_ab_state. That variable exists for the button's tooltip;
-# on the AI path there is no tooltip and no window, and writing it would leave the
-# counter-offer window opening on a verdict about a deal the player has not
-# touched yet.
-#
-# AND IT DOES NOT CALL THE LUMPY LADDER (section D), deliberately. On this path the
-# `_r` column is the AI's OWN side, so a lumpy pass here would make the AI cede its
-# counties and swear fealty to the player unprompted, in a letter, with no window
-# open. Every safety the ladder relies on is a WINDOW safety: the player can untick
-# what he does not want, and unticking is what teaches the veto memory. None of
-# that exists on the letter path, and integration-contract R6 keeps every new term
-# out of the composer until it has run in game at least once. The AI's surplus is
-# therefore still shed in currency only, which is what tnt_ab_ai_pay_effect is for.
-#=======================================================================
-tnt_ai_pricebalance_effect = {
-	set_variable = {
-		name = tnt_ab_margin
-		value = $MARGIN$
-	}
-	set_variable = {
-		name = tnt_ab_ceiling
-		value = $CEILING$
-	}
-
-	tnt_ab_ensure_p_effect = yes
-	tnt_ab_ensure_r_effect = yes
-
-	#===============================================================
-	# THE GENEROSITY CAP (user items 5+9) - LETTER PATH ONLY, and it is a
-	# DAMPER, not an abort. The user ruled that an over-generous letter is
-	# kept as immersion (the raised opinion explains the gift), so nothing
-	# here refuses to ship; what is bounded is how much of the AI's standing
-	# converts into MATERIAL payment per letter.
-	#
-	# THE SPIRAL THIS DAMPS, measured in the 2026-08 playtest (SETTLE
-	# gain=150 loss=186 rel=+125, headline +89): every applied treaty grants
-	# tnt_treaty_favor_opinion (+1 per headline point, stack capped +50,
-	# tnt_32_apply.txt / tnt_61_opinions.txt), that grant IS inside the
-	# partner's opinion when the next letter is priced (the opinion row reads
-	# plain `opinion`, which folds all modifiers), the rel rows scale with the
-	# offer, and the surplus branch below converts the whole rel-funded
-	# surplus into gold paid to the player. Gift raises opinion raises gift.
-	# Vanilla clamps opinion at +100 and the favor stack at +50, so the spiral
-	# SATURATES rather than diverges - but it saturates at a rel row worth
-	# ~100+ points, i.e. a four-digit gold gift per letter, forever.
-	#
-	# THE DAMP: when the letter path's surplus exceeds
-	# tnt_ai_generosity_cap_value (25, just above vanilla's `low` acceptance
-	# band, tnt_53_currency_values.txt section 4b), the ceiling is RAISED by
-	# the excess, so the pay ladder and the exact landing below shed AT MOST
-	# 25 points of value per letter. The remainder ships as headline - the
-	# partner's visible enthusiasm, not his coin - and the settle marks it as
-	# a deliberate gift (tnt_37_ai_offer.txt writes tnt_ai_gift). The player's
-	# own window math is untouched: this writes only tnt_ab_ceiling, a
-	# variable this effect removes on exit, and only when var:tnt_ai_offer_arch
-	# exists - which the counter-offer path removes BEFORE the window opens
-	# (tnt_ai_offer_counter_effect), so no button press can ever see it.
-	#
-	# INVARIANTS: ceiling stays >= margin (the excess is >= 0 by
-	# construction), no valuation changes, I1-I6 read the same variables they
-	# always did. `tnt_ab_gift_excess_value > 0` is a named value against the
-	# literal 0 (Law R7); the excess arithmetic lives in
-	# tnt_53_currency_values.txt for exactly that reason.
-	#===============================================================
-	#
-	# ONE ARCHETYPE IS EXEMPT, AND IT IS EXEMPT BY ITS OWN PREMISE (V13).
-	# arch 17 is "unbind me": a vassal ASKS TO BUY HIS FREEDOM. What he receives
-	# is priced at 100 + 5 x his realm, floor 100 (tnt_58_person_values.txt
-	# section 2), and the cap would let him pay at most 25 points of it. The
-	# modal case - a one-county vassal, who has no cedable title at all because
-	# T3 refuses his capital and his primary title - would therefore send "free
-	# me, and here is 300 gold" for a crown the mod itself prices at 150, and
-	# ship it MARKED as a gift of standing. That is not generosity being capped,
-	# it is a purchase being under-paid: the cap exists to stop the AI SHEDDING
-	# value it did not mean to shed, and here the value flows the other way.
-	# Letting him pay the real price is self-limiting - the pay ladder can only
-	# spend what he actually holds (`max = gold` on every rung), and a vassal who
-	# cannot afford his freedom fails the wallet check in .0001 and stays quiet,
-	# which is the honest outcome.
+tnt_ab_pay_currency_effect = {
 	if = {
-		limit = {
-			exists = var:tnt_ai_offer_arch
-			NOT = { var:tnt_ai_offer_arch = 17 }
-			# V15, USER ITEM 2 - AND NOT WHEN THE AI IS THE BUYER. tnt_balance_value
-			# is the PURE TRADE DELTA (tnt_50_values.txt:2722, header from :2681), so
-			# > 0 means the AI is TAKING more than it gives: the surplus is an UNPAID
-			# BILL, not generosity, and capping it under-pays a purchase. That is the
-			# arch-17 argument in the paragraph above, generalised so the next buying
-			# archetype needs no edit here.
-			# IT IS ALSO THE ROW THAT ENDS THE ABORT STORM. The cap is an instruction
-			# to leave the finished headline at accept - 25, and
-			# events\tnt_ai_events.txt then refuses any letter above +3 whose trade
-			# delta is positive - which every purchase's is. MEASURED 2026-08-17: 9 of
-			# the 12 arch=8 letters died in that contradiction, every one of them with
-			# gifthead = accept - 25 to the point, and gifthead > 0 appears on no
-			# other archetype in the run.
-			# EXPECTED NEXT RUN: OUTCOME what=aborted_below_threshold disappears for
-			# arch=8, and every surviving arch=8 letter records gifthead=0 with bal
-			# between -3 and +3. An abort that still shows gifthead > 0 means THIS ROW
-			# did not land; an abort with gifthead=0 and bal > 3 is the affordability
-			# floor being too low, not this row.
-			# It cannot reopen the spiral this cap exists to damp: the spiral is the AI
-			# converting rel-funded standing into coin PAID OUT, which is the bal <= 0
-			# direction, and that direction still caps.
-			# The arch-17 row above becomes redundant under this test (a vassal buying
-			# his freedom is a buyer too) and is KEPT for one release as documentation;
-			# it costs one comparison.
-			# Named value against a literal (Law R7).
-			NOT = { tnt_balance_value > 0 }
-			tnt_ab_gift_excess_value > 0
-		}
-		set_variable = {
-			name = tnt_ab_ceiling
-			value = {
-				value = var:tnt_ab_ceiling
-				add = tnt_ab_gift_excess_value
-			}
-		}
-	}
-
-	# SIX CORRECTIVE PASSES, NOT ONE, AND THE `limit` IS WHAT MAKES THAT CHEAP.
-	# `count` is a CEILING on iterations, not a fixed number: `while` re-tests its
-	# limit before every pass, so a deal that lands on target after the first step -
-	# which is now the normal case, since the step is divided by the multiplier -
-	# costs exactly one extra evaluation of tnt_ab_deficit_value and stops.
-	#
-	# WHY MORE THAN ONE PASS IS STILL NEEDED. A single step can fall short for
-	# reasons that have nothing to do with the arithmetic being wrong:
-	#   * influence's surviving 1000 cap truncates it (the gold/prestige/piety
-	#     sanity caps are gone, user item 4)
-	#   * `max = gold` truncates it to what the payer actually holds, so the rest has
-	#     to come out of the NEXT currency in the ladder - and the ladder is walked
-	#     once per pass, not once per call
-	#   * `round = yes` loses up to half a point per currency touched
-	# Two passes could reach at most two rungs of a four-rung ladder. Six can walk
-	# the whole ladder and still have a pass left over for rounding, which is the
-	# difference between "the AI asks for a fair top-up" and "the AI sends a letter
-	# that is still under-priced" - the defect the user reported.
-	#
-	# It cannot run away: every pass either strictly reduces the deficit or changes
-	# nothing (all four currencies capped or exhausted), and in the second case the
-	# limit still holds but the loop is bounded by count. `while` with both count and
-	# limit is vanilla, e.g. GAME\common\scripted_effects\00_diarchy_scripted_effects.txt:589,
-	# GAME\common\decisions\80_major_decisions_middle_europe.txt:839.
-	if = {
-		limit = { tnt_ab_deficit_value > 0 }
-		tnt_ab_sweeten_effect = yes
-		while = {
-			count = 6
-			limit = { tnt_ab_deficit_value > 0 }
-			tnt_ab_sweeten_effect = yes
-		}
-	}
-	else_if = {
 		limit = { tnt_ab_surplus_value > 0 }
-		tnt_ab_ai_pay_effect = yes
-		while = {
-			count = 6
-			limit = { tnt_ab_surplus_value > 0 }
-			tnt_ab_ai_pay_effect = yes
-		}
-		# The AI may overshoot when it pays: it walks its own four currencies and a
-		# rounded step can carry the headline back under the margin. One sweeten pass
-		# is the corrective, and it was already here.
-		if = {
-			limit = { tnt_ab_deficit_value > 0 }
-			tnt_ab_sweeten_effect = yes
-		}
+		tnt_ab_search_effect = { VAR = $VAR$ BOUND = $CAP$ STEP = 1 DIRECTION = -1 }
 	}
+}
 
-	# The exact landing on the ceiling. Shared with the player's button; see the effect.
-	tnt_ab_exact_land_effect = yes
-
-	#===============================================================
-	# THE NETTING PASS (user item 1) - A LETTER MUST NEVER ASK GOLD AND PAY
-	# GOLD. The measured letter that forced this carried gold_p=171 (ai_wants)
-	# AND gold_r=163.6 (ai_gives): the deficit ladder raises gold_p, the
-	# sweeten overshoot then makes the exact landing raise gold_r, and nothing
-	# netted the two. Here both columns are reduced by the smaller amount, so
-	# exactly one side survives; the side that ends at 0 is removed by the
-	# tidy pass below, restoring "absent means nothing on the table".
-	#
-	# WHY NETTING DOES NOT ADD A DIRECTIONAL BAR ERROR: both magnitude totals move
-	# by the SAME amount - the netted gold enters tnt_gain_total_value and
-	# tnt_loss_total_value
-	# at the identical unscaled rate amount / tnt_gold_per_point_value, through
-	# tnt_val_gold_p_value and tnt_val_gold_r_value (tnt_50_values.txt:592-618, no
-	# personality rider on either side) - and every printed figure and the
-	# headline are recomputed from the netted variables by the same value
-	# chain. Bar direction is read from that authoritative headline, not re-derived
-	# by subtracting the two independently rounded magnitudes. THE HEADLINE ITSELF
-	# is not bit-identical, and the comment must say so to stay true: the
-	# eight relation rows and the threshold are percentages OF THE OFFER
-	# (tnt_ai_accept_value multiplies each by tnt_gain_scale_unit_value), so
-	# shrinking the gain column by x points moves the headline by
-	# x * (tnt_deal_mult_value - 1) - zero at mult 1, second-order otherwise.
-	# The band-restore block below returns exactly that residue to the
-	# [margin, ceiling] band, so the shipped letter is still on target and the
-	# go/no-go in tnt_ai_offer.0001 cannot be tripped by the net.
-	#
-	# min(a,b) IS BUILT WITH AN if/else ON A DIFFERENCE, not with
-	# `max = var:x`, which has ZERO vanilla call sites (re-grepped for this
-	# change). `subtract = var:x` is proven:
-	# GAME\common\character_interactions\00_diarch_interactions.txt:6674.
-	# `var:tnt_ab_net > 0` is a variable against a literal (Law R7).
-	#
-	# PRESTIGE IS NETTED TOO, because it genuinely can sit on both sides of a
-	# letter: archetype A6 writes tnt_prestige_r (the AI's own compact
-	# payment) and the deficit ladder can then write tnt_prestige_p when the
-	# player's gold runs out. Its two valuations carry the SAME partner-trait
-	# rider on both sides (tnt_53_currency_values.txt section 2), so equal
-	# amounts net to equal point moves on both columns and the I2 argument
-	# above transfers verbatim. The rung is behind the item-16 rule like every
-	# other prestige write in this file: with the rule off neither variable
-	# can exist and the guard is never true, but the gate keeps the sweep
-	# claim "every prestige site is gated" checkable by grep.
-	#
-	# PIETY AND INFLUENCE ARE NETTED TOO - the first draft claimed their
-	# both-sides state was unreachable ("the _p writer is the deficit branch,
-	# the _r writer the surplus branch, and the two are an if/else_if"), and
-	# the verification pass REFUTED that with a concrete path: the surplus
-	# branch's own corrective sweeten runs AFTER tnt_ab_ai_pay_effect has
-	# written piety_r/influence_r, and that sweeten writes piety_p/influence_p
-	# when the player's gold and prestige have both run dry. Rare, but a rare
-	# two-sided letter is exactly the absurdity the user reported for gold.
-	# Netting only ever REDUCES amounts, so the rule gates are kept on piety
-	# for the same grep-auditable "every gated currency's every site is gated"
-	# claim as prestige; influence needs no rule gate (it has none) and its
-	# exists-guards suffice.
-	#===============================================================
+tnt_ab_net_effect = {
 	if = {
 		limit = {
 			exists = var:tnt_gold_p
@@ -1278,7 +673,6 @@ tnt_ai_pricebalance_effect = {
 			}
 		}
 		if = {
-			# gold_p is the larger, so the smaller (gold_r) is the net amount.
 			limit = { var:tnt_ab_net > 0 }
 			set_variable = {
 				name = tnt_ab_net
@@ -1311,7 +705,7 @@ tnt_ai_pricebalance_effect = {
 	}
 	if = {
 		limit = {
-			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
+			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }
 			exists = var:tnt_prestige_p
 			var:tnt_prestige_p > 0
 			exists = var:tnt_prestige_r
@@ -1357,7 +751,7 @@ tnt_ai_pricebalance_effect = {
 	}
 	if = {
 		limit = {
-			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
+			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }
 			exists = var:tnt_piety_p
 			var:tnt_piety_p > 0
 			exists = var:tnt_piety_r
@@ -1446,128 +840,8 @@ tnt_ai_pricebalance_effect = {
 		}
 		remove_variable = tnt_ab_net
 	}
-
-	#===============================================================
-	# THE BAND RESTORE - puts back the second-order residue the netting
-	# comment above quantifies. Both directions are gold-first and bounded.
-	#
-	# DEFICIT REOPENED (mult > 1, i.e. the partner likes us - the common case
-	# for a netted letter): the headline slipped BELOW the margin, which
-	# without this block would silently kill the letter in .0001's go/no-go.
-	# First give the residue back out of the AI's own gold - the `_r` column
-	# is unscaled, so `deficit x price` is exact - and only if that column
-	# runs dry ask the player, with one sweeten pass. The order also means the
-	# sweeten can never recreate the two-sided state: it is reached only when
-	# tnt_gold_r has just been driven to 0.
-	#
-	# SURPLUS REOPENED (mult < 1): the headline drifted ABOVE the ceiling.
-	# Shrink the ASK first - trimming tnt_gold_p is strictly player-friendly
-	# and reduces the netted pair further - and only when the ask is gone let
-	# the exact landing pay the remainder, which is why its re-run is gated on
-	# tnt_gold_p being empty: re-adding gold_r while gold_p is still positive
-	# would recreate the exact state the netting pass just removed. The one
-	# corner this leaves is a <= 1-point rounding residue above the ceiling
-	# when a trimmed gold_p survives, which sits inside the 2..5 band the
-	# playtest already tolerates.
-	#===============================================================
-	if = {
-		limit = { tnt_ab_deficit_value > 0 }
-		if = {
-			limit = {
-				exists = var:tnt_gold_r
-				var:tnt_gold_r > 0
-			}
-			set_variable = {
-				name = tnt_gold_r
-				value = {
-					value = var:tnt_gold_r
-					subtract = {
-						value = tnt_ab_deficit_value
-						multiply = tnt_gold_per_point_value
-					}
-					min = 0
-					round = yes
-				}
-			}
-		}
-		if = {
-			limit = { tnt_ab_deficit_value > 0 }
-			tnt_ab_sweeten_effect = yes
-		}
-	}
-	else_if = {
-		limit = { tnt_ab_surplus_value > 0 }
-		if = {
-			limit = {
-				exists = var:tnt_gold_p
-				var:tnt_gold_p > 0
-			}
-			set_variable = {
-				name = tnt_gold_p
-				value = {
-					value = var:tnt_gold_p
-					subtract = {
-						value = tnt_ab_surplus_value
-						multiply = tnt_gold_per_point_value
-						divide = tnt_ab_mult_floor_value	# offer side, scaled - see C8
-					}
-					min = 0
-					round = yes
-				}
-			}
-		}
-		if = {
-			limit = {
-				tnt_ab_surplus_value > 0
-				trigger_if = {
-					limit = { exists = var:tnt_gold_p }
-					var:tnt_gold_p < 1
-				}
-			}
-			tnt_ab_exact_land_effect = yes
-		}
-	}
-
-	tnt_ab_tidy_p_effect = yes
-	tnt_ab_tidy_r_effect = yes
-
-	# ITEM 3 - THE ORDER, and this ONE line covers all nine of the AI composer's
-	# writes to the four selection lists (tnt_37_ai_offer.txt: A8 two passes to
-	# tnt_sel_title_p, A10 four passes to tnt_sel_title_r with a clear between
-	# passes 3 and 4, A14/A17 one county to tnt_sel_title_r, A13 to
-	# tnt_sel_artifact_r, A19 to tnt_sel_courtier_p). It is placed HERE, and not in
-	# that file, because this effect has exactly one caller
-	# (tnt_ai_offer_settle_effect, tnt_37_ai_offer.txt:5058), it runs once per
-	# composed offer AFTER the draw has staged every term, and tnt_37_ai_offer.txt
-	# carries sixteen CLAUDE.md citations that a new line there would move.
-	# THE LETTER IS WHY THIS MATTERS AT ALL: those lists are rendered in the letter
-	# (gui\event_window_widgets\tnt_offer_summary.gui) before the window is ever
-	# opened, so nothing else would have ordered them. Argument: tnt_35a_sort.txt.
-	tnt_sort_all_effect = yes
-
-	remove_variable = tnt_ab_margin
-	remove_variable = tnt_ab_ceiling
 }
 
-#=======================================================================
-# C3 / C4 - MAKE THE EIGHT AMOUNTS READABLE AS NUMBERS
-#
-# Every pass below reads `var:tnt_gold_p` arithmetically, and reading an absent
-# variable is a "Failed to fetch variable" error - the D5 class of defect. The
-# offer variables are routinely absent, because tnt_reset_offer_effect removes
-# them, so the passes are given a numeric floor to work from first.
-#
-# THE PRESTIGE/PIETY FLOORS ARE THEMSELVES BEHIND THEIR ITEM-16 RULES: with a
-# rule off the variable stays ABSENT here, and that is safe because every rung
-# that would read it arithmetically is behind the same rule, and every other
-# reader - the valuations, C5/C6 - tests `exists` first (see C.0).
-#
-# A variable sitting at 0 is NOT a selected term: every valuation, every
-# shortfall and every tnt_balance_value row tests `exists AND > 0`
-# (tnt_53_currency_values.txt section 2). C5/C6 remove the ones that end at 0
-# again, so the invariant "absent means nothing on the table" is restored before
-# the effect returns and no GUI binding ever sees a 0-valued row.
-#=======================================================================
 tnt_ab_ensure_p_effect = {
 	if = {
 		limit = { NOT = { exists = var:tnt_gold_p } }
@@ -1642,35 +916,32 @@ tnt_ab_ensure_r_effect = {
 	}
 }
 
-#=======================================================================
-# C5 / C6 - RESTORE "ABSENT MEANS NOTHING ON THE TABLE"
-#=======================================================================
 tnt_ab_tidy_p_effect = {
 	if = {
 		limit = {
 			exists = var:tnt_gold_p
-			var:tnt_gold_p < 1
+			var:tnt_gold_p <= 0
 		}
 		remove_variable = tnt_gold_p
 	}
 	if = {
 		limit = {
 			exists = var:tnt_prestige_p
-			var:tnt_prestige_p < 1
+			var:tnt_prestige_p <= 0
 		}
 		remove_variable = tnt_prestige_p
 	}
 	if = {
 		limit = {
 			exists = var:tnt_piety_p
-			var:tnt_piety_p < 1
+			var:tnt_piety_p <= 0
 		}
 		remove_variable = tnt_piety_p
 	}
 	if = {
 		limit = {
 			exists = var:tnt_influence_p
-			var:tnt_influence_p < 1
+			var:tnt_influence_p <= 0
 		}
 		remove_variable = tnt_influence_p
 	}
@@ -1680,469 +951,166 @@ tnt_ab_tidy_r_effect = {
 	if = {
 		limit = {
 			exists = var:tnt_gold_r
-			var:tnt_gold_r < 1
+			var:tnt_gold_r <= 0
 		}
 		remove_variable = tnt_gold_r
 	}
 	if = {
 		limit = {
 			exists = var:tnt_prestige_r
-			var:tnt_prestige_r < 1
+			var:tnt_prestige_r <= 0
 		}
 		remove_variable = tnt_prestige_r
 	}
 	if = {
 		limit = {
 			exists = var:tnt_piety_r
-			var:tnt_piety_r < 1
+			var:tnt_piety_r <= 0
 		}
 		remove_variable = tnt_piety_r
 	}
 	if = {
 		limit = {
 			exists = var:tnt_influence_r
-			var:tnt_influence_r < 1
+			var:tnt_influence_r <= 0
 		}
 		remove_variable = tnt_influence_r
 	}
 }
 
-#=======================================================================
-# C7 - ONE SWEETEN PASS: RAISE THE PLAYER'S COLUMN
-#
-# Each of the four steps converts the CURRENT remaining deficit, in acceptance
-# points, into an amount of its own currency at that currency's own vanilla unit
-# price - tnt_gold_per_point_value (tnt_50_values.txt:343) and the three siblings
-# in tnt_53_currency_values.txt section 1b. Those four names are the mod's single
-# source of truth for what one acceptance point costs, and this pass, the trim
-# pass, the AI pay pass and every per-item valuation all read them.
-#
-# The "is there room left in this row" test survives only on the influence rung
-# (`var:tnt_influence_p < 1000`, the one surviving literal - user item 4 removed
-# the gold/prestige/piety caps, so those rows' only ceiling is the stock and the
-# affordability clamp below each step is what enforces it).
-#
-# THE AFFORDABILITY CLAMP IS WHAT MAKES STATE 3 REACHABLE AND HONEST: gold is
-# capped at `gold`, prestige at `prestige`, piety at `piety`, influence at
-# `root.influence`. When the deficit cannot be closed inside those four ceilings,
-# the loop exits on its count, the headline is still <= 0, and the caller reports
-# "cannot be reached even at your limit" instead of silently doing nothing.
-#=======================================================================
-tnt_ab_sweeten_effect = {
-	# --- 1. GOLD, the exact currency (no personality rider) ---------------
+# Full-wallet manual offers remain legal; automatic additions keep the 20% reserve.
+# Preserve fractional manual amounts and wallet endpoints; reducing them to whole
+# units can invalidate a previously acceptable full-wallet offer.
+tnt_ab_solve_effect = {
+	tnt_ab_ensure_p_effect = yes
+	tnt_ab_ensure_r_effect = yes
+	tnt_ab_net_effect = yes
+	set_variable = { name = tnt_ab_search_target value = var:tnt_ab_margin }
+	tnt_ab_close_deficit_currency_effect = { P = tnt_gold_p R = tnt_gold_r CAP = tnt_player_pay_cap_value }
 	if = {
-		limit = {
-			tnt_ab_deficit_value > 0
-			exists = var:tnt_gold_p
-			gold >= 1
+		limit = { tnt_trade_prestige_trigger = { A = root B = var:tnt_partner } }
+		tnt_ab_close_deficit_currency_effect = { P = tnt_prestige_p R = tnt_prestige_r CAP = tnt_player_pay_cap_prestige_value }
+	}
+	if = {
+		limit = { tnt_trade_piety_trigger = { A = root B = var:tnt_partner } }
+		tnt_ab_close_deficit_currency_effect = { P = tnt_piety_p R = tnt_piety_r CAP = tnt_player_pay_cap_piety_value }
+	}
+	if = {
+		limit = { tnt_influence_ok_value > 0 government_has_flag = government_has_influence }
+		tnt_ab_close_deficit_currency_effect = { P = tnt_influence_p R = tnt_influence_r CAP = tnt_ab_p_influence_cap_value }
+	}
+	set_variable = { name = tnt_ab_search_target value = var:tnt_ab_ceiling }
+	tnt_ab_trim_currency_effect = { VAR = tnt_gold_p }
+	if = {
+		limit = { tnt_trade_prestige_trigger = { A = root B = var:tnt_partner } }
+		tnt_ab_trim_currency_effect = { VAR = tnt_prestige_p }
+	}
+	if = {
+		limit = { tnt_trade_piety_trigger = { A = root B = var:tnt_partner } }
+		tnt_ab_trim_currency_effect = { VAR = tnt_piety_p }
+	}
+	if = {
+		limit = { tnt_influence_ok_value > 0 government_has_flag = government_has_influence }
+		tnt_ab_trim_currency_effect = { VAR = tnt_influence_p }
+	}
+	if = {
+		limit = { tnt_ab_own_currency_value <= 0 tnt_ab_surplus_value > 0 }
+		tnt_ab_pay_currency_effect = { VAR = tnt_gold_r CAP = tnt_ai_pay_cap_value }
+		if = {
+			limit = { tnt_trade_prestige_trigger = { A = root B = var:tnt_partner } }
+			tnt_ab_pay_currency_effect = { VAR = tnt_prestige_r CAP = tnt_ai_pay_cap_prestige_value }
 		}
-		set_variable = {
-			name = tnt_gold_p
-			value = {
-				value = var:tnt_gold_p
-				add = {
-					value = tnt_ab_deficit_value
-					multiply = tnt_gold_per_point_value
-					# DIVIDED BY THE MULTIPLIER, and without this line the step is
-					# wrong by however much the partner likes or dislikes us: this
-					# column is `offer`, and the headline scales offer by
-					# tnt_deal_mult_value. Full argument, with the two failure
-					# modes it produced, at tnt_ab_mult_floor_value.
-					divide = tnt_ab_mult_floor_value
-				}
-				min = 0
-				round = yes
-			}
+		if = {
+			limit = { tnt_trade_piety_trigger = { A = root B = var:tnt_partner } }
+			tnt_ab_pay_currency_effect = { VAR = tnt_piety_r CAP = tnt_ai_pay_cap_piety_value }
 		}
-		set_variable = {
-			name = tnt_gold_p
-			value = {
-				value = var:tnt_gold_p
-				min = 0
-				# V24, LEDGER OPTION A: was `max = gold` - the player's WHOLE
-				# purse, while the AI side has kept a fifth in reserve since
-				# V14 (tnt_ai_pay_cap_value). The mirror family and the whole
-				# argument, with the measured 12-of-121 pinned-demand count,
-				# live above tnt_player_pay_cap_value in tnt_56_ai_values.txt.
-				# THE FRACTION LIVES THERE AND NOWHERE ELSE. Same edit on the
-				# three sibling rungs below.
-				max = tnt_player_pay_cap_value
-			}
+		if = {
+			limit = { tnt_influence_ok_value > 0 government_has_flag = government_has_influence }
+			tnt_ab_pay_currency_effect = { VAR = tnt_influence_r CAP = tnt_ab_r_influence_cap_value }
 		}
 	}
-	# --- 2. PRESTIGE ------------------------------------------------------
-	if = {
-		limit = {
-			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
-			tnt_ab_deficit_value > 0
-			exists = var:tnt_prestige_p
-			prestige >= 1
-		}
-		set_variable = {
-			name = tnt_prestige_p
-			value = {
-				value = var:tnt_prestige_p
-				add = {
-					value = tnt_ab_deficit_value
-					multiply = tnt_prestige_per_point_value
-					divide = tnt_ab_mult_floor_value		# see the gold step above
-				}
-				min = 0
-				round = yes
-			}
-		}
-		set_variable = {
-			name = tnt_prestige_p
-			value = {
-				value = var:tnt_prestige_p
-				min = 0
-				# V24 option A - see the gold rung above.
-				max = tnt_player_pay_cap_prestige_value
-			}
-		}
-	}
-	# --- 3. PIETY ---------------------------------------------------------
-	if = {
-		limit = {
-			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
-			tnt_ab_deficit_value > 0
-			exists = var:tnt_piety_p
-			piety >= 1
-		}
-		set_variable = {
-			name = tnt_piety_p
-			value = {
-				value = var:tnt_piety_p
-				add = {
-					value = tnt_ab_deficit_value
-					multiply = tnt_piety_per_point_value
-					divide = tnt_ab_mult_floor_value		# see the gold step above
-				}
-				min = 0
-				round = yes
-			}
-		}
-		set_variable = {
-			name = tnt_piety_p
-			value = {
-				value = var:tnt_piety_p
-				min = 0
-				# V24 option A - see the gold rung above.
-				max = tnt_player_pay_cap_piety_value
-			}
-		}
-	}
-	# --- 4. INFLUENCE, last and doubly gated ------------------------------
-	# tnt_influence_ok_value > 0 means BOTH governments hold an influence pool
-	# (tnt_53_currency_values.txt section 1); the flag test is the player's own
-	# half asked directly, because the mirrors it folds may not have been written
-	# on a non-window path.
-	if = {
-		limit = {
-			tnt_ab_deficit_value > 0
-			exists = var:tnt_influence_p
-			var:tnt_influence_p < 1000
-			tnt_influence_ok_value > 0
-			government_has_flag = government_has_influence
-			influence >= 1
-		}
-		set_variable = {
-			name = tnt_influence_p
-			value = {
-				value = var:tnt_influence_p
-				add = {
-					value = tnt_ab_deficit_value
-					multiply = tnt_influence_per_point_value
-					divide = tnt_ab_mult_floor_value		# see the gold step above
-				}
-				min = 0
-				max = 1000
-				round = yes
-			}
-		}
-		set_variable = {
-			name = tnt_influence_p
-			value = {
-				value = var:tnt_influence_p
-				min = 0
-				# V24 option A - see the gold rung above. The old row read
-				# `max = root.influence`. The two OTHER `max = root.influence`
-				# rows in this file (:362, :441) are the player's own window
-				# steppers and KEEP the full purse on purpose - the recorded
-				# rule above tnt_ai_pay_cap_value in tnt_56_ai_values.txt.
-				max = tnt_player_pay_cap_influence_value
-			}
-		}
-	}
+	remove_variable = tnt_ab_search_target
 }
 
-#=======================================================================
-# C8 - ONE TRIM PASS: LOWER THE PLAYER'S COLUMN
-#
-# The mirror of C7, same order, same four unit prices. No affordability clamp is
-# needed or wanted on this side - an amount can only become MORE affordable as it
-# falls - and `min = 0` is what stops it going negative.
-# `var:X > 0` in the limit means "there is something here to give back", so a
-# currency the player never put on the table is never written at all.
-#=======================================================================
-tnt_ab_trim_effect = {
+tnt_autobalance_effect = {
+	set_variable = { name = tnt_ab_margin value = $MARGIN$ }
+	set_variable = { name = tnt_ab_ceiling value = $CEILING$ }
+	remove_variable = tnt_ab_state
+	set_variable = { name = tnt_ab_lumpy_n value = 0 }
+	set_variable = { name = tnt_ab_before_tnt_gold_p value = { value = 0 if = { limit = { exists = var:tnt_gold_p } add = var:tnt_gold_p } } }
+	set_variable = { name = tnt_ab_before_tnt_gold_r value = { value = 0 if = { limit = { exists = var:tnt_gold_r } add = var:tnt_gold_r } } }
+	set_variable = { name = tnt_ab_before_tnt_prestige_p value = { value = 0 if = { limit = { exists = var:tnt_prestige_p } add = var:tnt_prestige_p } } }
+	set_variable = { name = tnt_ab_before_tnt_prestige_r value = { value = 0 if = { limit = { exists = var:tnt_prestige_r } add = var:tnt_prestige_r } } }
+	set_variable = { name = tnt_ab_before_tnt_piety_p value = { value = 0 if = { limit = { exists = var:tnt_piety_p } add = var:tnt_piety_p } } }
+	set_variable = { name = tnt_ab_before_tnt_piety_r value = { value = 0 if = { limit = { exists = var:tnt_piety_r } add = var:tnt_piety_r } } }
+	set_variable = { name = tnt_ab_before_tnt_influence_p value = { value = 0 if = { limit = { exists = var:tnt_influence_p } add = var:tnt_influence_p } } }
+	set_variable = { name = tnt_ab_before_tnt_influence_r value = { value = 0 if = { limit = { exists = var:tnt_influence_r } add = var:tnt_influence_r } } }
+	tnt_ab_solve_effect = yes
+	# Existing surplus policy: after all offered currency has been taken back
+	# and the partner's available currencies exhausted, an eligible lumpy term
+	# may be added. Never use this to consume a rounded minimum above +1.
 	if = {
-		limit = {
-			tnt_ab_surplus_value > 0
-			exists = var:tnt_gold_p
-			var:tnt_gold_p > 0
+		limit = { tnt_ab_own_currency_value <= 0 tnt_ab_surplus_value > 0 }
+		while = {
+			count = 3
+			limit = { tnt_ab_surplus_value > 0 }
+			tnt_ab_lumpy_r_effect = yes
 		}
-		set_variable = {
-			name = tnt_gold_p
-			value = {
-				value = var:tnt_gold_p
-				subtract = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_gold_per_point_value
-					# DIVIDED BY THE MULTIPLIER, EXACTLY AS THE SWEETEN PASS IS.
-					# This column is `offer`, and the headline scales offer by
-					# tnt_deal_mult_value - so a step sized in raw points removes
-					# twice what it meant to at opinion +100 and half at -50. The
-					# sweeten pass was fixed in V4 and this one was missed, which
-					# is why trimming overshot in exactly the cases sweetening
-					# undershot. Argument at tnt_ab_mult_floor_value.
-					divide = tnt_ab_mult_floor_value
-				}
-				min = 0
-				round = yes
-			}
-		}
+		tnt_ab_solve_effect = yes
 	}
+	tnt_ab_tidy_p_effect = yes
+	tnt_ab_tidy_r_effect = yes
+	# Verdicts describe the final table, never the branch entered earlier.
 	if = {
-		limit = {
-			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
-			tnt_ab_surplus_value > 0
-			exists = var:tnt_prestige_p
-			var:tnt_prestige_p > 0
-		}
-		set_variable = {
-			name = tnt_prestige_p
-			value = {
-				value = var:tnt_prestige_p
-				subtract = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_prestige_per_point_value
-					divide = tnt_ab_mult_floor_value		# see the gold step above
-				}
-				min = 0
-				round = yes
-			}
-		}
+		limit = { tnt_ai_accept_value <= 0 }
+		set_variable = { name = tnt_ab_state value = 3 }
 	}
-	if = {
-		limit = {
-			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
-			tnt_ab_surplus_value > 0
-			exists = var:tnt_piety_p
-			var:tnt_piety_p > 0
-		}
-		set_variable = {
-			name = tnt_piety_p
-			value = {
-				value = var:tnt_piety_p
-				subtract = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_piety_per_point_value
-					divide = tnt_ab_mult_floor_value		# see the gold step above
-				}
-				min = 0
-				round = yes
-			}
-		}
+	else_if = {
+		limit = { tnt_ab_surplus_value > 0 }
+		set_variable = { name = tnt_ab_state value = 4 }
 	}
-	if = {
-		limit = {
-			tnt_ab_surplus_value > 0
-			exists = var:tnt_influence_p
-			var:tnt_influence_p > 0
-		}
-		set_variable = {
-			name = tnt_influence_p
-			value = {
-				value = var:tnt_influence_p
-				subtract = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_influence_per_point_value
-					divide = tnt_ab_mult_floor_value		# see the gold step above
-				}
-				min = 0
-				max = 1000
-				round = yes
-			}
-		}
-	}
+	else_if = { limit = { tnt_ab_changed_value < 0.001 } set_variable = { name = tnt_ab_state value = 2 } }
+	else = { set_variable = { name = tnt_ab_state value = 1 } }
+	if = { limit = { var:tnt_ab_lumpy_n < 1 } remove_variable = tnt_ab_lumpy_n }
+	tnt_sort_all_effect = yes
+	remove_variable = tnt_ab_before_tnt_gold_p
+	remove_variable = tnt_ab_before_tnt_gold_r
+	remove_variable = tnt_ab_before_tnt_prestige_p
+	remove_variable = tnt_ab_before_tnt_prestige_r
+	remove_variable = tnt_ab_before_tnt_piety_p
+	remove_variable = tnt_ab_before_tnt_piety_r
+	remove_variable = tnt_ab_before_tnt_influence_p
+	remove_variable = tnt_ab_before_tnt_influence_r
+	remove_variable = tnt_ab_margin
+	remove_variable = tnt_ab_ceiling
 }
 
-#=======================================================================
-# C9 - ONE AI-PAY PASS: RAISE THE PARTNER'S COLUMN  (AI path only)
-#
-# The AI sheds a surplus by paying out of its own pocket. Same four unit prices,
-# same order, and the affordability ceiling is the PARTNER'S stock, reached
-# through the twice-guarded var:tnt_partner (Law R13) and the tnt_cap_giver
-# temporary scope.
-#
-# IT ADDS TO WHATEVER IS ALREADY THERE. Archetype A6 puts the AI's own prestige
-# on this side (tnt_37_ai_offer.txt), and `value = var:tnt_prestige_r + ...`
-# preserves it rather than replacing it - the same rule the player's button obeys.
-#
-# THE PLAYER'S BUTTON CALLS THIS TOO, and the name is now the only thing about
-# it that is AI-specific. The block header in C1 argues the change in full: on a
-# surplus the right move is to collect the value the player's gift has earned him,
-# not to destroy the gift. This comment used to read "the player's button does not
-# call this, ever" and was already false when the surplus branch was rewritten.
-# The body is direction-neutral - "raise the _r currencies, clamp each to the
-# partner's stock" - which is exactly why it is reused rather than copied.
-#=======================================================================
-tnt_ab_ai_pay_effect = {
+# The incoming-letter composer keeps its gift ceiling and never adds lumpy terms.
+tnt_ai_pricebalance_effect = {
+	set_variable = { name = tnt_ab_margin value = $MARGIN$ }
+	set_variable = { name = tnt_ab_ceiling value = $CEILING$ }
 	if = {
 		limit = {
-			tnt_ab_surplus_value > 0
-			exists = var:tnt_gold_r
-			exists = var:tnt_partner
-			var:tnt_partner ?= { gold >= 1 }
-		}
-		var:tnt_partner ?= {
-			save_temporary_scope_as = tnt_cap_giver
+			exists = var:tnt_ai_offer_arch
+			NOT = { var:tnt_ai_offer_arch = 17 }
+			NOT = { tnt_balance_value > 0 }
+			tnt_ab_gift_excess_value > 0
 		}
 		set_variable = {
-			name = tnt_gold_r
+			name = tnt_ab_ceiling
 			value = {
-				value = var:tnt_gold_r
-				add = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_gold_per_point_value
-				}
-				min = 0
-				round = yes
-			}
-		}
-		set_variable = {
-			name = tnt_gold_r
-			value = {
-				value = var:tnt_gold_r
-				min = 0
-				# V14 item 3 (F2) + item 2 (I2-B): was
-				# `max = scope:tnt_cap_giver.gold`, the partner's WHOLE purse.
-				# A composed promise now keeps A FIFTH in reserve - vanilla's
-				# own eighty_percent_of_max_military_strength fraction. The
-				# argument, and why it was 0.9 for one commit, are in
-				# tnt_56_ai_values.txt above tnt_ai_pay_cap_value. THE FRACTION
-				# LIVES THERE AND NOWHERE ELSE; do not inline one here.
-				max = tnt_ai_pay_cap_value
+				value = var:tnt_ab_ceiling
+				add = tnt_ab_gift_excess_value
 			}
 		}
 	}
-	if = {
-		limit = {
-			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
-			tnt_ab_surplus_value > 0
-			exists = var:tnt_prestige_r
-			exists = var:tnt_partner
-			var:tnt_partner ?= { prestige >= 1 }
-		}
-		var:tnt_partner ?= {
-			save_temporary_scope_as = tnt_cap_giver
-		}
-		set_variable = {
-			name = tnt_prestige_r
-			value = {
-				value = var:tnt_prestige_r
-				add = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_prestige_per_point_value
-				}
-				min = 0
-				round = yes
-			}
-		}
-		set_variable = {
-			name = tnt_prestige_r
-			value = {
-				value = var:tnt_prestige_r
-				min = 0
-				# V14 item 3 (F2) - see the gold clamp above.
-				max = tnt_ai_pay_cap_prestige_value
-			}
-		}
-	}
-	if = {
-		limit = {
-			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
-			tnt_ab_surplus_value > 0
-			exists = var:tnt_piety_r
-			exists = var:tnt_partner
-			var:tnt_partner ?= { piety >= 1 }
-		}
-		var:tnt_partner ?= {
-			save_temporary_scope_as = tnt_cap_giver
-		}
-		set_variable = {
-			name = tnt_piety_r
-			value = {
-				value = var:tnt_piety_r
-				add = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_piety_per_point_value
-				}
-				min = 0
-				round = yes
-			}
-		}
-		set_variable = {
-			name = tnt_piety_r
-			value = {
-				value = var:tnt_piety_r
-				min = 0
-				# V14 item 3 (F2) - see the gold clamp above.
-				max = tnt_ai_pay_cap_piety_value
-			}
-		}
-	}
-	if = {
-		limit = {
-			tnt_ab_surplus_value > 0
-			exists = var:tnt_influence_r
-			var:tnt_influence_r < 1000
-			tnt_influence_ok_value > 0
-			exists = var:tnt_partner
-			var:tnt_partner ?= {
-				government_has_flag = government_has_influence
-				influence >= 1
-			}
-		}
-		var:tnt_partner ?= {
-			save_temporary_scope_as = tnt_cap_giver
-		}
-		set_variable = {
-			name = tnt_influence_r
-			value = {
-				value = var:tnt_influence_r
-				add = {
-					value = tnt_ab_surplus_value
-					multiply = tnt_influence_per_point_value
-				}
-				min = 0
-				max = 1000
-				round = yes
-			}
-		}
-		set_variable = {
-			name = tnt_influence_r
-			value = {
-				value = var:tnt_influence_r
-				min = 0
-				# V14 item 3 (F2) - see the gold clamp above.
-				max = tnt_ai_pay_cap_influence_value
-			}
-		}
-	}
+	tnt_ab_solve_effect = yes
+	tnt_ab_tidy_p_effect = yes
+	tnt_ab_tidy_r_effect = yes
+	tnt_sort_all_effect = yes
+	remove_variable = tnt_ab_margin
+	remove_variable = tnt_ab_ceiling
 }
-
 
 ########################################################################
 # SECTION D - THE LUMPY LADDER  (user item 5, second half)

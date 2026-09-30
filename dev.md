@@ -37,6 +37,14 @@ $agotSource = 'D:/SteamLibrary/steamapps/workshop/content/1158310/2962333032'
 
 Inspect each result and exit code. Localization and tooltip edits also use `tnt_loc_token_check.ps1` and `tnt_bare_tooltip_row_check.ps1`, both with explicit `-ModRoot` and `-VanillaRoot`. `tnt_balance_model.ps1` is a standalone pricing model with its own assumptions; it takes no source-root argument and does not read the current game scripts.
 
+For currency balancing, run the source-executing regression with Python:
+
+```powershell
+python tests/parley/test_autobalance.py --source mod/parley
+```
+
+See [the auto-balance audit](docs/AUTOBALANCE-FIX.md) for the reported failure, AI impact, coverage and runtime verification status. The harness approximates CK3 execution and does not replace a focused game check.
+
 Do not rely on the relocated tools' original root defaults. Most still derive a root two directories above the script. `tnt_citation_check.ps1` additionally needs an explicit `-Doc` for the document being checked. `tnt_incode_citation_check.ps1` expects the three mod folders under one parent; use a verified combined source staging tree for a complete family citation scan. A run against only this repository is not a full three-mod citation check.
 
 The checks are source contracts and bounded models, not a CK3 parser or proof of engine behavior. When a change needs runtime evidence, record the exact package, playset, save, date, UI scale and observed result; inspect logs after the game closes. Do not replace a pinned vanilla/AGOT baseline with whatever is installed merely to make a failed check pass.

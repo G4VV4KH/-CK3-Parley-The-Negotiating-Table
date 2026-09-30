@@ -603,6 +603,7 @@
  tnt_ab_state_balanced:0 "#P 已配平。#!这份提议现在恰好落在对方会接受的范围之内。"
  tnt_ab_state_minimal:0 "已经是最低限度，无需改动。"
  tnt_ab_state_unreachable:0 "#N 力所不及。#!纵使你付出所能付出的一切，对方仍然拒绝。"
+ tnt_ab_state_closest:0 "提议可以接受。自动平衡无法用可用资源将评分恰好调整为+1。"
  tnt_ab_lumpy_hint:0 "再按一次可以继续添加。此按钮添加过而又被你移除的任何东西，都不会再次提出。"
  tnt_ab_lumpy_line:0 "对方的钱袋已空，因此上一次按下改从他那一侧取走条款：土地、宣称，或者他的效忠。"
  tnt_stage_marriage_interaction:0 "为条约添加一桩婚配"

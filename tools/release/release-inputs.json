@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "baseline": "Immutable checked-build release snapshot 2026-09-30; gameplay verified in health finalization. This self-contained allowlist pins source runtime bytes, not a dependency on the snapshot path.",
+  "baseline": "RC3: checked-build plus Parley auto-balance correction and nine-language residual verdict. Controlled same-save CK3 check passes (+1, one-way currencies, stable repeat); original dev reproduces +23. Input bytes are pinned, not automatically rebaselined. See docs/AUTOBALANCE-FIX.md for scope.",
   "mods": {
     "parley": {
       "files": {
@@ -73,8 +73,8 @@
           "bytes": 159393
         },
         "common/script_values/tnt_53_currency_values.txt": {
-          "sha256": "ade7461054043f4505a4a7b24bc1d1a86cbe75c0ebd483ed0d47ca399daf5b3c",
-          "bytes": 46264
+          "sha256": "ab8ed0b460e1e9c0f1a81c33db678a883ea7d9393193cfa4e2926c472e7cec77",
+          "bytes": 49678
         },
         "common/script_values/tnt_54_multiselect_values.txt": {
           "sha256": "d5c2203a6b04962561c3224f9ae8b95468717c3f6f19275bed10e5b397b110b9",
@@ -149,8 +149,8 @@
           "bytes": 173578
         },
         "common/scripted_effects/tnt_39_autobalance.txt": {
-          "sha256": "bf5f73b702d48d76f4df89b52f20f0b4f21476f71f795ab4672f551e60a3439e",
-          "bytes": 109001
+          "sha256": "f1a1d3d7e16d942341570c6111888552ac65de384f440d44f8f34df8f0bbb446",
+          "bytes": 62660
         },
         "common/scripted_effects/tnt_3a_people.txt": {
           "sha256": "dad1ba73b3fa190ceaf7fc46be7a975e1f5ff0a33494b2a6deac473e6f2467bc",
@@ -173,8 +173,8 @@
           "bytes": 20681
         },
         "common/scripted_guis/tnt_22_v2.txt": {
-          "sha256": "6a12a1173f08551e14d49b43679087c88e42d2d4878a55eccbb9b585a4c9f203",
-          "bytes": 56059
+          "sha256": "95323daeacb94e5c764e5040154fd0ee8b649687c9db417cf1902fe1f80eb283",
+          "bytes": 51899
         },
         "common/scripted_guis/tnt_22a_marriage.txt": {
           "sha256": "6aae9b6ca113339857c6e997add3fce321250b3a6b1eff92025c7429f86d5d9f",
@@ -265,44 +265,44 @@
           "bytes": 133405
         },
         "gui/tnt_types.gui": {
-          "sha256": "01a34191e8c1fbae355aa161bc5701dcbbb96ab1b3de7c0b53d0ba7f44c9053f",
-          "bytes": 122029
+          "sha256": "fdbb6a04227615f1d67c8572be51b90793cf9a47de95769d2d4da6d525f53875",
+          "bytes": 122411
         },
         "localization/english/tnt_l_english.yml": {
-          "sha256": "05e4f5add325993db883d62c7162f4707c9d364f1147b08f0e811143182ac577",
-          "bytes": 226782
+          "sha256": "2d7c74bd6c18c5b2ce30910e571854479d33fcdfe88ec78a7bd67d5cb1aa57a6",
+          "bytes": 226883
         },
         "localization/french/tnt_l_french.yml": {
-          "sha256": "70747d96b5836d947bbd4bdc6195d5b7cf7edf683032cbec6642d87a060771b0",
-          "bytes": 99959
+          "sha256": "32d58f4792bd301140749cd4b483ebc2ddd5c7800398e83bf38f2227fcd46e7f",
+          "bytes": 100091
         },
         "localization/german/tnt_l_german.yml": {
-          "sha256": "5810f9b46987f4c8b525ec061d13fb2124d8e48e4e0980e68ac2f4ee1c2ee07c",
-          "bytes": 99237
+          "sha256": "3404e0a5bdea3f76390b1c475d15c8f9b6ae7dd7d848c41474f49cf0c619683e",
+          "bytes": 99360
         },
         "localization/japanese/tnt_l_japanese.yml": {
-          "sha256": "6f50fc8f75a898c53ed3a826e24199e7bd30c8251926edec64cb30830576e773",
-          "bytes": 106576
+          "sha256": "5f3422d6dbd1b7068c69a2b9e63fa3b9320ffc19b855d4bcdf89302d694e68f0",
+          "bytes": 106722
         },
         "localization/korean/tnt_l_korean.yml": {
-          "sha256": "bf3255c5abe42128c369a120d5f2d2f7581d687a72d21a7bd01d92b8720d83ef",
-          "bytes": 105820
+          "sha256": "9024e6345bd9805301a0a35ee958f5772c26b9cebaf5561ea47631e2e056bfa0",
+          "bytes": 105983
         },
         "localization/polish/tnt_l_polish.yml": {
-          "sha256": "0b740d55b8df3bbeb4ed926aaadb1781a2bf57d2ca6c4654da730d1dd42a0e87",
-          "bytes": 96240
+          "sha256": "3f378cae793f05c077e4baaba9177ac8f69380490dfadd7180ad9fcf43590f6e",
+          "bytes": 96369
         },
         "localization/russian/tnt_l_russian.yml": {
-          "sha256": "7197c5aa2ed7c6534490f7cf155caed9c2dbbd98316fe0ad863b5348f182e8a2",
-          "bytes": 351543
+          "sha256": "b8ae02cfadd891dff1b9e49768a29186028cbccc6e9aadc20c9f33dc01fa1195",
+          "bytes": 351706
         },
         "localization/simp_chinese/tnt_l_simp_chinese.yml": {
-          "sha256": "2f0771d3bb3e80996d67a1788c40c9e2e645ac0641b2fd350a96535a3e0b607e",
-          "bytes": 86252
+          "sha256": "175325d68e7407f890a99454ba8ebb903c4cba41ba72c0d87fa8ff5b5f09424c",
+          "bytes": 86362
         },
         "localization/spanish/tnt_l_spanish.yml": {
-          "sha256": "377532e4f6564e83967214df9a77529dcd65813a627aa06f3921ff31a8d7638c",
-          "bytes": 93593
+          "sha256": "807f8aa0d56543781a3fc337e2ec54b4d60a73a648b644d5df607b55e18dfb8c",
+          "bytes": 93709
         },
         "thumbnail.png": {
           "sha256": "5a9fd3a8017fc5812bb2bb534c2297394e610c52f0c5f3355f3cd95e2ee2c636",

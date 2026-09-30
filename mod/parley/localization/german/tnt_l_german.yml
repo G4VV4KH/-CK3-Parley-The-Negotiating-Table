@@ -599,6 +599,7 @@
  tnt_ab_state_balanced:0 "#P Ausgeglichen.#! Das Angebot liegt nun knapp innerhalb dessen, was die Gegenseite annimmt."
  tnt_ab_state_minimal:0 "Bereits am Minimum. Es war nichts zu ändern."
  tnt_ab_state_unreachable:0 "#N Außer Reichweite.#! Die Gegenseite lehnt weiterhin ab, selbst mit allem, was Ihr zahlen könnt."
+ tnt_ab_state_closest:0 "Annehmbar. Mit den verfügbaren Ressourcen konnte der automatische Ausgleich +1 nicht erreichen."
  tnt_ab_lumpy_hint:0 "Drückt erneut, um weiter hinzuzufügen. Was dieser Knopf hinzugefügt hat und Ihr danach entfernt habt, wird nicht erneut angeboten."
  tnt_ab_lumpy_line:0 "Seine Börse war leer, darum hat der letzte Druck stattdessen Bedingungen von seiner Seite des Tisches genommen: Land, einen Anspruch oder seine Lehnstreue."
  tnt_stage_marriage_interaction:0 "Verbindung zum Vertrag hinzufügen"

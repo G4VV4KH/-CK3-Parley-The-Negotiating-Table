@@ -604,6 +604,7 @@
  tnt_ab_state_balanced:0 "#P Wyrównane.#! Oferta mieści się teraz tuż w granicach tego, co partner przyjmie."
  tnt_ab_state_minimal:0 "Już minimalna. Nic nie wymagało zmiany."
  tnt_ab_state_unreachable:0 "#N Poza zasięgiem.#! Partner nadal odmawia, nawet gdy dołożysz wszystko, na co cię stać."
+ tnt_ab_state_closest:0 "Oferta do przyjęcia. Automatyczne równoważenie nie mogło osiągnąć +1 przy dostępnych zasobach."
  tnt_ab_lumpy_hint:0 "Naciśnij ponownie, aby dokładać dalej. Cokolwiek ten przycisk dołożył, a potem zostało usunięte, nie trafi na stół po raz drugi."
  tnt_ab_lumpy_line:0 "Sakiewka partnera była pusta, więc ostatnie naciśnięcie sięgnęło zamiast tego po warunki z jego strony stołu: ziemię, roszczenie albo jego przysięgę wierności."
  tnt_stage_marriage_interaction:0 "Dodaj partię do traktatu"

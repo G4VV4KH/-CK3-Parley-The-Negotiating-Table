@@ -604,6 +604,7 @@
  tnt_ab_state_balanced:0 "#P Équilibré.#! L’offre se tient désormais tout juste dans ce que le partenaire acceptera."
  tnt_ab_state_minimal:0 "Déjà au minimum. Rien n’avait besoin d’être changé."
  tnt_ab_state_unreachable:0 "#N Hors d’atteinte.#! Le partenaire refuse encore, même avec tout ce que vous pouvez payer."
+ tnt_ab_state_closest:0 "Offre acceptable. L’équilibrage automatique n’a pas pu atteindre +1 avec les ressources disponibles."
  tnt_ab_lumpy_hint:0 "Pressez de nouveau pour continuer à ajouter. Tout ce que ce bouton a ajouté et que vous avez ensuite retiré ne sera plus proposé."
  tnt_ab_lumpy_line:0 "Sa bourse était vide : la dernière pression a donc pris des clauses de son côté de la table, une terre, une revendication ou sa fidélité."
  tnt_stage_marriage_interaction:0 "Ajouter une union au traité"

@@ -604,6 +604,7 @@
  tnt_ab_state_balanced:0 "#P Equilibrado.#! La oferta queda ahora justo dentro de lo que aceptará."
  tnt_ab_state_minimal:0 "Ya era mínima. No hubo nada que cambiar."
  tnt_ab_state_unreachable:0 "#N Fuera de alcance.#! Sigue rechazándola, incluso con todo lo que puedes pagar."
+ tnt_ab_state_closest:0 "Oferta aceptable. El ajuste automático no pudo alcanzar +1 con los recursos disponibles."
  tnt_ab_lumpy_hint:0 "Pulsa de nuevo para seguir añadiendo. Lo que este botón añadió y tú quitaste después no se volverá a ofrecer."
  tnt_ab_lumpy_line:0 "Su bolsa estaba vacía, así que la última pulsación tomó cláusulas de su lado de la mesa: tierra, un derecho o su lealtad."
  tnt_stage_marriage_interaction:0 "Añadir un enlace al tratado"

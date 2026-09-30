@@ -15,6 +15,7 @@ $runs = @(
     @{ name='family'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_family_gate.ps1",'-CoreRoot',$p,'-McaRoot',$m,'-AdapterRoot',$a,'-VanillaRoot',$VanillaRoot,'-AgotRoot',$AgotRoot) },
     @{ name='frozen'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_frozen_sync_check.ps1",'-McaRoot',$m,'-AdapterRoot',$a,'-VanillaRoot',$VanillaRoot,'-AgotRoot',$AgotRoot) },
     @{ name='rules'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_rule_conformance.ps1",'-ModRoot',$p) },
+    @{ name='autobalance_source'; exe=$PythonExe; args=@('-B',"$PSScriptRoot/../tests/parley/test_autobalance.py",'--source',$p) },
     @{ name='dispatch_model'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_ai_dispatch_model.ps1",'-ParleyRoot',$p) },
     @{ name='offer_rate'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_ai_offer_rate_check.ps1",'-ParleyRoot',$p) },
     @{ name='mca_source'; exe='pwsh'; args=@('-NoProfile','-File',"$DevRoot/marriage_calc_assistant/tests/mca/check_source.ps1",'-McaRoot',$m,'-GameRoot',$VanillaRoot) },

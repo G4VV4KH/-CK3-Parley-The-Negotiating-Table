@@ -1762,6 +1762,20 @@ types TwdDiplomacy
 				fontsize_min = 12
 				using = Font_Size_Small
 			}
+
+			text_multi = {
+				name = "tnt_ab_status_closest"
+				layoutpolicy_horizontal = expanding
+				text = "tnt_ab_state_closest"
+				visible = "[EqualTo_CFixedPoint( TntNum('tnt_ab_state'), '(CFixedPoint)4' )]"
+				autoresize = yes
+				max_width = 430
+				align = center
+				default_format = "#weak"
+				alwaystransparent = yes
+				fontsize_min = 12
+				using = Font_Size_Small
+			}
 		}
 
 		divider_light = {

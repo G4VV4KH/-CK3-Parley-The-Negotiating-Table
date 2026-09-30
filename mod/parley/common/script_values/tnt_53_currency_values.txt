@@ -1009,3 +1009,49 @@ tnt_val_title_multi_r_gold_value = {
 	min = 0
 	round = yes
 }
+
+# Auto-balance probes the real rounded headline instead of estimating its slope.
+tnt_ab_search_gap_value = {
+	value = var:tnt_ab_search_target
+	subtract = tnt_ai_accept_value
+}
+tnt_ab_search_span_value = {
+	value = var:tnt_ab_search_hi
+	subtract = var:tnt_ab_search_lo
+}
+tnt_ab_own_currency_value = {
+	value = 0
+	if = { limit = { exists = var:tnt_gold_p } add = var:tnt_gold_p }
+	if = { limit = { exists = var:tnt_prestige_p } add = var:tnt_prestige_p }
+	if = { limit = { exists = var:tnt_piety_p } add = var:tnt_piety_p }
+	if = { limit = { exists = var:tnt_influence_p } add = var:tnt_influence_p }
+}
+tnt_ab_p_influence_cap_value = {
+	value = tnt_player_pay_cap_influence_value
+	max = 1000
+}
+tnt_ab_r_influence_cap_value = {
+	value = tnt_ai_pay_cap_influence_value
+	max = 1000
+}
+
+# Absolute differences detect whether the final currency table actually changed.
+tnt_ab_changed_value = {
+	value = var:tnt_ab_lumpy_n
+	add = { value = 0 if = { limit = { exists = var:tnt_gold_p } add = var:tnt_gold_p } subtract = var:tnt_ab_before_tnt_gold_p multiply = 1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_gold_p } add = var:tnt_gold_p } subtract = var:tnt_ab_before_tnt_gold_p multiply = -1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_gold_r } add = var:tnt_gold_r } subtract = var:tnt_ab_before_tnt_gold_r multiply = 1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_gold_r } add = var:tnt_gold_r } subtract = var:tnt_ab_before_tnt_gold_r multiply = -1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_prestige_p } add = var:tnt_prestige_p } subtract = var:tnt_ab_before_tnt_prestige_p multiply = 1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_prestige_p } add = var:tnt_prestige_p } subtract = var:tnt_ab_before_tnt_prestige_p multiply = -1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_prestige_r } add = var:tnt_prestige_r } subtract = var:tnt_ab_before_tnt_prestige_r multiply = 1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_prestige_r } add = var:tnt_prestige_r } subtract = var:tnt_ab_before_tnt_prestige_r multiply = -1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_piety_p } add = var:tnt_piety_p } subtract = var:tnt_ab_before_tnt_piety_p multiply = 1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_piety_p } add = var:tnt_piety_p } subtract = var:tnt_ab_before_tnt_piety_p multiply = -1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_piety_r } add = var:tnt_piety_r } subtract = var:tnt_ab_before_tnt_piety_r multiply = 1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_piety_r } add = var:tnt_piety_r } subtract = var:tnt_ab_before_tnt_piety_r multiply = -1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_influence_p } add = var:tnt_influence_p } subtract = var:tnt_ab_before_tnt_influence_p multiply = 1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_influence_p } add = var:tnt_influence_p } subtract = var:tnt_ab_before_tnt_influence_p multiply = -1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_influence_r } add = var:tnt_influence_r } subtract = var:tnt_ab_before_tnt_influence_r multiply = 1 min = 0 }
+	add = { value = 0 if = { limit = { exists = var:tnt_influence_r } add = var:tnt_influence_r } subtract = var:tnt_ab_before_tnt_influence_r multiply = -1 min = 0 }
+}

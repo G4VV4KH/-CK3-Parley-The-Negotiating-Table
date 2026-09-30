@@ -267,8 +267,8 @@ def transform_localization(path: str, data: bytes) -> tuple[bytes, dict]:
     require(len(removed) == 10 and set(removed) == REMOVED_LOC,
             f"Expected exactly 10 diagnostic localization keys in {path}")
     result = "".join(kept).encode("utf-8")
-    require(len(localization_keys(data, path)) == 632, f"Unexpected dev localization count: {path}")
-    require(len(localization_keys(result, path)) == 622, f"Unexpected game localization count: {path}")
+    require(len(localization_keys(data, path)) == 633, f"Unexpected dev localization count: {path}")
+    require(len(localization_keys(result, path)) == 623, f"Unexpected game localization count: {path}")
     return result, {"localization_keys_removed": sorted(removed)}
 
 
@@ -342,7 +342,7 @@ def validate_localizations(outputs: dict) -> dict:
         for language, files in by_language.items():
             require(files == reference, f"Localization file/key coverage mismatch: {mod}/{language}")
         count = sum(len(keys) for keys in reference.values())
-        require(count == {"parley": 622, "marriage_calc_assistant": 22,
+        require(count == {"parley": 623, "marriage_calc_assistant": 22,
                           "agot_marriage_calc_assistant": 5}[mod], f"Wrong key count: {mod}")
         evidence[mod] = {"languages": list(LANGUAGES), "files_per_language": 1,
                          "keys_per_language": count}
