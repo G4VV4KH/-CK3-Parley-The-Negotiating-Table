@@ -153,3 +153,51 @@ launcher wrapper are separate deployment steps; no platform installation format
 is implied by these ZIPs. Creating payload archives does not publish anything or
 establish runtime behavior. RC3's focused engine result is recorded separately;
 verification of platform delivery remains pending until upload and download.
+
+## Release-chain journals
+
+`release_journal.py` links committed developer runtime, immutable game builds and
+separate platform publication records. It performs no upload or Git push. Run it
+from this tools directory, supplying the release workspace that contains `dev/`,
+`game/` and `distribution/`:
+
+```powershell
+$releaseWorkspace = 'C:/path/to/ck3-mods-release'
+python ./release_journal.py init --workspace $releaseWorkspace --build-id 2026-09-30-game-rc3
+python ./release_journal.py status --workspace $releaseWorkspace --build-id 2026-09-30-game-rc3
+```
+
+Initialization checks all manifest source/game inventories and hashes, committed
+runtime state, and existing generic archive hashes. It creates each dev repo's
+`docs/releases/history.json` and `HISTORY.md`, plus one journal per platform at
+`game/_history/<build>/<mod>/<platform>/`. Platforms are `steam`, `paradox`,
+`nexus` and `github`. The `_history` sibling is never part of a frozen
+`game/<build>` payload or its upload archive. Repeating initialization preserves
+events and does not reset publication status or duplicate an association.
+
+A dev association states which matching commit was verified when the record was
+created. It does not identify the original build commit or build time. Source
+fingerprints determine runtime drift; current HEAD is compared separately with
+GitHub's recorded published revision. A docs-only commit can therefore leave
+runtime `MATCH` while GitHub reports `AHEAD_OR_DIFFERENT`.
+
+Publication histories begin at `NOT_PUBLISHED`. Append `PREPARED`, `UPLOADED`,
+`VERIFIED` or `FAILED` with `record --mod <slug> --platform <platform>` and the
+same workspace/build arguments. `UPLOADED` and `VERIFIED` require `--url`,
+`--evidence` (an existing file or evidence URL), and the artifact identity:
+
+- For a game folder, `--artifact-sha256` is its manifest-based payload fingerprint.
+- For a generic ZIP, use its verified archive SHA-256.
+- For GitHub source publication, use `--revision` with the full local commit ID;
+  this revision is independent of the game payload hash.
+
+Use `--remote-id` for the assigned platform item ID and `--note` for useful
+context. `VERIFIED` must cite separate remote/download verification evidence;
+recording `UPLOADED` does not perform or imply that check. JSON is authoritative;
+the readable Markdown is regenerated from its events. Never erase historical
+events to represent a newer release; use its own build ID and append evidence.
+
+RC3's evidence remains scoped to CK3 1.19.0.6 with AGOT 0.5.2.1. The newly
+installed CK3 1.20 requires a separate compatibility review. Journal integrity
+checks do not certify that upgrade; the workspace's `release-workflow.json`
+manages the publication hold until the review is resolved.

@@ -58,3 +58,13 @@ Preserve `tnt_` identifier ownership, existing encoding and LF line endings. Kee
 For a pull request, include the problem, resulting behavior, affected files, checks run and any untested case relevant to the change. Do not commit saves, game logs, credentials, local launcher paths or generated Workshop downloads.
 
 The original `_docs`, `CLAUDE.md` and Git history were copied to the local `backup-storage/2026-09-30-pre-release/` archive before publication preparation. After checking every file against that copy, the live `_docs` directory was also moved into the archive. The original runtime sources remain in place. The archive preserves historical evidence; its old specifications are not current requirements. Current facts belong in `docs/CURRENT-CONTRACT.md` and the source checks.
+
+## Release-chain journals
+
+[The dev-to-game journal](docs/releases/HISTORY.md) records verified associations between a committed developer runtime and a frozen game build. Its JSON source is `docs/releases/history.json`. A newly recorded association identifies the matching commit checked at that time; it does not assert the original build commit or build date.
+
+Use [the shared journal CLI](tools/release/README.md#release-chain-journals) to initialize and inspect the chain or append publication evidence. Each platform has a separate journal at the release workspace's `game/_history/<build>/<mod>/<platform>/history.json` and `HISTORY.md`, for Steam, Paradox, Nexus and GitHub. These records remain outside immutable `game/<build>` payloads and upload archives.
+
+Runtime hashes determine whether dev still matches game. GitHub's published commit is tracked separately, so a documentation-only commit can require a GitHub push without invalidating the game build. `UPLOADED` and `VERIFIED` require a publication URL, artifact identity and evidence; recording an upload does not verify its downloaded result.
+
+RC3 retains its CK3 1.19.0.6 / AGOT 0.5.2.1 evidence scope. Local inventory verification does not establish compatibility with the newly installed CK3 1.20. The release workspace's `release-workflow.json` manages the publication hold pending that compatibility review.
