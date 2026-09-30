@@ -107,9 +107,12 @@ and input-lock bytes, so a changed builder needs a new build ID and manifest.
 The older development gates deliberately remain development gates: some assert
 telemetry call locations or logger definitions and cannot be applied unchanged to
 the game projection. This validator does not weaken those assertions. The frozen
-health-finalization snapshot remains immutable. A short engine load/UI smoke of
-the generated package is still required before calling this new artifact runtime
-verified; the earlier gameplay matrix does not need to be replayed.
+health-finalization snapshot remains immutable. Each new generated package needs
+its own focused engine evidence before being called runtime verified; the earlier
+gameplay matrix does not need to be replayed. The exact `2026-09-30-game-rc2`
+package passed a focused combined smoke on CK3 1.19.0.6 with AGOT 0.5.2.1.
+See [the scoped result and log caveats](../../docs/RC2-SMOKE.md); this is not a
+whole-game clean-log claim or evidence for a later transformed build.
 
 ## Generic distribution payloads
 
@@ -136,4 +139,5 @@ These are generic payload archives. Steam receives the corresponding game folder
 Paradox's upload workflow and a Nexus manual-install package with an appropriate
 launcher wrapper are separate deployment steps; no platform installation format
 is implied by these ZIPs. Creating payload archives does not publish anything or
-complete the pending engine smoke.
+establish runtime behavior. RC2's focused engine result is recorded separately;
+verification of platform delivery remains pending until upload and download.

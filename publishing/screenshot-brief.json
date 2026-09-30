@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "created_date": "2026-09-30",
-  "status": "scenarios_prepared_capture_pending",
+  "status": "rc2_verified_one_candidate_captured_final_selection_pending",
   "workflow": {
     "assistant": "Defines the feature and visible evidence for each scene, then gives one manual capture step at a time.",
     "user": "Chooses characters, framing, visual mood and final attractive shots within the scene requirements.",
-    "capture_build": "Use the final projected game package once its focused smoke is prepared. Identify the exact package and UI scale in the capture record.",
+    "capture_build": "Use verified 2026-09-30-game-rc2; record exact manifest and UI scale. Focused smoke passed with recorded limits.",
     "scope": "Publication captures are not a repeat of the closed development test suite. A screenshot proves only what is visible in that shot.",
     "language": "English UI and English captions for all three publication pages and GitHub. Use a temporary test session and restore the preferred UI language afterwards.",
     "presentation": "Prefer a readable full-resolution screenshot with the relevant UI unobscured. Crop only for composition; do not invent game outcomes or alter displayed scores.",
@@ -141,5 +141,30 @@
     "ui_scale",
     "observed_caption_facts"
   ],
-  "completed_captures": []
+  "completed_captures": [
+    {
+      "scene_id": "parley-ai-letter",
+      "status": "candidate_pending_user_selection",
+      "file": "smoke/rc2-2026-09-30/incoming-offer.png",
+      "file_reference_root": "release workspace",
+      "sha256": "da13f0ddacf755c4d6ab78245a39dce16fc0ce0795be7a56e1132680d38ad8dc",
+      "game_package_manifest": "72752DC0FEA338E6AF3E1B0BC5A0CAA227760D47D91D9D566F55845E01533A9C",
+      "game_version": "1.19.0.6",
+      "agot_version_if_used": "0.5.2.1",
+      "playset": [
+        "AGOT",
+        "Parley",
+        "MCA",
+        "AGOT:MCA"
+      ],
+      "language": "English",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "ui_scale": "1.0 (100%)",
+      "observed_caption_facts": "Lord Bernard naturally offers Fine Regalia for 124 gold; all three responses visible.",
+      "caption_en": "Other rulers take the initiative with offers of their own."
+    }
+  ]
 }

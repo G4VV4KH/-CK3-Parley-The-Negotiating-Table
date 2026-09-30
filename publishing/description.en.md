@@ -4,7 +4,7 @@
 
 - 🟢 **Version 1.0.0** · Built for CK3 **1.19.x**; tested on **1.19.0.6**.
 - 🟢 **No other mod required.** Adds its own negotiation interface and scripts.
-- 🟢 **AGOT 0.5.2.1:** a combined gameplay smoke test passed with the checked developer build. The release package is awaiting its focused smoke test.
+- 🟢 **AGOT 0.5.2.1:** the release package passed a focused combined smoke test with Parley, MCA and AGOT:MCA: a fresh campaign, negotiation UI, MCA breakdown and a natural incoming offer.
 - 🟢 **Nine languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese and Spanish.
 - 🔴 **Gameplay changes:** treaties can move money, people, land and vassalage. Read the final terms before agreeing.
 - 🔴 **Coverage limits:** multiplayer, long-term AI offer frequency and compatibility with every overhaul have not been established.
@@ -70,7 +70,7 @@ No additional compatibility patches are included in this release. Enable only on
 
 Parley stores negotiation and AI state in saves. Before removing it, use **Fold Away the Negotiating Table** under **Mod Removal Decisions** while the mod is still enabled, save, and then disable it. Completed treaties are part of your campaign: uninstalling does not reverse marriages, payments, land transfers or other completed outcomes. Close MCA's marriage picker before saving or removing that companion as well.
 
-Targeted tests covered incoming offers and demands, payment and refusal, save/reload, and a short combined AGOT run. Normal-frequency long campaigns, multiplayer and all changed-eligibility cases remain outside that coverage. Some AI-to-AI rule-policy and delayed-letter currency cases remain documented limitations; not every AI path applies identical rule semantics.
+Targeted development tests covered incoming offers and demands, payment and refusal, save/reload, and a short combined AGOT run. The release package's separate smoke covered a fresh AGOT campaign, public rules, negotiation UI, an MCA breakdown and a natural incoming offer; it did not repeat the earlier completed tests. Normal-frequency long campaigns, multiplayer and all changed-eligibility cases remain outside that coverage. Some AI-to-AI rule-policy and delayed-letter currency cases remain documented limitations; not every AI path applies identical rule semantics.
 
 ## Feedback and support
 

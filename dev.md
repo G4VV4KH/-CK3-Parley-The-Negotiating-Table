@@ -16,6 +16,8 @@ The sibling MCA and AGOT:MCA repositories own their own runtime files and tests.
 
 The game projection removes developer documents and diagnostics, including telemetry and the test-only AI offer-rate option. Source checks intentionally continue to protect the instrumented developer source. A package has its own explicit inventory and allowed transformations; a smaller inventory must not weaken a source check. The projected package requires its own focused game smoke before publication. Earlier development smoke results do not certify that newly transformed package, and closed development tests need not be repeated in full.
 
+The exact `2026-09-30-game-rc2` package passed that focused combined smoke on CK3 1.19.0.6 with AGOT 0.5.2.1. It covered a fresh English campaign, public Frequent rules, Parley's negotiation UI, an MCA tooltip and a natural incoming offer. No treaty was committed. [The smoke record](docs/RC2-SMOKE.md) describes the startup developer-rule warnings, three unattributed animation warnings and coverage limits; it does not claim whole-game clean logs or Workshop delivery.
+
 ## Running checks
 
 Use Windows PowerShell 5.1 or PowerShell 7, with installed CK3 and AGOT paths. From this repository root, replace the two upstream paths below if needed:
