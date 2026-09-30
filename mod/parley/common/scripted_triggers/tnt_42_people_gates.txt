@@ -1670,9 +1670,12 @@ tnt_subject_candidate_trigger = {
 		# EP3 administrative: a noble family is not a thing to hand over.
 		# Vanilla writes it as a custom_description whose body is this
 		# trigger_if; we keep the test and drop the wrapper, per the file header.
-		# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:181-193
+		# CK3 1.20: administrative is a mechanic, no longer a government rule.
+		# REAL: GAME\common\governments\_governments.info:310-328 and
+		# GAME\common\character_interactions\00_vassal_interactions.txt:103-108.
+		# Preserve this guard; the native noble-family test itself is at :183-190.
 		trigger_if = {
-			limit = { government_allows = administrative }
+			limit = { government_has_mechanic = administrative }
 			any_held_title = { is_noble_family_title = no }
 		}
 

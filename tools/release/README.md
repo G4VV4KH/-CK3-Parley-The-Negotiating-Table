@@ -1,13 +1,15 @@
 # Reproducible CK3 game packages
 
-`build_game.py` creates three game-only packages from the checked dev runtime.
+`build_game.py` creates game-only packages from the checked dev runtime. The
+default selection remains all three family mods; `--mods` selects an explicit
+subset for a separately identified build.
 `release-inputs.json` is an explicit file allowlist with pinned SHA-256 hashes;
 it does not require the original health-finalization archive to remain at its
 original location. Python 3.10 or later and its standard library are sufficient.
 
 The builder never edits dev files, live mods, saves, playsets or Workshop files.
 It refuses to overwrite an existing build. Reports and the manifest are siblings
-of the three mod folders and are not part of any game payload.
+of the selected mod folders and are not part of any game payload.
 
 Expected layout:
 
@@ -24,26 +26,58 @@ ck3-mods-release/
     transform-report.json
 ```
 
-The current frozen package is `2026-09-30-game-rc3`. From
-`dev/parley/tools/release/`, validate its pinned source inputs in memory and
-independently read back the existing result:
+The frozen `2026-09-30-game-rc3` family package belongs to CK3 1.19.0.6 /
+AGOT 0.5.2.1. Its builder and packager hashes are pinned in its manifests.
+Historical copies of the builder, packager, journal tool and original source lock
+are preserved outside the repositories in
+`backup-storage/2026-09-30-before-crozier-tooling/`. After the current dev runtime
+changes, RC3 verification requires both those original tools and a separate
+checkout of source bytes matching the archived lock. From the release workspace,
+substitute that old source checkout's `dev/` root:
 
 ```powershell
-python .\build_game.py --build-id 2026-09-30-game-rc3 --check
-python .\build_game.py --build-id 2026-09-30-game-rc3 --verify
+$historicalTools = './backup-storage/2026-09-30-before-crozier-tooling'
+$oldDevRoot = 'C:/path/to/rc3-source-checkout/dev'
+python "$historicalTools/build_game.py" --dev-root $oldDevRoot --output-root './game' --lock "$historicalTools/release-inputs.json" --build-id 2026-09-30-game-rc3 --verify
+python "$historicalTools/package_game.py" --build-dir './game/2026-09-30-game-rc3' --output-dir './distribution/2026-09-30-game-rc3' --verify
 ```
 
 To create a new candidate after a source change, review its pinned inputs and use
-a new, unused build ID without `--check` or `--verify`. Do not overwrite RC3.
+a new, unused build ID without `--check` or `--verify`. Do not overwrite RC3 or
+its archived tools, original `release-inputs.json`, manifests or ZIPs. The current
+builder has a new hash and cannot certify the old builder's manifest.
 
 The canonical Parley dev location detects the family `dev/` and `game/` roots.
 The preparation workspace's `tools/` location also detects its sibling roots.
 When moving these tools to a different layout, use explicit family paths with
 `--dev-root` and `--output-root`. `--lock` optionally points to the checked-in lock
-file. The same arguments must be used for build and verification.
+file. The same arguments, including `--mods`, must be used for build and verification.
+
+## Vanilla-only builds for CK3 1.20
+
+AGOT 0.5.2.1 belongs to the older 1.19 baseline. Until a separately reviewed AGOT
+adaptation exists, the new vanilla target selects only Parley and MCA. Do not
+present this build as a compatible three-mod AGOT family release.
+
+Use a new reviewed source lock through `--lock`; the existing
+`release-inputs.json` remains unchanged as the RC3 input record. A new lock may
+contain exactly the selected mods or the complete known family, but it must pin
+every selected mod. Omitted mods are not read, projected, packaged or journaled.
+Empty, duplicate and unknown mod selections are rejected; a subset lock requires
+explicit `--mods` because the default selection is still the full family.
+
+From this tools directory, these example commands use a new build ID and a
+separately prepared reviewed lock:
 
 ```powershell
-python .\build_game.py --dev-root 'C:/path/to/ck3-mods-release/dev' --output-root 'C:/path/to/ck3-mods-release/game' --build-id 2026-09-30-game-rc3 --verify
+$releaseWorkspace = 'C:/path/to/ck3-mods-release'
+$reviewedLock = 'C:/path/to/reviewed-1.20-inputs.json'
+$newBuildId = '2026-09-30-game-rc4-vanilla'
+python ./build_game.py --dev-root "$releaseWorkspace/dev" --output-root "$releaseWorkspace/game" --lock $reviewedLock --build-id $newBuildId --mods parley marriage_calc_assistant --check
+python ./build_game.py --dev-root "$releaseWorkspace/dev" --output-root "$releaseWorkspace/game" --lock $reviewedLock --build-id $newBuildId --mods parley marriage_calc_assistant
+python ./build_game.py --dev-root "$releaseWorkspace/dev" --output-root "$releaseWorkspace/game" --lock $reviewedLock --build-id $newBuildId --mods parley marriage_calc_assistant --verify
+python ./package_game.py --build-dir "$releaseWorkspace/game/$newBuildId" --output-dir "$releaseWorkspace/distribution/$newBuildId"
+python ./release_journal.py init --workspace $releaseWorkspace --build-id $newBuildId
 ```
 
 ## Exact public projection
@@ -92,7 +126,7 @@ Verification independently reconstructs the expected projection from pinned dev
 inputs and compares every output byte and file inventory. It also checks active
 tokens for diagnostic emitters/helpers/rules, script brace balance, all language
 file/key inventories, default/public rate options, exact transformation counts,
-and seven controls:
+and, when Parley is selected, seven controls:
 
 1. Reject an altered gameplay predicate in the output.
 2. Reject an active diagnostic emitter leak.
@@ -102,6 +136,11 @@ and seven controls:
 5. Reject an extra localization key in one language.
 6. Reject a documentation file leaked into the game payload.
 7. Preserve comment/quoted-string lookalikes, BOM and CRLF unchanged.
+
+Builds without Parley run five applicable integrity controls: altered output
+bytes, diagnostic emitter leakage, source-lock mismatch, localization-key drift
+and documentation leakage. Their Parley rate proof is explicitly not applicable
+and their transformation counts are zero.
 
 `--check` and `--verify` write nothing. The controls run in memory and do not
 corrupt files to demonstrate detection. Manifest validation also pins the builder
@@ -127,18 +166,22 @@ that scope; it is not a whole-game clean-log claim.
 ## Generic distribution payloads
 
 `package_game.py` reads a completed game build's manifest, checks the exact file
-inventory, size and SHA-256 of all three payloads, and creates one ZIP per mod.
+inventory, size and SHA-256 of each manifest-listed payload, and creates one ZIP
+per listed mod. Only a nonempty subset of known family names is accepted; an
+unlisted mod directory is rejected. The packager derives the exact selection
+from the manifest instead of accepting a second potentially different selection.
 Each ZIP has `descriptor.mod` at its root alongside the game files. Reports,
 development files and launcher `.mod` wrappers are excluded. The external
 `archive-manifest.json` records the source build manifest hash, archive hashes,
 versions and every archived member's hash and size.
 
 ```powershell
-python .\package_game.py --build-dir 'C:/path/to/ck3-mods-release/game/2026-09-30-game-rc3' --output-dir 'C:/path/to/ck3-mods-release/distribution/2026-09-30-game-rc3' --verify
+python ./package_game.py --build-dir "$releaseWorkspace/game/$newBuildId" --output-dir "$releaseWorkspace/distribution/$newBuildId" --verify
 ```
 
 The frozen RC3 archives already exist in the release workspace. For a new build,
 use its own build and distribution paths and omit `--verify` to create archives.
+For RC3's old archive manifest, use the archived original packager shown above.
 
 Creation refuses a nonempty output directory and uses exclusive file creation.
 Every created archive is read back and checked for exact members, bytes, order,
@@ -163,8 +206,9 @@ from this tools directory, supplying the release workspace that contains `dev/`,
 
 ```powershell
 $releaseWorkspace = 'C:/path/to/ck3-mods-release'
-python ./release_journal.py init --workspace $releaseWorkspace --build-id 2026-09-30-game-rc3
-python ./release_journal.py status --workspace $releaseWorkspace --build-id 2026-09-30-game-rc3
+$journalBuildId = '2026-09-30-game-rc4-vanilla' # An already built, reviewed candidate
+python ./release_journal.py init --workspace $releaseWorkspace --build-id $journalBuildId
+python ./release_journal.py status --workspace $releaseWorkspace --build-id $journalBuildId
 ```
 
 Initialization checks all manifest source/game inventories and hashes, committed
@@ -183,7 +227,10 @@ runtime `MATCH` while GitHub reports `AHEAD_OR_DIFFERENT`.
 
 Publication histories begin at `NOT_PUBLISHED`. Append `PREPARED`, `UPLOADED`,
 `VERIFIED` or `FAILED` with `record --mod <slug> --platform <platform>` and the
-same workspace/build arguments. `UPLOADED` and `VERIFIED` require `--url`,
+same workspace/build arguments. Selection comes from the build manifest: a
+two-mod vanilla build creates two dev associations and eight platform journals,
+with no AGOT:MCA association or publication claim. A request to record a mod not
+included in that build is rejected. `UPLOADED` and `VERIFIED` require `--url`,
 `--evidence` (an existing file or evidence URL), and the artifact identity:
 
 - For a game folder, `--artifact-sha256` is its manifest-based payload fingerprint.

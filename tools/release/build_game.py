@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and verify the three CK3 game payloads from pinned dev runtime bytes.
+"""Build and verify selected CK3 game payloads from pinned dev runtime bytes.
 
 Python standard library only. Never writes to dev inputs. Diagnostics are removed
 by token spans, so comments, quoted strings, BOMs and untouched newlines survive.
@@ -59,6 +59,12 @@ def require(condition: bool, message: str) -> None:
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def selected_mods(names, label="mod selection") -> tuple[str, ...]:
+    require(isinstance(names, (dict, list, tuple)) and bool(names), f"Empty or invalid {label}")
+    require(len(names) == len(set(names)) and set(names) <= set(MODS), f"Unknown or duplicate {label}")
+    return tuple(mod for mod in MODS if mod in names)
 
 
 @dataclass(frozen=True)
@@ -272,9 +278,12 @@ def transform_localization(path: str, data: bytes) -> tuple[bytes, dict]:
     return result, {"localization_keys_removed": sorted(removed)}
 
 
-def validate_lock_inputs(inputs: dict, lock: dict) -> None:
-    require(set(inputs) == set(MODS), "Source mod inventory differs from allowlist")
-    for mod in MODS:
+def validate_lock_inputs(inputs: dict, lock: dict, mods=None) -> None:
+    selection = selected_mods(inputs if mods is None else mods)
+    locked = selected_mods(lock.get("mods", {}), "source-lock mod inventory")
+    require(set(selection) <= set(locked), "Source lock does not include every selected mod")
+    require(set(inputs) == set(selection), "Source mod inventory differs from selection")
+    for mod in selection:
         expected = lock["mods"][mod]["files"]
         require(set(inputs[mod]) == set(expected), f"Source runtime inventory differs: {mod}")
         for path, data in inputs[mod].items():
@@ -283,9 +292,9 @@ def validate_lock_inputs(inputs: dict, lock: dict) -> None:
                     f"Source runtime bytes differ from pinned checked build: {mod}/{path}")
 
 
-def load_inputs(dev_root: Path, lock: dict) -> dict:
+def load_inputs(dev_root: Path, lock: dict, mods=MODS) -> dict:
     inputs = {}
-    for mod in MODS:
+    for mod in selected_mods(mods):
         root = dev_root / mod / "mod" / mod
         require(root.is_dir(), f"Missing dev runtime folder: {root}")
         files = {}
@@ -299,13 +308,13 @@ def load_inputs(dev_root: Path, lock: dict) -> dict:
             if path.is_file():
                 files[rel.as_posix()] = path.read_bytes()
         inputs[mod] = files
-    validate_lock_inputs(inputs, lock)
+    validate_lock_inputs(inputs, lock, mods)
     return inputs
 
 
 def project(inputs: dict) -> tuple[dict, dict]:
     outputs, transforms = {}, {}
-    for mod in MODS:
+    for mod in selected_mods(inputs):
         files, changes = {}, {}
         for path, data in sorted(inputs[mod].items()):
             result, report = data, {}
@@ -323,7 +332,7 @@ def project(inputs: dict) -> tuple[dict, dict]:
 
 def validate_localizations(outputs: dict) -> dict:
     evidence = {}
-    for mod in MODS:
+    for mod in selected_mods(outputs):
         by_language = {language: {} for language in LANGUAGES}
         for path, data in outputs[mod].items():
             if not path.startswith("localization/"):
@@ -374,6 +383,8 @@ def validate_no_diagnostics(outputs: dict) -> dict:
 
 def public_setting_proof(inputs: dict, outputs: dict) -> dict:
     """Check retained public rule choices/default and each replaced predicate."""
+    if "parley" not in inputs:
+        return {"status": "NOT_APPLICABLE", "reason": "Parley is not selected in this build."}
     source = inputs["parley"]
     game = outputs["parley"]
     def rate_choices(data: bytes):
@@ -409,7 +420,7 @@ def public_setting_proof(inputs: dict, outputs: dict) -> dict:
 
 def exact_projection(actual: dict, expected: dict) -> None:
     require(set(actual) == set(expected), "Output mod inventory mismatch")
-    for mod in MODS:
+    for mod in selected_mods(expected):
         require(set(actual[mod]) == set(expected[mod]), f"Output file inventory mismatch: {mod}")
         for path in expected[mod]:
             require(actual[mod][path] == expected[mod][path], f"Output differs from exact projection: {mod}/{path}")
@@ -424,6 +435,8 @@ def expect_rejected(label: str, function) -> dict:
 
 
 def negative_controls(inputs: dict, outputs: dict, lock: dict) -> list[dict]:
+    if "parley" not in inputs:
+        return subset_negative_controls(inputs, outputs, lock)
     controls = []
     changed = {mod: dict(files) for mod, files in outputs.items()}
     require(b"always = no" in changed["parley"][OFFER_FILE], "Missing generated predicate for negative control")
@@ -460,6 +473,32 @@ def negative_controls(inputs: dict, outputs: dict, lock: dict) -> list[dict]:
     return controls
 
 
+def subset_negative_controls(inputs: dict, outputs: dict, lock: dict) -> list[dict]:
+    """Keep integrity controls meaningful when Parley's transforms do not apply."""
+    mod = selected_mods(outputs)[0]
+    script = next(path for path in outputs[mod] if Path(path).suffix in SCRIPT_SUFFIXES)
+    changed = {name: dict(files) for name, files in outputs.items()}
+    changed[mod][script] += b"\n# unexpected payload change\n"
+    controls = [expect_rejected("game payload bytes changed", lambda: exact_projection(changed, outputs))]
+    leaked = {name: dict(files) for name, files in outputs.items()}
+    leaked[mod][script] += b'\nrelease_negative_control = { error_log = "TNTLOG|leak" }\n'
+    controls.append(expect_rejected("active diagnostic emitter leak", lambda: validate_no_diagnostics(leaked)))
+    source_changed = {name: dict(files) for name, files in inputs.items()}
+    source_changed[mod][script] += b"\n# unexpected source change\n"
+    controls.append(expect_rejected("source bytes differ from frozen allowlist",
+                                    lambda: validate_lock_inputs(source_changed, lock)))
+    loc_changed = {name: dict(files) for name, files in outputs.items()}
+    loc_path = next(path for path in outputs[mod] if path.startswith("localization/french/"))
+    loc_changed[mod][loc_path] += b' release_negative_control_key:0 "extra"\n'
+    controls.append(expect_rejected("one language contains an extra localization key",
+                                    lambda: validate_localizations(loc_changed)))
+    extra_file = {name: dict(files) for name, files in outputs.items()}
+    extra_file[mod]["README.md"] = b"Not a game payload file."
+    controls.append(expect_rejected("documentation file leaked into game payload",
+                                    lambda: exact_projection(extra_file, outputs)))
+    return controls
+
+
 def inventory(files: dict) -> dict:
     return {path: {"sha256": digest(data), "bytes": len(data)} for path, data in sorted(files.items())}
 
@@ -474,12 +513,15 @@ def transform_totals(transformations: dict) -> dict:
     totals["localization_keys_removed_all_languages"] = sum(
         len(row.get("localization_keys_removed", []))
         for changes in transformations.values() for row in changes.values())
-    require(totals == {"log_definitions_removed": 76, "log_calls_removed": 72,
+    expected = {"log_definitions_removed": 76, "log_calls_removed": 72,
                        "log_emitters_removed": 191, "internal_log_calls_removed_with_file": 6,
                        "telemetry_rules_removed": 1, "test_options_removed": 1,
                        "test_checks_false": 8, "test_intro_blocks_removed": 1,
                        "diagnostic_variable_exists_removed": 11, "diagnostic_variable_cleanup_removed": 11,
-                       "localization_keys_removed_all_languages": 90},
+                       "localization_keys_removed_all_languages": 90}
+    if "parley" not in transformations:
+        expected = dict.fromkeys(expected, 0)
+    require(totals == expected,
             f"Unexpected aggregate transformation counts: {totals}")
     return totals
 
@@ -490,10 +532,10 @@ def dump_json(path: Path, value: dict) -> None:
 
 def read_outputs(build_root: Path, expected: dict) -> dict:
     require(build_root.is_dir(), f"Missing build folder: {build_root}")
-    require({path.name for path in build_root.iterdir()} == set(MODS) | {"manifest.json", "transform-report.json"},
+    require({path.name for path in build_root.iterdir()} == set(expected) | {"manifest.json", "transform-report.json"},
             "Unexpected files at versioned build root")
     outputs = {}
-    for mod in MODS:
+    for mod in selected_mods(expected):
         root = build_root / mod
         files = {}
         for path in sorted(root.rglob("*")):
@@ -519,6 +561,8 @@ def main() -> int:
     parser.add_argument("--dev-root", type=Path, default=default_dev)
     parser.add_argument("--output-root", type=Path, default=default_game)
     parser.add_argument("--lock", type=Path, default=tool_dir / "release-inputs.json")
+    parser.add_argument("--mods", nargs="+", choices=MODS, default=list(MODS),
+                        help="Explicit mod subset; default is the full three-mod family")
     parser.add_argument("--build-id", required=True, help="New, immutable local output directory name")
     parser.add_argument("--verify", action="store_true", help="Read-only verification of existing output")
     parser.add_argument("--check", action="store_true", help="Validate projection in memory; write nothing")
@@ -528,8 +572,11 @@ def main() -> int:
             "Unsafe build-id")
     lock_bytes = args.lock.read_bytes()
     lock = json.loads(lock_bytes)
-    require(lock.get("schema") == 1 and set(lock.get("mods", {})) == set(MODS), "Unsupported source lock")
-    inputs = load_inputs(args.dev_root.resolve(), lock)
+    require(lock.get("schema") == 1, "Unsupported source lock")
+    selection = selected_mods(args.mods)
+    locked = selected_mods(lock.get("mods", {}), "source-lock mod inventory")
+    require(set(selection) <= set(locked), "Source lock does not include every selected mod; use explicit --mods")
+    inputs = load_inputs(args.dev_root.resolve(), lock, selection)
     expected, transformations = project(inputs)
     evidence = {
         "schema": 1, "build_id": args.build_id,
@@ -546,7 +593,7 @@ def main() -> int:
     manifest = {
         "schema": 1, "build_id": args.build_id, "input_lock_sha256": digest(lock_bytes),
         "builder_sha256": digest(Path(__file__).read_bytes()),
-        "mods": {mod: {"source": inventory(inputs[mod]), "game": inventory(expected[mod])} for mod in MODS},
+        "mods": {mod: {"source": inventory(inputs[mod]), "game": inventory(expected[mod])} for mod in selection},
     }
     output_root = args.output_root.resolve()
     build_root = output_root / args.build_id

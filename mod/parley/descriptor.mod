@@ -1,4 +1,4 @@
-﻿version="1.0.0"
+﻿version="1.1.0"
 name="Parley: The Negotiating Table"
 tags={
 	"Interface"
@@ -6,4 +6,4 @@ tags={
 	"Utilities"
 	"Balance"
 }
-supported_version="1.19.*"
+supported_version="1.20.*"

@@ -1,0 +1,17 @@
+{
+  "format": "mca-frozen-patch-v1",
+  "release": "MCA 3.1.0",
+  "reviewed_on": "2026-09-30",
+  "upstream": "CK3 1.20.0.2 gui/interaction_marriage.gui",
+  "normalization": "ReadAllLines joined with LF, no final LF",
+  "vanilla_sha256": "CD460B12F2175B476B05D4A85C7846D04BCF4642CB2FA417B31C7BC861A2C32C",
+  "vanilla_byte_sha256_at_review": "8AB7AA6C6B4B778E8AAD62B06768B166996E9DAB5B5400CDDD56C7F5822CF6AD",
+  "patch_file": "tnt_mca_31_marriage.patch",
+  "patch_sha256": "60C80B41400EE69C2D48DD320B2342101A62F77EAC5D2F15ECEE8C5E2161EBA7",
+  "mca_sha256": "50AC2D7ACC4003C220986B37C60CCBDD0ECE264D431A8A372EE2566C7525B6C6",
+  "mca_byte_sha256_at_review": "AA033AE800C5F23ED7BFBFA58FFAC6A7E972B796498F9FD9738778087948163E",
+  "required_supported_version": "1.20.*",
+  "provenance": "Compared the retained CK3 1.19.0.6 vanilla file (byte SHA256 5DD66BB90983A4841EF9BA53F3B24D65AB5108882EEA10B466A8F40C4DCCE5BF): CK3 1.20.0.2 changes only left_small_portrait from GetActor to GetPuppetOrActor. Reviewed current widget_character_list_item context, relation/skills seam, native click/selectability callbacks, 320px name column and 12px scrollbar; inherited semantics retained.",
+  "approved_scope": "Carry the upstream effective-arranger portrait. Scores and sort start require actor and effective arranger both equal local player. Every start/collect/context packet passes the effective arranger, with player ownership checks inside script effects and context validation. Puppet transitions invalidate existing snapshots through the existing controller. Keep player snapshot state, native callbacks, 630px geometry, three derived row sites, scoring, and all clearing paths. Twelve callback-only or condition-only sorter states carry scale = 1, the native identity property from hud_notification_templates.gui:1469-1472, to avoid empty-animation diagnostics. Trigger expressions, callbacks, visibility, state names and timing remain unchanged.",
+  "update_procedure": "Review upstream and functional changes, regenerate the unified diff against the reviewed vanilla baseline, prove exact reconstruction and update all three normalized hashes together. Historical 2.2/2.3 contracts and the original MCA vanilla patch are retained. Runtime validation remains separate."
+}

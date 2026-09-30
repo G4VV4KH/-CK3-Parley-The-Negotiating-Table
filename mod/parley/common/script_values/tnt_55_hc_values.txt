@@ -595,6 +595,10 @@ tnt_ob_succ_ok_value = {
 # With no partner both rows read false / true respectively and the gate opens;
 # the setter and the apply leg are the layers that then refuse (§0.4).
 tnt_ob_revoke_ok_value = {
+	# CK3 1.20.0.2 keeps Jizya's contract restriction at FAITH level:
+	# GAME\common\subject_contracts\contracts\special_contracts.txt:536-566.
+	# The tenet's unlock_jizya_contract is not a personal_tenet_parameter.
+	# Keep these faith reads aligned with the contract we actually apply.
 	# NO ROOT IN AN INTERACTION'S on_accept, so the value names the scope it stands on.
 	# Full argument at tnt_52_marriage_values.txt:823-839. Guarded, because a parent
 	# value or effect may already hold tnt_me and re-saving it is an error in itself.

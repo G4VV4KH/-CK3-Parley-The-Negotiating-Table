@@ -421,6 +421,13 @@ tnt_open_negotiations = {
 	# single pair. Nothing in this interaction iterates anything.
 	# =========================================================================
 	is_shown = {
+		# CK3 1.20: a puppet has a different effective actor. The deal, wallets
+		# and both candidate lists belong to actor, so proxy negotiations are
+		# unsupported until Parley can represent that separate transaction owner.
+		trigger_if = {
+			limit = { exists = scope:puppet_or_actor }
+			scope:puppet_or_actor = scope:actor
+		}
 		scope:actor = {
 			is_ai = no			# REAL: GAME\common\character_interactions\00_alliance.txt:1129, :2103 — player-only; belt and braces with ai_frequency = 0 below
 			is_landed = yes			# REAL: GAME\common\character_interactions\00_character_interactions.txt:26 — an unlanded actor has nothing to trade

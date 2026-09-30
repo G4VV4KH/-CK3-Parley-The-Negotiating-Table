@@ -1,5 +1,5 @@
-# Shared, read-only MCA 3.0 check of the unchanged 2.3 frozen GUI contract.
-# Historical 2.2 artifacts are retained.
+# Shared, read-only MCA 3.1 check of the CK3 1.20 frozen GUI contract.
+# Historical 2.2 and 2.3 artifacts are retained.
 # The adjacent reviewed manifest pins BOTH vanilla and the functional patch.
 # Updating MCA alone cannot bless itself: upstream, patch, and rebuilt result
 # must all match the reviewed contract. No fuzzy patching or token stripping.
@@ -74,12 +74,18 @@ function Measure-McaMarriageCopy([string]$copyPath, [string]$upPath) {
     $patchHash = ''
     $expectedLines = @()
     try {
-        $manifestPath = Join-Path $script:McaFrozenContractDirectory 'tnt_mca_23_marriage_contract.json'
+        $manifestPath = Join-Path $script:McaFrozenContractDirectory 'tnt_mca_31_marriage_contract.json'
         $manifest = [System.IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
         if ($manifest.format -cne 'mca-frozen-patch-v1' -or $manifest.normalization -cne 'ReadAllLines joined with LF, no final LF') {
             throw 'Unsupported frozen manifest format/normalization.'
         }
         if ([System.IO.Path]::GetFileName([string]$manifest.patch_file) -cne [string]$manifest.patch_file) { throw 'Patch manifest must name a sibling artifact, not an external path.' }
+        $descriptorPath = Join-Path (Split-Path (Split-Path $copyPath -Parent) -Parent) 'descriptor.mod'
+        $descriptorText = [System.IO.File]::ReadAllText($descriptorPath)
+        $requiredSupported = [regex]::Escape([string]$manifest.required_supported_version)
+        if ($descriptorText -notmatch ('(?m)^supported_version\s*=\s*"' + $requiredSupported + '"\s*$')) {
+            throw 'MCA 3.1 frozen GUI requires the reviewed CK3 1.20.* descriptor; a current GUI hash cannot bless older metadata.'
+        }
         $patchPath = Join-Path $script:McaFrozenContractDirectory $manifest.patch_file
         $copyLines = [System.IO.File]::ReadAllLines($copyPath)
         $upLines = [System.IO.File]::ReadAllLines($upPath)

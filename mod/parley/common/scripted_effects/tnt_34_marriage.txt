@@ -1019,6 +1019,8 @@ tnt_wed_reprice_all_effect = {
 # idempotent is what lets four callers stop worrying about each other.
 ########################################################################
 tnt_wed_clear_all_effect = {
+	# Clearing committed pairs invalidates the last auto-balance verdict.
+	remove_variable = tnt_ab_state
 	every_in_list = {
 		variable = tnt_wed_list
 		# THE STORE GUARD, 2026-08-24 - the header carries the reasoning, the
@@ -1085,6 +1087,9 @@ tnt_wed_clear_all_effect = {
 #    tnt_wed_principal — never by saying "the first one".
 ########################################################################
 tnt_wed_sync_effect = {
+	# Pair additions, removals and repricing change the deal that was balanced.
+	# This runs on the deal owner, never on a spouse carrying a pair record.
+	remove_variable = tnt_ab_state
 	# --- 0. refresh every stored pair price (V3) ----------------------
 	# A stored price is a snapshot from when the pair was added. This runs after
 	# every add, every removal and at window open, so a snapshot is never older
@@ -1774,14 +1779,15 @@ tnt_reset_marriage_effect = {
 # tnt_marriage_default_line_effect
 #
 # Sets the initial state of the line control from the PLAYER's own realm and
-# faith, so the common case needs no click at all.
+# Rite, so the common case needs no click at all.
 #
 # This mirrors the DEFAULT BRANCH of vanilla's scripted_rule
-# ai_wants_matrilineal_marriage — GAME\common\scripted_rules\00_rules.txt:678-684:
+# ai_wants_matrilineal_marriage — GAME\common\scripted_rules\00_rules.txt:643-649
+# in CK3 1.20.0.2:
 #     OR = { # Either Matrilineal Marriages are the norm
 #         has_realm_law = female_only_law
 #         has_realm_law = female_preference_law
-#         faith = { has_doctrine_parameter = female_dominated_law }
+#         rite = { rite_has_parameter = female_dominated_law }
 #     }
 # The rule itself CANNOT be invoked (0 script invocations anywhere — it is an
 # engine hook, 42-marriage-extended.md §3.3c), so the three cheap rows are
@@ -1791,9 +1797,8 @@ tnt_reset_marriage_effect = {
 #
 # `has_realm_law = female_only_law` / `female_preference_law` — REAL:
 #   GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:1069-1070
-# `faith = { has_doctrine_parameter = female_dominated_law }` — REAL:
-#   GAME\common\scripted_rules\00_rules.txt:682-684,
-#   GAME\common\culture\traditions\00_realm_traditions.txt:960
+# `rite = { rite_has_parameter = female_dominated_law }` — REAL:
+#   GAME\common\scripted_rules\00_rules.txt:647-649 (CK3 1.20.0.2).
 #
 # CALLED WHILE NOTHING IS CHOSEN ONLY. The two openers guard it with "no
 # spouse on either side yet" and window open runs it after the reset, so the
@@ -1807,7 +1812,7 @@ tnt_marriage_default_line_effect = {
 			OR = {
 				has_realm_law = female_only_law
 				has_realm_law = female_preference_law
-				faith ?= { has_doctrine_parameter = female_dominated_law }
+				rite ?= { rite_has_parameter = female_dominated_law }
 			}
 		}
 		set_variable = {

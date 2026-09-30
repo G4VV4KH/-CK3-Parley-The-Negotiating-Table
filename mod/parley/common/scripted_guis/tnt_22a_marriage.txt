@@ -629,6 +629,8 @@ tnt_wed_row_line_flip = {
 					}
 				}
 			}
+			# Reprice the committed pair and discard the owner's stale verdict.
+			tnt_wed_sync_effect = yes
 		}
 	}
 }
@@ -674,6 +676,7 @@ tnt_wed_set_principal = {
 				name = tnt_wed_principal
 				value = scope:tnt_picked
 			}
+			remove_variable = tnt_ab_state
 		}
 	}
 }
@@ -785,6 +788,8 @@ tnt_wed_grand_toggle = {
 	}
 
 	effect = {
+		# A wedding promise changes the negotiated package and its price.
+		remove_variable = tnt_ab_state
 		if = {
 			limit = { exists = var:tnt_wed_grand }
 			remove_variable = tnt_wed_grand

@@ -1,6 +1,6 @@
 # Contributing to Parley
 
-Parley 1.0.0 is developed in `mod/parley/`. Read [the current contract](docs/CURRENT-CONTRACT.md) before changing runtime behavior. Keep a pull request focused on one behavior, describe its visible effect, and include the relevant source checks and any observed game result.
+Parley 1.1.0 is developed in `mod/parley/` for CK3 1.20.0.2. Read [the current contract](docs/CURRENT-CONTRACT.md) and [the 1.20 compatibility decisions](docs/CK3-1.20-COMPATIBILITY.md) before changing runtime behavior. Keep a pull request focused on one behavior, describe its visible effect, and distinguish passing source checks from observed game results.
 
 ## Repository and release copies
 
@@ -16,7 +16,9 @@ The sibling MCA and AGOT:MCA repositories own their own runtime files and tests.
 
 The game projection removes developer documents and diagnostics, including telemetry and the test-only AI offer-rate option. Source checks intentionally continue to protect the instrumented developer source. A package has its own explicit inventory and allowed transformations; a smaller inventory must not weaken a source check. The projected package requires its own focused game smoke before publication. Earlier development smoke results do not certify that newly transformed package, and closed development tests need not be repeated in full.
 
-The current release baseline is `2026-09-30-game-rc3`. It includes the auto-balance correction: the controlled same-save check reached +1 with one-way currency payments and an unchanged repeat. All 104 canonical payload files match the engine-tested staging build; MCA and AGOT:MCA are unchanged from RC2. See [the focused RC3 audit](docs/AUTOBALANCE-FIX.md) for scope and log caveats. Publication copy and screenshot changes do not alter this runtime baseline.
+The historical 1.19 release baseline is `2026-09-30-game-rc3`. Its controlled same-save auto-balance check reached +1 with one-way currency payments and an unchanged repeat. All 104 RC3 payload files match that engine-tested staging build; MCA and AGOT:MCA are unchanged from RC2. See [the focused RC3 audit](docs/AUTOBALANCE-FIX.md) for scope and log caveats. The 1.20 adaptation uses a separate vanilla Parley/MCA playset. RC6 passed focused UI and 34 harness assertions; RC7 passed the MCA picker sequence but was rejected for an AI-world vassalization scope failure. RC8 supplies the native alias and separately passed 12 native mutation assertions plus a no-harness short campaign with an executed natural fealty offer. Seven native log records reproduced with all mods off on the same original save. These are bounded results, not a global clean-log or long-campaign claim.
+
+Parley transactions remain owned by the direct actor. The negotiation opener and borrowed marriage picker are hidden when the effective arranger is a different puppet ruler. Redirection to a courtier's matchmaker must update both actor aliases while preserving ownership of candidate pools and the staged deal. Version 1.1 follows character Rites for marriage defaults and lineality pricing, with native eligibility helpers retained.
 
 The earlier `2026-09-30-game-rc2` package passed a focused combined smoke on CK3 1.19.0.6 with AGOT 0.5.2.1. It covered a fresh English campaign, public Frequent rules, Parley's negotiation UI, an MCA tooltip and a natural incoming offer, but did not exercise the later-reported balancing failure. No treaty was committed. [The historical smoke record](docs/RC2-SMOKE.md) describes the startup developer-rule warnings, three unattributed animation warnings and coverage limits; it does not claim whole-game clean logs or Workshop delivery.
 
@@ -39,10 +41,11 @@ $agotSource = 'D:/SteamLibrary/steamapps/workshop/content/1158310/2962333032'
 
 Inspect each result and exit code. Localization and tooltip edits also use `tnt_loc_token_check.ps1` and `tnt_bare_tooltip_row_check.ps1`, both with explicit `-ModRoot` and `-VanillaRoot`. `tnt_balance_model.ps1` is a standalone pricing model with its own assumptions; it takes no source-root argument and does not read the current game scripts.
 
-For currency balancing, run the source-executing regression with Python:
+For currency balancing and AI-world native scope bindings, run the focused source regressions with Python:
 
 ```powershell
 python tests/parley/test_autobalance.py --source mod/parley
+python -B tests/parley/test_ai_world_native_scopes.py --source mod/parley --game 'D:/SteamLibrary/steamapps/common/Crusader Kings III/game'
 ```
 
 See [the auto-balance audit](docs/AUTOBALANCE-FIX.md) for the reported failure, AI impact, coverage and runtime verification status. The harness approximates CK3 execution and does not replace a focused game check.
@@ -67,4 +70,4 @@ Use [the shared journal CLI](tools/release/README.md#release-chain-journals) to 
 
 Runtime hashes determine whether dev still matches game. GitHub's published commit is tracked separately, so a documentation-only commit can require a GitHub push without invalidating the game build. `UPLOADED` and `VERIFIED` require a publication URL, artifact identity and evidence; recording an upload does not verify its downloaded result.
 
-RC3 retains its CK3 1.19.0.6 / AGOT 0.5.2.1 evidence scope. Local inventory verification does not establish compatibility with the newly installed CK3 1.20. The release workspace's `release-workflow.json` manages the publication hold pending that compatibility review.
+RC3 retains its CK3 1.19.0.6 / AGOT 0.5.2.1 evidence scope. Parley 1.1.0 has a reviewed CK3 1.20.0.2 source adaptation; its [compatibility record](docs/CK3-1.20-COMPATIBILITY.md) separates the scoped RC6/RC7 observations, RC7 rejection, RC8 native mutation and natural-offer passes, same-save vanilla control and remaining coverage gaps. AGOT 0.5.2.1 still belongs to the old baseline. The release workspace's `release-workflow.json` manages the publication hold.

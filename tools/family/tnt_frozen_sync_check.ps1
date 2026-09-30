@@ -1,7 +1,7 @@
 # =============================================================================
 # tnt_frozen_sync_check.ps1       MCA'S ONE FROZEN GUI COPY + INHERITANCE SEAM
 #
-# MCA 3.0 retains the 2.3 GUI contract. It copies no marriage interaction and does not
+# MCA 3.1 uses the reviewed CK3 1.20 GUI contract. It copies no marriage interaction and does not
 # shadow the global character-list row. It ships ONE upstream body:
 #
 #   MCA gui\interaction_marriage.gui

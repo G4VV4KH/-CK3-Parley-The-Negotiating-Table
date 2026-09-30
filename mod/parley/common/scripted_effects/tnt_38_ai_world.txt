@@ -2562,11 +2562,11 @@ tnt_ai_world_do_title_effect = {
 #
 # THE APPLY IS VANILLA'S OWN ON_ACCEPT BODY, not a copy:
 # offer_vassalization_interaction_effect
-# (GAME\common\character_interactions\00_character_interactions.txt:1326-1327)
-# reads exactly scope:actor and scope:recipient — the two names E11 saves for
-# precisely this reuse (see E11's header) — and its body is the same
-# 00_interaction_effects.txt machinery the window's tnt_exec_vassal_effect was
-# copied from (tnt_32_apply.txt E26 header cites :2130-2226).
+# (CK3 1.20.0.2, GAME\common\scripted_effects\00_interaction_effects.txt:2201-2297)
+# reads scope:puppet_or_actor as the NEW LIEGE and scope:recipient as the NEW
+# VASSAL. E11 and strategic submission already save actor/recipient with those
+# roles. The shared apply seam explicitly refreshes puppet_or_actor from actor;
+# this AI-to-AI path has no interaction window to populate that native alias.
 #
 # THE OBLIGATION-CHOICE SCOPES MUST BE SAVED BEFORE THE CALL. The old text here
 # claimed unset scopes were "the effect's ordinary diet"; the 2026-08 playtest
@@ -2592,9 +2592,13 @@ tnt_ai_world_do_title_effect = {
 # is not a bidding matter, and vanilla prices it with one constant too.
 ###############################################################################
 # One mutation seam for both consensual S-FEALTY and strategic submission.
+# CK3 1.20 uses puppet_or_actor for the liege, opinion target and struggle
+# catalyst (:2208, :2213, :2293). Refresh from the named actor, not caller/root
+# or recipient: these two AI-world paths always make the actor the new liege.
 # Vanilla's effect requires all four obligation-choice scopes to exist; `no`
 # selects the default contract explicitly on feudal and clan branches.
 tnt_ai_world_apply_vassal_effect = {
+	scope:actor = { save_temporary_scope_as = puppet_or_actor }
 	save_scope_value_as = { name = high_obligations  value = no }
 	save_scope_value_as = { name = low_obligations  value = no }
 	save_scope_value_as = { name = religious_exemption  value = no }

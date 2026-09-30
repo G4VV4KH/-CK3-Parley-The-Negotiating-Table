@@ -2,11 +2,11 @@
 
 <h2>At a glance</h2>
 
-<p>- 🟢 <strong>Version 1.0.0</strong> · Built for CK3 <strong>1.19.x</strong>; tested on <strong>1.19.0.6</strong>.</p>
-<p>- 🟢 <strong>No other mod required.</strong> Adds its own negotiation interface and scripts.</p>
-<p>- 🟢 <strong>AGOT 0.5.2.1:</strong> checked in a short session with MCA and AGOT:MCA.</p>
+<p>- 🟢 <strong>Version 1.1.0</strong> · Targets CK3 <strong>1.20.0.2</strong>. Focused single-player checks passed.</p>
+<p>- 🟢 <strong>No other mod required.</strong> Includes its own negotiation interface.</p>
 <p>- 🟢 <strong>Nine languages:</strong> English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese and Spanish.</p>
 <p>- 🔴 <strong>Changes gameplay:</strong> treaties can transfer money, people, land and vassalage.</p>
+<p>- 🔴 <strong>Direct ruler negotiations only.</strong> Puppet proxy mode is unavailable. Current AGOT support is on hold; see the historical combination below.</p>
 <p>- 🔴 <strong>Multiplayer and long campaigns are not fully verified.</strong> Other overhauls may need compatibility work.</p>
 
 <h2>A wedding can win what a war cannot</h2>
@@ -15,11 +15,11 @@
 
 <h2>A full treaty, negotiated together</h2>
 
-<p>Parley adds a negotiation window: what you offer, what they offer, and how your counterpart values the agreement.</p>
+<p>See both sides of the treaty and your counterpart&#x27;s valuation in one window.</p>
 
-<p>See their expected answer as you edit. <strong>Auto-balance</strong> adjusts currencies toward <strong>+1</strong> acceptance and reports when it cannot reach that target. Relationships and concessions affect the result. Review the terms before confirming.</p>
+<p><strong>Auto-balance</strong> adjusts currencies toward <strong>+1</strong> acceptance and reports when it cannot reach that target. Relationships and concessions affect the result. Review the terms before confirming.</p>
 
-<p>Other rulers can take the initiative. AI envoys bring offers and demands, and you can accept, enter negotiations or turn them away. A separate game rule controls treaties between AI rulers.</p>
+<p>AI envoys bring offers and demands: accept, negotiate or turn them away. A separate game rule controls treaties between AI rulers.</p>
 
 <h2>What you can negotiate</h2>
 
@@ -29,29 +29,29 @@
 <p>- <strong>People and possessions:</strong> exchange artifacts, pledge relatives as hostages, or transfer eligible courtiers and accompanying families.</p>
 <p>- <strong>Favors and pressure:</strong> promise a hook, use an existing hook, or threaten a ruler when your army, prestige and dread provide enough weight. Player and AI threats share the same minimum.</p>
 
-<p>Availability depends on the rulers, governments and game rules; the tooltips explain restrictions. An alliance comes from an eligible marriage, rather than a separate alliance purchase.</p>
+<p>Tooltips explain restrictions from rulers, governments and game rules. Alliances come from eligible marriages, not a separate purchase.</p>
 
 <h2>Reading the central panel</h2>
 
-<p><strong>Their Answer evaluates the treaty from your counterpart&#x27;s perspective.</strong> The headline combines benefits, costs, standing, extra demands and pressure into the final acceptance score.</p>
+<p><strong>Their Answer evaluates the treaty from your counterpart&#x27;s perspective:</strong> benefits, costs, standing, extra demands and pressure combine into acceptance.</p>
 
-<p>In the AGOT screenshot, the displayed calculation is <strong>197 + 136 - 322 - 10 = +1</strong>, with no pressure:</p>
+<p>The historical AGOT screenshot shows <strong>197 + 136 - 322 - 10 = +1</strong>, with no pressure:</p>
 
-<p>- <strong>They receive: 197</strong> — your offer&#x27;s positive value: gold, the marriage&#x27;s positive factors and its alliance.</p>
-<p>- <strong>Standing, share: +136</strong> — the combined relationship adjustment, applied as a share of that positive offer.</p>
-<p>- <strong>What they give up: 322</strong> — their costs: fealty and the marriage&#x27;s negative factors.</p>
-<p>- <strong>Wanted on top, share: -10</strong> — their additional demand, also calculated from the positive offer.</p>
+<p>- <strong>They receive: 197</strong> — gold, the marriage&#x27;s positive factors and its alliance.</p>
+<p>- <strong>Standing, share: +136</strong> — the relationship adjustment, applied to that positive offer.</p>
+<p>- <strong>What they give up: 322</strong> — fealty and the marriage&#x27;s negative factors.</p>
+<p>- <strong>Wanted on top, share: -10</strong> — their extra demand, also based on the positive offer.</p>
 
-<p>The individual treaty rows show a different level of detail:</p>
+<p>The individual treaty rows use a different breakdown:</p>
 
-<p>- <strong>Gold: 88</strong> — the point value of the <strong>1,324 gold</strong> offered in this example.</p>
-<p>- <strong>Patrilineal: -32</strong> — the marriage&#x27;s own positive factors minus its own costs. This row excludes the alliance and shared relationship adjustments.</p>
-<p>- <strong>Military alliance: 68</strong> — the separate value of the alliance this marriage brings, counted once.</p>
-<p>- <strong>Swear fealty: 250</strong> — the cost assigned to the counterpart&#x27;s submission in this example.</p>
+<p>- <strong>Gold: 88</strong> — the point value of this offer&#x27;s <strong>1,324 gold</strong>.</p>
+<p>- <strong>Patrilineal: -32</strong> — the marriage&#x27;s positive factors minus its costs, excluding the alliance and shared relationship adjustments.</p>
+<p>- <strong>Military alliance: 68</strong> — this marriage&#x27;s alliance value, counted once.</p>
+<p>- <strong>Swear fealty: 250</strong> — the counterpart&#x27;s submission cost in this example.</p>
 
-<p><strong>Why can a marriage marked -32 improve the treaty by about +100?</strong> Its alliance adds value, and its positive components also change the standing and extra-demand shares. Those shares apply to the positive offer, not to the net -32 row. The visible figures imply roughly <strong>106-107 points</strong> of improvement for this marriage-and-alliance package: an illustration inferred from the panel, rather than an exact measured before-and-after result.</p>
+<p><strong>Why can -32 improve the treaty by about +100?</strong> The alliance adds value, and the marriage&#x27;s positive components change the standing and extra-demand shares. Those shares apply to positive value, not the net -32 row. The figures imply roughly <strong>106-107 points</strong> of improvement for this marriage-and-alliance package: an inference from the panel, not an exact measured before-and-after result.</p>
 
-<p>Rows and totals are rounded, so adding displayed term values can differ slightly from the totals. These are this proposal&#x27;s values, not universal prices.</p>
+<p>Rounding can make displayed rows differ slightly from totals. These values belong to this proposal; they are not universal prices.</p>
 
 <h2>Getting started</h2>
 
@@ -62,23 +62,25 @@
 
 <p>Game rules control advanced terms, prestige and piety trading, AI treaties, incoming offer frequency and threat scaling. AI-to-AI treaties use their own system and frequency rule; the advanced-terms setting is not a universal restriction on those treaties.</p>
 
+<p>Negotiate as your own ruler. When acting for a puppet, Parley&#x27;s opener and treaty marriage picker are hidden. Version 1.1.0 follows personal Rites for marriage defaults and lineality pricing, while retaining native marriage eligibility checks.</p>
+
 <h2>Compatibility and load order</h2>
 
-<p><strong>Vanilla file replacements: none.</strong> Parley adds its own files in <code>common/</code>, <code>events/</code>, <code>gui/</code>, <code>data_binding/</code> and <code>localization/</code>. It does not replace the marriage window. Other mods can still change mechanics the treaties rely on.</p>
+<p><strong>Vanilla file replacements: none.</strong> Parley adds files in <code>common/</code>, <code>events/</code>, <code>gui/</code>, <code>data_binding/</code> and <code>localization/</code>. Other mods can still change mechanics treaties rely on.</p>
 
 <p><strong>Vanilla game with the optional marriage assistant:</strong></p>
 
 <p>1. Parley: The Negotiating Table</p>
 <p>2. Marriage Calculation Assistant</p>
 
-<p><strong>Verified AGOT family order:</strong></p>
+<p><strong>Historical RC3 AGOT order — CK3 1.19.0.6 only:</strong></p>
 
 <p>1. A Game of Thrones</p>
-<p>2. Parley: The Negotiating Table</p>
-<p>3. Marriage Calculation Assistant</p>
-<p>4. AGOT: Marriage Calculation Assistant</p>
+<p>2. Parley: The Negotiating Table <strong>1.0.0</strong></p>
+<p>3. Marriage Calculation Assistant <strong>3.0.1</strong></p>
+<p>4. AGOT: Marriage Calculation Assistant <strong>2.2.0</strong></p>
 
-<p>Both assistants are optional for Parley. They provide candidate comparison, not general compatibility patches for AGOT or its submods.</p>
+<p>That combination used <strong>AGOT 0.5.2.1</strong>. It does not establish AGOT support for Parley 1.1.0 on CK3 1.20. Both assistants are optional; they are not general AGOT compatibility patches.</p>
 
 <p><strong>Submods and companion mods:</strong></p>
 
@@ -89,13 +91,15 @@
 
 <h2>Saves and known limits</h2>
 
-<p>Parley stores negotiation and AI state in saves. Before removing it, use <strong>Fold Away the Negotiating Table</strong> under <strong>Mod Removal Decisions</strong> while it is still enabled, save, then disable it. Uninstalling does not reverse completed marriages, payments or transfers. Close MCA&#x27;s marriage picker before saving or removing that companion as well.</p>
+<p>Before removal, use <strong>Fold Away the Negotiating Table</strong> under <strong>Mod Removal Decisions</strong>, save, then disable Parley. This cleans negotiation and AI state but does not reverse completed marriages, payments or transfers. Close MCA&#x27;s picker before saving or removing that companion.</p>
 
-<p>Some combinations are deliberately refused, including title transfers bundled with fealty or independence. Overlapping courtier and hostage selections can also make a package invalid. Parley checks the staged terms again before execution. Multiplayer and long-campaign balance remain unverified.</p>
+<p>Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package. Terms are rechecked before execution; multiplayer and long-campaign balance remain unverified.</p>
+
+<p>Gallery images show <strong>RC3 on CK3 1.19.0.6</strong>; the Dorne example uses <strong>AGOT 0.5.2.1</strong>. Current 1.20.0.2 tests covered direct negotiation, balancing, marriage staging/cleanup, Rites and influence. RC8 passed AI-world vassalization assertions and a short campaign with a natural fealty treaty for 743 gold at +2. Seven native diagnostics also reproduced with all mods off on the same save; logs are not empty. Native puppet UI, the full Jizya/legality matrix, multiplayer and long campaigns remain unverified.</p>
 
 <h2>Feedback and support</h2>
 
-<p>For bug reports, include mod/game versions, load order, UI scale, reproduction steps and a screenshot. Mention whether the issue occurs with this mod family alone.</p>
+<p>Include mod/game versions, load order, UI scale, steps and a screenshot in bug reports. Mention whether the issue occurs with this family alone.</p>
 
 <p>- <a href="https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table">Source and issue reports</a></p>
 

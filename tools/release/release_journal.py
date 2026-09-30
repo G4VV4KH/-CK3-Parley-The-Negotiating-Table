@@ -98,17 +98,24 @@ def inspect(workspace, build_id, executable):
     build = scoped(root, "game", build_id)
     manifest_file = scoped(root, "game", build_id, "manifest.json")
     manifest = read_json(manifest_file)
-    require(manifest.get("build_id") == build_id and set(manifest.get("mods", {})) == set(MODS),
+    mods = manifest.get("mods")
+    require(manifest.get("schema") == 1 and manifest.get("build_id") == build_id
+            and isinstance(mods, dict) and bool(mods) and set(mods) <= set(MODS),
             "Build manifest identity/mod inventory mismatch")
+    selected = tuple(mod for mod in MODS if mod in mods)
+    # Validate all mod directories. Auxiliary reports do not enter a payload.
+    require({path.name for path in build.iterdir() if path.is_dir()} == set(selected),
+            "Build directory mod inventory differs from manifest")
     manifest_sha = digest(manifest_file.read_bytes())
     archives_file = scoped(root, "distribution", build_id, "archive-manifest.json")
     archives = read_json(archives_file) if archives_file.exists() else {}
     if archives:
         require(archives.get("build_id") == build_id and
-                archives.get("source_build_manifest_sha256") == manifest_sha,
+                archives.get("source_build_manifest_sha256") == manifest_sha and
+                set(archives.get("archives", {})) == set(selected),
                 "Archive manifest does not identify this build")
     result = {}
-    for mod in MODS:
+    for mod in selected:
         expected = manifest["mods"][mod]
         game = scoped(root, "game", build_id, mod)
         actual_game = inventory(game)
@@ -218,7 +225,9 @@ def record(root, build_id, executable, mod, platform, status, url=None, remote_i
     require(status in {"PREPARED", "UPLOADED", "VERIFIED", "FAILED"}, "Invalid publication status")
     require(not artifact_sha256 or re.fullmatch(r"[a-fA-F0-9]{64}", artifact_sha256), "Invalid artifact SHA-256")
     require(not revision or re.fullmatch(r"[a-fA-F0-9]{40,64}", revision), "Use a full Git revision")
-    item = inspect(root, build_id, executable)[mod]
+    inspected = inspect(root, build_id, executable)
+    require(mod in inspected, f"Mod is not included in this build: {mod}")
+    item = inspected[mod]
     path = platform_path(root, build_id, mod, platform)
     require(path.exists(), "Initialize journals before recording publication")
     history = load_history(path, "publication", mod, build_id, platform)

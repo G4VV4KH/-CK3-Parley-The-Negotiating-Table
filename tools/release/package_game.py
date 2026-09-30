@@ -2,7 +2,7 @@
 """Create deterministic generic ZIP payloads from a verified CK3 game manifest.
 
 This does not create Steam uploads, Nexus installers, or launcher .mod wrappers.
-Only the three manifest-listed mod payloads enter the archives. ZIP_STORED avoids
+Only the manifest-listed mod payloads enter the archives. ZIP_STORED avoids
 compressor-version differences; member order, timestamps and permissions are fixed.
 """
 from __future__ import annotations
@@ -98,11 +98,17 @@ def read_payloads(build_dir: Path) -> tuple[dict, dict, bytes]:
     reject_link(manifest_path)
     manifest_bytes = manifest_path.read_bytes()
     manifest = read_json(manifest_bytes)
-    require(manifest.get("schema") == 1 and set(manifest.get("mods", {})) == set(MODS),
-            "Expected game-manifest schema 1 with exactly the three family mods")
+    mods = manifest.get("mods")
+    require(manifest.get("schema") == 1 and isinstance(mods, dict) and bool(mods)
+            and set(mods) <= set(MODS),
+            "Expected game-manifest schema 1 with a nonempty known mod subset")
+    selected = tuple(mod for mod in MODS if mod in mods)
+    require({path.name for path in build_dir.iterdir()}
+            == set(selected) | {"manifest.json", "transform-report.json"},
+            "Unexpected versioned build-root inventory")
     require(isinstance(manifest.get("build_id"), str) and manifest["build_id"], "Missing source build ID")
     payloads, versions = {}, {}
-    for mod in MODS:
+    for mod in selected:
         root = build_dir / mod
         require(root.is_dir(), f"Missing game payload: {root}")
         reject_link(root)
@@ -178,7 +184,7 @@ def main() -> int:
     require(output_dir != build_dir and build_dir not in output_dir.parents,
             "Distribution output must be outside the game build directory")
     payloads, metadata, game_manifest_bytes = read_payloads(build_dir)
-    filenames = {mod: f"{mod}-{metadata['versions'][mod]}-payload.zip" for mod in MODS}
+    filenames = {mod: f"{mod}-{metadata['versions'][mod]}-payload.zip" for mod in payloads}
     expected_names = set(filenames.values()) | {MANIFEST_NAME}
     if args.verify:
         require(output_dir.is_dir(), f"Missing distribution directory: {output_dir}")
@@ -192,13 +198,13 @@ def main() -> int:
             require(not any(output_dir.iterdir()), "Refusing a nonempty distribution directory")
         else:
             output_dir.mkdir(parents=True)
-        for mod in MODS:
+        for mod in payloads:
             # Exclusive creation preserves an existing artifact even if a file
             # appears between preflight and creation.
             with (output_dir / filenames[mod]).open("xb") as stream:
                 write_zip(stream, payloads[mod])
     archives = {}
-    for mod in MODS:
+    for mod in payloads:
         archives[mod] = {"version": metadata["versions"][mod],
                          **verify_zip(output_dir / filenames[mod], payloads[mod])}
     manifest = {
@@ -224,7 +230,7 @@ def main() -> int:
                       "build_id": metadata["build_id"], "output_dir": str(output_dir),
                       "archives": {mod: {key: archives[mod][key] for key in
                                          ("filename", "sha256", "bytes", "member_count")}
-                                   for mod in MODS}}, indent=2))
+                                   for mod in payloads}}, indent=2))
     return 0
 
 

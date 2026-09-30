@@ -190,6 +190,13 @@ tnt_stage_marriage_interaction = {
 	# $OTHER$, so entering scope:actor is what makes it correct here.
 	# =========================================================================
 	is_shown = {
+		# CK3 1.20: keep the native effective arranger aligned with the owner
+		# of this deal. A puppet/controller mismatch must not borrow the
+		# controller's spouse pools or stage variables on a different ruler.
+		trigger_if = {
+			limit = { exists = scope:puppet_or_actor }
+			scope:puppet_or_actor = scope:actor
+		}
 		scope:actor = {
 			is_ai = no			# REAL: 00_alliance.txt:1129, :2103. Lock 1 of 3.
 			is_landed = yes			# REAL: 00_character_interactions.txt:26. Also what makes the actor his own matchmaker, which the redirect below relies on.
@@ -304,7 +311,12 @@ tnt_stage_marriage_interaction = {
 					NOT = { this = matchmaker }
 				}
 				save_scope_as = secondary_actor
-				matchmaker = { save_scope_as = actor }
+				matchmaker = {
+					save_scope_as = actor
+					# 1.20 vanilla redirects both aliases. Keep all deal state
+					# on actor; this only normalizes the marriage UI's alias.
+					save_scope_as = puppet_or_actor
+				}
 			}
 		}
 

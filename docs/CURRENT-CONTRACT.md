@@ -1,6 +1,8 @@
 # Current development and release contract
 
-Recorded 2026-09-30 for Parley 1.0.0, MCA 3.0.1 and AGOT:MCA 2.2.0. This is the concise current reference for publication preparation. Runtime source and its explicit checks resolve implementation details; historical `_docs` specifications must not override this record.
+Updated 2026-09-30 for the CK3 1.20.0.2 Crozier adaptation: Parley 1.1.0 and MCA 3.1.0. AGOT:MCA 2.2.0 remains on its historical CK3 1.19.0.6 / AGOT 0.5.2.1 / MCA 3.0.1 baseline, pending compatible upstream AGOT. Focused RC8 engine validation has passed; publication remains a separate decision and is still on hold. Runtime source and its explicit checks resolve implementation details; historical `_docs` specifications must not override this record.
+
+The current candidate is `2026-09-30-game-rc8`, containing only Parley and MCA; its focused engine validation passed. RC4 exposed the removed administrative rule and stale marriage balance verdict; RC6 verified the corresponding corrections through native UI checks and 34 engine-harness assertions. RC7 verified MCA's identity-scale fix and both picker sides, but was rejected after natural AI-world submission called vanilla vassalization without its new effective-actor alias. RC8 supplies that alias at the shared AI-world apply seam. RC8 separately passed 12 native mutation assertions and a no-harness short campaign with an accepted natural fealty treaty. Earlier scoped passes are reused only for unchanged bytes and semantics; RC7 remains rejected. The original RC3 lock and packages are unchanged. See [CK3-1.20-COMPATIBILITY.md](CK3-1.20-COMPATIBILITY.md) for witnesses and limits.
 
 ## Three copies
 
@@ -12,11 +14,15 @@ Recorded 2026-09-30 for Parley 1.0.0, MCA 3.0.1 and AGOT:MCA 2.2.0. This is the 
 
 Runtime source resides under `dev/<repository>/mod/<folder>/`. The folders are `parley`, `marriage_calc_assistant` and `agot_marriage_calc_assistant`. The same clean game content is intended for Steam, Paradox and Nexus; platform-specific packaging and metadata are recorded separately.
 
-Publication preparation deliberately creates a different Parley game projection: developer documents, telemetry and the test-only AI offer-rate option are excluded by the release tool in `tools/release/`. Instrumented developer logic remains in `dev`. Package verification must prove the allowed differences explicitly, not silently refresh or relax the source checks. The current package is `2026-09-30-game-rc3`, which includes the corrected auto-balancer and matches the engine-tested staging payload for all 104 files. Its focused result and limits are recorded in [AUTOBALANCE-FIX.md](AUTOBALANCE-FIX.md). The earlier [RC2 smoke](RC2-SMOKE.md) remains historical evidence for its stated scenarios; it did not exercise the later-reported balancing failure. Neither record establishes publication or Workshop delivery.
+Publication preparation deliberately creates a different Parley game projection: developer documents, telemetry and the test-only AI offer-rate option are excluded by the release tool in `tools/release/`. Instrumented developer logic remains in `dev`. Package verification must prove the allowed differences explicitly, not silently refresh or relax the source checks. The frozen 1.19 package `2026-09-30-game-rc3` includes the corrected auto-balancer and matches its engine-tested staging payload for all 104 files. Its focused result and limits are recorded in [AUTOBALANCE-FIX.md](AUTOBALANCE-FIX.md). The earlier [RC2 smoke](RC2-SMOKE.md) remains historical evidence for its stated scenarios; it did not exercise the later-reported balancing failure. Neither record establishes publication or Workshop delivery, nor compatibility with CK3 1.20.
 
 ## Parley behavior and ownership
 
 Parley provides a two-sided negotiation window, partner-oriented valuation and auto-balancing, incoming AI letters and an AI-to-AI negotiation layer. It owns its `tnt_` runtime namespace and five legacy addon hooks. MCA does not define or call those hooks. Parley does not override a vanilla file path in the checked source tree; this is a measured compatibility surface, not a guarantee for every mod combination.
+
+On 1.20, marriage defaults and gender-dominance pricing read the character's Rite. Legality continues to use current native helpers. Parley supports direct ruler negotiations; its opener and borrowed marriage picker are hidden for proxy arrangements where the effective arranger is another character. Marriage edits invalidate an old auto-balance verdict; committed line flips also refresh cached prices. Jizya protection intentionally follows the native faith-level contract parameter.
+
+AI-world paid fealty and coerced submission share one native apply seam. It refreshes `puppet_or_actor` from `actor`: the actor becomes liege and the recipient becomes vassal. Existing obligation options remain boolean false. Six source regressions cover alias freshness, caller scope and both routes. RC8 passed 12 engine assertions for absent/stale aliases, actual vassalage, opinion and ownership. Its separate no-harness run reached 24 January 1179 from the original 1 October 1178 baseline and executed Amr's natural fealty offer for 743 gold at +2: player gold changed 1,318 to 575 and Asir joined the realm. The run does not certify every AI scheduling or policy branch.
 
 The current threat access minimum is 100 points inclusive in player and AI paths. The multiplier ladder remains 2.5 / 5 / 7.5 / 10, with normal at 5. Selected threats below the minimum contribute zero, cannot seed Equalize, and can be unticked. The rule-conformance check protects the current consumers.
 
@@ -27,6 +33,10 @@ The hidden AI-letter composer has no engine cooldown. PICK writes no provisional
 MCA scores candidate gameplay potential, not marriage acceptance or guaranteed benefit from a particular pairing. Both picker sides share inheritable-quality, skill, age-based reproductive, dynastic-prestige and explicit-claim components. Native potential-alliance metadata and optional adapter components are included through the existing wrappers. The score and its native breakdown use the same component values.
 
 Optional sorting keeps a saveable snapshot on the local player and projects native list items. It does not stamp candidates or change who a displayed row selects. Lifecycle/context guards clear the snapshot; close the picker before saving or uninstalling. MCA adds no global cleanup sweep or on-action.
+
+MCA 3.1.0 follows the 1.20 effective-arranger portrait and carries arranger ownership through all eight GUI context packets. Scoring and sorting require both the interaction actor and effective arranger to be the local player. Proxy arrangements use the native unscored, unsorted list; switching arranger invalidates a stale snapshot. Score weights and adapter component names remain unchanged.
+
+Twelve MCA sorter callback states carry native identity `scale = 1` to avoid empty-animation diagnostics. RC7 verified the large list, both picker sides, tooltip arithmetic, selected-character identity and exercised filter/default/back/close resets with no animation-state warnings. Native puppet UI, active-snapshot time advancement and save/reload remain unverified. MCA runtime is unchanged in RC8; the combined candidate passed the separate Parley retest without repaired scope or MCA animation diagnostics.
 
 Its sole vanilla-path override is `gui/interaction_marriage.gui`. A mod replacing that file requires a reviewed functional compatibility patch. The derived marriage row depends on the base row's `character_relation` seam. The frozen patch and inherited-row checks guard these boundaries against the installed vanilla and AGOT versions.
 
@@ -42,9 +52,11 @@ The adapter owns twelve payload files and five localization keys in each of nine
 
 ## Localization and compatibility evidence
 
+RC8 retains 40 classified startup diagnostics. Seven additional native log records reproduced exactly apart from wall-clock timestamps with all mods disabled on the same original save through 24 May 1179. This supports attribution outside active Parley/MCA for those records, not a globally clean log or an explanation of the original saved state. The separate AI harness also retains 11 nonshipping fixture-format warnings despite its 12 passing assertions. See the compatibility record for archived evidence.
+
 The audited developer trees each contain English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese and Spanish. Current developer key counts are Parley 633, MCA 22 and AGOT:MCA 5 per language. RC3 contains 623, 22 and 5 keys per language respectively after removal of Parley's ten diagnostic/test-only entries. The auto-balance correction added one public verdict key in every language; historical RC2 retains its original 622 Parley keys. Matching key/token coverage across all nine languages passed; this does not assert a linguistic review of every translation.
 
-The checked environment is CK3 1.19.0.6 and AGOT 0.5.2.1. Source checks establish Parley's zero vanilla-path collisions, MCA's one reviewed GUI override, and the adapter's pure script-value boundary. Compatibility descriptions must also state dependencies and required ordering. They must not infer universal compatibility, multiplayer coverage or normal-rate balance from these checks.
+The historical checked environment is CK3 1.19.0.6 and AGOT 0.5.2.1. The current adaptation targets installed CK3 1.20.0.2; AGOT is excluded from its candidate and engine playset. Source checks establish Parley's zero vanilla-path collisions, MCA's one reviewed GUI override, and the adapter's pure script-value boundary. Compatibility descriptions must also state dependencies and required ordering. They must not infer universal compatibility, multiplayer coverage or normal-rate balance from these checks.
 
 ## Development and release evidence
 

@@ -1,0 +1,396 @@
+--- a/gui/interaction_marriage.gui
++++ b/gui/interaction_marriage.gui
+@@ -1,3 +1,7 @@
++# MCA marriage-only list extension: live scores and explicit score-order snapshots.
++# Captured character references and score checks reject stale or mismatched rows.
++# Native index projection preserves the engine's selection callbacks and stable ties.
++# Unavailable/hidden MCA scores keep their native rows and sort last at -10000.
+ 
+ ######################################################
+ ############### MARRIAGE INTERACTION #################
+@@ -21,12 +25,14 @@
+ 		name = _show
+ 		using = Animation_FadeIn_Quick
+ 		using = Sound_WindowShow_Standard
++		on_start = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 	}
+ 
+ 	state = {
+ 		name = _hide
+ 		using = Animation_FadeOut_Quick
+ 		using = Sound_WindowHide_Standard
++		on_start = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 	}
+ 
+ 	vbox = {
+@@ -47,6 +53,7 @@
+ 
+ 				blockoverride "button_close"
+ 				{
++					onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 					onclick = "[MatchmakerInteractionWindow.Close]"
+ 
+ 				}
+@@ -54,6 +61,7 @@
+ 				blockoverride "button_back"
+ 				{
+ 					visible = "[MarriageInteractionWindow.CanClear]"
++					onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 					onclick = "[MatchmakerInteractionWindow.OnClear]"
+ 					tooltip = "CLEAR_MARRIED_CHARACTERS"
+ 				}
+@@ -100,6 +108,13 @@
+ 				datacontext = "[MatchmakerInteractionWindow.GetRecipientToMatch]"
+ 			}
+ 
++			# The inherited label lacks Character context before a spouse is selected.
++			# Match the existing neutral right label instead of evaluating gendered loc.
++			blockoverride "left_character_label"
++			{
++				text = "INTERACTION_SPOUSE"
++			}
++
+ 			blockoverride "right_character_label"
+ 			{
+ 				text = "INTERACTION_SPOUSE"
+@@ -113,30 +128,35 @@
+ 			blockoverride "button_left_change"
+ 			{
+ 				visible = "[MatchmakerInteractionWindow.CanChangeActorCharacter]"
++				onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 				onclick = "[MatchmakerInteractionWindow.OnChangeOrRevertActorCharacter]"
+ 			}
+ 
+ 			blockoverride "button_left_revert"
+ 			{
+ 				visible = "[MatchmakerInteractionWindow.CanRevertActorCharacter]"
++				onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 				onclick = "[MatchmakerInteractionWindow.OnChangeOrRevertActorCharacter]"
+ 			}
+ 
+ 			blockoverride "button_right_change"
+ 			{
+ 				visible = "[MatchmakerInteractionWindow.CanChangeRecipientCharacter]"
++				onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 				onclick = "[MatchmakerInteractionWindow.OnChangeOrRevertRecipientCharacter]"
+ 			}
+ 
+ 			blockoverride "button_right_revert"
+ 			{
+ 				visible = "[MatchmakerInteractionWindow.CanRevertRecipientCharacter]"
++				onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 				onclick = "[MatchmakerInteractionWindow.OnChangeOrRevertRecipientCharacter]"
+ 			}
+ 
+ 			blockoverride "button_clear"
+ 			{
+ 				enabled = "[MarriageInteractionWindow.CanClear]"
++				onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 				onclick = "[MatchmakerInteractionWindow.OnClear]"
+ 			}
+ 
+@@ -258,6 +278,7 @@
+ 
+ 				button_checkbox_label = {
+ 					datacontext = "[MarriageInteractionWindow.GetMarriageInfo]"
++					onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 					onclick = "[MarriageInfo.ToggleMatrilineal]"
+ 					tooltip = "MARRIAGE_MATRILINEAL_TOGGLE_TOOLTIP"
+ 
+@@ -319,6 +340,7 @@
+ 					datacontext = "[MarriageInteractionWindow.GetMarriageInfo]"
+ 
+ 					enabled = "[MarriageInfo.IsGrandWeddingPromiseValid]"
++					onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
+ 					onclick = "[MarriageInfo.ToggleGrandWeddingPromise]"
+ 					tooltip = "[MarriageInfo.GetGrandWeddingPromiseDesc]"
+ 
+@@ -356,10 +378,220 @@
+ 				layoutpolicy_vertical = expanding
+ 				layoutpolicy_horizontal = expanding
+ 
++
++				# Snapshot owns bounded player-scoped records and references. No candidate stamps.
++				# Callback states need a valid property in CK3 1.20. Identity scale preserves
++				# layout/visibility; native precedent: hud_notification_templates.gui:1469-1472.
++				state = {
++					name = _hide
++					scale = 1
++					on_start = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
++				}
++
++				blockoverride "sort_buttons" {
++					vbox = {
++						layoutpolicy_horizontal = expanding
++						spacing = 4
++						hbox_list_sort_buttons = {
++							layoutpolicy_horizontal = expanding
++							enabled = "[Not( GreaterThan_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)0' ) )]"
++							blockoverride "margins" {
++								margin_left = 20
++								margin_right = 23
++								margin_top = 5
++								spacing = 5
++							}
++						}
++						hbox = {
++							margin_left = 20
++							margin_right = 23
++							spacing = 8
++							button_standard = {
++								name = "tnt_ma_sort_start_button"
++								tooltip = "tnt_ma_sort_help"
++								size = { 180 30 }
++								enabled = "[And( Not( GreaterThan_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)0' ) ), And( And( ObjectsEqual( CharacterInteractionConfirmationWindow.GetActor, GetPlayer ), ObjectsEqual( CharacterInteractionConfirmationWindow.GetPuppetOrActor, GetPlayer ) ), And( Not( CharacterSelectionList.IsBuildingList ), And( Not( CharacterSelectionList.FiltersShown ), And( GreaterThan_int32( GetDataModelSize( CharacterSelectionList.GetList ), '(int32)0' ), LessThanOrEqualTo_int32( GetDataModelSize( CharacterSelectionList.GetList ), '(int32)9999' ) ) ) ) ) )]"
++								onclick = "[GetScriptedGui('tnt_ma_sort_start').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope('tnt_ma_sort_arranger', CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n', MakeScopeValue( IntToFixedPoint( GetDataModelSize( CharacterSelectionList.GetList ) ) )).AddScope('tnt_ma_sort_partner', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor', MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient', MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side', MakeScopeValue( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, '(CFixedPoint)1', '(CFixedPoint)2' ) )).AddScope('tnt_ma_sort_matrilineal', MakeScopeValue( Select_CFixedPoint( MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal, '(CFixedPoint)1', '(CFixedPoint)0' ) )).AddScope('tnt_ma_sort_day', MakeScopeValue( IntToFixedPoint( GetCurrentDate.GetDateAsTotalDays ) )).End )]"
++								text_single = {
++									parentanchor = center
++									text = "tnt_ma_sort_score_button"
++									alwaystransparent = yes
++								}
++							}
++							button_standard = {
++								name = "tnt_ma_sort_native_button"
++								tooltip = "tnt_ma_sort_help"
++								size = { 160 30 }
++								enabled = "[GreaterThan_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)0' )]"
++								onclick = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
++								text_single = {
++									parentanchor = center
++									text = "tnt_ma_sort_native_button"
++									alwaystransparent = yes
++								}
++							}
++							text_single = {
++								name = "tnt_ma_sort_progress"
++								layoutpolicy_horizontal = expanding
++								align = nobaseline
++								visible = "[GreaterThan_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)0' )]"
++								text = "[SelectLocalization( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), 'tnt_ma_sort_collecting', Select_CString( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)2' ), 'tnt_ma_sort_active', 'tnt_ma_sort_failed' ) )]"
++								alwaystransparent = yes
++							}
++						}
++					}
++				}
++
++				# Two full-list collectors keep GetIndexInDataModel on the actual item widget.
++				# Candidate-root script effects evaluate scores; Execute carries only plain metadata.
++				widget = {
++					name = "tnt_ma_sort_collector_p"
++					size = { 1 1 }
++					alwaystransparent = yes
++					visible = "[And( MatchmakerInteractionWindow.IsPickingSecondaryActor, Not( CharacterSelectionList.IsBuildingList ) )]"
++					datamodel = "[CharacterSelectionList.GetList]"
++					datamodel_reuse_widgets = yes
++					item = {
++						widget = {
++							name = "tnt_ma_sort_capture_p"
++							size = { 1 1 }
++							alwaystransparent = yes
++							visible = "[MatchmakerInteractionWindow.IsPickingSecondaryActor]"
++							state = {
++								name = "tnt_ma_sort_capture_p_active"
++								scale = 1
++								trigger_when = "[And( And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), Not( CharacterSelectionList.IsBuildingList ) ), MatchmakerInteractionWindow.IsPickingSecondaryActor )]"
++								on_start = "[GetScriptedGui('tnt_ma_sort_collect').Execute( GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).AddScope('tnt_ma_sort_arranger', CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n', MakeScopeValue( IntToFixedPoint( GetDataModelSize( CharacterSelectionList.GetList ) ) )).AddScope('tnt_ma_sort_partner', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor', MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient', MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side', MakeScopeValue( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, '(CFixedPoint)1', '(CFixedPoint)2' ) )).AddScope('tnt_ma_sort_matrilineal', MakeScopeValue( Select_CFixedPoint( MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal, '(CFixedPoint)1', '(CFixedPoint)0' ) )).AddScope('tnt_ma_sort_day', MakeScopeValue( IntToFixedPoint( GetCurrentDate.GetDateAsTotalDays ) )).AddScope('tnt_ma_sort_index', MakeScopeValue( IntToFixedPoint( PdxGuiWidget.GetIndexInDataModel ) )).AddScope('tnt_ma_sort_alliance', MakeScopeValue( Select_CFixedPoint( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), '(CFixedPoint)1', '(CFixedPoint)0' ) )).End )]"
++							}
++							state = {
++								name = "tnt_ma_sort_capture_p_idle"
++								scale = 1
++								trigger_when = "[Not( And( And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), Not( CharacterSelectionList.IsBuildingList ) ), MatchmakerInteractionWindow.IsPickingSecondaryActor ) )]"
++							}
++						}
++					}
++				}
++				widget = {
++					name = "tnt_ma_sort_collector_r"
++					size = { 1 1 }
++					alwaystransparent = yes
++					visible = "[And( Not( MatchmakerInteractionWindow.IsPickingSecondaryActor ), Not( CharacterSelectionList.IsBuildingList ) )]"
++					datamodel = "[CharacterSelectionList.GetList]"
++					datamodel_reuse_widgets = yes
++					item = {
++						widget = {
++							name = "tnt_ma_sort_capture_r"
++							size = { 1 1 }
++							alwaystransparent = yes
++							visible = "[Not( MatchmakerInteractionWindow.IsPickingSecondaryActor )]"
++							state = {
++								name = "tnt_ma_sort_capture_r_active"
++								scale = 1
++								trigger_when = "[And( And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), Not( CharacterSelectionList.IsBuildingList ) ), Not( MatchmakerInteractionWindow.IsPickingSecondaryActor ) )]"
++								on_start = "[GetScriptedGui('tnt_ma_sort_collect').Execute( GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).AddScope('tnt_ma_sort_arranger', CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n', MakeScopeValue( IntToFixedPoint( GetDataModelSize( CharacterSelectionList.GetList ) ) )).AddScope('tnt_ma_sort_partner', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor', MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient', MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side', MakeScopeValue( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, '(CFixedPoint)1', '(CFixedPoint)2' ) )).AddScope('tnt_ma_sort_matrilineal', MakeScopeValue( Select_CFixedPoint( MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal, '(CFixedPoint)1', '(CFixedPoint)0' ) )).AddScope('tnt_ma_sort_day', MakeScopeValue( IntToFixedPoint( GetCurrentDate.GetDateAsTotalDays ) )).AddScope('tnt_ma_sort_index', MakeScopeValue( IntToFixedPoint( PdxGuiWidget.GetIndexInDataModel ) )).AddScope('tnt_ma_sort_alliance', MakeScopeValue( Select_CFixedPoint( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), '(CFixedPoint)1', '(CFixedPoint)0' ) )).End )]"
++							}
++							state = {
++								name = "tnt_ma_sort_capture_r_idle"
++								scale = 1
++								trigger_when = "[Not( And( And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), Not( CharacterSelectionList.IsBuildingList ) ), Not( MatchmakerInteractionWindow.IsPickingSecondaryActor ) ) )]"
++							}
++						}
++					}
++				}
++
++				widget = {
++					name = "tnt_ma_sort_controller"
++					size = { 1 1 }
++					alwaystransparent = yes
++					state = {
++						name = "tnt_ma_sort_invalidate"
++						scale = 1
++						trigger_when = "[And( GreaterThan_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)0' ), Or( CharacterSelectionList.IsBuildingList, Not( GetScriptedGui('tnt_ma_sort_context_valid').IsValid( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope('tnt_ma_sort_arranger', CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n', MakeScopeValue( IntToFixedPoint( GetDataModelSize( CharacterSelectionList.GetList ) ) )).AddScope('tnt_ma_sort_partner', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor', MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient', MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side', MakeScopeValue( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, '(CFixedPoint)1', '(CFixedPoint)2' ) )).AddScope('tnt_ma_sort_matrilineal', MakeScopeValue( Select_CFixedPoint( MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal, '(CFixedPoint)1', '(CFixedPoint)0' ) )).AddScope('tnt_ma_sort_day', MakeScopeValue( IntToFixedPoint( GetCurrentDate.GetDateAsTotalDays ) )).End ) ) ) )]"
++						on_start = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
++					}
++					state = {
++						name = "tnt_ma_sort_complete"
++						scale = 1
++						trigger_when = "[And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), And( Not( CharacterSelectionList.IsBuildingList ), And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_received').GetValueWithDefault('(CFixedPoint)0'), GetPlayer.MakeScope.GetVariable('tnt_ma_sort_expected').GetValueWithDefault('(CFixedPoint)0') ), GetScriptedGui('tnt_ma_sort_context_valid').IsValid( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope('tnt_ma_sort_arranger', CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n', MakeScopeValue( IntToFixedPoint( GetDataModelSize( CharacterSelectionList.GetList ) ) )).AddScope('tnt_ma_sort_partner', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor', MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient', MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side', MakeScopeValue( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, '(CFixedPoint)1', '(CFixedPoint)2' ) )).AddScope('tnt_ma_sort_matrilineal', MakeScopeValue( Select_CFixedPoint( MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal, '(CFixedPoint)1', '(CFixedPoint)0' ) )).AddScope('tnt_ma_sort_day', MakeScopeValue( IntToFixedPoint( GetCurrentDate.GetDateAsTotalDays ) )).End ) ) ) )]"
++						on_start = "[GetScriptedGui('tnt_ma_sort_finalize').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
++					}
++					state = {
++						name = "tnt_ma_sort_controller_idle"
++						scale = 1
++						trigger_when = "[Not( Or( And( GreaterThan_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)0' ), Or( CharacterSelectionList.IsBuildingList, Not( GetScriptedGui('tnt_ma_sort_context_valid').IsValid( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope('tnt_ma_sort_arranger', CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n', MakeScopeValue( IntToFixedPoint( GetDataModelSize( CharacterSelectionList.GetList ) ) )).AddScope('tnt_ma_sort_partner', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor', MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient', MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side', MakeScopeValue( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, '(CFixedPoint)1', '(CFixedPoint)2' ) )).AddScope('tnt_ma_sort_matrilineal', MakeScopeValue( Select_CFixedPoint( MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal, '(CFixedPoint)1', '(CFixedPoint)0' ) )).AddScope('tnt_ma_sort_day', MakeScopeValue( IntToFixedPoint( GetCurrentDate.GetDateAsTotalDays ) )).End ) ) ) ), And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), And( Not( CharacterSelectionList.IsBuildingList ), And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_received').GetValueWithDefault('(CFixedPoint)0'), GetPlayer.MakeScope.GetVariable('tnt_ma_sort_expected').GetValueWithDefault('(CFixedPoint)0') ), GetScriptedGui('tnt_ma_sort_context_valid').IsValid( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope('tnt_ma_sort_arranger', CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n', MakeScopeValue( IntToFixedPoint( GetDataModelSize( CharacterSelectionList.GetList ) ) )).AddScope('tnt_ma_sort_partner', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor', MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient', MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side', MakeScopeValue( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, '(CFixedPoint)1', '(CFixedPoint)2' ) )).AddScope('tnt_ma_sort_matrilineal', MakeScopeValue( Select_CFixedPoint( MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal, '(CFixedPoint)1', '(CFixedPoint)0' ) )).AddScope('tnt_ma_sort_day', MakeScopeValue( IntToFixedPoint( GetCurrentDate.GetDateAsTotalDays ) )).End ) ) ) ) ) )]"
++					}
++				}
++
++				# Nonvirtual full-list watchdog catches offscreen score and character-reference drift.
++				# Capture direction maps callback-order references back to native list ordinals.
++				widget = {
++					name = "tnt_ma_sort_watchdog"
++					size = { 1 1 }
++					alwaystransparent = yes
++					visible = "[And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)2' ), Not( CharacterSelectionList.IsBuildingList ) )]"
++					datamodel = "[GetPlayer.MakeScope.GetList('tnt_ma_sort_indices')]"
++					datamodel_reuse_widgets = yes
++					item = {
++						widget = {
++							size = { 1 1 }
++							alwaystransparent = yes
++							datamodel = "[DataModelSubSpan( CharacterSelectionList.GetList, FixedPointToInt( Scope.GetValue ), '(int32)1' )]"
++							item = {
++								widget = {
++									size = { 1 1 }
++									alwaystransparent = yes
++									datamodel = "[DataModelSubSpan( GetPlayer.MakeScope.GetList('tnt_ma_sort_keys_by_index'), FixedPointToInt( Scope.GetValue ), '(int32)1' )]"
++									item = {
++										widget = {
++											size = { 1 1 }
++											name = "tnt_ma_sort_watch_score"
++											alwaystransparent = yes
++											state = {
++												name = "tnt_ma_sort_watch_score_invalid"
++												scale = 1
++												trigger_when = "[And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)2' ), Not( EqualTo_CFixedPoint( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).AddScope('tnt_gr_p', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).ScriptValue( Select_CString( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), 'tnt_ma_sort_p_alliance_capture_value', 'tnt_ma_sort_p_capture_value' ) ), GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).ScriptValue( Select_CString( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), 'tnt_ma_sort_r_alliance_capture_value', 'tnt_ma_sort_r_capture_value' ) ) ), Subtract_CFixedPoint( Divide_CFixedPoint( Subtract_CFixedPoint( Scope.GetValue, Modulo_CFixedPoint( Scope.GetValue, '(CFixedPoint)10000' ) ), '(CFixedPoint)10000' ), '(CFixedPoint)10000' ) ) ) )]"
++												on_start = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
++											}
++											state = {
++												name = "tnt_ma_sort_watch_score_idle"
++												scale = 1
++												trigger_when = "[Not( And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)2' ), Not( EqualTo_CFixedPoint( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).AddScope('tnt_gr_p', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).ScriptValue( Select_CString( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), 'tnt_ma_sort_p_alliance_capture_value', 'tnt_ma_sort_p_capture_value' ) ), GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).ScriptValue( Select_CString( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), 'tnt_ma_sort_r_alliance_capture_value', 'tnt_ma_sort_r_capture_value' ) ) ), Subtract_CFixedPoint( Divide_CFixedPoint( Subtract_CFixedPoint( Scope.GetValue, Modulo_CFixedPoint( Scope.GetValue, '(CFixedPoint)10000' ) ), '(CFixedPoint)10000' ), '(CFixedPoint)10000' ) ) ) ) )]"
++											}
++											widget = {
++												size = { 1 1 }
++												alwaystransparent = yes
++												datamodel = "[DataModelSubSpan( GetPlayer.MakeScope.GetList('tnt_ma_sort_candidates'), FixedPointToInt( Select_CFixedPoint( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), Subtract_CFixedPoint( '(CFixedPoint)9999', Modulo_CFixedPoint( Scope.GetValue, '(CFixedPoint)10000' ) ), Subtract_CFixedPoint( Subtract_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_expected').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), Subtract_CFixedPoint( '(CFixedPoint)9999', Modulo_CFixedPoint( Scope.GetValue, '(CFixedPoint)10000' ) ) ) ) ), '(int32)1' )]"
++												item = {
++													widget = {
++														size = { 1 1 }
++														name = "tnt_ma_sort_watch_identity"
++														alwaystransparent = yes
++														state = {
++															name = "tnt_ma_sort_watch_identity_invalid"
++															scale = 1
++															trigger_when = "[And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)2' ), Not( And( Or( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)-1' ) ), ObjectsEqual( CharacterListItem.GetCharacter, Scope.Char ) ) ) )]"
++															on_start = "[GetScriptedGui('tnt_ma_sort_clear').Execute( GuiScope.SetRoot( GetPlayer.MakeScope ).End )]"
++														}
++														state = {
++															name = "tnt_ma_sort_watch_identity_idle"
++															scale = 1
++															trigger_when = "[Not( And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)2' ), Not( And( Or( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)-1' ) ), ObjectsEqual( CharacterListItem.GetCharacter, Scope.Char ) ) ) ) )]"
++														}
++													}
++												}
++											}
++										}
++									}
++								}
++							}
++						}
++					}
++				}
++
+ 				blockoverride "container_implementation" {
+ 					fixedgridbox = {
+ 						name = "characters_grid"
+-						visible = "[Not(CharacterSelectionList.IsBuildingList)]"
++						visible = "[And( Not( CharacterSelectionList.IsBuildingList ), Not( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)2' ) ) )]"
+ 						datamodel = "[CharacterSelectionList.GetList]"
+ 						datamodel_reuse_widgets = yes
+ 
+@@ -367,8 +599,56 @@
+ 						addrow = 110
+ 
+ 						item = {
+-							widget_character_list_item = {
++							tnt_ma_widget_character_list_item = {
+ 								size = { 630 110 }
++							}
++						}
++					}
++
++
++					# Native index -> native item -> score packet -> captured character reference.
++					# All row clicks pass synchronous context, fresh-score and identity guards.
++					fixedgridbox = {
++						name = "tnt_ma_sorted_characters_grid"
++						visible = "[And( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_state').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)2' ), Not( CharacterSelectionList.IsBuildingList ) )]"
++						enabled = "[And( Not( CharacterSelectionList.IsBuildingList ), GetScriptedGui('tnt_ma_sort_context_valid').IsValid( GuiScope.SetRoot( GetPlayer.MakeScope ).AddScope('tnt_ma_sort_arranger', CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n', MakeScopeValue( IntToFixedPoint( GetDataModelSize( CharacterSelectionList.GetList ) ) )).AddScope('tnt_ma_sort_partner', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor', MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient', MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side', MakeScopeValue( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, '(CFixedPoint)1', '(CFixedPoint)2' ) )).AddScope('tnt_ma_sort_matrilineal', MakeScopeValue( Select_CFixedPoint( MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal, '(CFixedPoint)1', '(CFixedPoint)0' ) )).AddScope('tnt_ma_sort_day', MakeScopeValue( IntToFixedPoint( GetCurrentDate.GetDateAsTotalDays ) )).End ) )]"
++						datamodel = "[GetPlayer.MakeScope.GetList('tnt_ma_sort_indices')]"
++						datamodel_reuse_widgets = yes
++						addcolumn = 630
++						addrow = 110
++						item = {
++							widget = {
++								size = { 630 110 }
++								datamodel = "[DataModelSubSpan( CharacterSelectionList.GetList, FixedPointToInt( Scope.GetValue ), '(int32)1' )]"
++								item = {
++									widget = {
++										size = { 630 110 }
++										datamodel = "[DataModelSubSpan( GetPlayer.MakeScope.GetList('tnt_ma_sort_keys_by_index'), FixedPointToInt( Scope.GetValue ), '(int32)1' )]"
++										item = {
++											widget = {
++												size = { 630 110 }
++												name = "tnt_ma_sort_row_score_guard"
++												visible = "[EqualTo_CFixedPoint( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).AddScope('tnt_gr_p', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).ScriptValue( Select_CString( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), 'tnt_ma_sort_p_alliance_capture_value', 'tnt_ma_sort_p_capture_value' ) ), GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).ScriptValue( Select_CString( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), 'tnt_ma_sort_r_alliance_capture_value', 'tnt_ma_sort_r_capture_value' ) ) ), Subtract_CFixedPoint( Divide_CFixedPoint( Subtract_CFixedPoint( Scope.GetValue, Modulo_CFixedPoint( Scope.GetValue, '(CFixedPoint)10000' ) ), '(CFixedPoint)10000' ), '(CFixedPoint)10000' ) )]"
++												enabled = "[EqualTo_CFixedPoint( Select_CFixedPoint( MatchmakerInteractionWindow.IsPickingSecondaryActor, GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).AddScope('tnt_gr_p', CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).ScriptValue( Select_CString( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), 'tnt_ma_sort_p_alliance_capture_value', 'tnt_ma_sort_p_capture_value' ) ), GuiScope.SetRoot( CharacterListItem.GetCharacter.MakeScope ).AddScope('actor', GetPlayer.MakeScope).ScriptValue( Select_CString( DataModelHasItems( CharacterListItem.GetOtherCharacterItems ), 'tnt_ma_sort_r_alliance_capture_value', 'tnt_ma_sort_r_capture_value' ) ) ), Subtract_CFixedPoint( Divide_CFixedPoint( Subtract_CFixedPoint( Scope.GetValue, Modulo_CFixedPoint( Scope.GetValue, '(CFixedPoint)10000' ) ), '(CFixedPoint)10000' ), '(CFixedPoint)10000' ) )]"
++												widget = {
++													size = { 630 110 }
++													datamodel = "[DataModelSubSpan( GetPlayer.MakeScope.GetList('tnt_ma_sort_candidates'), FixedPointToInt( Select_CFixedPoint( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), Subtract_CFixedPoint( '(CFixedPoint)9999', Modulo_CFixedPoint( Scope.GetValue, '(CFixedPoint)10000' ) ), Subtract_CFixedPoint( Subtract_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_expected').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), Subtract_CFixedPoint( '(CFixedPoint)9999', Modulo_CFixedPoint( Scope.GetValue, '(CFixedPoint)10000' ) ) ) ) ), '(int32)1' )]"
++													item = {
++														widget = {
++															size = { 630 110 }
++															name = "tnt_ma_sort_row_identity_guard"
++															visible = "[And( Or( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)-1' ) ), ObjectsEqual( CharacterListItem.GetCharacter, Scope.Char ) )]"
++															enabled = "[And( Or( EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)1' ), EqualTo_CFixedPoint( GetPlayer.MakeScope.GetVariable('tnt_ma_sort_direction').GetValueWithDefault('(CFixedPoint)0'), '(CFixedPoint)-1' ) ), ObjectsEqual( CharacterListItem.GetCharacter, Scope.Char ) )]"
++															tnt_ma_widget_character_list_item = {
++																size = { 630 110 }
++															}
++														}
++													}
++												}
++											}
++										}
++									}
++								}
+ 							}
+ 						}
+ 					}
+@@ -484,7 +764,7 @@
+ 						visible = "[MatchmakerInteractionWindow.HasTopCharacterItem]"
+ 						layoutpolicy_horizontal = expanding
+ 
+-						widget_character_list_item = {
++						tnt_ma_widget_character_list_item = {
+ 							layoutpolicy_horizontal = expanding
+ 						}
+ 					}

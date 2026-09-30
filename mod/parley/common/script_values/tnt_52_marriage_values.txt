@@ -445,7 +445,8 @@ tnt_marriage_fertility_cutoff_value = {
 # `player_heir_position = { value = N  target = <scope> }` is vanilla's own
 # form at :1092-1095 and :1142-1145 (35 real uses); the engine doc string uses
 # `position =` but the `value =` form is the one with the call sites (W-7).
-# `has_doctrine = doctrine_gender_male_dominated` off a faith link: :1101-1103.
+# CK3 1.20 reads the recipient's Rite, which can differ from their faith:
+# GAME\common\scripted_modifiers\00_marriage_scripted_modifiers.txt:1048-1063.
 ###############################################################################
 tnt_marriage_lineality_cost_value = {
 	# PER PAIR. scope:tnt_p / tnt_sp / tnt_sr are the CALLER's — see the
@@ -497,16 +498,16 @@ tnt_marriage_lineality_cost_value = {
 					}
 				}
 			}
-			# a gender-dominated faith turns the penalty into a veto (:1085-1119)
+			# A gender-dominated Rite raises the negotiated cost to 1000.
 			if = {
 				limit = {
 					OR = {
 						AND = {
-							scope:tnt_p  ?= { faith ?= { has_doctrine = doctrine_gender_male_dominated } }
+							scope:tnt_p  ?= { rite ?= { rite_has_doctrine = doctrine_gender_male_dominated } }
 							scope:tnt_sr ?= { is_male = yes }
 						}
 						AND = {
-							scope:tnt_p  ?= { faith ?= { has_doctrine = doctrine_gender_female_dominated } }
+							scope:tnt_p  ?= { rite ?= { rite_has_doctrine = doctrine_gender_female_dominated } }
 							scope:tnt_sr ?= { is_female = yes }
 						}
 					}

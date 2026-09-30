@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # tnt_family_gate.ps1                THE MECHANICAL GATE OVER ALL THREE MOD TREES
 #
 # WHY THIS TOOL EXISTS. Since the V23 split the project is a FAMILY of three
@@ -70,7 +70,7 @@
 #      the reviewed v2.3 functional patch reconstructs it from live vanilla.
 #      Every other collision is a failure.
 #
-#   6  EXACT ADDON INVENTORY - MCA v3.0.1 has shared candidate-benefit values and a
+#   6  EXACT ADDON INVENTORY - MCA v3.1.0 has shared candidate-benefit values and a
 #      private player-owned sorting snapshot; AGOT v2.2 uses the component ABI.
 #      Exact file and definition sets are asserted, including five shared
 #      candidate-benefit values and their six direct, described raw/GUI blocks.
@@ -1155,10 +1155,10 @@ else { Write-Host "  6c  MCA/AGOT localization overlap: 0 keys" }
 
 $mcaDescriptor = [System.IO.File]::ReadAllText((Join-Path $McaRoot 'descriptor.mod'))
 $agotDescriptor = [System.IO.File]::ReadAllText((Join-Path $AdapterRoot 'descriptor.mod'))
-if ($mcaDescriptor -notmatch 'version="3\.0\.1"' -or $mcaDescriptor -notmatch '"Parley: The Negotiating Table"') { Write-Host "  FAIL  6d MCA descriptor is not v3.0.1 depending on Parley"; $fails++ }
+if ($mcaDescriptor -notmatch 'version="3\.1\.0"' -or $mcaDescriptor -notmatch '"Parley: The Negotiating Table"') { Write-Host "  FAIL  6d MCA descriptor is not v3.1.0 depending on Parley"; $fails++ }
 if ($agotDescriptor -notmatch 'version="2\.2\.0"' -or $agotDescriptor -notmatch '"A Game of Thrones"' -or $agotDescriptor -notmatch '"Marriage Calculation Assistant"') { Write-Host "  FAIL  6d AGOT adapter descriptor is not v2.2.0 depending on AGOT + MCA"; $fails++ }
 
-Close-Check "6 exact MCA v3.0.1 / AGOT v2.2 inventory" $fails
+Close-Check "6 exact MCA v3.1.0 / AGOT v2.2 inventory" $fails
 
 # =============================================================================
 # CHECK 7 - THE SEAM CHECK (stubs, calls, redefinition set, grade names, contract)

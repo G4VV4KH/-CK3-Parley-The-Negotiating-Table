@@ -1,4 +1,5 @@
-# MCA 3.0 retains the 2.2/2.3 private sorting-state contract. Dot-source, then call:
+# MCA 3.1 preserves player ownership and adds the CK3 1.20 arranger guard.
+# Dot-source, then call:
 #   @(Test-McaSortContract -McaRoot '...\marriage_calc_assistant')
 # Empty output means PASS. Every output item is a failure string. No exit,
 # writes, external tools, global settings, or repository dependencies.
@@ -189,7 +190,7 @@ function Test-McaSortContract {
                 }
             }
         }
-        $contextInputs = @('n', 'partner', 'secondary_actor', 'secondary_recipient', 'side', 'matrilineal', 'day' | ForEach-Object { "tnt_ma_sort_$_" })
+        $contextInputs = @('arranger', 'n', 'partner', 'secondary_actor', 'secondary_recipient', 'side', 'matrilineal', 'day' | ForEach-Object { "tnt_ma_sort_$_" })
         foreach ($entry in $sg) {
             Require ((Property $entry 'scope') -ceq 'character') "$($entry.Key) must be character-scoped"
             $inputNodes = @(Children $entry 'saved_scopes')
@@ -254,7 +255,7 @@ function Test-McaSortContract {
         Require (($collectEffect.Children.Key -join '|') -ceq 'save_temporary_scope_as|if') 'collect must capture candidate then enter one authorization gate'
         Exact $collectEffect.Children[0] 'save_temporary_scope_as=tnt_ma_sort_candidate' 'collect candidate capture'
         $collectOuter = OneChild $collectEffect 'if' 'collect effect'
-        Exact (OneChild $collectOuter 'limit' 'collect outer gate') 'limit={ exists=scope:actor scope:actor={is_ai=no has_variable=tnt_ma_sort_state has_variable=tnt_ma_sort_expected has_variable=tnt_ma_sort_received var:tnt_ma_sort_state=1 var:tnt_ma_sort_received<var:tnt_ma_sort_expected} }' 'collect effect authorization/late-callback gate'
+        Exact (OneChild $collectOuter 'limit' 'collect outer gate') 'limit={ exists=scope:actor exists=scope:tnt_ma_sort_arranger scope:actor=scope:tnt_ma_sort_arranger scope:actor={is_ai=no has_variable=tnt_ma_sort_state has_variable=tnt_ma_sort_expected has_variable=tnt_ma_sort_received var:tnt_ma_sort_state=1 var:tnt_ma_sort_received<var:tnt_ma_sort_expected} }' 'collect effect authorization/late-callback gate'
         Require (($collectOuter.Children.Key -join '|') -ceq 'limit|save_scope_value_as|if|else_if|scope:actor') 'collect candidate calculation/player-write phase shape'
         $actor = OneChild $collectOuter 'scope:actor' 'collect write phase'
         Require (($actor.Children.Key -join '|') -ceq 'if|if') 'collect must contain only guarded capture and failure cleanup in actor scope'
@@ -287,8 +288,17 @@ function Test-McaSortContract {
             Require (@($collectNodes | Where-Object { $_.Canon -ceq $check -and $_.Parent.Key -ceq 'limit' }).Count -eq 1) "capture missing integer/identity/sequence proof $check"
         }
 
+        $startEffect = OneChild $definitions['tnt_ma_sort_start'] 'effect' 'start'
+        $startBranches = @(Children $startEffect 'if' | Where-Object { $_.Canon.Contains('exists=scope:tnt_ma_sort_n') })
+        Require ($startBranches.Count -eq 1) 'start must have one input-validation gate'
+        if ($startBranches.Count -eq 1) {
+            $startCheck = OneChild $startBranches[0] 'limit' 'start input validation'
+            foreach ($term in @('exists=scope:tnt_ma_sort_arranger', 'this=scope:tnt_ma_sort_arranger')) {
+                Require ($startCheck.Canon.Contains($term)) "start effect arranger check missing: $term"
+            }
+        }
         $context = OneChild $definitions['tnt_ma_sort_context_valid'] 'is_valid' 'context validator'
-        foreach ($term in @('has_variable=tnt_ma_sort_state', 'OR={var:tnt_ma_sort_state=1var:tnt_ma_sort_state=2}', 'var:tnt_ma_sort_expected=scope:tnt_ma_sort_n', 'var:tnt_ma_sort_side=scope:tnt_ma_sort_side', 'var:tnt_ma_sort_matrilineal=scope:tnt_ma_sort_matrilineal', 'var:tnt_ma_sort_day=scope:tnt_ma_sort_day')) {
+        foreach ($term in @('exists=scope:tnt_ma_sort_arranger', 'this=scope:tnt_ma_sort_arranger', 'has_variable=tnt_ma_sort_state', 'OR={var:tnt_ma_sort_state=1var:tnt_ma_sort_state=2}', 'var:tnt_ma_sort_expected=scope:tnt_ma_sort_n', 'var:tnt_ma_sort_side=scope:tnt_ma_sort_side', 'var:tnt_ma_sort_matrilineal=scope:tnt_ma_sort_matrilineal', 'var:tnt_ma_sort_day=scope:tnt_ma_sort_day')) {
             Require ($context.Canon.Contains($term)) "context check missing: $term"
         }
         foreach ($name in @('partner', 'secondary_actor', 'secondary_recipient')) {
@@ -328,7 +338,7 @@ function Test-McaSortContract {
         }
         $playerRoot = 'GuiScope.SetRoot(GetPlayer.MakeScope)'
         $candidateRoot = "GuiScope.SetRoot(CharacterListItem.GetCharacter.MakeScope).AddScope('actor',GetPlayer.MakeScope)"
-        $contextScopes = ".AddScope('tnt_ma_sort_n',MakeScopeValue(IntToFixedPoint(GetDataModelSize(CharacterSelectionList.GetList)))).AddScope('tnt_ma_sort_partner',CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor',MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient',MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side',MakeScopeValue(Select_CFixedPoint(MatchmakerInteractionWindow.IsPickingSecondaryActor,'(CFixedPoint)1','(CFixedPoint)2'))).AddScope('tnt_ma_sort_matrilineal',MakeScopeValue(Select_CFixedPoint(MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal,'(CFixedPoint)1','(CFixedPoint)0'))).AddScope('tnt_ma_sort_day',MakeScopeValue(IntToFixedPoint(GetCurrentDate.GetDateAsTotalDays)))"
+        $contextScopes = ".AddScope('tnt_ma_sort_arranger',CharacterInteractionConfirmationWindow.GetPuppetOrActor.MakeScope).AddScope('tnt_ma_sort_n',MakeScopeValue(IntToFixedPoint(GetDataModelSize(CharacterSelectionList.GetList)))).AddScope('tnt_ma_sort_partner',CharacterInteractionConfirmationWindow.GetRecipient.MakeScope).AddScope('tnt_ma_sort_secondary_actor',MatchmakerInteractionWindow.GetActorToMatch.MakeScope).AddScope('tnt_ma_sort_secondary_recipient',MatchmakerInteractionWindow.GetRecipientToMatch.MakeScope).AddScope('tnt_ma_sort_side',MakeScopeValue(Select_CFixedPoint(MatchmakerInteractionWindow.IsPickingSecondaryActor,'(CFixedPoint)1','(CFixedPoint)2'))).AddScope('tnt_ma_sort_matrilineal',MakeScopeValue(Select_CFixedPoint(MarriageInteractionWindow.GetMarriageInfo.IsMatrilineal,'(CFixedPoint)1','(CFixedPoint)0'))).AddScope('tnt_ma_sort_day',MakeScopeValue(IntToFixedPoint(GetCurrentDate.GetDateAsTotalDays)))"
         $metaScopes = ".AddScope('tnt_ma_sort_index',MakeScopeValue(IntToFixedPoint(PdxGuiWidget.GetIndexInDataModel))).AddScope('tnt_ma_sort_alliance',MakeScopeValue(Select_CFixedPoint(DataModelHasItems(CharacterListItem.GetOtherCharacterItems),'(CFixedPoint)1','(CFixedPoint)0')))"
         $clearCall = "[GetScriptedGui('tnt_ma_sort_clear').Execute($playerRoot.End)]"
         $collectCall = "[GetScriptedGui('tnt_ma_sort_collect').Execute($candidateRoot$contextScopes$metaScopes.End)]"
@@ -353,7 +363,7 @@ function Test-McaSortContract {
         }
         $startButton = NamedGui 'tnt_ma_sort_start_button'
         GuiPropertyIs $startButton 'onclick' $startCall 'sort start'
-        GuiPropertyIs $startButton 'enabled' "[And(Not($active),And(ObjectsEqual(CharacterInteractionConfirmationWindow.GetActor,GetPlayer),And($notBuilding,And(Not(CharacterSelectionList.FiltersShown),And(GreaterThan_int32(GetDataModelSize(CharacterSelectionList.GetList),'(int32)0'),LessThanOrEqualTo_int32(GetDataModelSize(CharacterSelectionList.GetList),'(int32)9999'))))))]" 'sort start safety'
+        GuiPropertyIs $startButton 'enabled' "[And(Not($active),And(And(ObjectsEqual(CharacterInteractionConfirmationWindow.GetActor,GetPlayer),ObjectsEqual(CharacterInteractionConfirmationWindow.GetPuppetOrActor,GetPlayer)),And($notBuilding,And(Not(CharacterSelectionList.FiltersShown),And(GreaterThan_int32(GetDataModelSize(CharacterSelectionList.GetList),'(int32)0'),LessThanOrEqualTo_int32(GetDataModelSize(CharacterSelectionList.GetList),'(int32)9999'))))))]" 'sort start safety'
         foreach ($side in @('p', 'r')) {
             $collector = NamedGui "tnt_ma_sort_collector_$side"
             $captureNode = NamedGui "tnt_ma_sort_capture_$side"

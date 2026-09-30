@@ -13,13 +13,16 @@ SPEC.loader.exec_module(journal)
 
 class ReleaseJournalTests(unittest.TestCase):
     def setUp(self):
+        self.make_workspace(journal.MODS)
+
+    def make_workspace(self, mods):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.build = "2026-09-30-test"
         self.git = journal.git_executable()
         self.manifest = {"schema": 1, "build_id": self.build, "mods": {}}
-        for mod in journal.MODS:
+        for mod in mods:
             repo = self.root / "dev" / mod
             runtime = repo / "mod" / mod
             runtime.mkdir(parents=True)
@@ -138,6 +141,26 @@ class ReleaseJournalTests(unittest.TestCase):
         with self.assertRaisesRegex(journal.JournalError, "Artifact hash"):
             journal.record(self.root, self.build, self.git, "parley", "steam", "PREPARED",
                            artifact_sha256="0" * 64)
+
+    def test_two_mod_build_creates_no_adapter_journals(self):
+        self.make_workspace(journal.MODS[:2])
+        self.assertEqual(self.initialize()["journals"], 10)
+        self.assertFalse((self.root / "game/_history" / self.build / "agot_marriage_calc_assistant").exists())
+        state = journal.chain_status(self.root, self.build, self.git)
+        self.assertEqual(set(state["mods"]), set(journal.MODS[:2]))
+        with self.assertRaisesRegex(journal.JournalError, "Mod is not included"):
+            journal.record(self.root, self.build, self.git, "agot_marriage_calc_assistant", "steam", "PREPARED")
+        (self.root / "game" / self.build / "agot_marriage_calc_assistant").mkdir()
+        with self.assertRaisesRegex(journal.JournalError, "mod inventory differs"):
+            journal.chain_status(self.root, self.build, self.git)
+
+    def test_empty_or_unknown_manifest_mod_set_is_rejected(self):
+        path = self.root / "game" / self.build / "manifest.json"
+        for mods in ({}, {"foreign_mod": {}}):
+            self.manifest["mods"] = mods
+            path.write_text(json.dumps(self.manifest), encoding="utf-8")
+            with self.assertRaisesRegex(journal.JournalError, "manifest identity/mod inventory"):
+                self.initialize()
 
 
 if __name__ == "__main__":
