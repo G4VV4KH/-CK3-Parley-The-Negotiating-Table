@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "mod": "parley",
+  "source_gallery": "publication-media/parley/selected-gallery.json",
+  "items": [
+    {
+      "file": "publishing/screenshots/01-negotiating-table.png",
+      "caption_en": "Offer gold and prestige in exchange for fealty, with acceptance shown at the table.",
+      "sha256": "58b620c97c65907e6fe768699786e3be57f7250e1def19f9db7388b12bb3b2c0"
+    },
+    {
+      "file": "publishing/screenshots/02-incoming-ai-offer.png",
+      "caption_en": "Other rulers make offers of their own: gold today in exchange for a favor later.",
+      "sha256": "aaa39905f6bbf08ede7a20e360670ec952940098352dd16e783545035febcfc6"
+    },
+    {
+      "file": "publishing/screenshots/03-agot-marriage-and-fealty.png",
+      "caption_en": "Bring dynastic diplomacy to AGOT: combine marriage, alliance, gold and fealty in one proposal.",
+      "sha256": "90f05ebf756df7a85db0f187c69a339720d4691e4d3bcf5a9b4195cc355f50d5"
+    },
+    {
+      "file": "publishing/screenshots/04-game-rules.png",
+      "caption_en": "Choose which treaty terms are available and how often AI rulers negotiate.",
+      "sha256": "6d26c21283ce20dc28f0fd1c13d1ab07abb2810a2d4e195daf69b694d8c24227"
+    }
+  ]
+}

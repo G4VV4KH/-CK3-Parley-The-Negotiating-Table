@@ -96,6 +96,21 @@ def preview_html(text):
         rows.append(f'<h{len(h[1])}>{h[2]}</h{len(h[1])}>' if h else '<p>' + escaped + '</p>' if escaped else '')
     return '<!doctype html><meta charset="utf-8"><title>Publication copy preview</title><style>body{max-width:900px;margin:48px auto;padding:0 24px;background:#14181f;color:#e6e8ed;font:17px/1.55 system-ui}h1,h2{color:#e9c880}a{color:#9bc5ff}code{background:#252c36;padding:2px 5px}p{margin:8px 0}</style><main>' + '\n'.join(rows) + '</main>'
 
+def github_gallery(repo):
+    manifest = repo / 'publishing/gallery.json'
+    if not manifest.exists():
+        return ''
+    items = json.loads(manifest.read_text(encoding='utf-8'))['items']
+    allowed = (repo / 'publishing/screenshots').resolve()
+    rows = ['\n## Screenshots\n']
+    for item in items:
+        path = (repo / item['file']).resolve()
+        if not path.is_relative_to(allowed) or not path.is_file():
+            raise ValueError(f'Invalid gallery image: {item["file"]}')
+        caption = item['caption_en']
+        rows.append(f'![{caption}]({item["file"]})\n\n{caption}\n')
+    return '\n'.join(rows)
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dev-root', type=Path, default=Path(__file__).resolve().parents[2])
@@ -121,14 +136,15 @@ def main():
         target = repo / 'publishing/generated'
         target.mkdir(exist_ok=True)
         nexus, _ = resolve(source, links, nexus=True)
-        files = {'steam.bbcode':bbcode(resolved,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(resolved),'github.md':resolved,'preview.html':preview_html(resolved)}
+        github = resolved + github_gallery(repo)
+        files = {'steam.bbcode':bbcode(resolved,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(resolved),'github.md':github,'preview.html':preview_html(resolved)}
         for name, content in files.items():
             if '{{' in content or '}}' in content:
                 raise ValueError('Unresolved placeholder in output')
             (target / name).write_text(content, encoding='utf-8', newline='\n')
-        (repo / 'README.md').write_text(resolved + '\n## Contributing\n\nSee [dev.md](dev.md) for the source layout, checks and pull-request workflow.\n', encoding='utf-8', newline='\n')
+        (repo / 'README.md').write_text(github + '\n## Contributing\n\nSee [dev.md](dev.md) for the source layout, checks and pull-request workflow.\n', encoding='utf-8', newline='\n')
         report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'Plain text: verify final spacing in the actual upload editor.','nexus_donation_link':'Omitted; use platform donation field.'}
-        (target / 'render-status.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+        (target / 'render-status.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8',newline='\n')
         reports.append(report)
     print(json.dumps(reports,indent=2))
 

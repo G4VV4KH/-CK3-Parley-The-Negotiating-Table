@@ -24,14 +24,17 @@ ck3-mods-release/
     transform-report.json
 ```
 
-From `dev/parley/tools/release/`, validate in memory, build, and independently read
-back the result:
+The current frozen package is `2026-09-30-game-rc3`. From
+`dev/parley/tools/release/`, validate its pinned source inputs in memory and
+independently read back the existing result:
 
 ```powershell
-python .\build_game.py --build-id 2026-09-30-game-rc1 --check
-python .\build_game.py --build-id 2026-09-30-game-rc1
-python .\build_game.py --build-id 2026-09-30-game-rc1 --verify
+python .\build_game.py --build-id 2026-09-30-game-rc3 --check
+python .\build_game.py --build-id 2026-09-30-game-rc3 --verify
 ```
+
+To create a new candidate after a source change, review its pinned inputs and use
+a new, unused build ID without `--check` or `--verify`. Do not overwrite RC3.
 
 The canonical Parley dev location detects the family `dev/` and `game/` roots.
 The preparation workspace's `tools/` location also detects its sibling roots.
@@ -40,7 +43,7 @@ When moving these tools to a different layout, use explicit family paths with
 file. The same arguments must be used for build and verification.
 
 ```powershell
-python .\build_game.py --dev-root 'C:\Users\Pavel\Documents\ChatGPT\ck3-mods-release\dev' --output-root 'C:\Users\Pavel\Documents\ChatGPT\ck3-mods-release\game' --build-id 2026-09-30-game-rc1 --verify
+python .\build_game.py --dev-root 'C:/path/to/ck3-mods-release/dev' --output-root 'C:/path/to/ck3-mods-release/game' --build-id 2026-09-30-game-rc3 --verify
 ```
 
 ## Exact public projection
@@ -80,8 +83,8 @@ uninstall decision. The dev source retains complete diagnostic state cleanup for
 dev saves; the public game build is not a migration tool for torn debug sessions.
 
 Input files: Parley 76, MCA 17, AGOT:MCA 12. Output files: 75, 17, 12. Localization
-coverage: nine languages per mod; 622, 22, and 5 keys per language respectively.
-Parley's 632 dev keys minus ten diagnostic keys give 622 public keys.
+coverage: nine languages per mod; 623, 22, and 5 keys per language respectively.
+Parley's 633 dev keys minus ten diagnostic keys give 623 public keys in RC3.
 
 ## Validation scope
 
@@ -109,10 +112,17 @@ telemetry call locations or logger definitions and cannot be applied unchanged t
 the game projection. This validator does not weaken those assertions. The frozen
 health-finalization snapshot remains immutable. Each new generated package needs
 its own focused engine evidence before being called runtime verified; the earlier
-gameplay matrix does not need to be replayed. The exact `2026-09-30-game-rc2`
-package passed a focused combined smoke on CK3 1.19.0.6 with AGOT 0.5.2.1.
-See [the scoped result and log caveats](../../docs/RC2-SMOKE.md); this is not a
-whole-game clean-log claim or evidence for a later transformed build.
+gameplay matrix does not need to be replayed. The current
+`2026-09-30-game-rc3` package matches the engine-tested staging payload for all
+104 files. Its focused same-save auto-balance check reached +1 with one-way
+currency payments and an unchanged repeat; see
+[the RC3 audit and limits](../../docs/AUTOBALANCE-FIX.md).
+
+The earlier `2026-09-30-game-rc2` package passed a focused combined smoke on
+CK3 1.19.0.6 with AGOT 0.5.2.1, before the balancing defect was reported.
+MCA and AGOT:MCA payloads are unchanged in RC3. Preserve
+[the historical smoke result and log caveats](../../docs/RC2-SMOKE.md) within
+that scope; it is not a whole-game clean-log claim.
 
 ## Generic distribution payloads
 
@@ -124,9 +134,11 @@ development files and launcher `.mod` wrappers are excluded. The external
 versions and every archived member's hash and size.
 
 ```powershell
-python .\package_game.py --build-dir 'C:\Users\Pavel\Documents\ChatGPT\ck3-mods-release\game\2026-09-30-game-rc2' --output-dir 'C:\Users\Pavel\Documents\ChatGPT\ck3-mods-release\distribution\2026-09-30-game-rc2'
-python .\package_game.py --build-dir 'C:\Users\Pavel\Documents\ChatGPT\ck3-mods-release\game\2026-09-30-game-rc2' --output-dir 'C:\Users\Pavel\Documents\ChatGPT\ck3-mods-release\distribution\2026-09-30-game-rc2' --verify
+python .\package_game.py --build-dir 'C:/path/to/ck3-mods-release/game/2026-09-30-game-rc3' --output-dir 'C:/path/to/ck3-mods-release/distribution/2026-09-30-game-rc3' --verify
 ```
+
+The frozen RC3 archives already exist in the release workspace. For a new build,
+use its own build and distribution paths and omit `--verify` to create archives.
 
 Creation refuses a nonempty output directory and uses exclusive file creation.
 Every created archive is read back and checked for exact members, bytes, order,
@@ -139,5 +151,5 @@ These are generic payload archives. Steam receives the corresponding game folder
 Paradox's upload workflow and a Nexus manual-install package with an appropriate
 launcher wrapper are separate deployment steps; no platform installation format
 is implied by these ZIPs. Creating payload archives does not publish anything or
-establish runtime behavior. RC2's focused engine result is recorded separately;
+establish runtime behavior. RC3's focused engine result is recorded separately;
 verification of platform delivery remains pending until upload and download.

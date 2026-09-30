@@ -4,46 +4,67 @@
 
 - 🟢 **Version 1.0.0** · Built for CK3 **1.19.x**; tested on **1.19.0.6**.
 - 🟢 **No other mod required.** Adds its own negotiation interface and scripts.
-- 🟢 **AGOT 0.5.2.1:** the release package passed a focused combined smoke test with Parley, MCA and AGOT:MCA: a fresh campaign, negotiation UI, MCA breakdown and a natural incoming offer.
+- 🟢 **AGOT 0.5.2.1:** checked in a short session with MCA and AGOT:MCA.
 - 🟢 **Nine languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese and Spanish.
-- 🔴 **Gameplay changes:** treaties can move money, people, land and vassalage. Read the final terms before agreeing.
-- 🔴 **Coverage limits:** multiplayer, long-term AI offer frequency and compatibility with every overhaul have not been established.
+- 🔴 **Changes gameplay:** treaties can transfer money, people, land and vassalage.
+- 🔴 **Multiplayer and long campaigns are not fully verified.** Other overhauls may need compatibility work.
 
 ## A wedding can win what a war cannot
 
-Put the marriage, the money and the terms on the same table. Build an agreement between two houses, give your counterpart a reason to sign, and leave the battlefield for another day.
+Put marriage, money and allegiance on the same table. Give your counterpart a reason to sign, and leave the battlefield for another day.
 
 ## A full treaty, negotiated together
 
-Parley adds a diplomatic negotiation window to Crusader Kings III: what you offer, what they offer, and how your counterpart values the complete agreement.
+Parley adds a negotiation window: what you offer, what they offer, and how your counterpart values the agreement.
 
-The table shows their expected answer as you edit. Add a payment, choose a marriage or negotiate allegiance. Use the balancing tool to seek acceptable terms, then review before confirming. Your relationship and the concessions affect the result.
+See their expected answer as you edit. **Auto-balance** adjusts currencies toward **+1** acceptance and reports when it cannot reach that target. Relationships and concessions affect the result. Review the terms before confirming.
 
 Other rulers can take the initiative. AI envoys bring offers and demands, and you can accept, enter negotiations or turn them away. A separate game rule controls treaties between AI rulers.
 
 ## What you can negotiate
 
 - **Payments:** gold, with prestige and piety governed by game rules; influence when both governments support it.
-- **Marriage pacts:** choose the people and marriage form, combine multiple couples, arrange eligible betrothals, and promise a grand wedding where available. Eligible marriages can create alliances through the game's marriage rules.
+- **Marriage pacts:** choose couples and marriage form, combine multiple marriages, arrange eligible betrothals or promise a grand wedding. Eligible marriages can create alliances.
 - **Land and allegiance:** cede eligible titles, swear fealty with an editable contract, grant independence, or transfer eligible direct vassals.
-- **People and possessions:** exchange eligible artifacts, pledge eligible relatives as hostages, or transfer eligible courtiers and their accompanying families.
-- **Favors and pressure:** promise a hook, call in an existing hook, or threaten an eligible ruler when your military strength, prestige and dread provide enough weight. Threat access uses the same minimum for player and AI.
-- **Readable terms:** see selected people and objects, the partner's assessment, refusal reasons and applicable personal consequences before committing.
+- **People and possessions:** exchange artifacts, pledge relatives as hostages, or transfer eligible courtiers and accompanying families.
+- **Favors and pressure:** promise a hook, use an existing hook, or threaten a ruler when your army, prestige and dread provide enough weight. Player and AI threats share the same minimum.
 
-Terms depend on the rulers, government, game rules and the relevant game mechanics. Read the eligibility tooltips when a term is unavailable. Parley does not offer a separate standalone alliance purchase: the alliance described above is a consequence of an eligible marriage.
+Availability depends on the rulers, governments and game rules; the tooltips explain restrictions. An alliance comes from an eligible marriage, rather than a separate alliance purchase.
+
+## Reading the central panel
+
+**Their Answer evaluates the treaty from your counterpart's perspective.** The headline combines benefits, costs, standing, extra demands and pressure into the final acceptance score.
+
+In the AGOT screenshot, the displayed calculation is **197 + 136 - 322 - 10 = +1**, with no pressure:
+
+- **They receive: 197** — your offer's positive value: gold, the marriage's positive factors and its alliance.
+- **Standing, share: +136** — the combined relationship adjustment, applied as a share of that positive offer.
+- **What they give up: 322** — their costs: fealty and the marriage's negative factors.
+- **Wanted on top, share: -10** — their additional demand, also calculated from the positive offer.
+
+The individual treaty rows show a different level of detail:
+
+- **Gold: 88** — the point value of the **1,324 gold** offered in this example.
+- **Patrilineal: -32** — the marriage's own positive factors minus its own costs. This row excludes the alliance and shared relationship adjustments.
+- **Military alliance: 68** — the separate value of the alliance this marriage brings, counted once.
+- **Swear fealty: 250** — the cost assigned to the counterpart's submission in this example.
+
+**Why can a marriage marked -32 improve the treaty by about +100?** Its alliance adds value, and its positive components also change the standing and extra-demand shares. Those shares apply to the positive offer, not to the net -32 row. The visible figures imply roughly **106-107 points** of improvement for this marriage-and-alliance package: an illustration inferred from the panel, rather than an exact measured before-and-after result.
+
+Rows and totals are rounded, so adding displayed term values can differ slightly from the totals. These are this proposal's values, not universal prices.
 
 ## Getting started
 
-1. Right-click an eligible landed ruler and choose **Negotiate a Treaty** in the Diplomacy category.
-2. Add terms in **You offer** and **They offer**. Open the relevant picker or editor to choose the exact people, titles or objects.
-3. Read **Their Answer** and its breakdown. Adjust the package yourself or use the balancing tool.
-4. Review and confirm the agreement. The mod checks the staged package again before applying it; an agreement that can no longer be carried out is rejected.
+1. Right-click an eligible landed ruler: **Diplomacy > Negotiate a Treaty**.
+2. Add terms in **You offer** and **They offer**; use the pickers for people, titles and objects.
+3. Read **Their Answer**, adjust the package or use **Auto-balance**.
+4. Review and confirm. The mod rechecks whether the agreement can still be carried out.
 
-Game rules control advanced terms, prestige and piety trading, AI treaties, incoming offer frequency and threat scaling. The detailed eligibility checks still apply when a feature is enabled.
+Game rules control advanced terms, prestige and piety trading, AI treaties, incoming offer frequency and threat scaling. AI-to-AI treaties use their own system and frequency rule; the advanced-terms setting is not a universal restriction on those treaties.
 
 ## Compatibility and load order
 
-**Vanilla file replacements: none.** Parley adds files under its own names in `common/`, `events/`, `gui/`, `data_binding/` and `localization/`. It does not replace the vanilla marriage window. Other mods can still change mechanics or interface structures that a treaty relies on.
+**Vanilla file replacements: none.** Parley adds its own files in `common/`, `events/`, `gui/`, `data_binding/` and `localization/`. It does not replace the marriage window. Other mods can still change mechanics the treaties rely on.
 
 **Vanilla game with the optional marriage assistant:**
 
@@ -57,7 +78,7 @@ Game rules control advanced terms, prestige and piety trading, AI treaties, inco
 3. Marriage Calculation Assistant
 4. AGOT: Marriage Calculation Assistant
 
-Parley works without either assistant. MCA adds marriage-candidate comparison; AGOT:MCA adapts that score for AGOT and requires MCA. These are not general AGOT compatibility patches. The smoke covered this combination, not every possible AGOT treaty.
+Both assistants are optional for Parley. They provide candidate comparison, not general compatibility patches for AGOT or its submods.
 
 **Submods and companion mods:**
 
@@ -68,13 +89,13 @@ No additional compatibility patches are included in this release. Enable only on
 
 ## Saves and known limits
 
-Parley stores negotiation and AI state in saves. Before removing it, use **Fold Away the Negotiating Table** under **Mod Removal Decisions** while the mod is still enabled, save, and then disable it. Completed treaties are part of your campaign: uninstalling does not reverse marriages, payments, land transfers or other completed outcomes. Close MCA's marriage picker before saving or removing that companion as well.
+Parley stores negotiation and AI state in saves. Before removing it, use **Fold Away the Negotiating Table** under **Mod Removal Decisions** while it is still enabled, save, then disable it. Uninstalling does not reverse completed marriages, payments or transfers. Close MCA's marriage picker before saving or removing that companion as well.
 
-Targeted development tests covered incoming offers and demands, payment and refusal, save/reload, and a short combined AGOT run. The release package's separate smoke covered a fresh AGOT campaign, public rules, negotiation UI, an MCA breakdown and a natural incoming offer; it did not repeat the earlier completed tests. Normal-frequency long campaigns, multiplayer and all changed-eligibility cases remain outside that coverage. Some AI-to-AI rule-policy and delayed-letter currency cases remain documented limitations; not every AI path applies identical rule semantics.
+Some combinations are deliberately refused, including title transfers bundled with fealty or independence. Overlapping courtier and hostage selections can also make a package invalid. Parley checks the staged terms again before execution. Multiplayer and long-campaign balance remain unverified.
 
 ## Feedback and support
 
-For a useful bug report, include the mod version, CK3 version, relevant total conversion version, load order, UI scale, steps to reproduce and a screenshot of the affected interface. Mention whether the issue occurs with the required mod family alone.
+For bug reports, include mod/game versions, load order, UI scale, reproduction steps and a screenshot. Mention whether the issue occurs with this mod family alone.
 
 - [Source and issue reports]({{PARLEY_GITHUB_URL}})
 - [Contact the author](mailto:{{CONTACT_EMAIL}})

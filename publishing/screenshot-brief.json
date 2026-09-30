@@ -1,170 +1,227 @@
 {
   "schema_version": 1,
   "created_date": "2026-09-30",
-  "status": "rc2_verified_one_candidate_captured_final_selection_pending",
+  "updated_date": "2026-09-30",
+  "status": "screenshots_selected",
+  "selected_image_count": 7,
   "workflow": {
-    "assistant": "Defines the feature and visible evidence for each scene, then gives one manual capture step at a time.",
-    "user": "Chooses characters, framing, visual mood and final attractive shots within the scene requirements.",
-    "capture_build": "Use verified 2026-09-30-game-rc2; record exact manifest and UI scale. Focused smoke passed with recorded limits.",
-    "scope": "Publication captures are not a repeat of the closed development test suite. A screenshot proves only what is visible in that shot.",
-    "language": "English UI and English captions for all three publication pages and GitHub. Use a temporary test session and restore the preferred UI language afterwards.",
-    "presentation": "Prefer a readable full-resolution screenshot with the relevant UI unobscured. Crop only for composition; do not invent game outcomes or alter displayed scores.",
-    "manual_steps": "Request and complete one user action at a time. Do not launch or modify the active campaign merely to manufacture a shot."
+    "assistant": "Defined visible feature evidence and reviewed the selected captures.",
+    "user": "Chose characters, framing and final images; performed manual capture steps.",
+    "capture_build": "Selected during 2026-09-30-game-rc3 publication preparation. Screenshots alone do not establish exact loaded payload hashes.",
+    "scope": "Publication captures do not repeat closed development tests. A screenshot establishes only visible content, not completion of an unshown treaty.",
+    "language": "English UI and captions.",
+    "requested_capture_settings": "100% UI scale and maximum graphics; image dimensions are 1920x1080. Graphics settings are not independently proven by the images.",
+    "presentation": "Selected PNG originals are retained without cropping, recompression or changes to scores.",
+    "manual_steps": "Further capture actions, if needed, remain one user action at a time; no computer-use automation."
   },
-  "excluded_existing_material": [
+  "gallery_manifests": [
     {
-      "path": "C:/Users/Pavel/Documents/Paradox Interactive/Crusader Kings III/mod/parley/temp/screen1.png",
-      "reason": "Existing project documentation identifies retired rows and obsolete wording."
+      "mod": "parley",
+      "path": "publishing/gallery.json"
     },
     {
-      "path": "C:/Users/Pavel/Documents/Paradox Interactive/Crusader Kings III/mod/parley/temp/screen2.png",
-      "reason": "Existing project documentation identifies retired rows and obsolete wording."
+      "mod": "marriage_calc_assistant",
+      "path": "../marriage_calc_assistant/publishing/gallery.json"
+    },
+    {
+      "mod": "agot_marriage_calc_assistant",
+      "path": "../agot_marriage_calc_assistant/publishing/gallery.json"
     }
   ],
+  "path_conventions": "Gallery manifest paths are relative to the Parley repository root. Scene and completed-capture file paths are relative to their owning mod repository root.",
+  "historical_material": "Retired temporary screenshots and the earlier RC2 smoke candidate are not selected. Their historical evidence remains outside these publication galleries.",
   "scenes": [
     {
       "id": "parley-negotiation",
       "mod": "parley",
-      "priority": "essential",
-      "purpose": "Show the main promise: several negotiated terms on two sides of one readable deal.",
+      "status": "selected",
+      "purpose": "Show a complete deal with both term columns and the counterpart acceptance score.",
       "visible_requirements": [
-        "Both participants",
-        "Both term columns",
-        "Partner response or valuation",
-        "At least two meaningful terms that are actually supported in this session"
+        "Both participants and term columns",
+        "Player gold and prestige offered for fealty",
+        "Visible +1 acceptance"
       ],
-      "framing_choice": "The user chooses a compelling pair of rulers and terms; keep the main window readable.",
-      "caption_brief_en": "Build a complete agreement and see it from your counterpart's side of the table."
+      "selected_file": "publishing/screenshots/01-negotiating-table.png",
+      "caption_brief_en": "Offer gold and prestige in exchange for fealty, with acceptance shown at the table."
     },
     {
       "id": "parley-ai-letter",
       "mod": "parley",
-      "priority": "essential",
-      "purpose": "Show that other rulers can initiate offers.",
+      "status": "selected",
+      "purpose": "Show that other rulers initiate offers and the player can respond.",
       "visible_requirements": [
         "Incoming sender",
-        "Actual offered and requested terms",
+        "322 gold offered for a favor owed",
         "Available response actions"
       ],
-      "reference": "The completed development smoke produced Jeyne Arryn's 165-gold courtier offer. That observation is a scene reference, not a requirement to replay the old test.",
-      "framing_choice": "Use a naturally available incoming letter from the package capture session; the user chooses the strongest narrative image.",
-      "caption_brief_en": "Other rulers take the initiative with offers of their own."
+      "selected_file": "publishing/screenshots/02-incoming-ai-offer.png",
+      "caption_brief_en": "Other rulers make offers of their own: gold today in exchange for a favor later."
     },
     {
       "id": "parley-marriage-diplomacy",
       "mod": "parley",
-      "priority": "optional",
-      "purpose": "Support a marriage-diplomacy theme without claiming an unobserved title transfer or conquest.",
+      "status": "selected",
+      "purpose": "Show marriage, alliance, gold and fealty together in an AGOT proposal.",
       "visible_requirements": [
-        "An actual valid marriage-related negotiation",
-        "The real displayed terms and expected outcome"
+        "AGOT participants",
+        "Marriage and alliance rows",
+        "Gold and fealty terms",
+        "Visible +1 acceptance; the proposal is not proof of completed vassalization"
       ],
-      "framing_choice": "The user chooses an evocative dynasty or AGOT setting if desired. Confirm the current mechanic before staging the scene.",
-      "caption_brief_en": "Bring dynastic politics to the negotiating table."
+      "selected_file": "publishing/screenshots/03-agot-marriage-and-fealty.png",
+      "caption_brief_en": "Bring dynastic diplomacy to AGOT: combine marriage, alliance, gold and fealty in one proposal."
     },
     {
-      "id": "mca-picker-overview",
-      "mod": "marriage_calc_assistant",
-      "priority": "essential",
-      "purpose": "Show a normal candidate list with the added live MCA numbers integrated into the native row.",
+      "id": "parley-game-rules",
+      "mod": "parley",
+      "status": "selected",
+      "purpose": "Show the configurable terms and AI negotiation frequency.",
       "visible_requirements": [
-        "Several candidate names and scores",
-        "Native marriage context",
-        "Scores clear of the scrollbar and other row contents"
+        "Parley rule names",
+        "Advanced terms, prestige and piety settings",
+        "Threats and AI frequency settings"
       ],
-      "framing_choice": "The user chooses recognizable candidates and a clean view without a large tooltip covering the list.",
-      "caption_brief_en": "Compare candidate potential directly in the marriage picker."
+      "selected_file": "publishing/screenshots/04-game-rules.png",
+      "caption_brief_en": "Choose which treaty terms are available and how often AI rulers negotiate."
     },
     {
-      "id": "mca-breakdown",
+      "id": "mca-recipient-sorted-list",
       "mod": "marriage_calc_assistant",
-      "priority": "essential",
-      "purpose": "Make the score understandable through its real native component tooltip.",
+      "status": "selected",
+      "purpose": "Show MCA sorting when choosing a potential spouse from other courts.",
       "visible_requirements": [
-        "Candidate identity",
-        "Displayed MCA total",
-        "Readable native breakdown with components adding to that total"
+        "Selected own candidate on the left",
+        "Other-court candidate list with descending 134, 133 and 95 scores",
+        "MCA sorting and default-list controls"
       ],
-      "framing_choice": "Choose a candidate with a useful mix of components and position the tooltip so the score remains identifiable.",
-      "caption_brief_en": "See the components behind the score: a comparison aid, not a chance of marriage acceptance."
+      "selected_file": "publishing/screenshots/01-recipient-candidate-list.png",
+      "caption_brief_en": "Compare potential spouses from other courts, sorted by MCA score."
     },
     {
-      "id": "mca-sorted-list",
+      "id": "mca-sender-sorted-list",
       "mod": "marriage_calc_assistant",
-      "priority": "recommended",
-      "purpose": "Show the optional MCA score ordering and the control for returning to the default list.",
+      "status": "selected",
+      "purpose": "Show the same MCA sorting when choosing a candidate from the player court.",
       "visible_requirements": [
-        "MCA sorting mode/control",
-        "Several visibly descending scores",
-        "Candidate names and unobscured native rows"
+        "Selected foreign candidate on the right",
+        "Own-court list with 86, 22 and 22 scores",
+        "MCA sorting and default-list controls"
       ],
-      "framing_choice": "Use the same list as the overview when convenient; favor a clear score spread.",
-      "caption_brief_en": "Sort by MCA score to compare the most promising candidates first."
+      "selected_file": "publishing/screenshots/02-sender-candidate-list.png",
+      "caption_brief_en": "Rank candidates from your own court when arranging a marriage with another ruler."
     },
     {
       "id": "agot-mca-rider-breakdown",
       "mod": "agot_marriage_calc_assistant",
-      "priority": "essential",
-      "purpose": "Show the adapter's specific contribution in an AGOT marriage picker.",
+      "status": "selected",
+      "purpose": "Show the adapter contribution in the native AGOT marriage picker.",
       "visible_requirements": [
-        "A naturally qualifying current dragonrider",
-        "Native +30 rider-potential row",
-        "Candidate identity and full MCA total"
+        "MCA total +95",
+        "Dynastic prestige +35, inheritable qualities +30 and dragonrider potential +30",
+        "Explanatory tooltip distinguishes potential from AI acceptance and guaranteed outcomes"
       ],
-      "reference": "Rhaenyra's recorded development result was 95 = dynasty 35 + inheritable qualities 30 + rider potential 30. Use a current naturally available qualifying candidate, not a manufactured score.",
-      "framing_choice": "The user chooses the rider and composition. The screenshot must not suggest a guaranteed transfer of the dragon.",
-      "caption_brief_en": "AGOT:MCA includes current-dragonrider potential in the candidate score."
-    },
-    {
-      "id": "agot-mca-context",
-      "mod": "agot_marriage_calc_assistant",
-      "priority": "recommended",
-      "purpose": "Show the adapter naturally integrated with AGOT and MCA, with a distinct recognizable setting.",
-      "visible_requirements": [
-        "AGOT characters or setting",
-        "Native marriage picker",
-        "Readable MCA scores"
-      ],
-      "framing_choice": "The user chooses the strongest recognizable houses and portrait composition; an uncluttered wide view complements the detailed tooltip shot.",
-      "caption_brief_en": "The familiar MCA interface, with candidate potential tailored to AGOT."
+      "selected_file": "publishing/screenshots/01-dragonrider-breakdown.png",
+      "caption_brief_en": "AGOT candidate scoring, including dragonrider potential and a detailed score breakdown."
     }
-  ],
-  "capture_record_fields": [
-    "scene_id",
-    "file",
-    "game_package_manifest",
-    "game_version",
-    "agot_version_if_used",
-    "playset",
-    "language",
-    "resolution",
-    "ui_scale",
-    "observed_caption_facts"
   ],
   "completed_captures": [
     {
-      "scene_id": "parley-ai-letter",
-      "status": "candidate_pending_user_selection",
-      "file": "smoke/rc2-2026-09-30/incoming-offer.png",
-      "file_reference_root": "release workspace",
-      "sha256": "da13f0ddacf755c4d6ab78245a39dce16fc0ce0795be7a56e1132680d38ad8dc",
-      "game_package_manifest": "72752DC0FEA338E6AF3E1B0BC5A0CAA227760D47D91D9D566F55845E01533A9C",
-      "game_version": "1.19.0.6",
-      "agot_version_if_used": "0.5.2.1",
-      "playset": [
-        "AGOT",
-        "Parley",
-        "MCA",
-        "AGOT:MCA"
-      ],
+      "scene_id": "parley-negotiation",
+      "mod": "parley",
+      "status": "selected",
+      "file": "publishing/screenshots/01-negotiating-table.png",
+      "file_reference_root": "owning mod repository",
+      "sha256": "58b620c97c65907e6fe768699786e3be57f7250e1def19f9db7388b12bb3b2c0",
       "language": "English",
       "resolution": [
         1920,
         1080
       ],
-      "ui_scale": "1.0 (100%)",
-      "observed_caption_facts": "Lord Bernard naturally offers Fine Regalia for 124 gold; all three responses visible.",
-      "caption_en": "Other rulers take the initiative with offers of their own."
+      "caption_en": "Offer gold and prestige in exchange for fealty, with acceptance shown at the table."
+    },
+    {
+      "scene_id": "parley-ai-letter",
+      "mod": "parley",
+      "status": "selected",
+      "file": "publishing/screenshots/02-incoming-ai-offer.png",
+      "file_reference_root": "owning mod repository",
+      "sha256": "aaa39905f6bbf08ede7a20e360670ec952940098352dd16e783545035febcfc6",
+      "language": "English",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "caption_en": "Other rulers make offers of their own: gold today in exchange for a favor later."
+    },
+    {
+      "scene_id": "parley-marriage-diplomacy",
+      "mod": "parley",
+      "status": "selected",
+      "file": "publishing/screenshots/03-agot-marriage-and-fealty.png",
+      "file_reference_root": "owning mod repository",
+      "sha256": "90f05ebf756df7a85db0f187c69a339720d4691e4d3bcf5a9b4195cc355f50d5",
+      "language": "English",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "caption_en": "Bring dynastic diplomacy to AGOT: combine marriage, alliance, gold and fealty in one proposal."
+    },
+    {
+      "scene_id": "parley-game-rules",
+      "mod": "parley",
+      "status": "selected",
+      "file": "publishing/screenshots/04-game-rules.png",
+      "file_reference_root": "owning mod repository",
+      "sha256": "6d26c21283ce20dc28f0fd1c13d1ab07abb2810a2d4e195daf69b694d8c24227",
+      "language": "English",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "caption_en": "Choose which treaty terms are available and how often AI rulers negotiate."
+    },
+    {
+      "scene_id": "mca-recipient-sorted-list",
+      "mod": "marriage_calc_assistant",
+      "status": "selected",
+      "file": "publishing/screenshots/01-recipient-candidate-list.png",
+      "file_reference_root": "owning mod repository",
+      "sha256": "a91f628d34e9eaa42634468e6b612d8040dd2fc039f50756517f45494d4c0196",
+      "language": "English",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "caption_en": "Compare potential spouses from other courts, sorted by MCA score."
+    },
+    {
+      "scene_id": "mca-sender-sorted-list",
+      "mod": "marriage_calc_assistant",
+      "status": "selected",
+      "file": "publishing/screenshots/02-sender-candidate-list.png",
+      "file_reference_root": "owning mod repository",
+      "sha256": "676114b373955501614e8289ed60a189b1b64d5fb328091ac1b5b9be1f4afb73",
+      "language": "English",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "caption_en": "Rank candidates from your own court when arranging a marriage with another ruler."
+    },
+    {
+      "scene_id": "agot-mca-rider-breakdown",
+      "mod": "agot_marriage_calc_assistant",
+      "status": "selected",
+      "file": "publishing/screenshots/01-dragonrider-breakdown.png",
+      "file_reference_root": "owning mod repository",
+      "sha256": "248af19284686a5e867678311f3dec027940ce079d320083db96350c95b0ea7e",
+      "language": "English",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "caption_en": "AGOT candidate scoring, including dragonrider potential and a detailed score breakdown."
     }
   ]
 }
