@@ -82,6 +82,8 @@ Negotiate as your own ruler. When acting for a puppet, Parley's opener and treat
 
 That combination used **AGOT 0.5.2.1**. It does not establish AGOT support for Parley 1.1.0 on CK3 1.20. Both assistants are optional; they are not general AGOT compatibility patches.
 
+Built-in AGOT safeguards remain: dragon exclusions, Night's Watch and wildling fealty restrictions, and checks for uninteractable rulers. They read AGOT data when present; fresh AGOT validation is pending.
+
 **Submods and companion mods:**
 
 - [Marriage Calculation Assistant]({{MCA_STEAM_URL}}): candidate scores, native breakdowns and optional score sorting in the marriage picker.
@@ -95,7 +97,7 @@ Before removal, use **Fold Away the Negotiating Table** under **Mod Removal Deci
 
 Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package. Terms are rechecked before execution; multiplayer and long-campaign balance remain unverified.
 
-Gallery images show **RC3 on CK3 1.19.0.6**; the Dorne example uses **AGOT 0.5.2.1**. Current 1.20.0.2 tests covered direct negotiation, balancing, marriage staging/cleanup, Rites and influence. RC8 passed AI-world vassalization assertions and a short campaign with a natural fealty treaty for 743 gold at +2. Seven native diagnostics also reproduced with all mods off on the same save; logs are not empty. Native puppet UI, the full Jizya/legality matrix, multiplayer and long campaigns remain unverified.
+Gallery images show **RC3 on CK3 1.19.0.6**, with **AGOT 0.5.2.1** for Dorne. Current 1.20.0.2 checks covered negotiation, balancing, marriage staging/cleanup, Rites, influence, AI vassalization and a short campaign. Native diagnostics reproduced with all mods off; logs are not empty. Native puppet UI, full Jizya/legality coverage, multiplayer and long campaigns remain unverified.
 
 ## Feedback and support
 

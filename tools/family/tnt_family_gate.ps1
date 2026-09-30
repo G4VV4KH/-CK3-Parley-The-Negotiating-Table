@@ -1155,7 +1155,7 @@ else { Write-Host "  6c  MCA/AGOT localization overlap: 0 keys" }
 
 $mcaDescriptor = [System.IO.File]::ReadAllText((Join-Path $McaRoot 'descriptor.mod'))
 $agotDescriptor = [System.IO.File]::ReadAllText((Join-Path $AdapterRoot 'descriptor.mod'))
-if ($mcaDescriptor -notmatch 'version="3\.1\.0"' -or $mcaDescriptor -notmatch '"Parley: The Negotiating Table"') { Write-Host "  FAIL  6d MCA descriptor is not v3.1.0 depending on Parley"; $fails++ }
+if ($mcaDescriptor -notmatch 'version="3\.1\.0"' -or [regex]::Replace($mcaDescriptor, '(?m)#[^\r\n]*', '') -match '\bdependencies\s*=') { Write-Host "  FAIL  6d MCA descriptor is not standalone v3.1.0 (no required mods)"; $fails++ }
 if ($agotDescriptor -notmatch 'version="2\.2\.0"' -or $agotDescriptor -notmatch '"A Game of Thrones"' -or $agotDescriptor -notmatch '"Marriage Calculation Assistant"') { Write-Host "  FAIL  6d AGOT adapter descriptor is not v2.2.0 depending on AGOT + MCA"; $fails++ }
 
 Close-Check "6 exact MCA v3.1.0 / AGOT v2.2 inventory" $fails
