@@ -2,7 +2,7 @@ Parley: The Negotiating Table
 
 At a glance
 
-- 🟢 Version 1.1.0 · Targets CK3 1.20.0.2.
+- 🟢 Version 1.1.0 · Targets CK3 1.20.0.3.
 - 🟢 No other mod required.
 - 🟢 languages: English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, 來自無壹的中文翻譯: https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070 and Spanish.
 - 🔴 Changes gameplay: treaties can transfer money, people, land and vassalage.
@@ -81,6 +81,8 @@ Submods and companion mods:
 No other compatibility patches are included. Enable one copy of each mod.
 
 Saves and known limits
+
+CK3 1.20.0.3: upstream-script comparison and static regression checks passed; the latest in-game checks were on 1.20.0.2.
 
 Before removal, use Fold Away the Negotiating Table under Mod Removal Decisions, save, then disable Parley. This clears negotiation and AI state, but completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
 

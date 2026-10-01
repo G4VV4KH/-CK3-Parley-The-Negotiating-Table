@@ -108,3 +108,28 @@ Generated from history.json. Events are appended; a prepared build is not a publ
 - **canonical_description**: {"file": "dev/parley/publishing/description.en.md", "sha256": "2312feed95cd4d3f372837a4a3c738ac6a47d58c4df1bae7fe811adad5f4c314"}
 - **evidence**: publication-review/parley-feedback-2026-10-01/copy-update/github-verification.json
 - **note**: Associated the approved Chinese community translation credit in publication copy with unchanged RC11 game payload. This is a metadata association, not a runtime merge or a new game build. Existing package hashes and gameplay verification remain valid; only descriptions are being republished.
+
+## 2026-10-01T18:23:49.358482+00:00 — VERIFIED_ASSOCIATION
+
+- **build_id**: 2026-10-01-game-rc11
+- **mod**: parley
+- **version**: 1.1.0
+- **manifest_sha256**: cba7f92fffdf94b4b5477e9f5627691093826d6bc6d6c60411e0316b7194f92d
+- **payload_fingerprint**: 6191da1f871720324aa8e451196e4774a40490b45525c207184bba3e0eae7dbe
+- **source_fingerprint**: cfe406db09cf71e0a2cf87961766be1e79529aebd4df66648794adc12375fe3c
+- **current_source_fingerprint**: cfe406db09cf71e0a2cf87961766be1e79529aebd4df66648794adc12375fe3c
+- **source_matches**: True
+- **payload_files**: 75
+- **source_files**: 76
+- **source_git**: {"commit": "a03dd8cda3b465a9c1fb2c53b48545be22ab4364", "runtime_tree": "a6dbcf93acc0037a0108d5c90dc0d22c4942da52", "runtime_committed": true}
+- **archive**: {"file": "distribution/2026-10-01-game-rc11/parley-1.1.0-payload.zip", "sha256": "5b90651038bda10e289cabf30be42bcdb074da5804fa48a7db81d61a1f68b578", "bytes": 5686591}
+- **association_kind**: COMPATIBILITY_REVIEW_METADATA_ONLY
+- **reviewed_ck3_target**: 1.20.0.3
+- **latest_engine_baseline**: 1.20.0.2
+- **runtime_changed**: False
+- **game_payload_changed**: False
+- **version_changed**: False
+- **canonical_description**: {"file": "dev/parley/publishing/description.en.md", "sha256": "0c648b94b3bfc1780cf24661f2d64ebaf5598bbcd5625cc7f75cdeeb55e63cbe"}
+- **evidence**: verification-evidence/ck3-1.20.0.3-2026-10-01/parley-audit.json
+- **evidence_sha256**: fc5aa744eea1375a565ac67944ca2300a191767c6da679c402e7f52ac9e27ea8
+- **note**: The CK3 1.20.0.3 upstream-script comparison and static regression review requires no Parley runtime adaptation. This records an unchanged RC11 payload association, not a new build or a 1.20.0.3 engine pass. Descriptions now distinguish the patch review from the latest 1.20.0.2 in-game evidence.

@@ -1,6 +1,6 @@
 # Contributing to Parley
 
-Parley 1.1.0 is developed in `mod/parley/` for CK3 1.20.0.2. Read [the current contract](docs/CURRENT-CONTRACT.md) and [the 1.20 compatibility decisions](docs/CK3-1.20-COMPATIBILITY.md) before changing runtime behavior. Keep a pull request focused on one behavior, describe its visible effect, and distinguish passing source checks from observed game results.
+Parley 1.1.0 is developed in `mod/parley/` for CK3 1.20.0.3. The 1.20.0.3 upstream-script review and static regressions passed without a runtime change; the latest in-game verification remains on 1.20.0.2. Read [the current contract](docs/CURRENT-CONTRACT.md) and [the 1.20 compatibility decisions](docs/CK3-1.20-COMPATIBILITY.md) before changing runtime behavior. Keep a pull request focused on one behavior, describe its visible effect, and distinguish passing source checks from observed game results.
 
 ## Repository and release copies
 
