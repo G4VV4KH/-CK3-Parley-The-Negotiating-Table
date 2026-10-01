@@ -93,8 +93,9 @@ Gallery images show **RC3 on CK3 1.19.0.6**, not this update. Focused **1.20.0.2
 For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.
 
 - [Source and issue reports](https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table)
-- [Contact the author: g4vv4kh@gmail.com](mailto:g4vv4kh@gmail.com)
-- [Donation information](https://ko-fi.com/g4vv4kh)
+- **Email:** g4vv4kh@gmail.com
+
+### [☕ Buy me a coffee on Ko-fi 💛](https://ko-fi.com/g4vv4kh)
 
 ## Find Parley elsewhere
 

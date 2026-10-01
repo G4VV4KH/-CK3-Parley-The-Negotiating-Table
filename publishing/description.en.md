@@ -93,8 +93,9 @@ Gallery images show **RC3 on CK3 1.19.0.6**, not this update. Focused **1.20.0.2
 For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.
 
 - [Source and issue reports]({{PARLEY_GITHUB_URL}})
-- [Contact the author: {{CONTACT_EMAIL}}](mailto:{{CONTACT_EMAIL}})
-- [Donation information]({{DONATION_URL}})
+- **Email:** {{CONTACT_EMAIL}}
+
+### [☕ Buy me a coffee on Ko-fi 💛]({{DONATION_URL}})
 
 ## Find Parley elsewhere
 

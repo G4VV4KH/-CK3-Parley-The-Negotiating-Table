@@ -16,7 +16,7 @@ def resolve(text, links, nexus=False):
         if nexus and '{{DONATION_URL}}' in line:
             continue  # Use Nexus's own donation field; no solicitation in page copy.
         tokens = TOKEN.findall(line)
-        if tokens and not any(links.get(key) for key in tokens) and any(x in line for x in ('mailto:', 'DONATION_URL', 'Source and issue reports')):
+        if tokens and not any(links.get(key) for key in tokens) and any(x in line for x in ('CONTACT_EMAIL', 'mailto:', 'DONATION_URL', 'Source and issue reports')):
             continue
         def replace_link(match):
             label, url = match.groups()
