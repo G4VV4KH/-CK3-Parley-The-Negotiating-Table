@@ -71,7 +71,7 @@ Optional vanilla load order:
 1. Parley: The Negotiating Table
 2. Marriage Calculation Assistant
 
-AGOT is not supported by this CK3 1.20 release. Its integration is disabled pending an AGOT update and fresh checks. The calculation above is historical RC3 evidence from CK3 1.19.0.6 with AGOT 0.5.2.1. Both marriage assistants are optional; neither is a general Parley compatibility patch.
+AGOT is not supported by this CK3 1.20 release. Its integration is disabled pending an AGOT update and fresh checks. The calculation above is a historical example from CK3 1.19.0.6 with AGOT 0.5.2.1. Both marriage assistants are optional; neither is a general Parley compatibility patch.
 
 Submods and companion mods:
 
@@ -82,13 +82,11 @@ No other compatibility patches are included. Enable one copy of each mod.
 
 Saves and known limits
 
-CK3 1.20.0.3: upstream-script comparison and static regression checks passed; the latest in-game checks were on 1.20.0.2.
-
 Before removal, use Fold Away the Negotiating Table under Mod Removal Decisions, save, then disable Parley. This clears negotiation and AI state, but completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
 
 Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package.
 
-Gallery images show RC3 on CK3 1.19.0.6, not this update. Focused 1.20.0.2 checks covered startup, negotiations, balancing, marriage staging/cleanup and picker UI, Rites, influence, fealty, courtiers, AI vassalization and a short campaign. Logs retain known notices. Native puppet UI, full Jizya/legality coverage, multiplayer and long campaigns remain unverified.
+Gallery images were captured on CK3 1.19.0.6; some interface details may differ. Multiplayer and long campaigns remain unverified.
 
 Feedback and support
 
