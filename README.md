@@ -75,7 +75,7 @@ When acting for a puppet, Parley's opener and marriage picker are hidden. Person
 
 **Submods and companion mods:**
 
-- Marriage Calculation Assistant: marriage-candidate scores, breakdowns and sorting.
+- [Marriage Calculation Assistant](https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163): marriage-candidate scores, breakdowns and sorting.
 - AGOT: Marriage Calculation Assistant: AGOT scoring for MCA; current compatibility is on hold.
 
 No other compatibility patches are included. Enable one copy of each mod.
@@ -107,7 +107,7 @@ For bugs, include versions, load order, UI scale, steps and a screenshot; check 
 ## My mods
 
 - [Parley: The Negotiating Table](https://steamcommunity.com/sharedfiles/filedetails/?id=3811090081) — negotiate complete diplomatic agreements.
-- Marriage Calculation Assistant — compare marriage candidates with readable scores and sorting.
+- [Marriage Calculation Assistant](https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163) — compare marriage candidates with readable scores and sorting.
 - AGOT: Marriage Calculation Assistant — add AGOT candidate potential to MCA.
 
 ## Screenshots
