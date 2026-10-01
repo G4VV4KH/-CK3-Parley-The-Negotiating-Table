@@ -132,6 +132,40 @@
       },
       "evidence": "Current committed dev runtime and frozen game payload match the build manifest.",
       "note": "Association verified now; this does not assert the original build commit or build time."
+    },
+    {
+      "recorded_at": "2026-10-01T18:02:52+00:00",
+      "status": "VERIFIED_ASSOCIATION",
+      "build_id": "2026-10-01-game-rc11",
+      "mod": "parley",
+      "version": "1.1.0",
+      "manifest_sha256": "cba7f92fffdf94b4b5477e9f5627691093826d6bc6d6c60411e0316b7194f92d",
+      "payload_fingerprint": "6191da1f871720324aa8e451196e4774a40490b45525c207184bba3e0eae7dbe",
+      "source_fingerprint": "cfe406db09cf71e0a2cf87961766be1e79529aebd4df66648794adc12375fe3c",
+      "current_source_fingerprint": "cfe406db09cf71e0a2cf87961766be1e79529aebd4df66648794adc12375fe3c",
+      "source_matches": true,
+      "payload_files": 75,
+      "source_files": 76,
+      "source_git": {
+        "commit": "be8f2a2fa5c0fc7c334be6b81099d988c4b01af5",
+        "runtime_tree": "a6dbcf93acc0037a0108d5c90dc0d22c4942da52",
+        "runtime_committed": true
+      },
+      "archive": {
+        "file": "distribution/2026-10-01-game-rc11/parley-1.1.0-payload.zip",
+        "sha256": "5b90651038bda10e289cabf30be42bcdb074da5804fa48a7db81d61a1f68b578",
+        "bytes": 5686591
+      },
+      "association_kind": "PUBLICATION_METADATA_ONLY",
+      "runtime_changed": false,
+      "game_payload_changed": false,
+      "version_changed": false,
+      "canonical_description": {
+        "file": "dev/parley/publishing/description.en.md",
+        "sha256": "2312feed95cd4d3f372837a4a3c738ac6a47d58c4df1bae7fe811adad5f4c314"
+      },
+      "evidence": "publication-review/parley-feedback-2026-10-01/copy-update/github-verification.json",
+      "note": "Associated the approved Chinese community translation credit in publication copy with unchanged RC11 game payload. This is a metadata association, not a runtime merge or a new game build. Existing package hashes and gameplay verification remain valid; only descriptions are being republished."
     }
   ]
 }
