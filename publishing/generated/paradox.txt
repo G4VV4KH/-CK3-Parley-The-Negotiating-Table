@@ -100,7 +100,7 @@ For bugs, include versions, load order, UI scale, steps and a screenshot; check 
 Find Parley elsewhere
 
 - Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3811090081
-- Paradox Mods
+- Paradox Mods: https://mods.paradoxplaza.com/mods/161475/Any
 - Nexus Mods
 - GitHub: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table
 
