@@ -93,17 +93,19 @@ Gallery images show **RC3 on CK3 1.19.0.6**, not this update. Focused **1.20.0.2
 For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.
 
 - [Source and issue reports](https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table)
+- [Contact the author: g4vv4kh@gmail.com](mailto:g4vv4kh@gmail.com)
+- [Donation information](https://ko-fi.com/g4vv4kh)
 
 ## Find Parley elsewhere
 
-- Steam Workshop
+- [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3811090081)
 - Paradox Mods
 - Nexus Mods
 - [GitHub](https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table)
 
 ## My mods
 
-- Parley: The Negotiating Table — negotiate complete diplomatic agreements.
+- [Parley: The Negotiating Table](https://steamcommunity.com/sharedfiles/filedetails/?id=3811090081) — negotiate complete diplomatic agreements.
 - Marriage Calculation Assistant — compare marriage candidates with readable scores and sorting.
 - AGOT: Marriage Calculation Assistant — add AGOT candidate potential to MCA.
 

@@ -2,14 +2,11 @@
   "mod": "parley",
   "missing_metadata": [
     "AGOT_MCA_STEAM_URL",
-    "CONTACT_EMAIL",
-    "DONATION_URL",
     "MCA_STEAM_URL",
     "PARLEY_NEXUS_URL",
-    "PARLEY_PARADOX_URL",
-    "PARLEY_STEAM_URL"
+    "PARLEY_PARADOX_URL"
   ],
-  "steam_characters": 6718,
+  "steam_characters": 7010,
   "steam_under_8000": true,
   "status": "PREVIEW_METADATA_PENDING",
   "paradox_format": "Plain text: verify final spacing in the actual upload editor.",

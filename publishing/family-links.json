@@ -1,7 +1,7 @@
 {
   "language": "en",
   "links": {
-    "PARLEY_STEAM_URL": null,
+    "PARLEY_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3811090081",
     "PARLEY_PARADOX_URL": null,
     "PARLEY_NEXUS_URL": null,
     "PARLEY_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table",
@@ -13,11 +13,11 @@
     "AGOT_MCA_PARADOX_URL": null,
     "AGOT_MCA_NEXUS_URL": null,
     "AGOT_MCA_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant",
-    "CONTACT_EMAIL": null,
-    "DONATION_URL": null
+    "CONTACT_EMAIL": "g4vv4kh@gmail.com",
+    "DONATION_URL": "https://ko-fi.com/g4vv4kh"
   },
   "workshop_ids": {
-    "parley": null,
+    "parley": "3811090081",
     "marriage_calc_assistant": null,
     "agot_marriage_calc_assistant": null
   },
