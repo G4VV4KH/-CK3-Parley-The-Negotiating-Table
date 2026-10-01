@@ -4,7 +4,7 @@
 
 - 🟢 **Version 1.1.0** · Targets CK3 **1.20.0.2**.
 - 🟢 **No other mod required.**
-- 🟢 **Nine languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese and Spanish.
+- 🟢 **languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [來自無壹的中文翻譯](https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070) and Spanish.
 - 🔴 **Changes gameplay:** treaties can transfer money, people, land and vassalage.
 - 🔴 **AGOT compatibility: awaiting the AGOT update for CK3 1.20.**
 - 🔴 **Direct ruler negotiations only.** Puppet proxy mode is unavailable.
