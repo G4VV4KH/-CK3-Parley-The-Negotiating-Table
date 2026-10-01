@@ -95,7 +95,7 @@ For bugs, include versions, load order, UI scale, steps and a screenshot; check 
 - [Source and issue reports]({{PARLEY_GITHUB_URL}})
 - **Email:** {{CONTACT_EMAIL}}
 
-### [☕ Buy me a coffee on Ko-fi 💛]({{DONATION_URL}})
+### [Want to support my work? Donate on Ko-fi 💛]({{DONATION_URL}})
 
 ## Find Parley elsewhere
 

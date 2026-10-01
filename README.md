@@ -95,7 +95,7 @@ For bugs, include versions, load order, UI scale, steps and a screenshot; check 
 - [Source and issue reports](https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table)
 - **Email:** g4vv4kh@gmail.com
 
-### [☕ Buy me a coffee on Ko-fi 💛](https://ko-fi.com/g4vv4kh)
+### [Want to support my work? Donate on Ko-fi 💛](https://ko-fi.com/g4vv4kh)
 
 ## Find Parley elsewhere
 
