@@ -2,41 +2,38 @@
 
 <h2>At a glance</h2>
 
-<p>- 🟢 <strong>Version 1.1.0</strong> · Targets CK3 <strong>1.20.0.2</strong>. Focused single-player checks passed.</p>
-<p>- 🟢 <strong>No other mod required.</strong> Includes its own negotiation interface.</p>
+<p>- 🟢 <strong>Version 1.1.0</strong> · Targets CK3 <strong>1.20.0.2</strong>.</p>
+<p>- 🟢 <strong>No other mod required.</strong></p>
 <p>- 🟢 <strong>Nine languages:</strong> English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese and Spanish.</p>
 <p>- 🔴 <strong>Changes gameplay:</strong> treaties can transfer money, people, land and vassalage.</p>
 <p>- 🔴 <strong>AGOT compatibility: awaiting the AGOT update for CK3 1.20.</strong></p>
 <p>- 🔴 <strong>Direct ruler negotiations only.</strong> Puppet proxy mode is unavailable.</p>
-<p>- 🔴 <strong>Multiplayer and long campaigns are not fully verified.</strong> Other overhauls may need compatibility work.</p>
 
 <h2>A wedding can win what a war cannot</h2>
 
-<p>Put marriage, money and allegiance on the same table. Give your counterpart a reason to sign, and leave the battlefield for another day.</p>
-
-<h2>A full treaty, negotiated together</h2>
+<p>Put marriage, money and allegiance on the same table. Give your counterpart a reason to sign.</p>
 
 <p>See both sides of the treaty and your counterpart&#x27;s valuation in one window.</p>
 
-<p><strong>Auto-balance</strong> adjusts currencies toward <strong>+1</strong> acceptance and reports when it cannot reach that target. Relationships and concessions affect the result. Review the terms before confirming.</p>
+<p><strong>Auto-balance</strong> adjusts currencies toward <strong>+1</strong> acceptance and reports if it cannot reach that target. Relationships and concessions affect the result.</p>
 
-<p>AI envoys bring offers and demands: accept, negotiate or turn them away. A separate game rule controls treaties between AI rulers.</p>
+<p>AI envoys bring offers and demands: accept, negotiate or turn them away.</p>
 
 <h2>What you can negotiate</h2>
 
 <p>- <strong>Payments:</strong> gold, with prestige and piety governed by game rules; influence when both governments support it.</p>
-<p>- <strong>Marriage pacts:</strong> choose couples and marriage form, combine multiple marriages, arrange eligible betrothals or promise a grand wedding. Eligible marriages can create alliances.</p>
+<p>- <strong>Marriage pacts:</strong> choose couples and marriage form, combine marriages, arrange eligible betrothals or promise a grand wedding.</p>
 <p>- <strong>Land and allegiance:</strong> cede eligible titles, swear fealty with an editable contract, grant independence, or transfer eligible direct vassals.</p>
 <p>- <strong>People and possessions:</strong> exchange artifacts, pledge relatives as hostages, or transfer eligible courtiers and accompanying families.</p>
-<p>- <strong>Favors and pressure:</strong> promise a hook, use an existing hook, or threaten a ruler when your army, prestige and dread provide enough weight. Player and AI threats share the same minimum.</p>
+<p>- <strong>Favors and pressure:</strong> promise or use a hook, or threaten a ruler with sufficient army, prestige and dread. Player and AI threats share the same minimum.</p>
 
-<p>Tooltips explain restrictions from rulers, governments and game rules. Alliances come from eligible marriages, not a separate purchase.</p>
+<p>Tooltips explain eligibility and game-rule restrictions. Eligible marriages can create alliances; alliances cannot be bought separately.</p>
 
 <h2>Reading the central panel</h2>
 
 <p><strong>Their Answer evaluates the treaty from your counterpart&#x27;s perspective:</strong> benefits, costs, standing, extra demands and pressure combine into acceptance.</p>
 
-<p>The historical AGOT screenshot shows <strong>197 + 136 - 322 - 10 = +1</strong>, with no pressure:</p>
+<p>This historical AGOT example gives <strong>197 + 136 - 322 - 10 = +1</strong>, with no pressure:</p>
 
 <p>- <strong>They receive: 197</strong> — gold, the marriage&#x27;s positive factors and its alliance.</p>
 <p>- <strong>Standing, share: +136</strong> — the relationship adjustment, applied to that positive offer.</p>
@@ -57,43 +54,43 @@
 <h2>Getting started</h2>
 
 <p>1. Right-click an eligible landed ruler: <strong>Diplomacy &gt; Negotiate a Treaty</strong>.</p>
-<p>2. Add terms in <strong>You offer</strong> and <strong>They offer</strong>; use the pickers for people, titles and objects.</p>
+<p>2. Add terms in <strong>You offer</strong> and <strong>They offer</strong>.</p>
 <p>3. Read <strong>Their Answer</strong>, adjust the package or use <strong>Auto-balance</strong>.</p>
-<p>4. Review and confirm. The mod rechecks whether the agreement can still be carried out.</p>
+<p>4. Review and confirm. The mod rechecks that the agreement can be carried out.</p>
 
-<p>Game rules control advanced terms, prestige and piety trading, AI treaties, incoming offer frequency and threat scaling. AI-to-AI treaties use their own system and frequency rule; the advanced-terms setting is not a universal restriction on those treaties.</p>
+<p>Game rules control advanced terms, prestige/piety trading, AI treaties, incoming offer frequency and threat scaling. AI-to-AI treaties have their own system and frequency rule; the advanced-terms rule does not universally restrict them.</p>
 
-<p>Negotiate as your own ruler. When acting for a puppet, Parley&#x27;s opener and treaty marriage picker are hidden. Version 1.1.0 follows personal Rites for marriage defaults and lineality pricing, while retaining native marriage eligibility checks.</p>
+<p>When acting for a puppet, Parley&#x27;s opener and marriage picker are hidden. Personal Rites determine marriage defaults and lineality pricing; native marriage eligibility checks still apply.</p>
 
 <h2>Compatibility and load order</h2>
 
-<p><strong>Vanilla file replacements: none.</strong> Parley adds files in <code>common/</code>, <code>events/</code>, <code>gui/</code>, <code>data_binding/</code> and <code>localization/</code>. Other mods can still change mechanics treaties rely on.</p>
+<p><strong>Vanilla file replacements: none.</strong> Other mods and overhauls can still alter mechanics treaties rely on and need compatibility work.</p>
 
-<p><strong>Vanilla game with the optional marriage assistant:</strong></p>
+<p><strong>Optional vanilla load order:</strong></p>
 
 <p>1. Parley: The Negotiating Table</p>
 <p>2. Marriage Calculation Assistant</p>
 
-<p><strong>AGOT is not supported by this CK3 1.20 release.</strong> Parley&#x27;s AGOT-specific integration is disabled pending an updated AGOT and fresh compatibility checks. The historical calculation above refers to RC3 on CK3 1.19.0.6 with AGOT 0.5.2.1; it does not establish current support. Both marriage assistants are optional, and neither is a general Parley compatibility patch.</p>
+<p><strong>AGOT is not supported by this CK3 1.20 release.</strong> Its integration is disabled pending an AGOT update and fresh checks. The calculation above is historical RC3 evidence from CK3 1.19.0.6 with AGOT 0.5.2.1. Both marriage assistants are optional; neither is a general Parley compatibility patch.</p>
 
 <p><strong>Submods and companion mods:</strong></p>
 
-<p>- Marriage Calculation Assistant: candidate scores, native breakdowns and optional score sorting in the marriage picker.</p>
-<p>- AGOT: Marriage Calculation Assistant: AGOT candidate scoring support for MCA.</p>
+<p>- Marriage Calculation Assistant: marriage-candidate scores, breakdowns and sorting.</p>
+<p>- AGOT: Marriage Calculation Assistant: AGOT scoring for MCA; current compatibility is on hold.</p>
 
-<p>No additional compatibility patches are included in this release. Enable only one installed copy of each mod in a playset.</p>
+<p>No other compatibility patches are included. Enable one copy of each mod.</p>
 
 <h2>Saves and known limits</h2>
 
-<p>Before removal, use <strong>Fold Away the Negotiating Table</strong> under <strong>Mod Removal Decisions</strong>, save, then disable Parley. This cleans negotiation and AI state but does not reverse completed marriages, payments or transfers. Close MCA&#x27;s picker before saving or removing that companion.</p>
+<p>Before removal, use <strong>Fold Away the Negotiating Table</strong> under <strong>Mod Removal Decisions</strong>, save, then disable Parley. This clears negotiation and AI state, but completed marriages, payments and transfers persist. Close MCA&#x27;s picker before saving or removing MCA.</p>
 
-<p>Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package. Terms are rechecked before execution; multiplayer and long-campaign balance remain unverified.</p>
+<p>Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package.</p>
 
-<p>Gallery images show <strong>RC3 on CK3 1.19.0.6</strong>. Earlier focused 1.20.0.2 checks covered negotiation, balancing, marriage staging/cleanup, Rites, influence, AI vassalization and a short campaign. RC10 also passed fresh startup and negotiation, fealty, courtier and marriage-picker UI checks after disabling AGOT integration. Logs retain known notices. Native puppet UI, full Jizya/legality coverage, multiplayer and long campaigns remain unverified.</p>
+<p>Gallery images show <strong>RC3 on CK3 1.19.0.6</strong>, not this update. Focused <strong>1.20.0.2</strong> checks covered startup, negotiations, balancing, marriage staging/cleanup and picker UI, Rites, influence, fealty, courtiers, AI vassalization and a short campaign. Logs retain known notices. Native puppet UI, full Jizya/legality coverage, multiplayer and long campaigns remain unverified.</p>
 
 <h2>Feedback and support</h2>
 
-<p>Include mod/game versions, load order, UI scale, steps and a screenshot in bug reports. Mention whether the issue occurs with this family alone.</p>
+<p>For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.</p>
 
 <p>- <a href="https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table">Source and issue reports</a></p>
 

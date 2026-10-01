@@ -3,44 +3,41 @@
 [h1]At a glance[/h1]
 
 [list]
-[*]🟢 [b]Version 1.1.0[/b] · Targets CK3 [b]1.20.0.2[/b]. Focused single-player checks passed.
-[*]🟢 [b]No other mod required.[/b] Includes its own negotiation interface.
+[*]🟢 [b]Version 1.1.0[/b] · Targets CK3 [b]1.20.0.2[/b].
+[*]🟢 [b]No other mod required.[/b]
 [*]🟢 [b]Nine languages:[/b] English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese and Spanish.
 [*]🔴 [b]Changes gameplay:[/b] treaties can transfer money, people, land and vassalage.
 [*]🔴 [b]AGOT compatibility: awaiting the AGOT update for CK3 1.20.[/b]
 [*]🔴 [b]Direct ruler negotiations only.[/b] Puppet proxy mode is unavailable.
-[*]🔴 [b]Multiplayer and long campaigns are not fully verified.[/b] Other overhauls may need compatibility work.
 [/list]
 
 [h1]A wedding can win what a war cannot[/h1]
 
-Put marriage, money and allegiance on the same table. Give your counterpart a reason to sign, and leave the battlefield for another day.
-
-[h1]A full treaty, negotiated together[/h1]
+Put marriage, money and allegiance on the same table. Give your counterpart a reason to sign.
 
 See both sides of the treaty and your counterpart's valuation in one window.
 
-[b]Auto-balance[/b] adjusts currencies toward [b]+1[/b] acceptance and reports when it cannot reach that target. Relationships and concessions affect the result. Review the terms before confirming.
+[b]Auto-balance[/b] adjusts currencies toward [b]+1[/b] acceptance and reports if it cannot reach that target. Relationships and concessions affect the result.
 
-AI envoys bring offers and demands: accept, negotiate or turn them away. A separate game rule controls treaties between AI rulers.
+AI envoys bring offers and demands: accept, negotiate or turn them away.
 
 [h1]What you can negotiate[/h1]
 
 [list]
 [*][b]Payments:[/b] gold, with prestige and piety governed by game rules; influence when both governments support it.
-[*][b]Marriage pacts:[/b] choose couples and marriage form, combine multiple marriages, arrange eligible betrothals or promise a grand wedding. Eligible marriages can create alliances.
+[*][b]Marriage pacts:[/b] choose couples and marriage form, combine marriages, arrange eligible betrothals or promise a grand wedding.
 [*][b]Land and allegiance:[/b] cede eligible titles, swear fealty with an editable contract, grant independence, or transfer eligible direct vassals.
 [*][b]People and possessions:[/b] exchange artifacts, pledge relatives as hostages, or transfer eligible courtiers and accompanying families.
-[*][b]Favors and pressure:[/b] promise a hook, use an existing hook, or threaten a ruler when your army, prestige and dread provide enough weight. Player and AI threats share the same minimum.
+[*][b]Favors and pressure:[/b] promise or use a hook, or threaten a ruler with sufficient army, prestige and dread. Player and AI threats share the same minimum.
 [/list]
 
-Tooltips explain restrictions from rulers, governments and game rules. Alliances come from eligible marriages, not a separate purchase.
+Tooltips explain eligibility and game-rule restrictions. Eligible marriages can create alliances; alliances cannot be bought separately.
 
 [h1]Reading the central panel[/h1]
 
 [b]Their Answer evaluates the treaty from your counterpart's perspective:[/b] benefits, costs, standing, extra demands and pressure combine into acceptance.
 
-The historical AGOT screenshot shows [b]197 + 136 - 322 - 10 = +1[/b], with no pressure:
+This historical AGOT example gives [b]197 + 136 - 322 - 10 = +1[/b], with no pressure:
 
 [list]
 [*][b]They receive: 197[/b] — gold, the marriage's positive factors and its alliance.
@@ -66,48 +63,48 @@ Rounding can make displayed rows differ slightly from totals. These values belon
 
 [olist]
 [*]Right-click an eligible landed ruler: [b]Diplomacy > Negotiate a Treaty[/b].
-[*]Add terms in [b]You offer[/b] and [b]They offer[/b]; use the pickers for people, titles and objects.
+[*]Add terms in [b]You offer[/b] and [b]They offer[/b].
 [*]Read [b]Their Answer[/b], adjust the package or use [b]Auto-balance[/b].
-[*]Review and confirm. The mod rechecks whether the agreement can still be carried out.
+[*]Review and confirm. The mod rechecks that the agreement can be carried out.
 [/olist]
 
-Game rules control advanced terms, prestige and piety trading, AI treaties, incoming offer frequency and threat scaling. AI-to-AI treaties use their own system and frequency rule; the advanced-terms setting is not a universal restriction on those treaties.
+Game rules control advanced terms, prestige/piety trading, AI treaties, incoming offer frequency and threat scaling. AI-to-AI treaties have their own system and frequency rule; the advanced-terms rule does not universally restrict them.
 
-Negotiate as your own ruler. When acting for a puppet, Parley's opener and treaty marriage picker are hidden. Version 1.1.0 follows personal Rites for marriage defaults and lineality pricing, while retaining native marriage eligibility checks.
+When acting for a puppet, Parley's opener and marriage picker are hidden. Personal Rites determine marriage defaults and lineality pricing; native marriage eligibility checks still apply.
 
 [h1]Compatibility and load order[/h1]
 
-[b]Vanilla file replacements: none.[/b] Parley adds files in [b]common/[/b], [b]events/[/b], [b]gui/[/b], [b]data_binding/[/b] and [b]localization/[/b]. Other mods can still change mechanics treaties rely on.
+[b]Vanilla file replacements: none.[/b] Other mods and overhauls can still alter mechanics treaties rely on and need compatibility work.
 
-[b]Vanilla game with the optional marriage assistant:[/b]
+[b]Optional vanilla load order:[/b]
 
 [olist]
 [*]Parley: The Negotiating Table
 [*]Marriage Calculation Assistant
 [/olist]
 
-[b]AGOT is not supported by this CK3 1.20 release.[/b] Parley's AGOT-specific integration is disabled pending an updated AGOT and fresh compatibility checks. The historical calculation above refers to RC3 on CK3 1.19.0.6 with AGOT 0.5.2.1; it does not establish current support. Both marriage assistants are optional, and neither is a general Parley compatibility patch.
+[b]AGOT is not supported by this CK3 1.20 release.[/b] Its integration is disabled pending an AGOT update and fresh checks. The calculation above is historical RC3 evidence from CK3 1.19.0.6 with AGOT 0.5.2.1. Both marriage assistants are optional; neither is a general Parley compatibility patch.
 
 [b]Submods and companion mods:[/b]
 
 [list]
-[*]Marriage Calculation Assistant: candidate scores, native breakdowns and optional score sorting in the marriage picker.
-[*]AGOT: Marriage Calculation Assistant: AGOT candidate scoring support for MCA.
+[*]Marriage Calculation Assistant: marriage-candidate scores, breakdowns and sorting.
+[*]AGOT: Marriage Calculation Assistant: AGOT scoring for MCA; current compatibility is on hold.
 [/list]
 
-No additional compatibility patches are included in this release. Enable only one installed copy of each mod in a playset.
+No other compatibility patches are included. Enable one copy of each mod.
 
 [h1]Saves and known limits[/h1]
 
-Before removal, use [b]Fold Away the Negotiating Table[/b] under [b]Mod Removal Decisions[/b], save, then disable Parley. This cleans negotiation and AI state but does not reverse completed marriages, payments or transfers. Close MCA's picker before saving or removing that companion.
+Before removal, use [b]Fold Away the Negotiating Table[/b] under [b]Mod Removal Decisions[/b], save, then disable Parley. This clears negotiation and AI state, but completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
 
-Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package. Terms are rechecked before execution; multiplayer and long-campaign balance remain unverified.
+Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package.
 
-Gallery images show [b]RC3 on CK3 1.19.0.6[/b]. Earlier focused 1.20.0.2 checks covered negotiation, balancing, marriage staging/cleanup, Rites, influence, AI vassalization and a short campaign. RC10 also passed fresh startup and negotiation, fealty, courtier and marriage-picker UI checks after disabling AGOT integration. Logs retain known notices. Native puppet UI, full Jizya/legality coverage, multiplayer and long campaigns remain unverified.
+Gallery images show [b]RC3 on CK3 1.19.0.6[/b], not this update. Focused [b]1.20.0.2[/b] checks covered startup, negotiations, balancing, marriage staging/cleanup and picker UI, Rites, influence, fealty, courtiers, AI vassalization and a short campaign. Logs retain known notices. Native puppet UI, full Jizya/legality coverage, multiplayer and long campaigns remain unverified.
 
 [h1]Feedback and support[/h1]
 
-Include mod/game versions, load order, UI scale, steps and a screenshot in bug reports. Mention whether the issue occurs with this family alone.
+For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.
 
 [list]
 [*][url=https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table]Source and issue reports[/url]
