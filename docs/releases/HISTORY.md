@@ -69,3 +69,20 @@ Generated from history.json. Events are appended; a prepared build is not a publ
 - **archive**: {"file": "distribution/2026-10-01-game-rc10/parley-1.1.0-payload.zip", "sha256": "6e12af34921ed037eb4b3d2df713959e0c96ddcfce3993516bf74186c1f2be20", "bytes": 5686575}
 - **evidence**: Current committed dev runtime and frozen game payload match the build manifest.
 - **note**: Association verified now; this does not assert the original build commit or build time.
+
+## 2026-10-01T02:45:35+00:00 — VERIFIED_ASSOCIATION
+
+- **build_id**: 2026-10-01-game-rc11
+- **mod**: parley
+- **version**: 1.1.0
+- **manifest_sha256**: cba7f92fffdf94b4b5477e9f5627691093826d6bc6d6c60411e0316b7194f92d
+- **payload_fingerprint**: 6191da1f871720324aa8e451196e4774a40490b45525c207184bba3e0eae7dbe
+- **source_fingerprint**: cfe406db09cf71e0a2cf87961766be1e79529aebd4df66648794adc12375fe3c
+- **current_source_fingerprint**: cfe406db09cf71e0a2cf87961766be1e79529aebd4df66648794adc12375fe3c
+- **source_matches**: True
+- **payload_files**: 75
+- **source_files**: 76
+- **source_git**: {"commit": "c86fcf2ba4c91c2788573aef16b6c37881dba7b9", "runtime_tree": "a6dbcf93acc0037a0108d5c90dc0d22c4942da52", "runtime_committed": true}
+- **archive**: {"file": "distribution/2026-10-01-game-rc11/parley-1.1.0-payload.zip", "sha256": "5b90651038bda10e289cabf30be42bcdb074da5804fa48a7db81d61a1f68b578", "bytes": 5686591}
+- **evidence**: Current committed dev runtime and frozen game payload match the build manifest.
+- **note**: Association verified now; this does not assert the original build commit or build time.
