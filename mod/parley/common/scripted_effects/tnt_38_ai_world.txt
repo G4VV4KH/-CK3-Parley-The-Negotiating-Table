@@ -1,4 +1,7 @@
-﻿###############################################################################
+﻿# AGOT integration is suspended pending its CK3 1.20 update.
+# AGOT-specific comments below document parked behavior, not current behavior.
+
+###############################################################################
 # PARLEY: THE NEGOTIATING TABLE — THE AI SANDBOX'S EXECUTION LAYER
 # USER ITEM 4, PHASES B / C-1 / C-2   (30-V2-DESIGN §6.3 phases AI-2 and AI-3)
 #
@@ -793,7 +796,8 @@ tnt_ai_world_submission_pulse_effect = {
 			highest_held_title_tier >= tier_kingdom
 			vassal_limit_available > 0
 			NOT = { has_variable = tnt_ai_world_cd }
-			NOT = { has_variable = agot_pwl_direct }
+			# AGOT SUSPENDED (CK3 1.20): Mega-War exclusion parked; awaiting the AGOT update.
+			# NOT = { has_variable = agot_pwl_direct }
 			max_military_strength > 0
 		}
 		tnt_log_wsubpulse_effect = yes
@@ -1733,6 +1737,7 @@ tnt_ai_world_strike_effect = {
 						government_has_flag = government_is_herder
 					}
 				}
+				# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 				# V14, USER ITEM 1: THE WALL IS NOT SWALLOWED SILENTLY EITHER.
 				# This entry is the ONE vassalage door that does not run through
 				# T5 - its rows are written out inline above - so T5's own
@@ -1761,7 +1766,7 @@ tnt_ai_world_strike_effect = {
 				# run's WARCH census once the tier edge shows a spread, the constraint
 				# is one of the OTHER rows here and this is where to look.
 				# In a vanilla game the T46 row below is always true.
-				tnt_vassalage_pair_allowed_trigger = { A = scope:actor  B = scope:recipient }
+				# tnt_vassalage_pair_allowed_trigger = { A = scope:actor  B = scope:recipient }
 			}
 			tnt_log_warch_vassal_effect = yes
 			tnt_ai_world_do_vassal_effect = yes

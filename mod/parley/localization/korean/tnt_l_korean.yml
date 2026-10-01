@@ -240,7 +240,8 @@
  tnt_err_vassal_state:0 "양쪽 모두 살아 있고 땅이 있으며 자유로운 몸이어야 합니다."
  tnt_err_vassal_limit:0 "충성을 받게 될 쪽에게 [vassal_limit|E]의 여유가 남아 있지 않습니다."
  tnt_err_vassal_tier:0 "봉신은 주군보다 등급이 낮아야 합니다."
- tnt_err_vassal_wall:0 "장벽의 형제단은 오직 자기 서약만을 따릅니다. 장벽을 지키는 자들은 주군을 두지도 주지도 않으며, 어떤 조약도 그들을 봉역에 묶을 수 없습니다."
+ # AGOT SUSPENDED (CK3 1.20): unused Watch localization parked; awaiting the AGOT update.
+ # tnt_err_vassal_wall:0 "장벽의 형제단은 오직 자기 서약만을 따릅니다. 장벽을 지키는 자들은 주군을 두지도 주지도 않으며, 어떤 조약도 그들을 봉역에 묶을 수 없습니다."
  tnt_confirm_title:0 "조약을 봉인하시겠습니까?"
  tnt_confirm_desc:0 "조항이 탁자 위에 놓여 있고, 밀랍과 인장이 손 닿는 곳에 있습니다.\n\n사절이 길을 떠나면 [tnt_deal_partner.GetShortUIName]은(는) 지금 이 모습 그대로 제안을 듣게 됩니다. 더할 것도 뺄 것도 없습니다."
  tnt_confirm_opt_yes:0 "제안을 보낸다"

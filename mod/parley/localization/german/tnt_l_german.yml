@@ -229,7 +229,8 @@
  tnt_err_vassal_state:0 "Beide Parteien müssen lebend, belehnt und in Freiheit sein."
  tnt_err_vassal_limit:0 "Die Partei, welche die Treue empfangen soll, hat unter ihrer [vassal_limit|E] keinen Platz mehr frei."
  tnt_err_vassal_tier:0 "Ein Vasall muss im Rang unter seinem Lehnsherrn stehen."
- tnt_err_vassal_wall:0 "Die Wache schwört keinen Eid als ihren eigenen. Wer die Mauer bemannt, nimmt keinen Lehnsherrn an und gibt keinen, und kein Vertrag kann sie in ein Reich einbinden."
+ # AGOT SUSPENDED (CK3 1.20): unused Watch localization parked; awaiting the AGOT update.
+ # tnt_err_vassal_wall:0 "Die Wache schwört keinen Eid als ihren eigenen. Wer die Mauer bemannt, nimmt keinen Lehnsherrn an und gibt keinen, und kein Vertrag kann sie in ein Reich einbinden."
  tnt_confirm_title:0 "Den Vertrag besiegeln?"
  tnt_confirm_desc:0 "Die Bedingungen liegen auf dem Tisch, Wachs und Siegel zur Hand.\n\nSobald der Gesandte ausreitet, hört [tnt_deal_partner.GetShortUIName] das Angebot genau so, wie es dasteht: nichts hinzugefügt, nichts zurückgenommen."
  tnt_confirm_opt_yes:0 "Das Angebot schicken"

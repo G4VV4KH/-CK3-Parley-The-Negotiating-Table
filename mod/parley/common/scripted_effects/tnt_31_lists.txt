@@ -1,4 +1,7 @@
-﻿########################################################################
+﻿# AGOT integration is suspended pending its CK3 1.20 update.
+# AGOT-specific comments below document parked behavior, not current behavior.
+
+########################################################################
 # PARLEY: THE NEGOTIATING TABLE — picker list construction + promise garbage collection
 #
 # Contract 10-CONTRACT.md §6.1, effects E4..E12 and E29.
@@ -214,6 +217,7 @@ tnt_clear_lists_effect = {
 # Every fill opens with clear_variable_list, so this is idempotent.
 ########################################################################
 tnt_refill_all_lists_effect = {
+	# AGOT SUSPENDED (CK3 1.20): declaration-only variable suppressors parked; awaiting the AGOT update.
 	# DECLARATION ONLY — THIS BRANCH MUST NEVER RUN. tnt_person_is_beast_trigger
 	# (tnt_42_people_gates.txt P19) READS AGOT's global variable list
 	# `living_dragons`. The engine audits every variable and flag NAME at load and
@@ -228,13 +232,13 @@ tnt_refill_all_lists_effect = {
 	# either. `always = no` is airtight and has to stay airtight: actually putting
 	# the player into AGOT's dragon list would corrupt AGOT's own bookkeeping.
 	# DO NOT DELETE AS DEAD CODE. Deleting it brings the log line back.
-	if = {
-		limit = { always = no }
-		add_to_global_variable_list = {
-			name = living_dragons
-			target = this
-		}
-	}
+	# if = {
+		# limit = { always = no }
+		# add_to_global_variable_list = {
+			# name = living_dragons
+			# target = this
+		# }
+	# }
 
 	# THE SECOND SUPPRESSOR, AND IT IS THE SAME TRICK FOR THE SAME REASON (V18).
 	# tnt_40_triggers.txt:697-702 reads `culture = { has_variable = wildling_culture }`
@@ -251,15 +255,15 @@ tnt_refill_all_lists_effect = {
 	# lie about its own world. And it must stay on a CULTURE scope, because that is
 	# the scope the four readers ask.
 	# DO NOT DELETE AS DEAD CODE. Deleting it brings the log line back.
-	if = {
-		limit = { always = no }
-		culture = {
-			set_variable = {
-				name = wildling_culture
-				value = 0
-			}
-		}
-	}
+	# if = {
+		# limit = { always = no }
+		# culture = {
+			# set_variable = {
+				# name = wildling_culture
+				# value = 0
+			# }
+		# }
+	# }
 
 	tnt_fill_title_p_effect = yes
 	tnt_fill_title_r_effect = yes

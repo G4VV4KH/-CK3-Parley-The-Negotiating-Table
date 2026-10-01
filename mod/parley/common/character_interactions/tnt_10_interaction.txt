@@ -353,19 +353,6 @@ tnt_open_negotiations = {
 	#                    cannot_be_vassal_or_liege nor
 	#                    government_is_landless_adventurer. That is the correct
 	#                    set and it needs nothing from this file.
-	#                    V15, USER ITEM 3: T1 now also refuses the NIGHT'S WATCH,
-	#                    IN BOTH ROLES - it calls T48 tnt_not_the_watch_trigger
-	#                    twice, once on `this` (which is the ACTOR here, because
-	#                    the call below sits inside scope:actor) and once on the
-	#                    recipient. So this one row closes all four directions and
-	#                    STILL needs nothing from this file. The user's ruling, the
-	#                    setting evidence and the vanilla-only safety proof are in
-	#                    T48's header, tnt_40_triggers.txt.
-	#                    IT BELONGS IN is_shown AND NOT IN THE TWO LOCKS BELOW:
-	#                    being the Night's Watch is a PERMANENT STRUCTURAL fact,
-	#                    not a transient state of the pair, and the PART-2 doctrine
-	#                    quoted below sends exactly that class to is_shown, which
-	#                    hides. That is also why user item 3 adds NO loc key.
 	#
 	# FOUR THINGS DELIBERATELY **NOT** ADDED, each with the reason it was
 	# considered and rejected. Do not add them without reading this.
@@ -431,7 +418,7 @@ tnt_open_negotiations = {
 		scope:actor = {
 			is_ai = no			# REAL: GAME\common\character_interactions\00_alliance.txt:1129, :2103 — player-only; belt and braces with ai_frequency = 0 below
 			is_landed = yes			# REAL: GAME\common\character_interactions\00_character_interactions.txt:26 — an unlanded actor has nothing to trade
-			tnt_partner_valid_trigger = { CHARACTER = scope:recipient }	# tnt_40_triggers.txt (T1): alive, landed, not a mercenary/holy-order/landless government, not the Night's Watch in EITHER role (V15 item 3, via T48), and not the actor himself. ANY ruler otherwise — vassals and lieges included.
+			tnt_partner_valid_trigger = { CHARACTER = scope:recipient }	# tnt_40_triggers.txt (T1): alive, landed, not a mercenary/holy-order/landless government, and not the actor himself. ANY ruler otherwise — vassals and lieges included.
 		}
 	}
 

@@ -924,9 +924,10 @@
  tnt_err_vassal_state:0 "Both parties must be living, landed and at liberty."
  tnt_err_vassal_limit:0 "The party who would receive the fealty has no room left under their [vassal_limit|E]."
  tnt_err_vassal_tier:0 "A vassal must rank below their liege."
+ # AGOT SUSPENDED (CK3 1.20): unused Watch localization parked; awaiting the AGOT update.
  # V14, user item 1. Renders only in a game where a sworn brotherhood of the Wall
  # exists; in a vanilla game the row it guards is always true and this never shows.
- tnt_err_vassal_wall:0 "The Watch swears no oath but its own. Those who man the Wall take no liege and give none, and no treaty may bind them into a realm."
+ # tnt_err_vassal_wall:0 "The Watch swears no oath but its own. Those who man the Wall take no liege and give none, and no treaty may bind them into a realm."
 
  # --- K. Confirmation event (5) ------------------------------------------
  # *** tnt_confirm_desc PRINTS scope:tnt_deal_partner, NOT scope:tnt_p. ***

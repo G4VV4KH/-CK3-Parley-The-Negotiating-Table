@@ -1,4 +1,7 @@
-﻿###############################################################################
+﻿# AGOT integration is suspended pending its CK3 1.20 update.
+# AGOT-specific comments below document parked behavior, not current behavior.
+
+###############################################################################
 # PARLEY: THE NEGOTIATING TABLE — scripted triggers.
 #
 # The eleven triggers T1..T11 of 10-CONTRACT.md §6.2, in that order, plus the
@@ -174,6 +177,7 @@ tnt_partner_valid_trigger = {
 	trigger_if = {
 		limit = { exists = $CHARACTER$ }
 		NOT = { this = $CHARACTER$ }
+		# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 		# V15, USER ITEM 3: THE WALL IS NOT A PARTY TO ANY NEGOTIATION, IN EITHER
 		# ROLE. `this` is the ACTOR at all three of this trigger's call sites -
 		# tnt_10_interaction.txt:414 inside `scope:actor = { }`,
@@ -197,8 +201,8 @@ tnt_partner_valid_trigger = {
 		# inside a single OR: GAME\common\scripted_triggers\00_activity_triggers.txt
 		# :437-465 (petition_liege_has_main_skiller_trigger). Ours sit inside an
 		# implicit AND, which is the easier case.
-		tnt_not_the_watch_trigger = { WHO = this }
-		tnt_not_the_watch_trigger = { WHO = $CHARACTER$ }
+		# tnt_not_the_watch_trigger = { WHO = this }
+		# tnt_not_the_watch_trigger = { WHO = $CHARACTER$ }
 		$CHARACTER$ = {
 			is_alive = yes				# REAL: GAME\common\character_interactions\00_choose_favorite_interaction.txt:103; also 00_courtier_and_guest_interactions.txt:172
 			is_landed = yes				# REAL: GAME\common\character_interactions\00_character_interactions.txt:26 (offer_vassalization is_shown), :1401, :1406
@@ -559,6 +563,7 @@ tnt_can_vassalize_trigger = {
 		# GAME\common\character_interactions\00_alliance.txt:976, :1164
 		NOT = { $VASSAL$ = { is_at_war_with = $LIEGE$ } }
 
+		# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 		# V14, USER ITEM 1: THE WALL IS NOT A PARTY TO ANYONE'S FEALTY, IN
 		# EITHER DIRECTION. Full argument and the vanilla-safety proof are in
 		# T46's header below; AGOT gates the two vanilla interactions this
@@ -571,7 +576,7 @@ tnt_can_vassalize_trigger = {
 		# all delegate here. In a vanilla game the row is always true.
 		# T15 below carries the matching row - its own header makes row-for-row
 		# parity with this trigger a stated invariant.
-		tnt_vassalage_pair_allowed_trigger = { A = $LIEGE$  B = $VASSAL$ }
+		# tnt_vassalage_pair_allowed_trigger = { A = $LIEGE$  B = $VASSAL$ }
 
 		$VASSAL$ = {
 			is_alive = yes
@@ -754,14 +759,15 @@ tnt_can_vassalize_trigger = {
 # script value, no list. Legal in a per-frame is_valid; see NW-6's callers in
 # common\scripted_guis\tnt_24_people.txt.
 # =============================================================================
-tnt_vassalage_pair_allowed_trigger = {
-	trigger_if = {
-		limit = {
-			exists = $A$
-			exists = $B$
-		}
-		$A$ = { NOT = { government_has_flag = government_is_nw } }
-		$B$ = { NOT = { government_has_flag = government_is_nw } }
+# AGOT SUSPENDED (CK3 1.20): helper definition parked; awaiting the AGOT update.
+# tnt_vassalage_pair_allowed_trigger = {
+	# trigger_if = {
+		# limit = {
+			# exists = $A$
+			# exists = $B$
+		# }
+		# $A$ = { NOT = { government_has_flag = government_is_nw } }
+		# $B$ = { NOT = { government_has_flag = government_is_nw } }
 
 		# ---------------------------------------------------------------------
 		# THE WILDLING HALF. FOUND UNDER USER ITEM 1 AND SHIPPED WITH IT; IT IS
@@ -803,17 +809,17 @@ tnt_vassalage_pair_allowed_trigger = {
 		# forbids. The honest fix for the resulting drought is a reachable pool
 		# (the Free Cities, item 6's neighbourhood work), not a wider net.
 		# ---------------------------------------------------------------------
-		NAND = {
-			$A$ = { culture = { has_variable = wildling_culture } }
-			$B$ = { NOT = { culture = { has_variable = wildling_culture } } }
-		}
-		NAND = {
-			$A$ = { NOT = { culture = { has_variable = wildling_culture } } }
-			$B$ = { culture = { has_variable = wildling_culture } }
-		}
-	}
-	trigger_else = { always = no }
-}
+		# NAND = {
+			# $A$ = { culture = { has_variable = wildling_culture } }
+			# $B$ = { NOT = { culture = { has_variable = wildling_culture } } }
+		# }
+		# NAND = {
+			# $A$ = { NOT = { culture = { has_variable = wildling_culture } } }
+			# $B$ = { culture = { has_variable = wildling_culture } }
+		# }
+	# }
+	# trigger_else = { always = no }
+# }
 
 
 # =============================================================================
@@ -937,18 +943,19 @@ tnt_vassalage_pair_allowed_trigger = {
 # exclude genuinely lowborn landed rulers.
 # ---------------------------------------------------------------------------
 # =============================================================================
-tnt_not_the_watch_trigger = {
-	trigger_if = {
-		limit = { exists = $WHO$ }
-		$WHO$ = {
-			NOR = {
-				government_has_flag = government_is_nw
-				government_has_flag = government_is_uninteractable
-			}
-		}
-	}
-	trigger_else = { always = no }
-}
+# AGOT SUSPENDED (CK3 1.20): helper definition parked; awaiting the AGOT update.
+# tnt_not_the_watch_trigger = {
+	# trigger_if = {
+		# limit = { exists = $WHO$ }
+		# $WHO$ = {
+			# NOR = {
+				# government_has_flag = government_is_nw
+				# government_has_flag = government_is_uninteractable
+			# }
+		# }
+	# }
+	# trigger_else = { always = no }
+# }
 
 
 # RETIRED - T6 LOST EVERY CALLER WITH THE PRISONER TERMS. It was called from the
@@ -1706,6 +1713,7 @@ tnt_ai_world_partner_structural_trigger = {
 	is_ruler = yes			# REAL: GAME\common\character_interactions\00_alliance.txt:1124
 	NOT = { has_variable = tnt_ai_world_cd }
 	NOT = { this = root }
+	# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 	# V15, USER ITEM 3: NO SILENT TREATY WITH THE WALL, IN EITHER ROLE.
 	# The proposer half is the mirror row in tnt_72_ai_world.txt. It is
 	# IN THE LIMIT and not after the pick, so a Watch neighbour is
@@ -1734,7 +1742,7 @@ tnt_ai_world_partner_structural_trigger = {
 	# `PARAM = this` into a scripted trigger inside an iterator limit:
 	# REAL, GAME\common\character_interactions\06_ep3_interactions.txt
 	# :33-36, :48-51.
-	tnt_not_the_watch_trigger = { WHO = this }
+	# tnt_not_the_watch_trigger = { WHO = this }
 	# V15, SANDBOX HEALTH: NOT THE OTHER PARTY'S OWN LIEGE OR VASSAL.
 	# `NOT = { this = root }` alone does NOT exclude root's own liege on
 	# this iterator family, which is why vanilla pairs a `this !=` row
@@ -1866,7 +1874,8 @@ tnt_ai_coercive_fealty_pair_trigger = {
 			max_military_strength > 0
 			current_military_strength >= fifty_percent_of_max_military_strength
 			NOT = { has_truce = $B$ }
-			NOT = { has_variable = agot_pwl_direct }
+			# AGOT SUSPENDED (CK3 1.20): Mega-War exclusion parked; awaiting the AGOT update.
+			# NOT = { has_variable = agot_pwl_direct }
 		}
 		$B$ = {
 			tnt_ai_world_partner_structural_trigger = yes
@@ -1875,7 +1884,8 @@ tnt_ai_coercive_fealty_pair_trigger = {
 			is_playable_character = yes
 			is_tributary = no
 			is_confederation_member = no
-			NOT = { has_variable = agot_pwl_direct }
+			# AGOT SUSPENDED (CK3 1.20): Mega-War exclusion parked; awaiting the AGOT update.
+			# NOT = { has_variable = agot_pwl_direct }
 			NOT = {
 				has_opinion_modifier = {
 					modifier = granted_independence_opinion
@@ -1888,7 +1898,8 @@ tnt_ai_coercive_fealty_pair_trigger = {
 				government_has_flag = government_is_herder
 			}
 		}
-		tnt_vassalage_pair_allowed_trigger = { A = $A$  B = $B$ }
+		# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
+		# tnt_vassalage_pair_allowed_trigger = { A = $A$  B = $B$ }
 		tnt_can_threat_trigger = { A = $A$  B = $B$ }
 		$A$ = { tnt_threat_ratio_value >= 4 }
 		$A$ = { tnt_threat_points_value >= 100 }

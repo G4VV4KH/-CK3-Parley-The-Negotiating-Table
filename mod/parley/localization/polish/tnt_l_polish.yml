@@ -234,7 +234,8 @@
  tnt_err_vassal_state:0 "Obie strony muszą żyć, posiadać ziemię i cieszyć się wolnością."
  tnt_err_vassal_limit:0 "Strona, która miałaby przyjąć przysięgę, nie ma już miejsca w swoim [Concept('vassal_limit', 'limicie wasali')|E]."
  tnt_err_vassal_tier:0 "Wasal musi mieć niższą rangę niż jego senior."
- tnt_err_vassal_wall:0 "Straż nie składa przysiąg prócz własnej. Ci, którzy obsadzają Mur, nie biorą seniora ani nim nie zostają, i żaden traktat nie wpisze ich w cudze państwo."
+ # AGOT SUSPENDED (CK3 1.20): unused Watch localization parked; awaiting the AGOT update.
+ # tnt_err_vassal_wall:0 "Straż nie składa przysiąg prócz własnej. Ci, którzy obsadzają Mur, nie biorą seniora ani nim nie zostają, i żaden traktat nie wpisze ich w cudze państwo."
  tnt_confirm_title:0 "Przypieczętować traktat?"
  tnt_confirm_desc:0 "Warunki leżą na stole, wosk i pieczęć pod ręką.\n\nGdy poseł raz ruszy w drogę, [tnt_deal_partner.GetShortUIName] usłyszy ofertę dokładnie w tym kształcie, w jakim stoi teraz – nic dodane, nic cofnięte."
  tnt_confirm_opt_yes:0 "Wyślij ofertę"

@@ -1,4 +1,7 @@
-﻿###############################################################################
+﻿# AGOT integration is suspended pending its CK3 1.20 update.
+# AGOT-specific comments below document parked behavior, not current behavior.
+
+###############################################################################
 # PARLEY — ITEM 19: THE FOUR PEOPLE TERMS. CANDIDATE TRIGGERS, PAIR GATES,
 # SHOW-GATES AND THE TWO SHARED GUARDS.
 #
@@ -191,11 +194,12 @@ tnt_hostage_candidate_trigger = {
 		is_betrothed = no				# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:18
 		is_imprisoned = no				# OUR NARROWING — see the header. REAL: GAME\common\character_interactions\00_alliance.txt:1158
 
+		# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 		# USER ITEM 3 (V12). The kinship rows below shield this gate incidentally —
 		# a dragon is nobody's child or sibling in the family tree — but that is a
 		# side effect of another rule, not a decision, and a mod that gives dragons
 		# a dynasty would open it. The row is one flat variable-list test.
-		tnt_person_is_beast_trigger = no
+		# tnt_person_is_beast_trigger = no
 
 		# Vanilla's four kinship rows, verbatim and in its order.
 		# REAL: GAME\common\scripted_triggers\05_bp2_hostage_triggers.txt:26-29
@@ -813,13 +817,14 @@ tnt_courtier_candidate_trigger = {
 		# REAL: GAME\common\activities\activity_types\witch_ritual.txt:415
 		NOT = { has_relation_rival = $RECEIVER$ }
 
+		# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 		# NOT A PERSON — P19, V12 user item 3. LAST ROW ON PURPOSE: it is the only
 		# row here that scans a list, and every candidate the flat rows above have
 		# already refused never reaches it. It also re-runs at apply time, because
 		# tnt_exec_courtier_multi_effect re-tests this whole trigger
 		# (tnt_3a_people.txt:401) — a dragon can be added to a court between the
 		# compose and the signature.
-		tnt_person_is_beast_trigger = no
+		# tnt_person_is_beast_trigger = no
 	}
 	trigger_else = { always = no }
 }
@@ -1021,6 +1026,7 @@ tnt_can_release_trigger = {
 		$LIEGE$ = { save_temporary_scope_as = tnt_rel_liege }
 		$VASSAL$ = { save_temporary_scope_as = tnt_rel_vassal }
 
+		# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 		# V14, USER ITEM 1: NEITHER SIDE OF A RELEASE MAY BE THE NIGHT'S WATCH.
 		# Independence is the fealty relation read backwards, so it takes the
 		# same gate - T46, common\scripted_triggers\tnt_40_triggers.txt, where
@@ -1035,7 +1041,7 @@ tnt_can_release_trigger = {
 		# above. Callers pass var: paths (tnt_24_people.txt:932,
 		# VASSAL = var:tnt_partner) and this row must not become the
 		# 85,778-error shape a second time.
-		tnt_vassalage_pair_allowed_trigger = { A = scope:tnt_rel_liege  B = scope:tnt_rel_vassal }
+		# tnt_vassalage_pair_allowed_trigger = { A = scope:tnt_rel_liege  B = scope:tnt_rel_vassal }
 
 		NOT = { scope:tnt_rel_liege = { this = scope:tnt_rel_vassal } }		# REAL: GAME\common\character_interactions\00_character_interactions.txt:2153
 
@@ -1451,12 +1457,13 @@ tnt_people_pair_trigger = {
 # LIVING dragon in the world: zero in most AGOT bookmarks, a few dozen in the
 # Conquest and Dance ones.
 # =============================================================================
-tnt_person_is_beast_trigger = {
-	is_target_in_global_variable_list = {
-		name = living_dragons
-		target = this
-	}
-}
+# AGOT SUSPENDED (CK3 1.20): helper definition parked; awaiting the AGOT update.
+# tnt_person_is_beast_trigger = {
+	# is_target_in_global_variable_list = {
+		# name = living_dragons
+		# target = this
+	# }
+# }
 
 
 # =============================================================================
@@ -1523,12 +1530,13 @@ tnt_person_is_beast_trigger = {
 # finds no flag, so the trigger is CONSTANT FALSE and the fills behave exactly as
 # they do today.
 # =============================================================================
-tnt_person_is_sworn_brother_trigger = {
-	OR = {
-		government_has_flag = government_is_nw
-		any_liege_or_above = { government_has_flag = government_is_nw }
-	}
-}
+# AGOT SUSPENDED (CK3 1.20): helper definition parked; awaiting the AGOT update.
+# tnt_person_is_sworn_brother_trigger = {
+	# OR = {
+		# government_has_flag = government_is_nw
+		# any_liege_or_above = { government_has_flag = government_is_nw }
+	# }
+# }
 
 
 ###############################################################################
@@ -1719,9 +1727,10 @@ tnt_can_subject_trigger = {
 			is_landed = yes					# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:52
 			NOT = { has_trait = gallivanter }		# REAL: GAME\common\character_interactions\00_vassal_interactions.txt:54
 		}
+		# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 		# The wall is never a party to a vassalage term, in either direction.
 		# T46, common\scripted_triggers\tnt_40_triggers.txt.
-		tnt_vassalage_pair_allowed_trigger = { A = $GIVER$  B = $RECEIVER$ }
+		# tnt_vassalage_pair_allowed_trigger = { A = $GIVER$  B = $RECEIVER$ }
 	}
 	trigger_else = { always = no }
 }

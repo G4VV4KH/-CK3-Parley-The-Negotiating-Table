@@ -1860,10 +1860,8 @@ tnt_ai_compose_offer_effect = {
 					# county's holder, evaluated once per (held county x neighbouring
 					# county) on every draw of this archetype. A neighbouring county
 					# with no holder is not hypothetical in the world this mod is
-					# played in: AGOT fills its unowned map with placeholder holders
-					# whose governments carry government_is_uninteractable, which is
-					# the very flag T48 was added to catch. Vanilla's own trigger for
-					# this exact iterator body opens `holder ?= { ... }` and pairs the
+					# played in. Vanilla's own trigger for this exact iterator body
+					# opens `holder ?= { ... }` and pairs the
 					# identity test with target_is_liege_or_above, i.e. it is our five
 					# lines with the guard already in it:
 					#   GAME\common\scripted_triggers\00_title_triggers.txt:153-159
@@ -3150,18 +3148,9 @@ tnt_ai_compose_offer_effect = {
 			# CROSS-PRODUCT: a nested can_marry_character_trigger here would be
 			# O(kin x kin) deep-tree evaluations per composition. Each
 			# candidate is asked the per-candidate gate the window's own spouse
-			# lists use - tnt_spouse_try_add_effect, tnt_34_marriage.txt, which
-			# is FIVE rows and not two: marriage_interaction_can_be_picked_trigger,
-			# is_betrothed = no, tnt_person_is_beast_trigger = no,
-			# tnt_person_is_sworn_brother_trigger = no, and the ownership gate
-			# T51 tnt_may_offer_spouse_trigger.
-			# *** THIS SENTENCE USED TO CLAIM "the composer can never nominate
-			# *** someone the window would not have listed" WHILE CITING ONLY THE
-			# *** FIRST TWO ROWS, AND THAT FALSE CLAIM IS WHAT LET USER ITEM 2
-			# *** SHIP. *** V18 added the ownership gate here, at all six sites.
-			# The two P19/P20 rows (dragon, Night's Watch) are deliberately NOT
-			# copied: both are AGOT-only populations in practice and every
-			# ruler-level door is already shut by T47 on this entry.
+			# lists use - tnt_spouse_try_add_effect, tnt_34_marriage.txt:
+			# marriage_interaction_can_be_picked_trigger, is_betrothed = no,
+			# and the ownership gate T51 tnt_may_offer_spouse_trigger.
 			# IF EITHER FILE'S ROW SET CHANGES, CHANGE BOTH - this claim is only
 			# true while the two lists agree, and it was false for three rounds.
 			# (A15's ward pick made the same argument; A15 RETIRED V16, see its

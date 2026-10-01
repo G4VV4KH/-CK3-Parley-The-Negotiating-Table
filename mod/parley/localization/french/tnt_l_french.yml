@@ -234,7 +234,8 @@
  tnt_err_vassal_state:0 "Les deux parties doivent être vivantes, titrées et en liberté."
  tnt_err_vassal_limit:0 "La partie qui recevrait la fidélité n’a plus de place sous sa [vassal_limit|E]."
  tnt_err_vassal_tier:0 "Un vassal doit être de rang inférieur à son seigneur lige."
- tnt_err_vassal_wall:0 "La Garde de Nuit ne prête d’autre serment que le sien. Ceux qui tiennent le Mur ne prennent ni ne donnent de seigneur lige, et aucun traité ne peut les lier à un pays."
+ # AGOT SUSPENDED (CK3 1.20): unused Watch localization parked; awaiting the AGOT update.
+ # tnt_err_vassal_wall:0 "La Garde de Nuit ne prête d’autre serment que le sien. Ceux qui tiennent le Mur ne prennent ni ne donnent de seigneur lige, et aucun traité ne peut les lier à un pays."
  tnt_confirm_title:0 "Sceller le traité ?"
  tnt_confirm_desc:0 "Les conditions sont posées sur la table, la cire et le sceau à portée de main.\n\nUne fois l’émissaire parti, [tnt_deal_partner.GetShortUIName] entendra l’offre exactement telle qu’elle est : rien d’ajouté, rien de retiré."
  tnt_confirm_opt_yes:0 "Envoyer l’offre"

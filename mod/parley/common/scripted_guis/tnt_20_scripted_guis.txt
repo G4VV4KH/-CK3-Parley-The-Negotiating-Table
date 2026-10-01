@@ -1,4 +1,7 @@
-﻿######################################################################################
+﻿# AGOT integration is suspended pending its CK3 1.20 update.
+# AGOT-specific comments below document parked behavior, not current behavior.
+
+######################################################################################
 # PARLEY: THE NEGOTIATING TABLE — SCRIPTED GUIS, FILE 1 OF 3
 #
 # Owner: sgui.  Contract: 10-CONTRACT.md §5 groups A, B, F, G, H  =  33 entries.
@@ -1136,16 +1139,17 @@ tnt_vassal_p_toggle = {
 					is_landed = yes
 				}
 			}
+			# AGOT SUSPENDED (CK3 1.20): Watch-only validation tooltip parked; awaiting the AGOT update.
 			# T14/T16's twin of T5's Night's Watch row. In a vanilla game it is always
 			# true and the string never renders. Full argument in T46
 			# (tnt_40_triggers.txt:520).
-			custom_tooltip = {
-				text = tnt_err_vassal_wall
-				tnt_vassalage_pair_allowed_trigger = {
-					A = var:tnt_partner
-					B = root
-				}
-			}
+			# custom_tooltip = {
+				# text = tnt_err_vassal_wall
+				# tnt_vassalage_pair_allowed_trigger = {
+					# A = var:tnt_partner
+					# B = root
+				# }
+			# }
 			# THE TIER ROW, AND WHY THE trigger_if IS KEPT THOUGH IT CANNOT FIRE HERE.
 			# tnt_tier_edge_value is hardwired to root-versus-partner, so T15 read the
 			# direction off $LIEGE$. On this _p side $LIEGE$ is var:tnt_partner, so the
@@ -1261,13 +1265,14 @@ tnt_vassal_r_toggle = {
 					is_landed = yes
 				}
 			}
-			custom_tooltip = {
-				text = tnt_err_vassal_wall
-				tnt_vassalage_pair_allowed_trigger = {
-					A = root
-					B = var:tnt_partner
-				}
-			}
+			# AGOT SUSPENDED (CK3 1.20): Watch-only validation tooltip parked; awaiting the AGOT update.
+			# custom_tooltip = {
+				# text = tnt_err_vassal_wall
+				# tnt_vassalage_pair_allowed_trigger = {
+					# A = root
+					# B = var:tnt_partner
+				# }
+			# }
 			# THE TIER ROW. On this _r side $LIEGE$ is root, so the limit is
 			# `root = { this = root }` — unconditionally TRUE, and the row always
 			# collapses to `tnt_tier_edge_value > 0`, the mirror of the _p side's
@@ -1502,7 +1507,8 @@ tnt_send_offer = {
 			text = tnt_err_no_partner
 			exists = var:tnt_open
 			exists = var:tnt_partner
-			tnt_not_the_watch_trigger = { WHO = var:tnt_partner }
+			# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
+			# tnt_not_the_watch_trigger = { WHO = var:tnt_partner }
 		}
 		custom_tooltip = {
 			text = tnt_err_nothing

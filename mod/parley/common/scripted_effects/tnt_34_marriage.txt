@@ -1,4 +1,7 @@
-﻿########################################################################
+﻿# AGOT integration is suspended pending its CK3 1.20 update.
+# AGOT-specific comments below document parked behavior, not current behavior.
+
+########################################################################
 # PARLEY: THE NEGOTIATING TABLE — EXTENDED MARRIAGE: lists, state, and the wedding
 #
 # USER ITEM 2.1. Build 1 shipped marriage as a single toggle over a pair the
@@ -243,6 +246,7 @@ tnt_spouse_try_add_effect = {
 			#       GAME\common\scripted_triggers\00_marriage_triggers.txt:188
 			is_betrothed = no
 
+			# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 			# --- ours, one line: a dragon is not a bride (V12, user item 3) -
 			# tnt_42_people_gates.txt P19. REDUNDANT IN AGOT AS SHIPPED — AGOT
 			# overrides marriage_interaction_can_be_picked_trigger above and its
@@ -252,8 +256,9 @@ tnt_spouse_try_add_effect = {
 			# lists stop depending on ANOTHER MOD'S OVERRIDE of a vanilla trigger,
 			# and it is the same one gate the courtier list calls. Cost: one
 			# global-list scan per candidate, 8 passes per picker open.
-			tnt_person_is_beast_trigger = no
+			# tnt_person_is_beast_trigger = no
 
+			# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
 			# --- ours, one line: a man who took the black is nobody's groom
 			# (V15, USER ITEM 3) - tnt_42_people_gates.txt P20.
 			# THIS IS THE ONLY ROW THAT CAN CATCH HIM. Every ruler-level door is
@@ -271,7 +276,7 @@ tnt_spouse_try_add_effect = {
 			# trigger. In a vanilla-only game P20 is constant false.
 			# Cost: one liege-chain walk per candidate on a CLICK path, cheaper than
 			# the global-list scan on the line above, 8 passes per picker open.
-			tnt_person_is_sworn_brother_trigger = no
+			# tnt_person_is_sworn_brother_trigger = no
 
 			# --- ours: "is this someone $SIDE$ could marry off in vanilla?"
 			# V18, USER ITEM 2, AND THIS ONE LINE REPLACED THE BUG HE REPORTED.

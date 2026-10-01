@@ -1,0 +1,386 @@
+{
+  "schema": 1,
+  "baseline": "Crozier candidate: Parley 1.1.0 and MCA 3.1.0 for CK3 1.20.0.2. Explicit reviewed runtime delta from immutable RC3. Rite semantics, direct-player ownership and 1.20 native GUI. RC4 engine startup detected removed administrative rule; RC5 additionally uses government_has_mechanic = administrative and adds typed government enum coverage. Engine verification recorded separately. AGOT:MCA excluded pending compatible upstream. Not an automatic baseline refresh. RC6 additionally invalidates stale auto-balance verdicts when committed marriage terms change and reprices line edits. Explicit reviewed two-file delta from RC5; no balancing arithmetic change. RC7 explicitly adds only twelve identity scale properties to MCA callback states (plus explanatory comments), eliminating empty-animation-state diagnostics without changing triggers, callbacks or scores. Parley runtime is byte-identical to RC6; its focused 34-assertion engine result carries forward within its stated scope. MCA UI and clean-payload smoke require fresh verification. RC8 explicitly adds only actor-to-puppet_or_actor initialization before the shared native AI-world vassalization helper. RC7 was rejected after its natural campaign exposed nine undefined/null-scope diagnostics at this seam. MCA is byte-identical to RC7; Parley marriage and player execution files are unchanged. Fresh AI seam engine verification required. RC9 explicitly removes only the obsolete Parley dependency from the MCA descriptor. All Parley bytes and all MCA gameplay/GUI/localization bytes remain identical to RC8. MCA-only engine smoke is recorded separately; no old package or evidence is rewritten. RC10 explicitly suspends all Parley-specific AGOT integration pending AGOT 1.20. Original guards, callers, marker declarations, tooltips and their localized message are retained as comments. The reviewed change touches twelve script files and nine localization files. Ordinary vanilla restrictions and MCA bytes are unchanged. Focused source and fresh engine validation are recorded separately.",
+  "mods": {
+    "parley": {
+      "files": {
+        "common/character_interactions/tnt_10_interaction.txt": {
+          "sha256": "74e8b2df1ae7203029b7b06451fabd871fb2908141bf1b94822282c72c1bf12e",
+          "bytes": 33929
+        },
+        "common/character_interactions/tnt_12_marriage_picker.txt": {
+          "sha256": "cf21c9c7ce053ac995e34713376ae2f368c664d10b5adb345a1cda854d40010a",
+          "bytes": 56342
+        },
+        "common/decision_group_types/tnt_92_decision_groups.txt": {
+          "sha256": "e9e9ff7dff7e465b8a3eb268ffc82ccaf096e368f7ba0793f4884d2dd894ff93",
+          "bytes": 5874
+        },
+        "common/decisions/tnt_85_decisions.txt": {
+          "sha256": "3c711bb6f71be1820a416d8739daefc1cf71df6f3062e71515f2f10967003d8e",
+          "bytes": 8277
+        },
+        "common/decisions/tnt_86_uninstall.txt": {
+          "sha256": "1a7315699a5b28c4c615a1d40c92f92c896b3bfe1855f209b0ae85ab0993f326",
+          "bytes": 32526
+        },
+        "common/game_rules/tnt_80_game_rules.txt": {
+          "sha256": "5e1a489a3045d81d6d229c78bf190aad7023fd55d5a4e5287c2a271682008cb7",
+          "bytes": 18984
+        },
+        "common/game_rules/tnt_81_ai_rules.txt": {
+          "sha256": "cfb98d0bd95f846229d9bb3d09221e12c14a12f9a39b0dde429c0a88c4dca8ab",
+          "bytes": 22507
+        },
+        "common/hook_types/tnt_90_hook_types.txt": {
+          "sha256": "a636fdcacf0e0eee5f300389f2fa5e5f1e0202ec9b86bb3ada48af0bed6d0547",
+          "bytes": 9134
+        },
+        "common/important_actions/tnt_91_alerts.txt": {
+          "sha256": "a56b814efc48fb4f7af5929337f37dc7c74c5d2494375d33b12d82e31fa116a6",
+          "bytes": 26719
+        },
+        "common/on_action/tnt_70_on_actions.txt": {
+          "sha256": "a8aabd6cc25e0cc9fe542afe31bea76140c9dc5abbf22830255b0c7891741a6c",
+          "bytes": 14274
+        },
+        "common/on_action/tnt_71_ai.txt": {
+          "sha256": "279f4ab5df46975195477d035f9f11bd0f1e0c9d8bdce38dfdd59115d451c5b4",
+          "bytes": 18192
+        },
+        "common/on_action/tnt_72_ai_world.txt": {
+          "sha256": "1bba56a764d1cbb2b108a665afbce90ca9f1884b2d7feb862195575e47d97b11",
+          "bytes": 25041
+        },
+        "common/on_action/tnt_73_intro.txt": {
+          "sha256": "84cc425646867f715b144624016272780ecddaff14441f768eaa505001d089c0",
+          "bytes": 4930
+        },
+        "common/opinion_modifiers/tnt_61_opinions.txt": {
+          "sha256": "fc1eb56354301e522f650947ffb9bec5b6d4e6aa343d9bb363f7a7802ea72d78",
+          "bytes": 7533
+        },
+        "common/script_values/tnt_50_values.txt": {
+          "sha256": "f494a327e9f6c87582e52c9c165c4e667146b4a424beccb5dfc57d8e0eeda6ad",
+          "bytes": 204954
+        },
+        "common/script_values/tnt_51_relation_values.txt": {
+          "sha256": "8120a1697f3320d14e2df83be9c8971a13702c82de1286daf98065d64afdd23a",
+          "bytes": 36039
+        },
+        "common/script_values/tnt_52_marriage_values.txt": {
+          "sha256": "536f078b6a9a3d0a7030f9f8b563a51ceaeec1497c23062e40da85d06858527b",
+          "bytes": 159466
+        },
+        "common/script_values/tnt_53_currency_values.txt": {
+          "sha256": "ab8ed0b460e1e9c0f1a81c33db678a883ea7d9393193cfa4e2926c472e7cec77",
+          "bytes": 49678
+        },
+        "common/script_values/tnt_54_multiselect_values.txt": {
+          "sha256": "d5c2203a6b04962561c3224f9ae8b95468717c3f6f19275bed10e5b397b110b9",
+          "bytes": 52729
+        },
+        "common/script_values/tnt_55_hc_values.txt": {
+          "sha256": "ea0add1360c4420930978e9d5f696e172e390d950f8447ff866a155243888b13",
+          "bytes": 43952
+        },
+        "common/script_values/tnt_56_ai_values.txt": {
+          "sha256": "b2f89b3da127b81952a9020f6a1f042cef0b99ee75e45ab2969cc39cce2396d6",
+          "bytes": 124367
+        },
+        "common/script_values/tnt_57_threat_values.txt": {
+          "sha256": "ec656c2e470bc2eb4a898b778cb17b991062f97a99fd7f848d360790a25e7df0",
+          "bytes": 27990
+        },
+        "common/script_values/tnt_58_person_values.txt": {
+          "sha256": "63909f7d00fb15fb81570008cfcd45e2019d197e2b5c963b5de91a58b0e9c055",
+          "bytes": 44069
+        },
+        "common/script_values/tnt_59_usehook_values.txt": {
+          "sha256": "7e2c52f38735acaf525748d0169cde1dcd0c168bbf9c06fd1bb03de849646584",
+          "bytes": 7587
+        },
+        "common/script_values/tnt_5a_stress_values.txt": {
+          "sha256": "7c122cba291f82ec3b18d70352bab1c0efda8dd00d52c4d25dc0c0bbd504eefc",
+          "bytes": 15241
+        },
+        "common/scripted_effects/tnt_1f_addon_hooks.txt": {
+          "sha256": "1c0f9281637ea7b5ca7dddd16f3a6a3f832a8bd7901ee2de4ebf181d987d1df6",
+          "bytes": 6092
+        },
+        "common/scripted_effects/tnt_30_effects.txt": {
+          "sha256": "88741edd8420ecd1b261305b2e8f617f1844844d3c39aaec684ee690e6e6994a",
+          "bytes": 71069
+        },
+        "common/scripted_effects/tnt_31_lists.txt": {
+          "sha256": "3b65c3fcaf7be43fc38c80159a02e5497711d8a66983a48f559241610234a7a3",
+          "bytes": 39116
+        },
+        "common/scripted_effects/tnt_32_apply.txt": {
+          "sha256": "09433f5fbed4b52e49275bd52aa3f50ece44d3f503663451a21e756543cc9653",
+          "bytes": 107417
+        },
+        "common/scripted_effects/tnt_33_currency_apply.txt": {
+          "sha256": "c41ded4268db60986510851652b34cab04869d67e3d7d2f415b0bbcafbb7b6b2",
+          "bytes": 17169
+        },
+        "common/scripted_effects/tnt_34_marriage.txt": {
+          "sha256": "6eb61d22aba8ee21c9ea836aab11c0b73aaf692dff6af55bcb999c79361dc6de",
+          "bytes": 132196
+        },
+        "common/scripted_effects/tnt_35_multiselect.txt": {
+          "sha256": "8a1b70b0ea0a1ca1544c3b035edf237d7eecb842f0d8f9b2b1f77d021d6d7f15",
+          "bytes": 36022
+        },
+        "common/scripted_effects/tnt_35a_sort.txt": {
+          "sha256": "623c69cf5b1a1705cba547eb9b90b221f8721f977900d37d53621d5a31794bbf",
+          "bytes": 21594
+        },
+        "common/scripted_effects/tnt_36_hooks_contracts.txt": {
+          "sha256": "7bea5449edaf87a42ebc72b2fa93b10cd6b2a6e6bb0f1eddea35bca51e41f064",
+          "bytes": 31641
+        },
+        "common/scripted_effects/tnt_37_ai_offer.txt": {
+          "sha256": "191905635f05d095a8425107baaa482c8cdff2d14b2e00585f562e9cc05be74d",
+          "bytes": 292354
+        },
+        "common/scripted_effects/tnt_38_ai_world.txt": {
+          "sha256": "c7901f0c6b14e1365c732ff03e2f0e014aa0b4afdfb5a390159c631e868b9b83",
+          "bytes": 174217
+        },
+        "common/scripted_effects/tnt_39_autobalance.txt": {
+          "sha256": "f1a1d3d7e16d942341570c6111888552ac65de384f440d44f8f34df8f0bbb446",
+          "bytes": 62660
+        },
+        "common/scripted_effects/tnt_3a_people.txt": {
+          "sha256": "dad1ba73b3fa190ceaf7fc46be7a975e1f5ff0a33494b2a6deac473e6f2467bc",
+          "bytes": 43574
+        },
+        "common/scripted_effects/tnt_3b_log.txt": {
+          "sha256": "7481848fa59e7a52fa9fa014ce60fbdb916ae6009265aee2ab343bef5d51da4e",
+          "bytes": 211197
+        },
+        "common/scripted_effects/tnt_3c_stress.txt": {
+          "sha256": "40c6e391cb959102560632d90091438e740d7df5e6c837e76b42bb54adb1cf94",
+          "bytes": 40366
+        },
+        "common/scripted_guis/tnt_20_scripted_guis.txt": {
+          "sha256": "a3b2acb867032d6835539161ea974208b592b2ddd7316e9c7e4caae69d0f25f4",
+          "bytes": 78305
+        },
+        "common/scripted_guis/tnt_21_pickers.txt": {
+          "sha256": "0830945ed3f8eeed56aff1c8f364cacf74bbed375f22fecf7986a6fa8ddd65e8",
+          "bytes": 20681
+        },
+        "common/scripted_guis/tnt_22_v2.txt": {
+          "sha256": "95323daeacb94e5c764e5040154fd0ee8b649687c9db417cf1902fe1f80eb283",
+          "bytes": 51899
+        },
+        "common/scripted_guis/tnt_22a_marriage.txt": {
+          "sha256": "652be0e8535e13f0cd630cef95d64514c18cfecaa5aa023fd1f9374ac27a5e55",
+          "bytes": 32966
+        },
+        "common/scripted_guis/tnt_22b_multiselect.txt": {
+          "sha256": "fa313c70cbe12046e1b8915c98fa3e368552af3cc6648474d1ada7d9a2ec0ebd",
+          "bytes": 29190
+        },
+        "common/scripted_guis/tnt_22c_hooks_contracts.txt": {
+          "sha256": "47422abbea4bbb27119b25f5690907a2e5c4db62961852d7db3b78540be3dbd1",
+          "bytes": 24165
+        },
+        "common/scripted_guis/tnt_23_usehook.txt": {
+          "sha256": "7b340e15672dad04915078194f74df7b88d618709d8864bca035abc1a77f7174",
+          "bytes": 1652
+        },
+        "common/scripted_guis/tnt_24_people.txt": {
+          "sha256": "f9f2b15a5c5ce26490b756dd892cce1dcad5c01e644aad08b985c1c5f44f491b",
+          "bytes": 65445
+        },
+        "common/scripted_triggers/tnt_40_triggers.txt": {
+          "sha256": "13a9fb570aaee985046c01b223eac316171bc0b1a0da1b4a9e286b26ae6032a9",
+          "bytes": 113588
+        },
+        "common/scripted_triggers/tnt_41_gates.txt": {
+          "sha256": "f762413ad453eabfdb8d1804f8a9ba7a90c64411a0f93a81f6736bbeecda992a",
+          "bytes": 183013
+        },
+        "common/scripted_triggers/tnt_42_people_gates.txt": {
+          "sha256": "4ec9bd0be7cf03d3368ce7390b0f33e8714f5bf30ff13db8ac962a8702b75c99",
+          "bytes": 105727
+        },
+        "common/scripted_triggers/tnt_43_preflight.txt": {
+          "sha256": "a9fb00b59da17017725f29b95701fe398af306066c7b04e3e48b781f2d782629",
+          "bytes": 24864
+        },
+        "data_binding/tnt_macros.txt": {
+          "sha256": "d95d126ce5caa74bc2d58e0d3e93975ba369e64509e9e8393790a24d64715d62",
+          "bytes": 16017
+        },
+        "descriptor.mod": {
+          "sha256": "3aa85424f2b3ea2296eedcb19b92bfbcc37cf24e8dce0a1ec1695a8b7284039b",
+          "bytes": 142
+        },
+        "events/tnt_ai_events.txt": {
+          "sha256": "d1c6a3207749b8482f67245ac06a2cea57dd26f11c09dec76f30232ed9995e6b",
+          "bytes": 88445
+        },
+        "events/tnt_events.txt": {
+          "sha256": "a2665d635befefeff3b3a41c80016c12e1b757c0221b4c20d20f6d3f209a8a36",
+          "bytes": 10976
+        },
+        "events/tnt_intro_events.txt": {
+          "sha256": "f056806156573f89835ba508c1b714afd5cb0e0701348864358343d7e8266e7b",
+          "bytes": 4745
+        },
+        "gui/event_window_widgets/tnt_offer_summary.gui": {
+          "sha256": "187e7ab219a4f18b6e5cbac4639ceb2bf83dfd1400cfa3cdb814828b86cbe657",
+          "bytes": 65617
+        },
+        "gui/scripted_widgets/tnt_diplomacy.txt": {
+          "sha256": "cc000690c8e9c5d46bf0603aeece513b531c9675b2ec4e96d7afef10dd230e2a",
+          "bytes": 55
+        },
+        "gui/tnt_diplomacy_window.gui": {
+          "sha256": "10b0e303b79f59ca85187d9e90ba8c029a06f36d8809d0dc242c3ce2c72717bf",
+          "bytes": 190774
+        },
+        "gui/tnt_panel_contract.gui": {
+          "sha256": "9ef736c69fc0f733d87146d9cfd3807fdf4547c704d13a465b676480f57b659d",
+          "bytes": 83421
+        },
+        "gui/tnt_panel_marriage.gui": {
+          "sha256": "013325327fb6af65c87b78ac933bb5582c766399baa0ab61d3e8bd40b978398a",
+          "bytes": 71741
+        },
+        "gui/tnt_panel_multiselect.gui": {
+          "sha256": "5b27d4cca693f5faeac8065ce5132483d312f70c83ea7a343fe981461d96b780",
+          "bytes": 87898
+        },
+        "gui/tnt_panel_people.gui": {
+          "sha256": "786f9c8aef7da181581215f765dd4aa56d99316e130a5188a6e871eaca7e7709",
+          "bytes": 31999
+        },
+        "gui/tnt_panels.gui": {
+          "sha256": "6b1225008e5c69367b92f2c6e564bb0bc55b35bc1508c4b7dc5041830b7d127f",
+          "bytes": 133405
+        },
+        "gui/tnt_types.gui": {
+          "sha256": "fdbb6a04227615f1d67c8572be51b90793cf9a47de95769d2d4da6d525f53875",
+          "bytes": 122411
+        },
+        "localization/english/tnt_l_english.yml": {
+          "sha256": "4481acbeb08bf46a5f0e44e678532a6ef68042a798d558399b93ab192ae3a71e",
+          "bytes": 226975
+        },
+        "localization/french/tnt_l_french.yml": {
+          "sha256": "4bc0c7e4a1d40646124928f6b5e406f8f3969e5349f9b0890427cf1f38f3ff87",
+          "bytes": 100183
+        },
+        "localization/german/tnt_l_german.yml": {
+          "sha256": "b75aff348a61c3bf0b2302f2e082ed4b36c655d3fdb4957b40f4508bbd451adb",
+          "bytes": 99452
+        },
+        "localization/japanese/tnt_l_japanese.yml": {
+          "sha256": "b0f1d2dbc5debfc3ddcf8cf95e49c22b80fb3c4f0e0f20d3c1d1206ff1f667be",
+          "bytes": 106814
+        },
+        "localization/korean/tnt_l_korean.yml": {
+          "sha256": "f7b2c6169f9ca1a24868bfc8ffbf9314496fcdb5d4828738599d86e182726b75",
+          "bytes": 106075
+        },
+        "localization/polish/tnt_l_polish.yml": {
+          "sha256": "ffad45024e274fd284e96feac448747a8559b6bef50e21577f21d18d314c406c",
+          "bytes": 96461
+        },
+        "localization/russian/tnt_l_russian.yml": {
+          "sha256": "f55494fefd91d60c76970ce3e01958d4642282e9b9dedfe31b811a0d3d7b8b93",
+          "bytes": 351798
+        },
+        "localization/simp_chinese/tnt_l_simp_chinese.yml": {
+          "sha256": "f4197b9adb45ee7520a1c2a1049bcf8bbf97eaa7f3440d79a39c9874ef8d7efa",
+          "bytes": 86454
+        },
+        "localization/spanish/tnt_l_spanish.yml": {
+          "sha256": "7622f69c7f432ec3af317b8d0234c098713465d42a9cd5b1e17bba29a5d3b00a",
+          "bytes": 93801
+        },
+        "thumbnail.png": {
+          "sha256": "5a9fd3a8017fc5812bb2bb534c2297394e610c52f0c5f3355f3cd95e2ee2c636",
+          "bytes": 663791
+        }
+      }
+    },
+    "marriage_calc_assistant": {
+      "files": {
+        "common/script_values/tnt_ma_00_adapter_defaults.txt": {
+          "sha256": "2a33f644ec3cb7870bc9b783c83eddfab28676992227c19dd838672b89252f8b",
+          "bytes": 1858
+        },
+        "common/script_values/tnt_ma_52_grade.txt": {
+          "sha256": "dc29550c29dfd434405c03ec48d55ac8887a0f8208a432ccb2ef8811f14fe942",
+          "bytes": 16638
+        },
+        "common/script_values/tnt_ma_sort_capture.txt": {
+          "sha256": "cff6b3e1f5496d4a80a2d511ce1290f2d84bdc8a6e3fb4b853e605a47aa3ae94",
+          "bytes": 936
+        },
+        "common/scripted_guis/tnt_ma_sort.txt": {
+          "sha256": "c721cbfa90d77ecc37bc35be0ee4a936d2eae724123ba784272417827f82cffb",
+          "bytes": 22343
+        },
+        "descriptor.mod": {
+          "sha256": "6d2524b3af8ed4a824f33b76fcf3815d2b0e2b5342f4687d5e20c5ddb049398e",
+          "bytes": 119
+        },
+        "gui/interaction_marriage.gui": {
+          "sha256": "aa033ae800c5f23ed7bfbfa58ffac6a7e972b796498f9fd9738778087948163e",
+          "bytes": 47835
+        },
+        "gui/tnt_ma_character_list_item.gui": {
+          "sha256": "cf6ea789d96b2cef528bb78af6102a391dca7888ae7950a1846ce713fc448645",
+          "bytes": 8930
+        },
+        "localization/english/tnt_ma_l_english.yml": {
+          "sha256": "6ce37b6cd06921627d03e22aba18becf0706fb0f2ff53614df3eb0a79a33a6f1",
+          "bytes": 1397
+        },
+        "localization/french/tnt_ma_l_french.yml": {
+          "sha256": "03b924fd144923cafa50d39a9c6b0722a84ae1849d0ad88767f8ca46fc277bb1",
+          "bytes": 1541
+        },
+        "localization/german/tnt_ma_l_german.yml": {
+          "sha256": "6288d10dc887fd52e043acd7cebf679e72486e4b4e75ff59f0fa3211942febfc",
+          "bytes": 1553
+        },
+        "localization/japanese/tnt_ma_l_japanese.yml": {
+          "sha256": "fa3ed530e224a7d720254ba5a8e8eb3793894477a4cf17d783da241ccdc094a3",
+          "bytes": 1547
+        },
+        "localization/korean/tnt_ma_l_korean.yml": {
+          "sha256": "b8eda6b1500aeecc14c5a775339627bd96cc074e4cd2c7e9ad7461b00af83e99",
+          "bytes": 1512
+        },
+        "localization/polish/tnt_ma_l_polish.yml": {
+          "sha256": "594f78215d15949b94cc4f9b50824ca767da4df1dc579a608642766806a93938",
+          "bytes": 1459
+        },
+        "localization/russian/tnt_ma_l_russian.yml": {
+          "sha256": "3ec5e674cbabee8263028291c955a67f8d6aaf2f167b526ff3da1ea75b1bc6ed",
+          "bytes": 2148
+        },
+        "localization/simp_chinese/tnt_ma_l_simp_chinese.yml": {
+          "sha256": "42de3dad2fe7f5d4bd317079eed2d001d9f8d853cfe3d26a8eeacd44478836e4",
+          "bytes": 1302
+        },
+        "localization/spanish/tnt_ma_l_spanish.yml": {
+          "sha256": "3e4f3d111b213665621f9712fb49d60f1e67e54ff5ca19dc1671dc80c9576492",
+          "bytes": 1517
+        },
+        "thumbnail.png": {
+          "sha256": "e06464e0e8a2b4034487b364136d9e820f8081c7194bc5ec2c725e3d59104fd3",
+          "bytes": 690554
+        }
+      }
+    }
+  }
+}

@@ -6,7 +6,8 @@
 - 🟢 **No other mod required.** Includes its own negotiation interface.
 - 🟢 **Nine languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese and Spanish.
 - 🔴 **Changes gameplay:** treaties can transfer money, people, land and vassalage.
-- 🔴 **Direct ruler negotiations only.** Puppet proxy mode is unavailable. Current AGOT support is on hold; see the historical combination below.
+- 🔴 **AGOT compatibility: awaiting the AGOT update for CK3 1.20.**
+- 🔴 **Direct ruler negotiations only.** Puppet proxy mode is unavailable.
 - 🔴 **Multiplayer and long campaigns are not fully verified.** Other overhauls may need compatibility work.
 
 ## A wedding can win what a war cannot
@@ -73,16 +74,7 @@ Negotiate as your own ruler. When acting for a puppet, Parley's opener and treat
 1. Parley: The Negotiating Table
 2. Marriage Calculation Assistant
 
-**Historical RC3 AGOT order — CK3 1.19.0.6 only:**
-
-1. A Game of Thrones
-2. Parley: The Negotiating Table **1.0.0**
-3. Marriage Calculation Assistant **3.0.1**
-4. AGOT: Marriage Calculation Assistant **2.2.0**
-
-That combination used **AGOT 0.5.2.1**. It does not establish AGOT support for Parley 1.1.0 on CK3 1.20. Both assistants are optional; they are not general AGOT compatibility patches.
-
-Built-in AGOT safeguards remain: dragon exclusions, Night's Watch and wildling fealty restrictions, and checks for uninteractable rulers. They read AGOT data when present; fresh AGOT validation is pending.
+**AGOT is not supported by this CK3 1.20 release.** Parley's AGOT-specific integration is disabled pending an updated AGOT and fresh compatibility checks. The historical calculation above refers to RC3 on CK3 1.19.0.6 with AGOT 0.5.2.1; it does not establish current support. Both marriage assistants are optional, and neither is a general Parley compatibility patch.
 
 **Submods and companion mods:**
 
@@ -97,7 +89,7 @@ Before removal, use **Fold Away the Negotiating Table** under **Mod Removal Deci
 
 Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package. Terms are rechecked before execution; multiplayer and long-campaign balance remain unverified.
 
-Gallery images show **RC3 on CK3 1.19.0.6**, with **AGOT 0.5.2.1** for Dorne. Current 1.20.0.2 checks covered negotiation, balancing, marriage staging/cleanup, Rites, influence, AI vassalization and a short campaign. Native diagnostics reproduced with all mods off; logs are not empty. Native puppet UI, full Jizya/legality coverage, multiplayer and long campaigns remain unverified.
+Gallery images show **RC3 on CK3 1.19.0.6**. Earlier focused 1.20.0.2 checks covered negotiation, balancing, marriage staging/cleanup, Rites, influence, AI vassalization and a short campaign. RC10 also passed fresh startup and negotiation, fealty, courtier and marriage-picker UI checks after disabling AGOT integration. Logs retain known notices. Native puppet UI, full Jizya/legality coverage, multiplayer and long campaigns remain unverified.
 
 ## Feedback and support
 

@@ -1,4 +1,7 @@
-﻿######################################################################################
+﻿# AGOT integration is suspended pending its CK3 1.20 update.
+# AGOT-specific comments below document parked behavior, not current behavior.
+
+######################################################################################
 # PARLEY — SCRIPTED GUIS, FILE 5 OF 5: THE FOUR PEOPLE TERMS  (user item 19)
 #
 # Owner: B4.  16 LIVE entries (was 22 before V16, user item 5, retired the ward
@@ -993,6 +996,7 @@ tnt_indep_p_toggle = {
 				trigger_else = { always = no }
 			}
 		}
+		# AGOT SUSPENDED (CK3 1.20): Watch-only validation tooltip parked; awaiting the AGOT update.
 		# V14, USER ITEM 1: NAME THE REAL REASON. P13 now refuses a Night's
 		# Watch pair (tnt_42_people_gates.txt, the T46 call), so the cache row
 		# above already goes to 0 on its own and this toggle dies without any
@@ -1006,16 +1010,16 @@ tnt_indep_p_toggle = {
 		# The inner exists guard makes the row pass VACUOUSLY when there is no
 		# partner, which is the shape tnt_42_people_gates.txt:1137-1143
 		# prescribes for this file. In a vanilla game it is always true.
-		custom_tooltip = {
-			text = tnt_err_vassal_wall
-			trigger_if = {
-				limit = {
-					NOT = { exists = var:tnt_indep_p }
-					exists = var:tnt_partner
-				}
-				tnt_vassalage_pair_allowed_trigger = { A = root  B = var:tnt_partner }
-			}
-		}
+		# custom_tooltip = {
+			# text = tnt_err_vassal_wall
+			# trigger_if = {
+				# limit = {
+					# NOT = { exists = var:tnt_indep_p }
+					# exists = var:tnt_partner
+				# }
+				# tnt_vassalage_pair_allowed_trigger = { A = root  B = var:tnt_partner }
+			# }
+		# }
 	}
 
 	effect = {
@@ -1085,21 +1089,22 @@ tnt_indep_r_toggle = {
 				trigger_else = { always = no }
 			}
 		}
+		# AGOT SUSPENDED (CK3 1.20): Watch-only validation tooltip parked; awaiting the AGOT update.
 		# V14, USER ITEM 1 - the _p twin's row, unchanged but for the cache name.
 		# See it for the whole argument and for why a flat flag lookup is legal
 		# in a per-frame is_valid. THE A/B ARGUMENTS ARE DELIBERATELY THE SAME
 		# SPELLING IN BOTH TOGGLES: T46 is symmetric, so one call serves both
 		# directions and there is no second form to keep in step.
-		custom_tooltip = {
-			text = tnt_err_vassal_wall
-			trigger_if = {
-				limit = {
-					NOT = { exists = var:tnt_indep_r }
-					exists = var:tnt_partner
-				}
-				tnt_vassalage_pair_allowed_trigger = { A = root  B = var:tnt_partner }
-			}
-		}
+		# custom_tooltip = {
+			# text = tnt_err_vassal_wall
+			# trigger_if = {
+				# limit = {
+					# NOT = { exists = var:tnt_indep_r }
+					# exists = var:tnt_partner
+				# }
+				# tnt_vassalage_pair_allowed_trigger = { A = root  B = var:tnt_partner }
+			# }
+		# }
 	}
 
 	effect = {

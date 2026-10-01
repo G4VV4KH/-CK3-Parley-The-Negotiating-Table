@@ -1707,7 +1707,6 @@ $submissionCooldown = ([regex]::Matches($doBlock, 'tnt_ai_world_cooldown_effect=
 $routeShape = ($worldOnActionCanonical.Contains('highest_held_title_tier>=tier_countyis_at_war=noNOT={has_variable=tnt_ai_world_cd}') -and
     $worldOnActionCanonical.Contains('tnt_ai_world_submission_pulse_effect=yesif={limit={NOT={has_variable=tnt_ai_world_cd}}tnt_ai_world_pulse_effect=yes}'))
 $submissionSafetyShape = ($worldTriggerCanonical.Contains('$A$={is_ai=yesis_alive=yesis_landed=yesis_ruler=yesis_adult=yesis_independent_ruler=yesis_at_war=nohighest_held_title_tier>=tier_kingdom') -and
-    $worldTriggerCanonical.Contains('NOT={has_variable=agot_pwl_direct}') -and
     $worldTriggerCanonical.Contains('$B$={tnt_ai_world_partner_structural_trigger=yesis_independent_ruler=yesis_at_war=nois_playable_character=yes') -and
     $worldTriggerCanonical.Contains('modifier=granted_independence_opiniontarget=$A$'))
 $orderShape = ($worldOnActionCanonical.IndexOf('tnt_ai_world_submission_pulse_effect=yes') -ge 0 -and

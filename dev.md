@@ -10,6 +10,8 @@ Parley 1.1.0 is developed in `mod/parley/` for CK3 1.20.0.2. Read [the current c
 - `docs/`: current implementation references.
 - `publishing/`: store descriptions and publication material, when present.
 
+Parley's AGOT-specific checks and their calls are commented out for the RC10 candidate while an AGOT update for CK3 1.20 is pending. Do not reactivate AGOT-specific checks without reviewing the updated upstream definitions and recording fresh focused verification. Historical AGOT files, screenshots and test reports are evidence for their original versions, not current support.
+
 The sibling MCA and AGOT:MCA repositories own their own runtime files and tests. Keep shared tools in this repository instead of maintaining three diverging copies. Keep the frozen helper, its JSON contract and its patch together: their adjacent paths are part of the check.
 
 `dev`, `game` and `workshop` are distinct copies. Edit `dev`; generate `game` through the release tooling; compare the Steam-downloaded `workshop` copy with the uploaded package. Do not edit downloaded Workshop files as the source of a release.

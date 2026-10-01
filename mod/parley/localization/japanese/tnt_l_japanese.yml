@@ -232,7 +232,8 @@
  tnt_err_vassal_state:0 "双方とも、生きていて、領地を持ち、自由の身でなければなりません。"
  tnt_err_vassal_limit:0 "忠誠を受ける側には、[vassal_limit|E]の余裕が残っていません。"
  tnt_err_vassal_tier:0 "封臣は主君より下のランクでなければなりません。"
- tnt_err_vassal_wall:0 "壁の守人は、己の誓いのほかにいかなる誓いも立てません。壁に立つ者は主君を戴かず、主君にもならず、いかなる条約も彼らを領国に組み入れることはできません。"
+ # AGOT SUSPENDED (CK3 1.20): unused Watch localization parked; awaiting the AGOT update.
+ # tnt_err_vassal_wall:0 "壁の守人は、己の誓いのほかにいかなる誓いも立てません。壁に立つ者は主君を戴かず、主君にもならず、いかなる条約も彼らを領国に組み入れることはできません。"
  tnt_confirm_title:0 "条約に印を捺すか？"
  tnt_confirm_desc:0 "条件は卓上に並び、蝋と印章は手元にある。\n\n使者がひとたび発てば、[tnt_deal_partner.GetShortUIName]は今あるままの提示を聞くことになる。付け足しも取り下げもない。"
  tnt_confirm_opt_yes:0 "提示を送る"

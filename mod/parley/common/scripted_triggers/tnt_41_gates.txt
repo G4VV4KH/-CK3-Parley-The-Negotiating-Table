@@ -2118,9 +2118,8 @@ tnt_wed_host_gate_trigger = {
 # a scripted_gui is_valid: no custom_description anywhere, which is what T42's
 # and T44's headers require of anything they call.
 #
-# COST: at most four flat character lookups, no list scan and no realm walk -
-# cheaper than tnt_person_is_beast_trigger, which the same limit already runs
-# beside it. House law 6 is untouched: every call site is a click path, a
+# COST: at most four flat character lookups, no list scan and no realm walk.
+# House law 6 is untouched: every call site is a click path, a
 # rate-limited yearly pulse, or an effect `limit`.
 # =============================================================================
 tnt_may_offer_spouse_trigger = {

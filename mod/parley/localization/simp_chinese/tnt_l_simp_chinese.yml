@@ -233,7 +233,8 @@
  tnt_err_vassal_state:0 "双方都必须在世、有地且身处自由。"
  tnt_err_vassal_limit:0 "接受效忠的一方的[vassal_limit|E]已无余额。"
  tnt_err_vassal_tier:0 "封臣的等级必须低于其领主。"
- tnt_err_vassal_wall:0 "守夜人军团只立自己的誓。驻守绝境长城的人不认领主，也不做领主，没有哪份条约能把他们束进一个领地。"
+ # AGOT SUSPENDED (CK3 1.20): unused Watch localization parked; awaiting the AGOT update.
+ # tnt_err_vassal_wall:0 "守夜人军团只立自己的誓。驻守绝境长城的人不认领主，也不做领主，没有哪份条约能把他们束进一个领地。"
  tnt_confirm_title:0 "为条约用印？"
  tnt_confirm_desc:0 "条款已陈于案上，火漆与印玺就在手边。\n\n使节一旦启程，[tnt_deal_partner.GetShortUIName]听到的提议将与眼下分毫不差——不增一条，不减一条。"
  tnt_confirm_opt_yes:0 "送出提议"

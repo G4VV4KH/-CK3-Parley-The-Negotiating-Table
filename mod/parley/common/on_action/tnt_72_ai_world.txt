@@ -1,4 +1,7 @@
-﻿###############################################################################
+﻿# AGOT integration is suspended pending its CK3 1.20 update.
+# AGOT-specific comments below document parked behavior, not current behavior.
+
+###############################################################################
 # PARLEY: THE NEGOTIATING TABLE — THE PHASE C-2 PULSE HOST
 # USER ITEM 4, PHASE C-2   (30-V2-DESIGN §6.3 phase AI-3)
 #
@@ -380,7 +383,8 @@ tnt_ai_world_pulse = {
 		# liege during AGOT's temporary Mega-War independence graph.
 		is_at_war = no
 		NOT = { has_variable = tnt_ai_world_cd }
-		tnt_not_the_watch_trigger = { WHO = this }		# V15, USER ITEM 3: the Wall brokers nothing, silently or otherwise. See T48, tnt_40_triggers.txt, and row 7 of the list above.
+		# AGOT SUSPENDED (CK3 1.20): compatibility guard parked; awaiting the AGOT update.
+		# tnt_not_the_watch_trigger = { WHO = this }		# V15, USER ITEM 3: the Wall brokers nothing, silently or otherwise. See T48, tnt_40_triggers.txt, and row 7 of the list above.
 	}
 
 	effect = {

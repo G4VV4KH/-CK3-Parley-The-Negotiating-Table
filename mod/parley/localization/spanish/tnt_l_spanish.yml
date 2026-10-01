@@ -234,7 +234,8 @@
  tnt_err_vassal_state:0 "Ambas partes deben estar vivas, con tierras y en libertad."
  tnt_err_vassal_limit:0 "A la parte que recibiría la lealtad no le queda sitio bajo su [vassal_limit|E]."
  tnt_err_vassal_tier:0 "Un vasallo debe tener un rango inferior al de su señor."
- tnt_err_vassal_wall:0 "La Guardia no presta más juramento que el suyo propio. Quienes guarnecen el Muro no toman señor ni lo conceden, y ningún tratado puede atarlos a un señorío."
+ # AGOT SUSPENDED (CK3 1.20): unused Watch localization parked; awaiting the AGOT update.
+ # tnt_err_vassal_wall:0 "La Guardia no presta más juramento que el suyo propio. Quienes guarnecen el Muro no toman señor ni lo conceden, y ningún tratado puede atarlos a un señorío."
  tnt_confirm_title:0 "¿Sellar el tratado?"
  tnt_confirm_desc:0 "Las cláusulas descansan sobre la mesa, con la cera y el sello a mano.\n\nEn cuanto el emisario parta, [tnt_deal_partner.GetShortUIName] oirá la oferta exactamente tal como está: nada añadido, nada retirado."
  tnt_confirm_opt_yes:0 "Enviar la oferta"
