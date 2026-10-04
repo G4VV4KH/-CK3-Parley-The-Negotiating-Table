@@ -58,10 +58,11 @@ class PublicationRendererTests(unittest.TestCase):
 
     def test_platform_projection_and_anchor(self):
         files = self.render()
-        self.assertIn('SHORT GUIDE', files['steam.bbcode'])
-        self.assertIn('https://example.org/parley#game-rules-guide', files['steam.bbcode'])
-        self.assertNotIn('FULL GUIDE', files['steam.bbcode'])
-        for name in ('github.md', 'nexus.bbcode', 'paradox.txt', 'preview.html'):
+        for name in ('steam.bbcode', 'paradox.txt'):
+            self.assertIn('SHORT GUIDE', files[name])
+            self.assertIn('https://example.org/parley#game-rules-guide', files[name])
+            self.assertNotIn('FULL GUIDE', files[name])
+        for name in ('github.md', 'nexus.bbcode', 'preview.html'):
             self.assertIn('FULL GUIDE', files[name])
             self.assertNotIn('SHORT GUIDE', files[name])
         self.assertIn('### Game rules guide', files['github.md'])
@@ -82,7 +83,7 @@ class PublicationRendererTests(unittest.TestCase):
         self.assertIn('#### Piety trading', files['github.md'])
         self.assertIn('<h4>Piety trading</h4>', files['preview.html'])
         self.assertIn('[size=5][b]Piety trading[/b][/size]', files['nexus.bbcode'])
-        self.assertIn('\nPiety trading\n', files['paradox.txt'])
+        self.assertNotIn('Piety trading', files['paradox.txt'])
         self.assertNotIn('Piety trading', files['steam.bbcode'])
         self.assertEqual(renderer.bbcode('#### Piety trading\n', 'steam'), '[h1]Piety trading[/h1]\n')
         for name in ('steam.bbcode', 'nexus.bbcode', 'paradox.txt', 'preview.html'):
@@ -141,11 +142,35 @@ class PublicationRendererTests(unittest.TestCase):
         self.assertEqual(report['steam_bytes'], 5)
         self.assertTrue(report['steam_under_8000'])
         self.assertTrue(report['steam_under_8000_bytes'])
+        self.assertEqual(report['paradox_characters'], 3)
+        self.assertEqual(report['paradox_html_characters'], 9)
 
     def test_full_guide_can_exceed_steam_limit(self):
-        files = self.render(GUIDE.replace('FULL GUIDE: detailed rules.', 'FULL GUIDE: ' + 'x' * 9000))
-        self.assertGreater(len(files['github.md'].encode('utf-8')), 8000)
+        files = self.render(GUIDE.replace('FULL GUIDE: detailed rules.', 'FULL GUIDE: ' + 'x' * 12000))
+        self.assertGreater(len(files['github.md'].encode('utf-8')), 10000)
         self.assertLess(len(files['steam.bbcode'].encode('utf-8')), 8000)
+        self.assertLess(len(files['paradox.txt']), 10000)
+
+    def test_paradox_limit_includes_escaped_html_overhead(self):
+        # 2,500 ampersands pass Steam and plain-text limits but exceed the
+        # Paradox cap after HTML escaping. Failure must precede every write.
+        self.assert_bad_without_writes('&' * 2500)
+
+    def test_paradox_limit_rejects_plain_text_without_writes(self):
+        with patch.object(renderer, 'STEAM_BYTE_LIMIT', 20000):
+            self.assert_bad_without_writes('x' * 10000)
+
+    def test_exact_paradox_html_limit_allowed_and_reported(self):
+        with patch.object(renderer, 'STEAM_BYTE_LIMIT', 20000):
+            files = self.render('x' * 9993)
+        report = json.loads(files['render-status.json'])
+        self.assertEqual(report['paradox_characters'], 9994)
+        self.assertEqual(report['paradox_html_characters'], 10000)
+        self.assertTrue(report['paradox_under_10000'])
+
+    def test_paradox_html_preserves_plain_content_and_escapes_markup(self):
+        self.assertEqual(renderer.paradox_html('First & <second>\nnext\n\nhttps://example.org\n'),
+                         '<p>First &amp; &lt;second&gt;<br>next</p><p>https://example.org</p>')
 
     def test_nexus_donation_filter_still_applies_to_full_guide(self):
         self.config.write_text(json.dumps({'links': {'PARLEY_GITHUB_URL': 'https://example.org/parley', 'DONATION_URL': 'https://example.org/donate'}}), encoding='utf-8')
@@ -176,6 +201,7 @@ class PublicationRendererTests(unittest.TestCase):
         self.assertEqual({slug: snapshot(self.dev / slug) for slug in sibling_before}, sibling_before)
         self.assertIn('FULL GUIDE', (self.repo / 'README.md').read_text(encoding='utf-8'))
         self.assertIn('SHORT GUIDE', (self.repo / 'publishing/generated/steam.bbcode').read_text(encoding='utf-8'))
+        self.assertIn('SHORT GUIDE', (self.repo / 'publishing/generated/paradox.txt').read_text(encoding='utf-8'))
 
     def test_live_wrapper_fingerprint_matches_reviewed_renderer(self):
         if not WRAPPER.is_file():

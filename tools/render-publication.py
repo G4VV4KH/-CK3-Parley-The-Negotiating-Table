@@ -15,9 +15,12 @@ GUIDE_MARKERS = (
     '<!-- full-game-rules-guide:end -->',
 )
 STEAM_BYTE_LIMIT = 8000
+# Observed in the Paradox Mods description editor on 2026-10-04. Check both
+# text and the compact rich-text projection; the form may count its HTML value.
+PARADOX_CHARACTER_LIMIT = 10000
 
 def platform_source(text, platform):
-    """Select the approved short Steam guide or full guide from one source.
+    """Select the approved short Steam/Paradox guide or full guide from one source.
 
     The four markers must be standalone lines, each occur once, and follow the
     order above. Without them, retain the legacy source exactly. Reject partial
@@ -39,7 +42,7 @@ def platform_source(text, platform):
         if re.search(r'<!--\s*(?:steam-guide-summary|full-game-rules-guide)', line) and i not in marker_lines:
             raise ValueError('Malformed or duplicate guide marker')
     summary_start, summary_end, full_start, full_end = positions
-    omit_start, omit_end = (full_start, full_end) if platform == 'steam' else (summary_start, summary_end)
+    omit_start, omit_end = (full_start, full_end) if platform in ('steam', 'paradox') else (summary_start, summary_end)
     return ''.join(line for i, line in enumerate(lines)
                    if i not in marker_lines and not omit_start < i < omit_end)
 
@@ -87,6 +90,20 @@ def plain(text):
     text = re.sub(r'(?m)^#{1,6}\s+', '', text)
     text = text.replace('**', '').replace('`', '')
     return text
+
+def paradox_html(text):
+    """Compact paragraph projection of plain copy for the rich-text editor.
+
+    Kept separate from the full semantic preview. This projection preserves all
+    words and links as visible plain text and measures escaped markup overhead.
+    """
+    return ''.join('<p>' + html.escape(paragraph).replace('\n', '<br>') + '</p>'
+                   for paragraph in text.strip().split('\n\n') if paragraph)
+
+def paradox_character_count(text):
+    # Browser validators count JavaScript UTF-16 code units, not UTF-8 bytes or
+    # Python Unicode code points. Astral symbols such as status bullets count 2.
+    return len(text.encode('utf-16-le')) // 2
 
 def bbcode(text, platform):
     text = flatten_tables(text)
@@ -166,17 +183,23 @@ def main():
         source = (repo / 'publishing/description.en.md').read_text(encoding='utf-8')
         full_source = platform_source(source, 'github')
         steam_source = platform_source(source, 'steam')
+        paradox_source = platform_source(source, 'paradox')
         resolved, missing = resolve(full_source, links)
         steam, steam_missing = resolve(steam_source, links)
-        missing = sorted(set(missing) | set(steam_missing))
+        paradox, paradox_missing = resolve(paradox_source, links)
+        missing = sorted(set(missing) | set(steam_missing) | set(paradox_missing))
         if args.require_all_links and missing:
             raise ValueError(f'{slug}: missing metadata: {missing}')
         nexus, _ = resolve(full_source, links, nexus=True)
         github = resolved + github_gallery(repo)
-        files = {'steam.bbcode':bbcode(steam,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(resolved),'github.md':github,'preview.html':preview_html(resolved)}
+        files = {'steam.bbcode':bbcode(steam,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(paradox),'github.md':github,'preview.html':preview_html(resolved)}
         steam_bytes = len(files['steam.bbcode'].encode('utf-8'))
         if steam_bytes > STEAM_BYTE_LIMIT:
             raise ValueError(f'{slug}: Steam description is {steam_bytes} UTF-8 bytes; limit is {STEAM_BYTE_LIMIT}')
+        paradox_characters = paradox_character_count(files['paradox.txt'])
+        paradox_html_characters = paradox_character_count(paradox_html(files['paradox.txt']))
+        if max(paradox_characters, paradox_html_characters) > PARADOX_CHARACTER_LIMIT:
+            raise ValueError(f'{slug}: Paradox description is {paradox_characters} text / {paradox_html_characters} HTML characters; limit is {PARADOX_CHARACTER_LIMIT}')
         # Validate the complete selected-mod render before touching any output.
         for name, content in files.items():
             if '{{' in content or '}}' in content:
@@ -186,7 +209,7 @@ def main():
         for name, content in files.items():
             (target / name).write_text(content, encoding='utf-8', newline='\n')
         (repo / 'README.md').write_text(github + '\n## Contributing\n\nSee [dev.md](dev.md) for the source layout, checks and pull-request workflow.\n', encoding='utf-8', newline='\n')
-        report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'steam_bytes':steam_bytes,'steam_under_8000_bytes':steam_bytes<=STEAM_BYTE_LIMIT,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'Plain text: verify final spacing in the actual upload editor.','nexus_donation_link':'Omitted; use platform donation field.'}
+        report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'steam_bytes':steam_bytes,'steam_under_8000_bytes':steam_bytes<=STEAM_BYTE_LIMIT,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'Plain text: verify final spacing in the actual upload editor.','paradox_characters':paradox_characters,'paradox_html_characters':paradox_html_characters,'paradox_under_10000':max(paradox_characters,paradox_html_characters)<=PARADOX_CHARACTER_LIMIT,'nexus_donation_link':'Omitted; use platform donation field.'}
         (target / 'render-status.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8',newline='\n')
         reports.append(report)
     print(json.dumps(reports,indent=2))

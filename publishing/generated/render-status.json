@@ -9,5 +9,8 @@
   "steam_under_8000_bytes": true,
   "status": "PREVIEW_METADATA_PENDING",
   "paradox_format": "Plain text: verify final spacing in the actual upload editor.",
+  "paradox_characters": 6833,
+  "paradox_html_characters": 7198,
+  "paradox_under_10000": true,
   "nexus_donation_link": "Omitted; use platform donation field."
 }
