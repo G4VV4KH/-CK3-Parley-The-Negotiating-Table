@@ -11,6 +11,19 @@ The builder never edits dev files, live mods, saves, playsets or Workshop files.
 It refuses to overwrite an existing build. Reports and the manifest are siblings
 of the selected mod folders and are not part of any game payload.
 
+## Parley 1.2.0 preparation
+
+The current currency-rule candidate is scoped to **Parley only**; it does not rebuild MCA or the held AGOT adapter. The versioned localization contract is explicit: Parley 1.1.0 has 632 DEV / 622 GAME keys per language; 1.2.0 has 642 / 632. The same ten diagnostic/test-only keys are removed. Unknown versions and mismatched counts fail closed. Historical packages still require their pinned builder and source bytes; the pre-1.2 builder is archived outside frozen builds at `backup-storage/2026-10-04-before-parley-1.2-builder/`.
+
+After committing reviewed runtime, generated copy and tools, prepare a new numbered kit from this repository root:
+
+```powershell
+python -B tools/release/prepare_publication.py --workspace ../.. --build-id 2026-10-04-parley-1.2.0-rc1 --version 1.2.0 --changelog publishing/changelog-1.2.0.en.md
+python -B tools/release/prepare_publication.py --workspace ../.. --build-id 2026-10-04-parley-1.2.0-rc1 --version 1.2.0 --verify
+```
+
+The helper uses the existing builder/packager, pins its own source lock in `verification-evidence/<build-id>/`, and assembles `deploy/parley-1.2.0/`. It refuses existing identities, verifies Steam's assigned-ID-only overlay, root-layout Paradox ZIP and portable manual Nexus ZIP, and records a sanitized GitHub source projection. Existing releases, installations, playsets, saves and platform pages are not changed. Journal initialization/registry reconciliation remain separate steps. The kit's status is **PREPARED_RUNTIME_SMOKE_PENDING**, never an implicit upload or engine PASS. Publish the full GitHub guide before changing Steam's short description and new guide link.
+
 Expected layout:
 
 ```text
@@ -37,7 +50,7 @@ substitute that old source checkout's `dev/` root:
 
 ```powershell
 $historicalTools = './backup-storage/2026-09-30-before-crozier-tooling'
-$oldDevRoot = 'C:/path/to/rc3-source-checkout/dev'
+$oldDevRoot = './path/to/rc3-source-checkout/dev'
 python "$historicalTools/build_game.py" --dev-root $oldDevRoot --output-root './game' --lock "$historicalTools/release-inputs.json" --build-id 2026-09-30-game-rc3 --verify
 python "$historicalTools/package_game.py" --build-dir './game/2026-09-30-game-rc3' --output-dir './distribution/2026-09-30-game-rc3' --verify
 ```
@@ -70,8 +83,8 @@ From this tools directory, these example commands use a new build ID and a
 separately prepared reviewed lock:
 
 ```powershell
-$releaseWorkspace = 'C:/path/to/ck3-mods-release'
-$reviewedLock = 'C:/path/to/reviewed-1.20-inputs.json'
+$releaseWorkspace = './path/to/ck3-mods-release'
+$reviewedLock = './path/to/reviewed-1.20-inputs.json'
 $newBuildId = '2026-09-30-game-rc4-vanilla'
 python ./build_game.py --dev-root "$releaseWorkspace/dev" --output-root "$releaseWorkspace/game" --lock $reviewedLock --build-id $newBuildId --mods parley marriage_calc_assistant --check
 python ./build_game.py --dev-root "$releaseWorkspace/dev" --output-root "$releaseWorkspace/game" --lock $reviewedLock --build-id $newBuildId --mods parley marriage_calc_assistant
@@ -205,7 +218,7 @@ from this tools directory, supplying the release workspace that contains `dev/`,
 `game/` and `distribution/`:
 
 ```powershell
-$releaseWorkspace = 'C:/path/to/ck3-mods-release'
+$releaseWorkspace = './path/to/ck3-mods-release'
 $journalBuildId = '2026-09-30-game-rc4-vanilla' # An already built, reviewed candidate
 python ./release_journal.py init --workspace $releaseWorkspace --build-id $journalBuildId
 python ./release_journal.py status --workspace $releaseWorkspace --build-id $journalBuildId

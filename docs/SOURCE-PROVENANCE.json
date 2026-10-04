@@ -1,8 +1,0 @@
-{
-  "original_source": "C:/Users/Pavel/Documents/Paradox Interactive/Crusader Kings III/mod/parley",
-  "original_head": "c472872d85d2416511fa8f81b3edb1286d11e6de",
-  "baseline": "2026-09-30 checked-build local snapshot",
-  "runtime_source_unchanged": true,
-  "history_backup": "External backup-storage/2026-09-30-pre-release/*.bundle",
-  "note": "Independent publication repository initialized from verified current files; old history remains in local bundles rather than importing unrelated sibling-mod branches."
-}

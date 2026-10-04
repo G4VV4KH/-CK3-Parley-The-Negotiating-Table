@@ -1622,6 +1622,41 @@ tnt_send_offer = {
 			text = tnt_err_partner_no_piety
 			tnt_partner_piety_shortfall_value <= 0
 		}
+		# Currency permission stays live; full package preflight remains at commit.
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			trigger_if = {
+				limit = {
+					exists = var:tnt_prestige_p
+					var:tnt_prestige_p > 0
+				}
+				tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }
+			}
+			trigger_if = {
+				limit = {
+					exists = var:tnt_prestige_r
+					var:tnt_prestige_r > 0
+				}
+				tnt_trade_prestige_trigger = { A = var:tnt_partner  B = root }
+			}
+		}
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			trigger_if = {
+				limit = {
+					exists = var:tnt_piety_p
+					var:tnt_piety_p > 0
+				}
+				tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }
+			}
+			trigger_if = {
+				limit = {
+					exists = var:tnt_piety_r
+					var:tnt_piety_r > 0
+				}
+				tnt_trade_piety_trigger = { A = var:tnt_partner  B = root }
+			}
+		}
 		custom_tooltip = {
 			text = tnt_err_no_influence
 			tnt_influence_shortfall_value <= 0

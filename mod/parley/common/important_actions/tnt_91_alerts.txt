@@ -83,7 +83,7 @@
 #
 # NO TEXTURE IS SHIPPED, AND THAT IS FORCED RATHER THAN LAZY. The engine refuses
 # combine_into_one on anything but type = action - ck3.exe,
-# C:\mnt\gsg\ck3\titus\source\logic\important_actions_type.cpp, verbatim:
+# <CK3-engine-source>/logic/important_actions_type.cpp, verbatim:
 #     "Important action {} must be type = action or combine_into_one = no"
 # and vanilla obeys it absolutely: of its 95 combine_into_one = yes entries, 95
 # are type = action (269 top-level entries, 33 files, 2026-08-23, re-measured

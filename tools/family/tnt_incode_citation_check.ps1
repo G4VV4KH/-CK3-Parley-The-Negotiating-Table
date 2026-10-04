@@ -50,7 +50,7 @@
 # block is the thing prose usually means when it cites a value.
 #
 # WHAT IS DELIBERATELY OUT OF SCOPE
-#   * VANILLA citations (GAME\..., <vanilla>\..., D:\SteamLibrary\...). House
+#   * VANILLA citations (GAME\..., <vanilla>\..., <Steam-library>/...). House
 #     law 1 covers those by hand, and the vanilla tree is not ours to police.
 #   * CLAUDE.md - tnt_citation_check.ps1 owns it. Running both is the point.
 #   * .yml targets - a localization key cannot rot the way a line number does,

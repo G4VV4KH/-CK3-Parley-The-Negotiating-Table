@@ -235,105 +235,66 @@ tnt_advanced_terms_trigger = {
 
 
 # =============================================================================
-# T2b  tnt_trade_prestige_trigger = { A = <character>  B = <character> }
-# T2c  tnt_trade_piety_trigger    = { A = <character>  B = <character> }
-#
-# Scope: any. May $A$ and $B$ put PRESTIGE / PIETY on a negotiating table with
-# each other, under the lobby rule for that currency?
-#
-# W2 TURNED TWO ON/OFF SWITCHES INTO TWO LADDERS AND THESE ARE THE ONLY PLACE
-# THE LADDER IS SPELLED OUT. Nothing else in the mod may ask has_game_rule =
-# tnt_trade_<cur>_* by hand any more: a hand-written `_on` test cannot see a
-# middle rung, so it reads "off" for a rung that is in fact "on for this pair",
-# and the mod would hide a row the lobby had allowed. The settings are declared
-# in common\game_rules\tnt_80_game_rules.txt, whose header carries the whole
-# design argument (why this is NOT a fourth rule, why the ids _on / _off were
-# kept, and why no tnt_err_* key is born).
-#
-# THE NAMES ARE LOAD-BEARING, MECHANICALLY. _docs\tools\tnt_rule_conformance.ps1
-# recognises a rule read as `<rule id>_trigger` (its Reads-Rule function), so
-# calling these exactly tnt_trade_prestige_trigger / tnt_trade_piety_trigger is
-# what keeps the section 6.13 check at exit 0 with no edit to its $RULES table.
-# Rename either one and the tool goes red on twelve balancer rungs at once.
-#
-# WHO IS $A$ AND WHO IS $B$. $A$ is the side the question is asked FROM and $B$
-# is the other party; on every live path that is { A = root  B = var:tnt_partner }
-# because root is the player and var:tnt_partner is the counterparty in the
-# window (E1 writes it first, tnt_30_effects.txt:90), on the letter path
-# (tnt_ai_offer.0001 writes it in its immediate, before it composes) and hence
-# inside the balancer, which both paths reach.
-# BOTH HANDLES MUST BE ABSOLUTE - root, scope:x or var:... - NEVER `this` and
-# NEVER `prev`. These are TEXT MACROS (the T51 rule, CLAUDE.md section 4): a
-# relative handle re-binds inside the substituted body, and the body below
-# changes scope with `$A$ = { ... }`.
-#
-# R13 AND THE UNSET PARTNER. Every relational rung opens with `exists = $A$` and
-# `exists = $B$` before it touches a field, so a call made with no partner
-# stored degrades to NO instead of throwing - the same answer the rule's `off`
-# setting gives, which is the safe direction for every reader we have (a hidden
-# row, a skipped balancer rung). The `_on` rung never touches $B$ at all.
-# `exists = root` is real vanilla: GAME\common\scripted_triggers\00_coa_triggers.txt:129.
-#
-# R7 IS NOT ENGAGED. R7 forbids `var:a > var:b`, variable against variable.
-# These rows compare a FIELD against the same FIELD reached through a scope, a
-# shape vanilla writes five times over (citations at each row), and the mod
-# already ships it: `root = { max_military_strength > var:tnt_partner.max_military_strength }`
-# (common\scripted_guis\tnt_20_scripted_guis.txt:553) is the same dotted-var
-# field read, in a shipped and exercised line.
-#
-# `$A$ = { <trigger> }` where $A$ expands to `root` is a legal scope change
-# inside a trigger: GAME\common\scripted_effects\00_death_management_effects.txt:35
-# (`limit = { is_alive = yes  root = { is_ai = yes } }`).
+# T2b / T2c — canonical negotiated-currency permissions.
+# A is the actual GIVER; B is the actual RECEIVER. Pass absolute character
+# handles (root / scope:x / var:x), never this/prev: these are text macros.
+# UI, manual/AI balancing and atomic preflight all use this same contract.
+# Missing scopes and unknown settings fail closed. Defaults remain unrestricted.
+# Native syntax: prestige_level/piety_level > $COMPARISON$.prestige_level/piety_level in
+# common/scripted_triggers/00_laamp_triggers.txt; faith/religion comparisons
+# follow common/scripted_triggers/00_religious_triggers.txt.
 # =============================================================================
 tnt_trade_prestige_trigger = {
+	exists = $A$
+	exists = $B$
 	trigger_if = {
-		# ALWAYS. The shipped default, so a player who never opens the lobby
-		# sees exactly the mod he saw before W2.
 		limit = { has_game_rule = tnt_trade_prestige_on }
 		always = yes
 	}
 	trigger_else_if = {
-		# PEERS AND BELOW ONLY. "I am at least as famed as he is."
-		# REAL: `prestige_level >= scope:recipient.prestige_level`,
-		#       GAME\common\character_interactions\00_fp3_interactions.txt:1478.
-		# REAL in MACRO form: `prestige_level > $COMPARISON$.prestige_level`,
-		#       GAME\common\scripted_triggers\00_laamp_triggers.txt:248
-		#       (also 00_vassal_interactions.txt and 05_bp2_hostage_triggers.txt).
+		limit = { has_game_rule = tnt_trade_prestige_faith }
+		$A$ = { faith = $B$.faith }
+	}
+	trigger_else_if = {
+		limit = { has_game_rule = tnt_trade_prestige_lower }
+		$A$ = { prestige_level > $B$.prestige_level }
+	}
+	trigger_else_if = {
+		# Retained legacy mode: equality is allowed only here.
 		limit = { has_game_rule = tnt_trade_prestige_peer }
-		exists = $A$
-		exists = $B$
 		$A$ = { prestige_level >= $B$.prestige_level }
 	}
-	trigger_else = { always = no }		# tnt_trade_prestige_off, and any setting a later round adds without touching this trigger
+	trigger_else = { always = no }
 }
 
 tnt_trade_piety_trigger = {
+	exists = $A$
+	exists = $B$
 	trigger_if = {
 		limit = { has_game_rule = tnt_trade_piety_on }
 		always = yes
 	}
 	trigger_else_if = {
-		# SAME FAITH ONLY.
-		# REAL: `faith = scope:actor.faith`,
-		#       GAME\common\scripted_triggers\00_interaction_triggers.txt:296
-		#       (grant_title_rivalry_trigger); also 00_councillor_triggers.txt.
 		limit = { has_game_rule = tnt_trade_piety_faith }
-		exists = $A$
-		exists = $B$
 		$A$ = { faith = $B$.faith }
 	}
 	trigger_else_if = {
-		# SAME RELIGION - the same thought one step looser, so a Catholic and
-		# an Orthodox still trade devotion and a Catholic and a Sunni do not.
-		# REAL: `$WHO$.faith.religion = $TARGET$.faith.religion`,
-		#       GAME\common\scripted_triggers\00_religious_triggers.txt:1181
-		#       (is_heretic_trigger); negated at :1191 and :1204.
+		limit = { has_game_rule = tnt_trade_piety_faith_lower }
+		$A$ = {
+			faith = $B$.faith
+			piety_level > $B$.piety_level
+		}
+	}
+	trigger_else_if = {
+		limit = { has_game_rule = tnt_trade_piety_different_faith }
+		$A$ = { NOT = { faith = $B$.faith } }
+	}
+	trigger_else_if = {
+		# Retained legacy mode: distinct faiths of one religion may trade.
 		limit = { has_game_rule = tnt_trade_piety_religion }
-		exists = $A$
-		exists = $B$
 		$A$.faith.religion = $B$.faith.religion
 	}
-	trigger_else = { always = no }		# tnt_trade_piety_off
+	trigger_else = { always = no }
 }
 
 

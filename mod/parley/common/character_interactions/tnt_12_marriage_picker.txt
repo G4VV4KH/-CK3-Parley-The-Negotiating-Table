@@ -942,7 +942,7 @@ tnt_stage_marriage_interaction = {
 # R2 AUDIT — EVERY NON-tnt_ IDENTIFIER IN THIS FILE, WITH A REAL CALL SITE.
 # Nothing here is justified by trigger_localization or effect_localization.
 # Paths are relative to
-#   D:\install\games\Crusader.Kings.III.Royal.Edition-InsaneRamZes\game
+#   <game>
 # and MI = common\character_interactions\00_marriage_interactions.txt.
 #
 #   KEYS

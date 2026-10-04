@@ -15,7 +15,7 @@ explicitly. The following IDs are placeholders in documentation only; replace
 them with the real assigned IDs before running:
 
 ```powershell
-python ./verify_workshop.py --build-dir 'C:/path/to/game/build-id' --workshop-root 'D:/SteamLibrary/steamapps/workshop/content/1158310' --mod 'parley=REAL_STEAM_ID' --mod 'marriage_calc_assistant=REAL_STEAM_ID' --mod 'agot_marriage_calc_assistant=REAL_STEAM_ID'
+python ./verify_workshop.py --build-dir './path/to/game/build-id' --workshop-root './workshop/content/1158310' --mod 'parley=REAL_STEAM_ID' --mod 'marriage_calc_assistant=REAL_STEAM_ID' --mod 'agot_marriage_calc_assistant=REAL_STEAM_ID'
 ```
 
 Only mapped mods are checked. The report lists any unselected manifest mods so
@@ -48,7 +48,7 @@ unsupported metadata forms fail the exact comparison and require inspection;
 the tool does not normalize them broadly.
 
 ```powershell
-python ./verify_workshop.py --build-dir 'C:/path/to/game/build-id' --workshop-root 'D:/SteamLibrary/steamapps/workshop/content/1158310' --mod 'parley=REAL_STEAM_ID' --allow-descriptor-metadata
+python ./verify_workshop.py --build-dir './path/to/game/build-id' --workshop-root './workshop/content/1158310' --mod 'parley=REAL_STEAM_ID' --allow-descriptor-metadata
 ```
 
 Exit codes: **0** for successful mapped comparisons, **1** for a mismatch or

@@ -134,50 +134,11 @@
 # exist), pay_prestige (does not exist).
 #
 #=======================================================================
-# *** W2 - THIS LEG IS STILL UNGATED, AND FOR THE FIRST TIME THAT IS AN
-# *** OPEN RULING RATHER THAN A PROVEN SAFETY. READ BEFORE "FIXING" IT.
-#
-# WHAT CHANGED. tnt_trade_prestige and tnt_trade_piety stopped being on/off
-# switches and became ladders (common\game_rules\tnt_80_game_rules.txt):
-# prestige is off / peers-and-below / always, piety is off / same faith /
-# same religion / always. All three OTHER positions were converted in the
-# same round - the two bridge writes (tnt_30_effects.txt E1 and
-# tnt_ai_offer_counter_effect), the four tnt_show_ gates (tnt_41_gates.txt)
-# and all twelve auto-balance rungs (tnt_39_autobalance.txt) - and they now
-# call tnt_trade_prestige_trigger / tnt_trade_piety_trigger (T2b / T2c,
-# tnt_40_triggers.txt).
-#
-# WHY THE OLD SAFETY ARGUMENT NO LONGER COVERS THIS LEG. Both CLAUDE.md and
-# _docs\tools\tnt_rule_conformance.ps1 (its NOTE C) call the apply legs "safe
-# by unreachability", and the whole of that argument was: a game rule cannot
-# change mid-campaign, so with the rule off the variable is never non-zero
-# and this `if` is never entered. That is still airtight for `off` and for
-# `on`. It is NOT airtight for a middle rung, because FAITH and PRESTIGE
-# LEVEL change mid-campaign constantly. The one reachable case is a stale AI
-# letter: a letter composed while the pair matched, left unanswered for
-# years - which its own design allows, see the untimed tnt_ai_letter marker -
-# and accepted after the player has converted or been raised a prestige
-# level. The currency would then be paid under a rung that now forbids it.
-#
-# WHY NOTHING WAS CHANGED HERE ANYWAY, i.e. what a later round must decide.
-# The gate needs a partner handle, and THIS LEG DOES NOT HAVE ONE IT CAN
-# TRUST: tnt_apply_deal_effect reaches the partner as the permanent scope
-# tnt_deal_partner, not as var:tnt_partner, and the letter-accept path has no
-# window and therefore no guarantee about the variable. Guessing wrong here
-# is not a cosmetic slip - a wrong handle silently stops EVERY prestige and
-# piety payment in the mod, on every path, which is far worse than the leak
-# it would close. The precedent for doing it properly is directly below:
-# tnt_exec_influence_effect (E32) asks its OWN structural question at its own
-# time, `government_has_flag = government_has_influence` on BOTH sides.
-# THE SHAPE, IF IT IS EVER RULED IN: add
-#   tnt_trade_prestige_trigger = { A = $GIVER$  B = $RECEIVER$ }
-# to the limit (and the piety twin in E31) - the parameters are already the
-# two characters, so no new handle is needed, and both are absolute by the
-# call site's own contract. VERIFY FIRST that $GIVER$/$RECEIVER$ are the
-# player and the partner in that order on BOTH call paths, and decide the
-# player-facing half: with the row gone the confirmation tooltip simply loses
-# its "Lose N Prestige" line, which is honest, but the letter the player is
-# answering still promises the prestige in prose.
+# Atomic whole-deal preflight in tnt_apply_deal_effect checks the actual
+# GIVER/RECEIVER permission for every positive prestige/piety term before
+# any mutation. This also covers conversion/fame changes after composing a
+# letter. Do not add a second per-leg policy check here: an earlier transfer
+# may itself change fame, and rechecking would partially apply a valid treaty.
 #=======================================================================
 ########################################################################
 tnt_exec_prestige_effect = {
@@ -216,22 +177,11 @@ tnt_exec_prestige_effect = {
 #   also GAME\common\character_interactions\00_invite_agent_to_scheme.txt:71
 #   and GAME\common\character_interactions\10_tgp_interactions.txt:3309.
 #
-# Piety is NOT gated on anything. Every faith has piety, including
-# unreformed pagans, so there is no equivalent of E32's government test.
-# Item 2.4 ships piety as optional-by-row-count (30-V2-DESIGN §3.2): if the
-# GUI author drops the piety row, this effect simply never fires — the
-# variable is never set, the guard fails, nothing happens. No coordination
-# needed in either direction.
-#
+# No faith-specific resource implementation is needed: piety exists for
+# every faith. Trade eligibility is instead checked for the actual pair by
+# atomic whole-deal preflight, before the first resource or nonresource effect.
+# See E30 above: do not recheck policy after earlier treaty effects have run.
 # NEVER: pay_piety, remove_piety, pay_short_term_piety — none exist.
-#
-# W2 - UNGATED FOR THE SAME REASON AS E30, AND THE RULING IS OPEN IN THE SAME
-# WAY. tnt_trade_piety is a four-rung ladder now (off / same faith / same
-# religion / always) and a faith changes mid-campaign, so "safe by
-# unreachability" no longer covers this leg either. The full argument, the one
-# reachable case (a stale letter accepted after a conversion) and the exact
-# shape a later round should add are written out once, in E30's header above.
-# Do not implement one leg without the other.
 ########################################################################
 tnt_exec_piety_effect = {
 	if = {

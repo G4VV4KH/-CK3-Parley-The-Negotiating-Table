@@ -46,6 +46,7 @@ EXPECTED_CALLS = {
     OFFER_FILE: 14, "common/scripted_effects/tnt_38_ai_world.txt": 43,
 }
 EXPECTED_TEST_CHECKS = {EVENT_FILE: 3, OFFER_FILE: 5}
+PARLEY_LOCALIZATION_COUNTS = {"1.1.0": (632, 622), "1.2.0": (642, 632)}
 
 
 class ReleaseError(Exception):
@@ -260,7 +261,15 @@ def localization_keys(data: bytes, label: str) -> set[str]:
     return set(keys)
 
 
-def transform_localization(path: str, data: bytes) -> tuple[bytes, dict]:
+def parley_localization_counts(files: dict) -> tuple[int, int]:
+    versions = re.findall(r'^\s*version\s*=\s*"([^"\r\n]+)"',
+                          files["descriptor.mod"].decode("utf-8-sig"), re.M)
+    require(len(versions) == 1 and versions[0] in PARLEY_LOCALIZATION_COUNTS,
+            "Unreviewed Parley version for localization projection")
+    return PARLEY_LOCALIZATION_COUNTS[versions[0]]
+
+
+def transform_localization(path: str, data: bytes, counts=(632, 622)) -> tuple[bytes, dict]:
     text = data.decode("utf-8")
     kept, removed = [], []
     for line in text.splitlines(keepends=True):
@@ -274,8 +283,8 @@ def transform_localization(path: str, data: bytes) -> tuple[bytes, dict]:
             f"Expected exactly 10 diagnostic localization keys in {path}")
     result = "".join(kept).encode("utf-8")
     # The AGOT-only failure message is parked as a comment in every language.
-    require(len(localization_keys(data, path)) == 632, f"Unexpected dev localization count: {path}")
-    require(len(localization_keys(result, path)) == 622, f"Unexpected game localization count: {path}")
+    require(len(localization_keys(data, path)) == counts[0], f"Unexpected dev localization count: {path}")
+    require(len(localization_keys(result, path)) == counts[1], f"Unexpected game localization count: {path}")
     return result, {"localization_keys_removed": sorted(removed)}
 
 
@@ -317,12 +326,13 @@ def project(inputs: dict) -> tuple[dict, dict]:
     outputs, transforms = {}, {}
     for mod in selected_mods(inputs):
         files, changes = {}, {}
+        counts = parley_localization_counts(inputs[mod]) if mod == "parley" else None
         for path, data in sorted(inputs[mod].items()):
             result, report = data, {}
             if mod == "parley" and Path(path).suffix in SCRIPT_SUFFIXES:
                 result, report = transform_script(path, data)
             elif mod == "parley" and path.startswith("localization/"):
-                result, report = transform_localization(path, data)
+                result, report = transform_localization(path, data, counts)
             if result is not None:
                 files[path] = result
             if result != data:
@@ -352,8 +362,9 @@ def validate_localizations(outputs: dict) -> dict:
         for language, files in by_language.items():
             require(files == reference, f"Localization file/key coverage mismatch: {mod}/{language}")
         count = sum(len(keys) for keys in reference.values())
-        require(count == {"parley": 622, "marriage_calc_assistant": 22,
-                          "agot_marriage_calc_assistant": 5}[mod], f"Wrong key count: {mod}")
+        expected_count = (parley_localization_counts(outputs[mod])[1] if mod == "parley"
+                          else {"marriage_calc_assistant": 22, "agot_marriage_calc_assistant": 5}[mod])
+        require(count == expected_count, f"Wrong key count: {mod}")
         evidence[mod] = {"languages": list(LANGUAGES), "files_per_language": 1,
                          "keys_per_language": count}
     return evidence

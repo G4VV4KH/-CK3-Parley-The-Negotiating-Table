@@ -12,7 +12,7 @@ section 7. You do not need to read any script file to interpret the log.
 
 | | |
 |---|---|
-| **File to ask the user for** | `C:\Users\<user>\Documents\Paradox Interactive\Crusader Kings III\logs\error.log` |
+| **File to ask the user for** | `<CK3-user-data>/logs/error.log` |
 | **Also contains the same lines** | `game.log` (either file works; `error.log` is smaller) |
 | **Mechanism** | the `error_log` script effect |
 | **Debug mode required?** | **No.** See section 8 for the evidence and its limits. |

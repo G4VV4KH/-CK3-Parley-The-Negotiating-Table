@@ -157,8 +157,8 @@ param(
     [string]$McaRoot     = '',
     [Alias('ForkRoot')]
     [string]$AdapterRoot    = '',
-    [string]$VanillaRoot = 'D:\SteamLibrary\steamapps\common\Crusader Kings III\game',
-    [string]$AgotRoot    = 'D:\SteamLibrary\steamapps\workshop\content\1158310\2962333032'
+    [string]$VanillaRoot = './game',
+    [string]$AgotRoot    = './agot'
 )
 
 $CoreRoot = $CoreRoot.TrimEnd('\')

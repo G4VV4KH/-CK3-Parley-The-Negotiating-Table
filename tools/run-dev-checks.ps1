@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$DevRoot = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)),
-    [string]$VanillaRoot = 'D:/SteamLibrary/steamapps/common/Crusader Kings III/game',
-    [string]$AgotRoot = 'D:/SteamLibrary/steamapps/workshop/content/1158310/2962333032',
+    [string]$VanillaRoot = './game',
+    [string]$AgotRoot = './agot',
     [string]$PythonExe = 'python',
     [string]$ReportPath = ''
 )
@@ -16,6 +16,7 @@ $runs = @(
     @{ name='frozen'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_frozen_sync_check.ps1",'-McaRoot',$m,'-AdapterRoot',$a,'-VanillaRoot',$VanillaRoot,'-AgotRoot',$AgotRoot) },
     @{ name='rules'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_rule_conformance.ps1",'-ModRoot',$p) },
     @{ name='autobalance_source'; exe=$PythonExe; args=@('-B',"$PSScriptRoot/../tests/parley/test_autobalance.py",'--source',$p) },
+    @{ name='currency_trade_rules'; exe=$PythonExe; args=@('-B',"$PSScriptRoot/../tests/parley/test_currency_trade_rules.py",'--source',$p) },
     @{ name='agot_suspension'; exe=$PythonExe; args=@('-B',"$PSScriptRoot/../tests/parley/test_agot_suspension.py",'--source',$p) },
     @{ name='dispatch_model'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_ai_dispatch_model.ps1",'-ParleyRoot',$p) },
     @{ name='offer_rate'; exe='pwsh'; args=@('-NoProfile','-File',"$family/tnt_ai_offer_rate_check.ps1",'-ParleyRoot',$p) },

@@ -15,7 +15,7 @@ from test_compatibility_120 import walk
 
 
 SOURCE = DEFAULT_SOURCE
-GAME = Path("D:/SteamLibrary/steamapps/common/Crusader Kings III/game")
+GAME = Path("./game")
 ADAPTER = "tnt_ai_world_apply_vassal_effect"
 NATIVE = "offer_vassalization_interaction_effect"
 OPTIONS = {"high_obligations", "low_obligations", "religious_exemption",

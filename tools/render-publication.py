@@ -8,6 +8,40 @@ from pathlib import Path
 SLUGS = ('parley', 'marriage_calc_assistant', 'agot_marriage_calc_assistant')
 LINK = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
 TOKEN = re.compile(r'\{\{([A-Z0-9_]+)\}\}')
+GUIDE_MARKERS = (
+    '<!-- steam-guide-summary:start -->',
+    '<!-- steam-guide-summary:end -->',
+    '<!-- full-game-rules-guide:start -->',
+    '<!-- full-game-rules-guide:end -->',
+)
+STEAM_BYTE_LIMIT = 8000
+
+def platform_source(text, platform):
+    """Select the approved short Steam guide or full guide from one source.
+
+    The four markers must be standalone lines, each occur once, and follow the
+    order above. Without them, retain the legacy source exactly. Reject partial
+    or malformed blocks instead of leaking editorial markers into public copy.
+    """
+    if not re.search(r'<!--\s*(?:steam-guide-summary|full-game-rules-guide)', text):
+        return text
+    lines = text.splitlines(keepends=True)
+    positions = []
+    for marker in GUIDE_MARKERS:
+        found = [i for i, line in enumerate(lines) if line.strip() == marker]
+        if len(found) != 1:
+            raise ValueError(f'Guide marker must occur once on its own line: {marker}')
+        positions.append(found[0])
+    if positions != sorted(positions):
+        raise ValueError('Guide marker blocks are reversed, overlapping or nested')
+    marker_lines = set(positions)
+    for i, line in enumerate(lines):
+        if re.search(r'<!--\s*(?:steam-guide-summary|full-game-rules-guide)', line) and i not in marker_lines:
+            raise ValueError('Malformed or duplicate guide marker')
+    summary_start, summary_end, full_start, full_end = positions
+    omit_start, omit_end = (full_start, full_end) if platform == 'steam' else (summary_start, summary_end)
+    return ''.join(line for i, line in enumerate(lines)
+                   if i not in marker_lines and not omit_start < i < omit_end)
 
 def resolve(text, links, nexus=False):
     missing = sorted({key for key in TOKEN.findall(text) if not links.get(key)})
@@ -92,7 +126,7 @@ def preview_html(text):
         escaped = LINK.sub(lambda m: f'<a href="{m[2]}">{m[1]}</a>', escaped)
         escaped = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', escaped)
         escaped = re.sub(r'`([^`]+)`', r'<code>\1</code>', escaped)
-        h = re.match(r'^(#{1,3}) (.+)', escaped)
+        h = re.match(r'^(#{1,6}) (.+)', escaped)
         rows.append(f'<h{len(h[1])}>{h[2]}</h{len(h[1])}>' if h else '<p>' + escaped + '</p>' if escaped else '')
     return '<!doctype html><meta charset="utf-8"><title>Publication copy preview</title><style>body{max-width:900px;margin:48px auto;padding:0 24px;background:#14181f;color:#e6e8ed;font:17px/1.55 system-ui}h1,h2{color:#e9c880}a{color:#9bc5ff}code{background:#252c36;padding:2px 5px}p{margin:8px 0}</style><main>' + '\n'.join(rows) + '</main>'
 
@@ -130,20 +164,29 @@ def main():
     for slug in SLUGS:
         repo = args.dev_root / slug
         source = (repo / 'publishing/description.en.md').read_text(encoding='utf-8')
-        resolved, missing = resolve(source, links)
+        full_source = platform_source(source, 'github')
+        steam_source = platform_source(source, 'steam')
+        resolved, missing = resolve(full_source, links)
+        steam, steam_missing = resolve(steam_source, links)
+        missing = sorted(set(missing) | set(steam_missing))
         if args.require_all_links and missing:
             raise ValueError(f'{slug}: missing metadata: {missing}')
-        target = repo / 'publishing/generated'
-        target.mkdir(exist_ok=True)
-        nexus, _ = resolve(source, links, nexus=True)
+        nexus, _ = resolve(full_source, links, nexus=True)
         github = resolved + github_gallery(repo)
-        files = {'steam.bbcode':bbcode(resolved,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(resolved),'github.md':github,'preview.html':preview_html(resolved)}
+        files = {'steam.bbcode':bbcode(steam,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(resolved),'github.md':github,'preview.html':preview_html(resolved)}
+        steam_bytes = len(files['steam.bbcode'].encode('utf-8'))
+        if steam_bytes > STEAM_BYTE_LIMIT:
+            raise ValueError(f'{slug}: Steam description is {steam_bytes} UTF-8 bytes; limit is {STEAM_BYTE_LIMIT}')
+        # Validate the complete selected-mod render before touching any output.
         for name, content in files.items():
             if '{{' in content or '}}' in content:
                 raise ValueError('Unresolved placeholder in output')
+        target = repo / 'publishing/generated'
+        target.mkdir(exist_ok=True)
+        for name, content in files.items():
             (target / name).write_text(content, encoding='utf-8', newline='\n')
         (repo / 'README.md').write_text(github + '\n## Contributing\n\nSee [dev.md](dev.md) for the source layout, checks and pull-request workflow.\n', encoding='utf-8', newline='\n')
-        report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'Plain text: verify final spacing in the actual upload editor.','nexus_donation_link':'Omitted; use platform donation field.'}
+        report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'steam_bytes':steam_bytes,'steam_under_8000_bytes':steam_bytes<=STEAM_BYTE_LIMIT,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'Plain text: verify final spacing in the actual upload editor.','nexus_donation_link':'Omitted; use platform donation field.'}
         (target / 'render-status.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8',newline='\n')
         reports.append(report)
     print(json.dumps(reports,indent=2))

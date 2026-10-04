@@ -512,21 +512,9 @@ window = {
 					tnt_item_row_currency = {
 						name = "tnt_row_prestige_p"
 						layoutpolicy_horizontal = expanding
-						### V17, USER ITEM 4 (step 0) - THE SECOND CONJUNCT IS WHAT
-						### ACTUALLY HIDES THIS ROW. TntRow alone cannot hide anything:
-						### its first disjunct keys on tnt_hide_unavailable, which
-						### NOTHING in the mod writes (V4 retired it deliberately), so
-						### TntRow is unconditionally true. Until V17 the game rule
-						### tnt_trade_prestige = off therefore left this row visible,
-						### its steppers live and the apply leg paying, while the lobby
-						### text promised the row would disappear.
-						### tnt_trade_prest_on is the bridge variable written by E1
-						### tnt_open_window_effect and by tnt_ai_offer_counter_effect,
-						### removed by E2 - a .gui cannot ask has_game_rule at all.
-						### THE SHAPE IS THE PROVEN ONE, four rows above at :826 and in
-						### four other places: And( TntRow(...), TntOn(<raw var>) ).
-						### TntOn of an unset variable is 0, so the row really vanishes.
-						visible = "[And( TntRow('tnt_show_prestige_p'), TntOn('tnt_trade_prest_on') )]"
+						### A cheap current-pair gate keeps direction and live faith/fame correct.
+						### If a selected term becomes forbidden, the deal-sheet remove stays usable.
+						visible = "[TntValid('tnt_trade_prestige_p_available')]"
 
 						blockoverride "tnt_row_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
 						blockoverride "tnt_row_name"    { text = "tnt_item_prestige" }
@@ -560,9 +548,7 @@ window = {
 					tnt_item_row_currency = {
 						name = "tnt_row_piety_p"
 						layoutpolicy_horizontal = expanding
-						### V17, USER ITEM 4 (step 0) - the piety twin of the prestige
-						### row above; the whole argument is there.
-						visible = "[And( TntRow('tnt_show_piety_p'), TntOn('tnt_trade_pty_on') )]"
+						visible = "[TntValid('tnt_trade_piety_p_available')]"
 
 						blockoverride "tnt_row_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
 						blockoverride "tnt_row_name"    { text = "tnt_item_piety" }
@@ -2205,11 +2191,7 @@ window = {
 					tnt_item_row_currency = {
 						name = "tnt_row_prestige_r"
 						layoutpolicy_horizontal = expanding
-						### V17, USER ITEM 4 (step 0) - the _r twin. Both sides of a
-						### currency must carry the conjunct or the rule half-works,
-						### which is the exact class of defect it is fixing. See the _p
-						### row for the full argument.
-						visible = "[And( TntRow('tnt_show_prestige_r'), TntOn('tnt_trade_prest_on') )]"
+						visible = "[TntValid('tnt_trade_prestige_r_available')]"
 
 						blockoverride "tnt_row_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
 						blockoverride "tnt_row_name"    { text = "tnt_item_prestige" }
@@ -2239,9 +2221,7 @@ window = {
 					tnt_item_row_currency = {
 						name = "tnt_row_piety_r"
 						layoutpolicy_horizontal = expanding
-						### V17, USER ITEM 4 (step 0) - the fourth and last of the
-						### currency-rule rows. See the prestige _p row above.
-						visible = "[And( TntRow('tnt_show_piety_r'), TntOn('tnt_trade_pty_on') )]"
+						visible = "[TntValid('tnt_trade_piety_r_available')]"
 
 						blockoverride "tnt_row_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
 						blockoverride "tnt_row_name"    { text = "tnt_item_piety" }
@@ -3573,9 +3553,13 @@ window = {
 				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_prestige" }
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
 
-				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_prestige_p_std')]" }
-				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_prestige_p_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_prestige_p_max')]" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_p_available'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_trade_prestige_p_available') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_p_available'), Localize('tnt_tt_preset_half'), TntTip('tnt_trade_prestige_p_available') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_p_available'), Localize('tnt_tt_preset_max'), TntTip('tnt_trade_prestige_p_available') )]" }
+
+				blockoverride "tnt_preset_sgui_std"  { enabled = "[TntValid('tnt_trade_prestige_p_available')]" onclick = "[TntExec('tnt_prestige_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { enabled = "[TntValid('tnt_trade_prestige_p_available')]" onclick = "[TntExec('tnt_prestige_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { enabled = "[TntValid('tnt_trade_prestige_p_available')]" onclick = "[TntExec('tnt_prestige_p_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_prestige_p_none')]" }
 			}
 
@@ -3587,9 +3571,13 @@ window = {
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
 				blockoverride "tnt_preset_lbl_max"       { text = "tnt_preset_max_r" }
 
-				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_prestige_r_std')]" }
-				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_prestige_r_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_prestige_r_max')]" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_r_available'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_trade_prestige_r_available') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_r_available'), Localize('tnt_tt_preset_half'), TntTip('tnt_trade_prestige_r_available') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_r_available'), Localize('tnt_tt_preset_max'), TntTip('tnt_trade_prestige_r_available') )]" }
+
+				blockoverride "tnt_preset_sgui_std"  { enabled = "[TntValid('tnt_trade_prestige_r_available')]" onclick = "[TntExec('tnt_prestige_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { enabled = "[TntValid('tnt_trade_prestige_r_available')]" onclick = "[TntExec('tnt_prestige_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { enabled = "[TntValid('tnt_trade_prestige_r_available')]" onclick = "[TntExec('tnt_prestige_r_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_prestige_r_none')]" }
 			}
 
@@ -3600,9 +3588,13 @@ window = {
 				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_piety" }
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
 
-				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_piety_p_std')]" }
-				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_piety_p_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_piety_p_max')]" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_p_available'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_trade_piety_p_available') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_p_available'), Localize('tnt_tt_preset_half'), TntTip('tnt_trade_piety_p_available') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_p_available'), Localize('tnt_tt_preset_max'), TntTip('tnt_trade_piety_p_available') )]" }
+
+				blockoverride "tnt_preset_sgui_std"  { enabled = "[TntValid('tnt_trade_piety_p_available')]" onclick = "[TntExec('tnt_piety_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { enabled = "[TntValid('tnt_trade_piety_p_available')]" onclick = "[TntExec('tnt_piety_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { enabled = "[TntValid('tnt_trade_piety_p_available')]" onclick = "[TntExec('tnt_piety_p_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_piety_p_none')]" }
 			}
 
@@ -3614,9 +3606,13 @@ window = {
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
 				blockoverride "tnt_preset_lbl_max"       { text = "tnt_preset_max_r" }
 
-				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_piety_r_std')]" }
-				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_piety_r_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_piety_r_max')]" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_r_available'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_trade_piety_r_available') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_r_available'), Localize('tnt_tt_preset_half'), TntTip('tnt_trade_piety_r_available') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_r_available'), Localize('tnt_tt_preset_max'), TntTip('tnt_trade_piety_r_available') )]" }
+
+				blockoverride "tnt_preset_sgui_std"  { enabled = "[TntValid('tnt_trade_piety_r_available')]" onclick = "[TntExec('tnt_piety_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { enabled = "[TntValid('tnt_trade_piety_r_available')]" onclick = "[TntExec('tnt_piety_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { enabled = "[TntValid('tnt_trade_piety_r_available')]" onclick = "[TntExec('tnt_piety_r_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_piety_r_none')]" }
 			}
 

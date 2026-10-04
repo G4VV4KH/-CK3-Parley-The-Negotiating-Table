@@ -2386,7 +2386,10 @@ types TwdDiplomacy
 				layoutpolicy_horizontal = expanding
 				size = { 0 34 }
 				text = "tnt_preset_half"
-				tooltip = "tnt_tt_preset_half"
+				block "tnt_preset_tt_half"
+				{
+					tooltip = "tnt_tt_preset_half"
+				}
 				using = tooltip_es
 
 				block "tnt_preset_sgui_half"
@@ -2401,7 +2404,10 @@ types TwdDiplomacy
 				name = "tnt_preset_btn_max"
 				layoutpolicy_horizontal = expanding
 				size = { 0 34 }
-				tooltip = "tnt_tt_preset_max"
+				block "tnt_preset_tt_max"
+				{
+					tooltip = "tnt_tt_preset_max"
+				}
 				using = tooltip_es
 
 				block "tnt_preset_sgui_max"

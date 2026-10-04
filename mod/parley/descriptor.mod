@@ -1,4 +1,4 @@
-﻿version="1.1.0"
+﻿version="1.2.0"
 name="Parley: The Negotiating Table"
 tags={
 	"1.20 'Crozier'"

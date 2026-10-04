@@ -28,9 +28,9 @@
 #
 # The legal key set of a scripted_gui is EXACTLY scope / saved_scopes / is_shown /
 # is_valid / effect (02-script-gui-bridge.md §2.1, measured over all 7 vanilla files
-# plus every scripted_guis file in 12 installed mods). Nothing here uses is_shown or
-# saved_scopes: visibility is driven from the GUI by cheap variable reads, and no
-# entry here receives a GUI-supplied object.
+# plus every scripted_guis file in 12 installed mods). Nothing here uses is_shown
+# or saved_scopes. Four read-only currency gates provide cheap live pair checks
+# for row visibility; no entry receives a GUI-supplied object.
 #
 # Root of every Execute call is the player: GuiScope.SetRoot( GetPlayer.MakeScope ),
 # i.e. `root` below is always the player and the partner is always var:tnt_partner.
@@ -125,6 +125,62 @@
 ######################################################################################
 
 
+# Current-pair currency gates. Four cheap live reads; no lists or cached state.
+# The same predicates guard each amount writer, including direct Execute calls.
+# Clear remains ungated so an offer can recover after faith or fame changes.
+tnt_trade_prestige_p_available = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
+	effect = { }
+}
+
+tnt_trade_prestige_r_available = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
+	effect = { }
+}
+
+tnt_trade_piety_p_available = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
+	effect = { }
+}
+
+tnt_trade_piety_r_available = {
+	scope = character
+
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
+	effect = { }
+}
+
+
 ######################################################################################
 # GROUP V1a — PRESTIGE STEPPERS (8)
 #
@@ -143,37 +199,48 @@
 tnt_prestige_p_add = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_prestige_p }
-			change_variable = {
-				name = tnt_prestige_p
-				add = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_p
-				value = 10
-			}
-		}
-		# Affordability: root is the player, and the player is the giver on the _p side.
-		if = {
-			limit = { prestige >= 1 }
-			set_variable = {
-				name = tnt_prestige_p
-				value = {
-					value = var:tnt_prestige_p
-					min = 0
-					max = prestige
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_prestige_p }
+				change_variable = {
+					name = tnt_prestige_p
+					add = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_prestige_p
+					value = 10
+				}
 			}
+			# Affordability: root is the player, and the player is the giver on the _p side.
+			if = {
+				limit = { prestige >= 1 }
+				set_variable = {
+					name = tnt_prestige_p
+					value = {
+						value = var:tnt_prestige_p
+						min = 0
+						max = prestige
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_prestige_p
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -181,36 +248,47 @@ tnt_prestige_p_add = {
 tnt_prestige_p_add_big = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_prestige_p }
-			change_variable = {
-				name = tnt_prestige_p
-				add = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_p
-				value = 100
-			}
-		}
-		if = {
-			limit = { prestige >= 1 }
-			set_variable = {
-				name = tnt_prestige_p
-				value = {
-					value = var:tnt_prestige_p
-					min = 0
-					max = prestige
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_prestige_p }
+				change_variable = {
+					name = tnt_prestige_p
+					add = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_prestige_p
+					value = 100
+				}
 			}
+			if = {
+				limit = { prestige >= 1 }
+				set_variable = {
+					name = tnt_prestige_p
+					value = {
+						value = var:tnt_prestige_p
+						min = 0
+						max = prestige
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_prestige_p
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -218,36 +296,47 @@ tnt_prestige_p_add_big = {
 tnt_prestige_p_sub = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_prestige_p }
-			change_variable = {
-				name = tnt_prestige_p
-				subtract = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_p
-				value = 0
-			}
-		}
-		if = {
-			limit = { prestige >= 1 }
-			set_variable = {
-				name = tnt_prestige_p
-				value = {
-					value = var:tnt_prestige_p
-					min = 0
-					max = prestige
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_prestige_p }
+				change_variable = {
+					name = tnt_prestige_p
+					subtract = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_prestige_p
+					value = 0
+				}
 			}
+			if = {
+				limit = { prestige >= 1 }
+				set_variable = {
+					name = tnt_prestige_p
+					value = {
+						value = var:tnt_prestige_p
+						min = 0
+						max = prestige
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_prestige_p
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -255,36 +344,47 @@ tnt_prestige_p_sub = {
 tnt_prestige_p_sub_big = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_prestige_p }
-			change_variable = {
-				name = tnt_prestige_p
-				subtract = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_p
-				value = 0
-			}
-		}
-		if = {
-			limit = { prestige >= 1 }
-			set_variable = {
-				name = tnt_prestige_p
-				value = {
-					value = var:tnt_prestige_p
-					min = 0
-					max = prestige
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_prestige_p }
+				change_variable = {
+					name = tnt_prestige_p
+					subtract = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_prestige_p
+					value = 0
+				}
 			}
+			if = {
+				limit = { prestige >= 1 }
+				set_variable = {
+					name = tnt_prestige_p
+					value = {
+						value = var:tnt_prestige_p
+						min = 0
+						max = prestige
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_prestige_p
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -298,42 +398,53 @@ tnt_prestige_p_sub_big = {
 tnt_prestige_r_add = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_prestige_r }
-			change_variable = {
-				name = tnt_prestige_r
-				add = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_r
-				value = 10
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { prestige >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_prestige_r
-				value = {
-					value = var:tnt_prestige_r
-					min = 0
-					max = scope:tnt_cap_giver.prestige
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_prestige_r }
+				change_variable = {
+					name = tnt_prestige_r
+					add = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_prestige_r
+					value = 10
+				}
 			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { prestige >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_prestige_r
+					value = {
+						value = var:tnt_prestige_r
+						min = 0
+						max = scope:tnt_cap_giver.prestige
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_prestige_r
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -341,42 +452,53 @@ tnt_prestige_r_add = {
 tnt_prestige_r_add_big = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_prestige_r }
-			change_variable = {
-				name = tnt_prestige_r
-				add = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_r
-				value = 100
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { prestige >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_prestige_r
-				value = {
-					value = var:tnt_prestige_r
-					min = 0
-					max = scope:tnt_cap_giver.prestige
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_prestige_r }
+				change_variable = {
+					name = tnt_prestige_r
+					add = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_prestige_r
+					value = 100
+				}
 			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { prestige >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_prestige_r
+					value = {
+						value = var:tnt_prestige_r
+						min = 0
+						max = scope:tnt_cap_giver.prestige
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_prestige_r
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -384,42 +506,53 @@ tnt_prestige_r_add_big = {
 tnt_prestige_r_sub = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_prestige_r }
-			change_variable = {
-				name = tnt_prestige_r
-				subtract = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_r
-				value = 0
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { prestige >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_prestige_r
-				value = {
-					value = var:tnt_prestige_r
-					min = 0
-					max = scope:tnt_cap_giver.prestige
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_prestige_r }
+				change_variable = {
+					name = tnt_prestige_r
+					subtract = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_prestige_r
+					value = 0
+				}
 			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { prestige >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_prestige_r
+					value = {
+						value = var:tnt_prestige_r
+						min = 0
+						max = scope:tnt_cap_giver.prestige
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_prestige_r
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -427,42 +560,53 @@ tnt_prestige_r_sub = {
 tnt_prestige_r_sub_big = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_prestige_r }
-			change_variable = {
-				name = tnt_prestige_r
-				subtract = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_r
-				value = 0
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { prestige >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_prestige_r
-				value = {
-					value = var:tnt_prestige_r
-					min = 0
-					max = scope:tnt_cap_giver.prestige
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_prestige_r }
+				change_variable = {
+					name = tnt_prestige_r
+					subtract = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_prestige_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_prestige_r
+					value = 0
+				}
 			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { prestige >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_prestige_r
+					value = {
+						value = var:tnt_prestige_r
+						min = 0
+						max = scope:tnt_cap_giver.prestige
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_prestige_r
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -479,36 +623,47 @@ tnt_prestige_r_sub_big = {
 tnt_piety_p_add = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_piety_p }
-			change_variable = {
-				name = tnt_piety_p
-				add = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_p
-				value = 10
-			}
-		}
-		if = {
-			limit = { piety >= 1 }
-			set_variable = {
-				name = tnt_piety_p
-				value = {
-					value = var:tnt_piety_p
-					min = 0
-					max = piety
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_piety_p }
+				change_variable = {
+					name = tnt_piety_p
+					add = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_piety_p
+					value = 10
+				}
 			}
+			if = {
+				limit = { piety >= 1 }
+				set_variable = {
+					name = tnt_piety_p
+					value = {
+						value = var:tnt_piety_p
+						min = 0
+						max = piety
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_piety_p
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -516,36 +671,47 @@ tnt_piety_p_add = {
 tnt_piety_p_add_big = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_piety_p }
-			change_variable = {
-				name = tnt_piety_p
-				add = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_p
-				value = 100
-			}
-		}
-		if = {
-			limit = { piety >= 1 }
-			set_variable = {
-				name = tnt_piety_p
-				value = {
-					value = var:tnt_piety_p
-					min = 0
-					max = piety
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_piety_p }
+				change_variable = {
+					name = tnt_piety_p
+					add = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_piety_p
+					value = 100
+				}
 			}
+			if = {
+				limit = { piety >= 1 }
+				set_variable = {
+					name = tnt_piety_p
+					value = {
+						value = var:tnt_piety_p
+						min = 0
+						max = piety
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_piety_p
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -553,36 +719,47 @@ tnt_piety_p_add_big = {
 tnt_piety_p_sub = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_piety_p }
-			change_variable = {
-				name = tnt_piety_p
-				subtract = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_p
-				value = 0
-			}
-		}
-		if = {
-			limit = { piety >= 1 }
-			set_variable = {
-				name = tnt_piety_p
-				value = {
-					value = var:tnt_piety_p
-					min = 0
-					max = piety
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_piety_p }
+				change_variable = {
+					name = tnt_piety_p
+					subtract = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_piety_p
+					value = 0
+				}
 			}
+			if = {
+				limit = { piety >= 1 }
+				set_variable = {
+					name = tnt_piety_p
+					value = {
+						value = var:tnt_piety_p
+						min = 0
+						max = piety
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_piety_p
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -590,36 +767,47 @@ tnt_piety_p_sub = {
 tnt_piety_p_sub_big = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_piety_p }
-			change_variable = {
-				name = tnt_piety_p
-				subtract = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_p
-				value = 0
-			}
-		}
-		if = {
-			limit = { piety >= 1 }
-			set_variable = {
-				name = tnt_piety_p
-				value = {
-					value = var:tnt_piety_p
-					min = 0
-					max = piety
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_piety_p }
+				change_variable = {
+					name = tnt_piety_p
+					subtract = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_piety_p
+					value = 0
+				}
 			}
+			if = {
+				limit = { piety >= 1 }
+				set_variable = {
+					name = tnt_piety_p
+					value = {
+						value = var:tnt_piety_p
+						min = 0
+						max = piety
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_piety_p
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -627,42 +815,53 @@ tnt_piety_p_sub_big = {
 tnt_piety_r_add = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_piety_r }
-			change_variable = {
-				name = tnt_piety_r
-				add = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_r
-				value = 10
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { piety >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_piety_r
-				value = {
-					value = var:tnt_piety_r
-					min = 0
-					max = scope:tnt_cap_giver.piety
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_piety_r }
+				change_variable = {
+					name = tnt_piety_r
+					add = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_piety_r
+					value = 10
+				}
 			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { piety >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_piety_r
+					value = {
+						value = var:tnt_piety_r
+						min = 0
+						max = scope:tnt_cap_giver.piety
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_piety_r
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -670,42 +869,53 @@ tnt_piety_r_add = {
 tnt_piety_r_add_big = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_piety_r }
-			change_variable = {
-				name = tnt_piety_r
-				add = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_r
-				value = 100
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { piety >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_piety_r
-				value = {
-					value = var:tnt_piety_r
-					min = 0
-					max = scope:tnt_cap_giver.piety
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_piety_r }
+				change_variable = {
+					name = tnt_piety_r
+					add = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_piety_r
+					value = 100
+				}
 			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { piety >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_piety_r
+					value = {
+						value = var:tnt_piety_r
+						min = 0
+						max = scope:tnt_cap_giver.piety
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_piety_r
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -713,42 +923,53 @@ tnt_piety_r_add_big = {
 tnt_piety_r_sub = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_piety_r }
-			change_variable = {
-				name = tnt_piety_r
-				subtract = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_r
-				value = 0
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { piety >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_piety_r
-				value = {
-					value = var:tnt_piety_r
-					min = 0
-					max = scope:tnt_cap_giver.piety
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_piety_r }
+				change_variable = {
+					name = tnt_piety_r
+					subtract = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_piety_r
+					value = 0
+				}
 			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { piety >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_piety_r
+					value = {
+						value = var:tnt_piety_r
+						min = 0
+						max = scope:tnt_cap_giver.piety
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_piety_r
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -756,42 +977,53 @@ tnt_piety_r_sub = {
 tnt_piety_r_sub_big = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
 		if = {
-			limit = { exists = var:tnt_piety_r }
-			change_variable = {
-				name = tnt_piety_r
-				subtract = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_r
-				value = 0
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { piety >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_piety_r
-				value = {
-					value = var:tnt_piety_r
-					min = 0
-					max = scope:tnt_cap_giver.piety
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			if = {
+				limit = { exists = var:tnt_piety_r }
+				change_variable = {
+					name = tnt_piety_r
+					subtract = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_piety_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_piety_r
+					value = 0
+				}
 			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { piety >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_piety_r
+					value = {
+						value = var:tnt_piety_r
+						min = 0
+						max = scope:tnt_cap_giver.piety
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_piety_r
+					value = 0
+				}
+			}
+
 		}
 	}
 }
@@ -1310,7 +1542,7 @@ tnt_refresh_v2_mirrors = {
 # MODIFIER-CLICK HANDLER. THERE IS NO THIRD CLICK TO BIND ±1000 TO.
 #=====================================================================================
 # Measured over EVERY .gui AND EVERY .txt under
-# D:\install\games\Crusader.Kings.III.Royal.Edition-InsaneRamZes\game:
+# <game>:
 #     onshiftclick      0 hits        oncontrolclick   0 hits
 #     onaltclick        0 hits        onctrlclick      0 hits
 #     onmiddleclick     0 hits        shiftclick       0 hits
@@ -1431,11 +1663,22 @@ tnt_gold_r_sub_huge = {
 tnt_prestige_p_add_huge = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_step_p_effect = {
-			VAR = tnt_prestige_p
-			DELTA = 1000
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_step_p_effect = {
+				VAR = tnt_prestige_p
+				DELTA = 1000
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1443,11 +1686,22 @@ tnt_prestige_p_add_huge = {
 tnt_prestige_p_sub_huge = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_step_p_effect = {
-			VAR = tnt_prestige_p
-			DELTA = -1000
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_step_p_effect = {
+				VAR = tnt_prestige_p
+				DELTA = -1000
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1455,11 +1709,22 @@ tnt_prestige_p_sub_huge = {
 tnt_prestige_r_add_huge = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_step_r_effect = {
-			VAR = tnt_prestige_r
-			DELTA = 1000
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_step_r_effect = {
+				VAR = tnt_prestige_r
+				DELTA = 1000
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1467,11 +1732,22 @@ tnt_prestige_r_add_huge = {
 tnt_prestige_r_sub_huge = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_step_r_effect = {
-			VAR = tnt_prestige_r
-			DELTA = -1000
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_step_r_effect = {
+				VAR = tnt_prestige_r
+				DELTA = -1000
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1479,11 +1755,22 @@ tnt_prestige_r_sub_huge = {
 tnt_piety_p_add_huge = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_step_p_effect = {
-			VAR = tnt_piety_p
-			DELTA = 1000
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_step_p_effect = {
+				VAR = tnt_piety_p
+				DELTA = 1000
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1491,11 +1778,22 @@ tnt_piety_p_add_huge = {
 tnt_piety_p_sub_huge = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_step_p_effect = {
-			VAR = tnt_piety_p
-			DELTA = -1000
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_step_p_effect = {
+				VAR = tnt_piety_p
+				DELTA = -1000
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1503,11 +1801,22 @@ tnt_piety_p_sub_huge = {
 tnt_piety_r_add_huge = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_step_r_effect = {
-			VAR = tnt_piety_r
-			DELTA = 1000
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_step_r_effect = {
+				VAR = tnt_piety_r
+				DELTA = 1000
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1515,11 +1824,22 @@ tnt_piety_r_add_huge = {
 tnt_piety_r_sub_huge = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_step_r_effect = {
-			VAR = tnt_piety_r
-			DELTA = -1000
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_step_r_effect = {
+				VAR = tnt_piety_r
+				DELTA = -1000
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1699,11 +2019,22 @@ tnt_gold_r_none = {
 tnt_prestige_p_std = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_set_p_effect = {
-			VAR = tnt_prestige_p
-			AMOUNT = tnt_std_prestige_value
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_set_p_effect = {
+				VAR = tnt_prestige_p
+				AMOUNT = tnt_std_prestige_value
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1711,11 +2042,22 @@ tnt_prestige_p_std = {
 tnt_prestige_p_half = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_frac_p_effect = {
-			VAR = tnt_prestige_p
-			MULT = 0.5
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_frac_p_effect = {
+				VAR = tnt_prestige_p
+				MULT = 0.5
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1723,11 +2065,22 @@ tnt_prestige_p_half = {
 tnt_prestige_p_max = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_frac_p_effect = {
-			VAR = tnt_prestige_p
-			MULT = 1
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_frac_p_effect = {
+				VAR = tnt_prestige_p
+				MULT = 1
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1745,11 +2098,22 @@ tnt_prestige_p_none = {
 tnt_prestige_r_std = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_set_r_effect = {
-			VAR = tnt_prestige_r
-			AMOUNT = tnt_std_prestige_value
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_set_r_effect = {
+				VAR = tnt_prestige_r
+				AMOUNT = tnt_std_prestige_value
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1757,11 +2121,22 @@ tnt_prestige_r_std = {
 tnt_prestige_r_half = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_frac_r_effect = {
-			VAR = tnt_prestige_r
-			MULT = 0.5
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_frac_r_effect = {
+				VAR = tnt_prestige_r
+				MULT = 0.5
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1769,11 +2144,22 @@ tnt_prestige_r_half = {
 tnt_prestige_r_max = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_prestige_trade_rule
+			tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_frac_r_effect = {
-			VAR = tnt_prestige_r
-			MULT = 1
-			FIELD = prestige
+		if = {
+			limit = { tnt_show_prestige_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_frac_r_effect = {
+				VAR = tnt_prestige_r
+				MULT = 1
+				FIELD = prestige
+			}
+
 		}
 	}
 }
@@ -1792,11 +2178,22 @@ tnt_prestige_r_none = {
 tnt_piety_p_std = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_set_p_effect = {
-			VAR = tnt_piety_p
-			AMOUNT = tnt_std_piety_value
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_set_p_effect = {
+				VAR = tnt_piety_p
+				AMOUNT = tnt_std_piety_value
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1804,11 +2201,22 @@ tnt_piety_p_std = {
 tnt_piety_p_half = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_frac_p_effect = {
-			VAR = tnt_piety_p
-			MULT = 0.5
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_frac_p_effect = {
+				VAR = tnt_piety_p
+				MULT = 0.5
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1816,11 +2224,22 @@ tnt_piety_p_half = {
 tnt_piety_p_max = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_p_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_frac_p_effect = {
-			VAR = tnt_piety_p
-			MULT = 1
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_p_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_frac_p_effect = {
+				VAR = tnt_piety_p
+				MULT = 1
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1838,11 +2257,22 @@ tnt_piety_p_none = {
 tnt_piety_r_std = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_set_r_effect = {
-			VAR = tnt_piety_r
-			AMOUNT = tnt_std_piety_value
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_set_r_effect = {
+				VAR = tnt_piety_r
+				AMOUNT = tnt_std_piety_value
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1850,11 +2280,22 @@ tnt_piety_r_std = {
 tnt_piety_r_half = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_frac_r_effect = {
-			VAR = tnt_piety_r
-			MULT = 0.5
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_frac_r_effect = {
+				VAR = tnt_piety_r
+				MULT = 0.5
+				FIELD = piety
+			}
+
 		}
 	}
 }
@@ -1862,11 +2303,22 @@ tnt_piety_r_half = {
 tnt_piety_r_max = {
 	scope = character
 
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_piety_trade_rule
+			tnt_show_piety_r_trigger = { OTHER = var:tnt_partner }
+		}
+	}
+
 	effect = {
-		tnt_cur_frac_r_effect = {
-			VAR = tnt_piety_r
-			MULT = 1
-			FIELD = piety
+		if = {
+			limit = { tnt_show_piety_r_trigger = { OTHER = var:tnt_partner } }
+			tnt_cur_frac_r_effect = {
+				VAR = tnt_piety_r
+				MULT = 1
+				FIELD = piety
+			}
+
 		}
 	}
 }

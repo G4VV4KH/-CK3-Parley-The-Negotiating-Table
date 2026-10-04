@@ -554,7 +554,8 @@ tnt_infl_r_frac_effect = {
 # Both the window and incoming AI letters use the actual acceptance value.
 # This includes personality, relationship scaling, signed obligations and all
 # three rounding stages. Nominal currency prices are not an inverse of it.
-# Net first; remove overpayment before requesting a new payment. Never create
+# Discard forbidden directions before pricing or netting; remove overpayment
+# before requesting a new payment. Never create
 # two directions of the same currency. A rounded +2 can be the minimum: do not
 # manufacture a counterpayment merely to make that number look like +1.
 # World AI-to-AI trades use their separate dispatcher, not these effects.
@@ -632,15 +633,31 @@ tnt_ab_search_effect = {
 	remove_variable = tnt_ab_search_mid
 }
 
-tnt_ab_close_deficit_currency_effect = {
+tnt_ab_reduce_return_currency_effect = {
 	if = {
-		limit = { tnt_ab_deficit_value > 0 var:$R$ > 0 }
-		tnt_ab_search_effect = { VAR = $R$ BOUND = 0 STEP = -1 DIRECTION = 1 }
+		limit = { tnt_ab_deficit_value > 0 exists = var:$VAR$ var:$VAR$ > 0 }
+		tnt_ab_search_effect = { VAR = $VAR$ BOUND = 0 STEP = -1 DIRECTION = 1 }
 	}
+}
+
+tnt_ab_add_offer_currency_effect = {
 	if = {
-		limit = { tnt_ab_deficit_value > 0 var:$R$ <= 0 }
+		limit = {
+			tnt_ab_deficit_value > 0
+			OR = {
+				NOT = { exists = var:$R$ }
+				var:$R$ <= 0
+			}
+		}
 		tnt_ab_search_effect = { VAR = $P$ BOUND = $CAP$ STEP = 1 DIRECTION = 1 }
 	}
+}
+
+# Gold and influence permit both directions. Prestige and piety call these
+# halves separately so the actual giver controls each currency-rule check.
+tnt_ab_close_deficit_currency_effect = {
+	tnt_ab_reduce_return_currency_effect = { VAR = $R$ }
+	tnt_ab_add_offer_currency_effect = { P = $P$ R = $R$ CAP = $CAP$ }
 }
 
 tnt_ab_trim_currency_effect = {
@@ -706,6 +723,7 @@ tnt_ab_net_effect = {
 	if = {
 		limit = {
 			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }
+			tnt_trade_prestige_trigger = { A = var:tnt_partner  B = root }
 			exists = var:tnt_prestige_p
 			var:tnt_prestige_p > 0
 			exists = var:tnt_prestige_r
@@ -752,6 +770,7 @@ tnt_ab_net_effect = {
 	if = {
 		limit = {
 			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }
+			tnt_trade_piety_trigger = { A = var:tnt_partner  B = root }
 			exists = var:tnt_piety_p
 			var:tnt_piety_p > 0
 			exists = var:tnt_piety_r
@@ -842,6 +861,28 @@ tnt_ab_net_effect = {
 	}
 }
 
+# Faith and fame may change while a saved table waits. Remove only forbidden
+# lanes, before they can offset a legal payment or affect a price. Zero seeds
+# are created below only for directions the live rule still permits.
+tnt_ab_sanitize_currencies_effect = {
+	if = {
+		limit = { NOT = { tnt_trade_prestige_trigger = { A = root B = var:tnt_partner } } }
+		remove_variable = tnt_prestige_p
+	}
+	if = {
+		limit = { NOT = { tnt_trade_prestige_trigger = { A = var:tnt_partner B = root } } }
+		remove_variable = tnt_prestige_r
+	}
+	if = {
+		limit = { NOT = { tnt_trade_piety_trigger = { A = root B = var:tnt_partner } } }
+		remove_variable = tnt_piety_p
+	}
+	if = {
+		limit = { NOT = { tnt_trade_piety_trigger = { A = var:tnt_partner B = root } } }
+		remove_variable = tnt_piety_r
+	}
+}
+
 tnt_ab_ensure_p_effect = {
 	if = {
 		limit = { NOT = { exists = var:tnt_gold_p } }
@@ -852,7 +893,7 @@ tnt_ab_ensure_p_effect = {
 	}
 	if = {
 		limit = {
-			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
+			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }
 			NOT = { exists = var:tnt_prestige_p }
 		}
 		set_variable = {
@@ -862,7 +903,7 @@ tnt_ab_ensure_p_effect = {
 	}
 	if = {
 		limit = {
-			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
+			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }
 			NOT = { exists = var:tnt_piety_p }
 		}
 		set_variable = {
@@ -889,7 +930,7 @@ tnt_ab_ensure_r_effect = {
 	}
 	if = {
 		limit = {
-			tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
+			tnt_trade_prestige_trigger = { A = var:tnt_partner  B = root }
 			NOT = { exists = var:tnt_prestige_r }
 		}
 		set_variable = {
@@ -899,7 +940,7 @@ tnt_ab_ensure_r_effect = {
 	}
 	if = {
 		limit = {
-			tnt_trade_piety_trigger = { A = root  B = var:tnt_partner }	# user item 16 + the W2 ladder, see C.0. NOT the bridge variable - see the trap in C.0
+			tnt_trade_piety_trigger = { A = var:tnt_partner  B = root }
 			NOT = { exists = var:tnt_piety_r }
 		}
 		set_variable = {
@@ -982,18 +1023,27 @@ tnt_ab_tidy_r_effect = {
 # Preserve fractional manual amounts and wallet endpoints; reducing them to whole
 # units can invalidate a previously acceptable full-wallet offer.
 tnt_ab_solve_effect = {
+	tnt_ab_sanitize_currencies_effect = yes
 	tnt_ab_ensure_p_effect = yes
 	tnt_ab_ensure_r_effect = yes
 	tnt_ab_net_effect = yes
 	set_variable = { name = tnt_ab_search_target value = var:tnt_ab_margin }
 	tnt_ab_close_deficit_currency_effect = { P = tnt_gold_p R = tnt_gold_r CAP = tnt_player_pay_cap_value }
 	if = {
+		limit = { tnt_trade_prestige_trigger = { A = var:tnt_partner B = root } }
+		tnt_ab_reduce_return_currency_effect = { VAR = tnt_prestige_r }
+	}
+	if = {
 		limit = { tnt_trade_prestige_trigger = { A = root B = var:tnt_partner } }
-		tnt_ab_close_deficit_currency_effect = { P = tnt_prestige_p R = tnt_prestige_r CAP = tnt_player_pay_cap_prestige_value }
+		tnt_ab_add_offer_currency_effect = { P = tnt_prestige_p R = tnt_prestige_r CAP = tnt_player_pay_cap_prestige_value }
+	}
+	if = {
+		limit = { tnt_trade_piety_trigger = { A = var:tnt_partner B = root } }
+		tnt_ab_reduce_return_currency_effect = { VAR = tnt_piety_r }
 	}
 	if = {
 		limit = { tnt_trade_piety_trigger = { A = root B = var:tnt_partner } }
-		tnt_ab_close_deficit_currency_effect = { P = tnt_piety_p R = tnt_piety_r CAP = tnt_player_pay_cap_piety_value }
+		tnt_ab_add_offer_currency_effect = { P = tnt_piety_p R = tnt_piety_r CAP = tnt_player_pay_cap_piety_value }
 	}
 	if = {
 		limit = { tnt_influence_ok_value > 0 government_has_flag = government_has_influence }
@@ -1017,11 +1067,11 @@ tnt_ab_solve_effect = {
 		limit = { tnt_ab_own_currency_value <= 0 tnt_ab_surplus_value > 0 }
 		tnt_ab_pay_currency_effect = { VAR = tnt_gold_r CAP = tnt_ai_pay_cap_value }
 		if = {
-			limit = { tnt_trade_prestige_trigger = { A = root B = var:tnt_partner } }
+			limit = { tnt_trade_prestige_trigger = { A = var:tnt_partner B = root } }
 			tnt_ab_pay_currency_effect = { VAR = tnt_prestige_r CAP = tnt_ai_pay_cap_prestige_value }
 		}
 		if = {
-			limit = { tnt_trade_piety_trigger = { A = root B = var:tnt_partner } }
+			limit = { tnt_trade_piety_trigger = { A = var:tnt_partner B = root } }
 			tnt_ab_pay_currency_effect = { VAR = tnt_piety_r CAP = tnt_ai_pay_cap_piety_value }
 		}
 		if = {
@@ -1087,6 +1137,8 @@ tnt_autobalance_effect = {
 
 # The incoming-letter composer keeps its gift ceiling and never adds lumpy terms.
 tnt_ai_pricebalance_effect = {
+	# The gift ceiling is priced before solve, so sanitize before that read too.
+	tnt_ab_sanitize_currencies_effect = yes
 	set_variable = { name = tnt_ab_margin value = $MARGIN$ }
 	set_variable = { name = tnt_ab_ceiling value = $CEILING$ }
 	if = {

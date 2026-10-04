@@ -40,7 +40,7 @@
 #    another author. error_log needs no loc key at all.
 #
 # 3. WHICH FILE. Error severity, so it lands in
-#      C:\Users\Pavel\...\Crusader Kings III\logs\error.log
+#      <CK3-user-data>/logs/error.log
 #    and is mirrored into game.log, exactly as every other [E] line is - both
 #    files in this install carry the same character_interaction.cpp:900 lines.
 #    *** THE USER SENDS error.log. *** Vanilla confirms the destination in its

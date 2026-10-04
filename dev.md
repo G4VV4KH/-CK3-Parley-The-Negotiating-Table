@@ -1,6 +1,8 @@
 # Contributing to Parley
 
-Parley 1.1.0 is developed in `mod/parley/` for CK3 1.20.0.3. The 1.20.0.3 upstream-script review and static regressions passed without a runtime change; the latest in-game verification remains on 1.20.0.2. Read [the current contract](docs/CURRENT-CONTRACT.md) and [the 1.20 compatibility decisions](docs/CK3-1.20-COMPATIBILITY.md) before changing runtime behavior. Keep a pull request focused on one behavior, describe its visible effect, and distinguish passing source checks from observed game results.
+Parley 1.2.0 is developed in `mod/parley/` for CK3 1.20.0.3. It adds directional faith/fame/devotion rules for negotiated currencies. The [currency-rule record](docs/CURRENCY-RULES-1.2.md) separates the completed developer-session checks, controlled AI settlement probes and their diagnostic caveats from the new GAME candidate's pending smoke. Version 1.1.0 / RC11 remains the published release until the separate publication chain is completed. Read [the current contract](docs/CURRENT-CONTRACT.md) and [the 1.20 compatibility decisions](docs/CK3-1.20-COMPATIBILITY.md) before changing runtime behavior. Keep a pull request focused on one behavior, describe its visible effect, and distinguish passing source checks from observed game results.
+
+**Publication addendum, 2026-10-04:** the preparation-time pending-smoke status above is superseded. The frozen `2026-10-04-parley-1.2.0-rc1` GAME candidate passed its focused standalone CK3 1.20.0.3 smoke with retained log notes; see the [acceptance addendum](docs/CURRENCY-RULES-1.2.md#game-acceptance-addendum-2026-10-04). This source publication does not itself certify Steam, Paradox or Nexus delivery. The AGOT support hold remains unchanged. No runtime or frozen-package bytes were changed by this publication-only documentation update.
 
 ## Repository and release copies
 
@@ -32,8 +34,8 @@ Use Windows PowerShell 5.1 or PowerShell 7, with installed CK3 and AGOT paths. F
 $parleySource = (Resolve-Path './mod/parley').Path
 $mcaSource = (Resolve-Path '../marriage_calc_assistant/mod/marriage_calc_assistant').Path
 $adapterSource = (Resolve-Path '../agot_marriage_calc_assistant/mod/agot_marriage_calc_assistant').Path
-$vanillaSource = 'D:/SteamLibrary/steamapps/common/Crusader Kings III/game'
-$agotSource = 'D:/SteamLibrary/steamapps/workshop/content/1158310/2962333032'
+$vanillaSource = './game'
+$agotSource = './agot'
 & ./tools/family/tnt_frozen_sync_check.ps1 -McaRoot $mcaSource -AdapterRoot $adapterSource -VanillaRoot $vanillaSource -AgotRoot $agotSource
 & ./tools/family/tnt_family_gate.ps1 -CoreRoot $parleySource -McaRoot $mcaSource -AdapterRoot $adapterSource -VanillaRoot $vanillaSource -AgotRoot $agotSource
 & ./tools/family/tnt_rule_conformance.ps1 -ModRoot $parleySource
@@ -47,7 +49,8 @@ For currency balancing and AI-world native scope bindings, run the focused sourc
 
 ```powershell
 python tests/parley/test_autobalance.py --source mod/parley
-python -B tests/parley/test_ai_world_native_scopes.py --source mod/parley --game 'D:/SteamLibrary/steamapps/common/Crusader Kings III/game'
+python -B tests/parley/test_currency_trade_rules.py --source mod/parley
+python -B tests/parley/test_ai_world_native_scopes.py --source mod/parley --game './game'
 ```
 
 See [the auto-balance audit](docs/AUTOBALANCE-FIX.md) for the reported failure, AI impact, coverage and runtime verification status. The harness approximates CK3 execution and does not replace a focused game check.
@@ -55,6 +58,8 @@ See [the auto-balance audit](docs/AUTOBALANCE-FIX.md) for the reported failure, 
 Do not rely on the relocated tools' original root defaults. Most still derive a root two directories above the script. `tnt_citation_check.ps1` additionally needs an explicit `-Doc` for the document being checked. `tnt_incode_citation_check.ps1` expects the three mod folders under one parent; use a verified combined source staging tree for a complete family citation scan. A run against only this repository is not a full three-mod citation check.
 
 The checks are source contracts and bounded models, not a CK3 parser or proof of engine behavior. When a change needs runtime evidence, record the exact package, playset, save, date, UI scale and observed result; inspect logs after the game closes. Do not replace a pinned vanilla/AGOT baseline with whatever is installed merely to make a failed check pass.
+
+Publication copy has one editable English source: `publishing/description.en.md`. The shared release-workspace wrapper renders **only Parley** with `--mod parley`; do not call the original family-wide renderer CLI for a scoped edit. The full game-rules guide lives in that canonical source. Steam gets the marked short summary and a link to the README guide; GitHub, Paradox, Nexus and the preview get the full guide. Steam is validated against 8,000 UTF-8 bytes before outputs are written. Run `python -B -m unittest discover -s tests/publishing -v` for the renderer and `python -B -m unittest discover -s tests/release -v` for the numbered deployment-kit checks. Follow the existing release journal procedure after committing reviewed inputs; no tool in this preparation flow uploads a release.
 
 ## Change conventions
 

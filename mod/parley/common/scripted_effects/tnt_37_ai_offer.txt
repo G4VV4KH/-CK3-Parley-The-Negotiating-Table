@@ -5396,33 +5396,9 @@ tnt_ai_offer_counter_effect = {
 		remove_variable = tnt_advanced
 	}
 
-	# V17, USER ITEM 4 (step 0) - THE TWO CURRENCY BRIDGES, AND THIS COPY IS NOT
-	# OPTIONAL. This effect is the OTHER path that opens the negotiation window, and
-	# the four currency rows now carry a raw-variable conjunct on these two
-	# variables (gui\tnt_diplomacy_window.gui) exactly as the Tier-4 rows carry one
-	# on tnt_advanced above. Omit them here and every counter-offer would open with
-	# both prestige rows and both piety rows invisible while the game rules were
-	# switched ON - the mirror image of the bug being fixed. The full argument, the
-	# measurement and the lifecycle are on the E1 copy,
-	# common\scripted_effects\tnt_30_effects.txt (tnt_open_window_effect); both are
-	# removed in E2 tnt_close_window_effect.
-	#
-	# W2 - THE LIMIT IS NOW A PAIR QUESTION. The two currency rules became
-	# LADDERS (piety: off / same faith / same religion / always; prestige: off /
-	# peers-and-below / always), so a hand-written has_game_rule = _on test can
-	# no longer answer them - it reads FALSE for a middle rung that is TRUE for
-	# this pair. The read moved into T2b / T2c, both in common\scripted_triggers:
-	# tnt_trade_prestige_trigger (tnt_40_triggers.txt:284) and
-	# tnt_trade_piety_trigger (tnt_40_triggers.txt:306); the design argument is in the game-rule file's header.
-	# var:tnt_partner IS ALREADY SET ON THIS PATH and that is stated four
-	# paragraphs up: "NOT tnt_partner. It is already set, to the AI, and that is
-	# the whole point." tnt_ai_offer.0001 writes it in its own immediate
-	# (events\tnt_ai_events.txt), before it composes anything, and this effect
-	# deliberately does not touch it. root is the player here, as the header of
-	# this effect says on its first line.
-	# THE .gui IS UNTOUCHED: the four currency conjuncts still read
-	# TntOn('tnt_trade_prest_on') / TntOn('tnt_trade_pty_on'). What changed is
-	# only the question whose answer the bridge carries.
+	# Legacy snapshots retained alongside the manual opener for compatibility.
+	# Live currency rows/controls do not read them: root->partner and
+	# partner->root may have different permissions, and fame/faith may change.
 	if = {
 		limit = { tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner } }
 		set_variable = {

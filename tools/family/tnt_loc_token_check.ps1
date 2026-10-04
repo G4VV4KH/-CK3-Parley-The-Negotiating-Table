@@ -27,7 +27,7 @@
 # =====================================================================================
 param(
     [string]$ModRoot     = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
-    [string]$VanillaRoot = 'D:\SteamLibrary\steamapps\common\Crusader Kings III\game'
+    [string]$VanillaRoot = './game'
 )
 $ErrorActionPreference = 'Stop'
 

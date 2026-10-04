@@ -3,7 +3,7 @@
 [size=5][b]At a glance[/b][/size]
 
 [list]
-[*]🟢 [b]Version 1.1.0[/b] · Targets CK3 [b]1.20.0.3[/b].
+[*]🟢 [b]Version 1.2.0[/b] · Targets CK3 [b]1.20.0.3[/b].
 [*]🟢 [b]No other mod required.[/b]
 [*]🟢 [b]languages:[/b] English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070]來自無壹的中文翻譯[/url] and Spanish.
 [*]🔴 [b]Changes gameplay:[/b] treaties can transfer money, people, land and vassalage.
@@ -68,7 +68,111 @@ Rounding can make displayed rows differ slightly from totals. These values belon
 [*]Review and confirm. The mod rechecks that the agreement can be carried out.
 [/list]
 
-Game rules control advanced terms, prestige/piety trading, AI treaties, incoming offer frequency and threat scaling. AI-to-AI treaties have their own system and frequency rule; the advanced-terms rule does not universally restrict them.
+
+[size=5][b]Game rules guide[/b][/size]
+
+Choose these rules in [b]Game Rules[/b] before starting a campaign. Updating the mod does not replace the choices already stored in a save. Parley's six public rules are independent: choose the combination you want rather than treating one setting as a master switch.
+
+[b]Default setup:[/b] advanced terms [b]Enabled[/b]; prestige and piety [b]Available[/b]; threats [b]Standard[/b]; AI-to-AI treaties and offers sent to you [b]Frequent[/b].
+
+[size=5][b]1. Advanced terms[/b][/size]
+
+[list]
+[*][b]Enabled[/b] (default): permits advanced treaty terms such as marriage arrangements and betrothals, title transfers, sworn fealty, independence and transfers of direct vassals. Each still has its own eligibility checks.
+[*][b]Disabled[/b]: hides the advanced table terms and removes their corresponding incoming proposal options, including marriage letters. Basic negotiations remain available.
+[/list]
+
+This is not a universal restriction on the separate AI-to-AI treaty system. To stop autonomous bargains between AI rulers, set [b]AI-to-AI treaties[/b] to [b]Disabled[/b] as well.
+
+[size=5][b]2. Prestige trading[/b][/size]
+
+[list]
+[*][b]Available[/b] (default): prestige may be offered or requested from any eligible partner.
+[*][b]Same faith only[/b]: both rulers must follow exactly the same faith. Belonging to the same broader religion is not enough.
+[*][b]Lower fame only[/b]: prestige can move only from a ruler with a [b]strictly higher level of fame[/b] to one with a lower level. Equal levels are excluded.
+[*][b]Peers and lesser only[/b]: the giver's fame level may be equal to or higher than the receiver's.
+[*][b]Disabled[/b]: prestige cannot be traded.
+[/list]
+
+The directional rules compare [b]level of fame[/b], not stored prestige, title rank or who initiated negotiations. With fame levels 4 and 2, [b]Lower fame only[/b] permits 4 → 2, but not 2 → 4. At equal levels, neither direction is allowed in strict mode; [b]Peers and lesser only[/b] permits both. The giver must still have enough spendable prestige.
+
+[size=5][b]3. Piety trading[/b][/size]
+
+[list]
+[*][b]Available[/b] (default): piety may be offered or requested regardless of faith.
+[*][b]Same faith only[/b]: both rulers must follow exactly the same faith; devotion levels do not restrict the direction.
+[*][b]Same faith: less devout[/b]: both rulers must follow the same faith, and the giver's [b]level of devotion must be strictly higher[/b] than the receiver's. Equal levels are excluded.
+[*][b]Different faiths only[/b]: the rulers must follow different faiths, including different faiths within the same religion.
+[*][b]Same religion only[/b]: the rulers must belong to the same broader religion, even if their faiths differ.
+[*][b]Disabled[/b]: piety cannot be traded.
+[/list]
+
+For example, Catholic and Orthodox rulers have different faiths within Christianity. They qualify under [b]Different faiths only[/b] and [b]Same religion only[/b], but not [b]Same faith only[/b]. A Catholic and an Ash'ari ruler qualify under [b]Different faiths only[/b], not [b]Same religion only[/b].
+
+The strict-devotion option compares [b]level of devotion[/b], not the amount of piety in the treasury. A same-faith ruler at devotion level 4 can give to one at level 2, but cannot receive piety from them under that rule.
+
+[size=5][b]How currency restrictions affect a deal[/b][/size]
+
+Each direction is checked separately. A prestige or piety row can appear on only one side of the table; unavailable rows disappear. [b]Auto-balance and AI proposals use the same restrictions[/b], including when pricing a counteroffer. Gold is unaffected by these two rules.
+
+The final agreement is checked again before execution. If a ruler's faith or fame/devotion level changes and a positive currency term is no longer permitted, an old draft cannot bypass the rule: revise or reopen the deal. Restrictions govern negotiated payments, not unrelated resource gains, costs or consequences such as the prestige loss for refusing a threat.
+
+The prestige and piety rules are separate choices. For the faith-based exchange suggested by the community, choose [b]Prestige: Same faith only[/b] and [b]Piety: Different faiths only[/b]. Compliance does not mean the AI must include prestige or piety in every offer; a gold-only proposal is still valid.
+
+[size=5][b]4. Threats at the table[/b][/size]
+
+These labels adjust [b]how much pressure military superiority provides[/b], not a guaranteed schedule of incoming demands:
+
+[list]
+[*][b]Rare[/b]: coefficient 2.5; at equal fame and dread, the military-strength ratio needed is 41:1.
+[*][b]Standard[/b] (default): coefficient 5; at equal fame and dread, the ratio needed is 21:1.
+[*][b]Frequent[/b]: coefficient 7.5; at equal fame and dread, the ratio needed is about 14.34:1.
+[*][b]Ever-present[/b]: coefficient 10; at equal fame and dread, the ratio needed is 11:1.
+[/list]
+
+Every option requires [b]at least 100 threat points[/b], for both player and AI. Under [b]Standard[/b], a 2:1 military advantage at equal fame and dread gives only 5 points: it is not enough to threaten. The comparison uses maximum military strength, not just the troops currently raised. Higher fame and dread can lower the military advantage needed; being a full fame level below the target makes the threat worth zero regardless of army size.
+
+The target must be an independent ruler, cannot be your ally, and neither ruler may hold a hostage from the other's home court. Other eligibility checks still apply. A completed treaty signed under threat causes a [b]-100 opinion modifier that decays over 15 years[/b]; while that modifier remains, the same ruler cannot threaten that target again.
+
+Threatening adds pressure to negotiations; it is not an automatic declaration of war. A large army does not guarantee a demand letter or the annexation of neighbors. This rule has no [b]Disabled[/b] option; incoming demands can instead be silenced with the incoming-offer rule or the embassy decision below.
+
+[size=5][b]5. AI-to-AI treaties[/b][/size]
+
+[list]
+[*][b]Disabled[/b]: stops the autonomous system for bargains between AI rulers. It does not stop you opening talks or receiving AI offers.
+[*][b]Occasional[/b]: fewer opportunities for autonomous bargains.
+[*][b]Frequent[/b] (default): more opportunities, still subject to eligible partners and workable terms.
+[/list]
+
+This separate system can arrange payments, favors, artifacts, eligible land transfers, marriages and fealty. Overwhelming rulers can force submission when the threat conditions are met. Concluded world bargains impose a three-year per-ruler cooldown. You receive notices about relevant bargains involving a border neighbor, ally or current opponent.
+
+Frequency changes opportunities, not a guaranteed number of treaties per year, and it does not make the AI's prices more generous. [b]Advanced terms[/b] is not a universal switch for this system.
+
+[size=5][b]6. Offers sent to you[/b][/size]
+
+[list]
+[*][b]Never[/b]: stops unsolicited AI offers and demands. You can still initiate negotiations; AI-to-AI treaties retain their own setting.
+[*][b]Rare[/b]: a three-year recipient quiet period after a visible letter; an individual proposer has a six-year attempt cooldown.
+[*][b]Normal[/b]: a one-year recipient quiet period; a three-year proposer attempt cooldown.
+[*][b]Frequent[/b] (default): a six-month recipient quiet period; a one-year proposer attempt cooldown.
+[/list]
+
+These periods are limits, [b]not delivery deadlines[/b]. A suitable proposer, meaningful package and eligible game state are still needed. A year without a letter is not, by itself, proof that the system is inactive.
+
+Demand letters have an additional recipient lock: [b]20 years on Rare, 10 on Normal, 3 on Frequent[/b], plus the separate 15-year same-pair threat memory after a response. Ordinary offer frequency therefore does not imply repeated demands at the same rate.
+
+During a campaign, [b]Receive No More Embassies[/b] silences incoming treaty envoys; [b]Receive Embassies Again[/b] reverses that choice. Neither prevents you from opening negotiations yourself.
+
+[size=5][b]Suggested combinations[/b][/size]
+
+[list]
+[*][b]Start with the defaults[/b] for the full negotiating table and unrestricted prestige/piety payments.
+[*][b]Faith-based exchange:[/b] prestige [b]Same faith only[/b], piety [b]Different faiths only[/b].
+[*][b]Strict downward transfers:[/b] prestige [b]Lower fame only[/b], piety [b]Same faith: less devout[/b].
+[*][b]You initiate diplomacy:[/b] incoming offers [b]Never[/b]. Disable AI-to-AI treaties separately only if you also want to stop autonomous world bargains.
+[/list]
+
+These are suggested combinations of the existing rules, not additional built-in presets.
 
 When acting for a puppet, Parley's opener and marriage picker are hidden. Personal Rites determine marriage defaults and lineality pricing; native marriage eligibility checks still apply.
 

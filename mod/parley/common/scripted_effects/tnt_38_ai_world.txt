@@ -317,6 +317,9 @@ tnt_ai_send_gold_effect = {
 # for the AI path. `prestige >= <named value>` mirrors vanilla's own currency gate
 # `influence >= major_influence_value`
 # (GAME\common\character_interactions\00_alliance.txt:1320).
+# The same live currency rule applies to AI-to-AI transfers, with A as the
+# actual giver and B as the actual receiver. Absolute handles are required
+# because this helper enters the giver's scope before testing the rule.
 #
 # The receiver's leg is nested INSIDE the giver's `if`, so the two halves can never
 # separate: either both run or neither does. A prestige gift that credits the
@@ -332,7 +335,10 @@ tnt_ai_send_gold_effect = {
 tnt_ai_send_prestige_effect = {
 	$GIVER$ = {
 		if = {
-			limit = { prestige >= $AMOUNT$ }
+			limit = {
+				tnt_trade_prestige_trigger = { A = $GIVER$ B = $RECEIVER$ }
+				prestige >= $AMOUNT$
+			}
 			add_prestige = {
 				value = $AMOUNT$
 				multiply = -1

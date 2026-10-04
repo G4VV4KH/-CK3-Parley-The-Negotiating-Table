@@ -53,7 +53,7 @@
 # only if it is an any_* iterator"), so the sharp number is reproducible.
 #
 # VANILLA EVIDENCE GATHERED THIS ROUND (all under
-# D:\SteamLibrary\steamapps\common\Crusader Kings III\game):
+# ./game):
 #   * has_dread_level_towards has ZERO trigger_localization entries - 1636
 #     entries over 51 files, it is not among them. Controls that DO have one and
 #     that this same tooltip reaches: dread 00_character_triggers.txt:817,
@@ -410,7 +410,7 @@
 # =============================================================================
 param(
     [string]$ModRoot     = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)),
-    [string]$VanillaRoot = "D:\SteamLibrary\steamapps\common\Crusader Kings III\game",
+    [string]$VanillaRoot = "./game",
     # PASS E's ONE SWITCH, and it must stay OFF until a hover proves hypothesis (a).
     # Turning an UNPROVEN hypothesis into a FAIL would block the launch gate on a
     # guess - which is the round-6 mistake wearing a tool as a costume. Off: the

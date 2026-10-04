@@ -1,124 +1,24 @@
 # =============================================================================
-# tnt_rule_conformance.ps1                              CLAUDE.md check 6.13
+# tnt_rule_conformance.ps1 — cross-path game-rule source checks.
 #
-# THE CHECK THAT MUST EXIST BEFORE THIS MOD ADDS ANOTHER GAME RULE.
+# FAIL checks cover window visibility, AI composer entries, balancer writers,
+# and threat calibration/single-source invariants. Structural noncurrency rows
+# use the existing cached bridge. Prestige/piety instead require four live
+# directional GUI bindings and their exact scripted call chains (check 1b).
+# Cheap faith/fame predicates may be evaluated live; never cache one direction
+# as permission for the opposite direction.
 #
-# *** STATUS 2026-08-19, AS WRITTEN: THIS SCRIPT EXITS 1 ON THE SHIPPED TREE,
-# AND THAT IS THE TOOL PROVING ITSELF, NOT A BROKEN TOOL. It reports exactly
-# two offender classes, both of them real, both found by hand in the same round
-# and both already written up in CLAUDE.md:
+# Scripted-GUI writers and apply helpers are also listed for review. Currency
+# writers now have execution guards; atomic whole-deal preflight validates both
+# transfer directions before any effects, rather than rechecking midway through
+# a treaty. test_currency_trade_rules.py exercises those source contracts and
+# the real currency-trigger AST, including the shared manual/AI balancer.
+# Informational notes are not substitutes for that behavioral test.
 #
-#   (R1) COMPOSER  archetypes 8 and 10 stage a ceded county (tnt_sel_title_*)
-#        and neither entry reads tnt_advanced_terms. With the rule OFF the AI
-#        keeps sending land letters, and pressing "counter" opens a window
-#        where the title row is invisible and therefore cannot be unticked.
-#   (R2) WINDOW    the two independence rows carry no rule conjunct, so
-#        tnt_advanced_terms BLOCKS the term without HIDING it - the player sees
-#        a row he can never use and is given no reason.
-#
-# WHEN BOTH ARE FIXED THIS SCRIPT MUST GO TO EXIT 0 AND STAY THERE. A future
-# FAIL row is a regression, not a discovery.
-#
-# THE RULE IT ENFORCES, in one sentence:
-#   a game rule that gates a deal term must be read on EVERY side of that term
-#   that a player can observe -- the window row, the AI composer entry, and the
-#   auto-balance rung -- because a rule read on one side only produces an offer
-#   the player is not allowed to accept.
-#
-# WHY A SCRIPT AND NOT A CONVENTION. There is NO chokepoint. Measured: the
-# tnt_show_* gate family has zero live occurrences in tnt_37_ai_offer.txt,
-# tnt_38_ai_world.txt, tnt_ai_events.txt, tnt_32_apply.txt and
-# tnt_35_multiselect.txt, so no single place exists to hang a rule on. Every
-# rule is plumbed to the AI BY HAND, which is one independent chance per rule
-# of exactly the R1 defect. The class has already shipped three times: V13 for
-# archetype 16, V17 for archetypes 14 and 20, and R1 is live today. This is the
-# same reason tnt_bare_tooltip_row_check.ps1 exists - a defect that recurs and
-# that nothing else can see earns a machine check.
-#
-# ---------------------------------------------------------------------------
-# WHAT IS A FAIL AND WHAT IS A NOTE, AND WHY THE LINE IS DRAWN THERE
-#
-# FAIL positions are the ones where a missing read is OBSERVABLE BY THE PLAYER
-# and where the correct shape is unambiguous:
-#   1  the `visible` of every .gui row of the term, as a raw-variable conjunct
-#      -- the shipped shape is And( TntRow('tnt_show_<term>_<side>'),
-#      TntOn('<bridge>') ). A .gui CANNOT ask has_game_rule at all, which is
-#      why the bridge variable is never optional.
-#   2  the entry of every composer archetype that writes tnt_<term>_* or
-#      tnt_sel_<term>_* -- the R1 position.
-#   3  every auto-balance rung that writes the term.
-#   D  THE SINGLE-READ ASSERTION, added 2026-08-24 with tnt_threat_scale.
-#      `has_game_rule = tnt_threat_scale_` must occur under common\ ONLY inside
-#      tnt_threat_scale_value in common\script_values\tnt_57_threat_values.txt.
-#      That rule is the mod's only one with a CHOKEPOINT - N is a factor of
-#      tnt_threat_points_value, which every consumer already calls - so the
-#      defect class 1/2/3 exist to catch is structurally unreachable for it: it
-#      needs two read sites that can disagree, and there is exactly one. A
-#      second occurrence IS that second site, i.e. a second copy of the rule
-#      (house law 9), and it is the only way this rule can ever acquire the
-#      defect. It is a FAIL and not a note because it is green the moment the
-#      rule lands, and a gate that is always red is not read.
-#
-# NOTE positions are reported but never fail the build, each for a stated
-# reason. Making them FAIL would turn this gate permanently red on the shipped
-# tree, and a gate that is always red is not read - the lesson written into
-# tnt_bare_tooltip_row_check.ps1's own interaction-surface section.
-#   A  scripted_gui is_valid. The currency terms own ~20 scripted GUIs each and
-#      NONE has an is_valid. They are safe by unreachability: with the row
-#      hidden by position 1 the control cannot be clicked. Gating them one by
-#      one would be 20 new is_valid blocks per currency to buy nothing.
-#   B  the AI-to-AI sandbox (tnt_38_ai_world.txt), which reads no game rule at
-#      all. It also cannot be checked term-by-term - it stages no deal variables
-#      (2 tnt_* writes in the whole file) because it applies treaties directly
-#      with vanilla effects. So this position reports one blunt number instead.
-#      Whether a lobby switch should govern treaties between two AI rulers the
-#      player never sees is a DESIGN question never put to the user.
-#   C  the apply legs, ungated for every rule. THE "AIRTIGHT" CLAIM THIS NOTE
-#      USED TO MAKE WAS FALSIFIED BY THE TIERED-RULES ROUND (W2), AND MUST NOT
-#      BE RESTATED. Safe-by-unreachability covers only the END rungs: a game
-#      rule cannot change mid-campaign, so with the rule OFF the term variable
-#      is never non-zero and the leg is never entered, and with it ON nothing
-#      is forbidden. It FAILS for a MIDDLE rung, because a mid-tier rule
-#      forbids the term by a fact that DOES move mid-campaign -
-#      tnt_trade_prestige's `peer` reads a prestige LEVEL, tnt_trade_piety's
-#      `faith` / `religion` read a FAITH - so the leg can pay a currency the
-#      rung now forbids on a term the player had already staged. The reachable
-#      case is a stale AI letter: composed while the pair matched, left
-#      unanswered for years (its marker is untimed by design), accepted after a
-#      conversion or a rise in fame. It is an OPEN RULING and not an oversight -
-#      the leg has no partner handle it can trust, and a wrong handle would
-#      silently stop EVERY prestige and piety payment in the mod. The full
-#      argument and the exact shape to add are written at the code, in E30's
-#      header: common\scripted_effects\tnt_33_currency_apply.txt:137-181
-#      (E31's piety twin defers to it at :228-234).
-#      THE TOOL NOW SEES THAT POSITION. Until this round check C scanned
-#      tnt_32_apply.txt alone, and BOTH legs the ruling is about live in
-#      tnt_33_currency_apply.txt - so the one position W2 left open was the one
-#      position this tool could not print. Both files are scanned now, and a
-#      rule carrying MidRung = $true prints `C!` with the reachable-case
-#      warning instead of a bare `C`. It stays a NOTE: the ruling is open, and
-#      a gate that is always red is not read.
-#
-# ADDING A RULE: extend $RULES below with the rule id, its bridge variable and
-# the term stems it gates. The term stem is the middle of the variable name -
-# tnt_<stem>_p / tnt_<stem>_r / tnt_sel_<stem>_p - and of the gate name
-# tnt_show_<stem>_<side>. Set MidRung = $true if the rule has ANY setting
-# between off and on - that is what decides whether NOTE C's unreachability
-# argument still covers its apply leg.
-#
-# *** THE NAMED EXEMPTION: tnt_threat_scale CARRIES AN EMPTY Terms LIST ON
-# PURPOSE, AND IT IS NOT AN OMISSION. *** It gates a PRICE and an AVAILABILITY,
-# not a row's visibility: the threat row must stay on screen at every setting
-# and grey out with its own named reason, so FAIL 1's bridge conjunct would be
-# WRONG for it. No archetype stages tnt_threat_*, so FAIL 2 is vacuous; the
-# balancer never touches threat (zero mentions in tnt_39_autobalance.txt), so
-# FAIL 3 is vacuous. Terms = @('threat') WAS TRIED AND MEASURED, 2026-08-24:
-# EXIT 1, OFFENDERS 2 - `1 WINDOW tnt_types.gui:1895` and `1 WINDOW
-# tnt_diplomacy_window.gui:1775`, BOTH FALSE, both on the threat row, which must
-# NEVER hide (it greys with a named reason) - plus 3 false notes, 2 x NOTE A
-# (tnt_threat_p_toggle, tnt_threat_p_off) and 1 x NOTE C (tnt_apply_deal_effect),
-# taking the note count 70 -> 73. The check this rule actually needs is POSITION
-# D below, which is a FAIL and not a note.
+# AI-world rules are relevant too; the prestige transfer helper uses the same
+# canonical predicate. Penalties for refusing threats are not currency trades.
+# Historical blanket claims of safe-by-unreachability or an open stale-letter
+# ruling are obsolete. All other resource and advanced-term policies remain.
 #
 # Exit 0 clean / 1 offender(s) / 2 bad arguments.
 # =============================================================================
@@ -184,6 +84,10 @@ function Writes-Term([string]$code, [string]$stem) {
 function Reads-Rule([string]$code, $r) {
     if ($code -match ('has_game_rule\s*=\s*' + $r.Rule + '_')) { return $true }
     if ($code -match ($r.Rule + '_trigger'))                   { return $true }
+    # These lightweight wrappers are proven directional in check 1b below.
+    if ($r.Rule -match '^tnt_trade_(prestige|piety)$') {
+        if ($code -match ('tnt_show_' + $Matches[1] + '_[pr]_trigger')) { return $true }
+    }
     if ($code -match ('var:' + $r.Bridge + '\b'))              { return $true }
     if ($code -match ("TntOn\(\s*'" + $r.Bridge + "'\s*\)"))   { return $true }
     return $false
@@ -278,6 +182,44 @@ foreach ($f in Get-ChildItem (Join-Path $ModRoot 'gui') -Recurse -Include *.gui)
     }
 }
 
+# ================== FAIL 1b - LIVE DIRECTIONAL CURRENCY ROWS =================
+# Require the live binding as well as both levels of its script call chain.
+# A cached bridge is insufficient: faith/fame can change while the window waits.
+$currencyWindow = Join-Path $ModRoot 'gui/tnt_diplomacy_window.gui'
+$currencyGui = Join-Path $SGUIDIR 'tnt_22_v2.txt'
+$currencyGates = Join-Path $ModRoot 'common/scripted_triggers/tnt_41_gates.txt'
+$windowCode = ([IO.File]::ReadAllLines($currencyWindow) | ForEach-Object { Strip-Comment $_ }) -join "`n"
+$guiBlocks = @(Get-TopLevelBlocks $currencyGui)
+$gateBlocks = @(Get-TopLevelBlocks $currencyGates)
+foreach ($tradeCurrency in @('prestige', 'piety')) {
+    foreach ($side in @('p', 'r')) {
+        $name = "tnt_trade_${tradeCurrency}_${side}_available"
+        $wrapper = "tnt_show_${tradeCurrency}_${side}_trigger"
+        $binding = 'visible = "[TntValid(''' + $name + ''')]"'
+        # Associate the predicate with its owning row, not just an occurrence
+        # somewhere in the window: swapping P/R must fail this check.
+        $rowPattern = 'tnt_item_row_currency\s*=\s*\{\s*name\s*=\s*"tnt_row_' +
+            $tradeCurrency + '_' + $side + '"\s*layoutpolicy_horizontal\s*=\s*expanding\s*' +
+            [regex]::Escape($binding)
+        $bindingCount = [regex]::Matches($windowCode, $rowPattern).Count
+        $sg = @($guiBlocks | Where-Object { $_.Name -eq $name })
+        $gate = @($gateBlocks | Where-Object { $_.Name -eq $wrapper })
+        $sgCode = (($sg | ForEach-Object { $_.Body } | ForEach-Object { Body-Code $_ }) -join '') -replace '\s+', ''
+        $gateCode = (($gate | ForEach-Object { $_.Body } | ForEach-Object { Body-Code $_ }) -join '') -replace '\s+', ''
+        $pair = if ($side -eq 'p') { 'A=rootB=$OTHER$' } else { 'A=$OTHER$B=root' }
+        $expected = 'tnt_trade_' + $tradeCurrency + '_trigger={' + $pair + '}'
+        if ($bindingCount -ne 1 -or $sg.Count -ne 1 -or $gate.Count -ne 1 -or
+            -not $sgCode.Contains('is_valid={custom_tooltip={text=tnt_err_' + $tradeCurrency + '_trade_rule' + $wrapper + '={OTHER=var:tnt_partner}}}') -or
+            -not $sgCode.Contains('effect={}') -or -not $gateCode.Contains($expected)) {
+            $fails += [pscustomobject]@{
+                Pos = '1b LIVE'; Rule = "tnt_trade_$tradeCurrency"; Term = "${tradeCurrency}_$side"
+                Where = 'window / scripted_gui / directional gate'
+                What = "Expected one live row binding and read-only $name -> $wrapper -> actual giver/receiver permission; bindings=$bindingCount"
+            }
+        }
+    }
+}
+
 # ====================== FAIL 2 - THE COMPOSER ARCHETYPES =====================
 # Any draw entry that stages a gated term must read that term's rule.
 $entries = Get-DrawEntries $COMPOSER
@@ -353,7 +295,7 @@ if (Test-Path $SANDBOX) {
     $sandboxReads = 0
     foreach ($line in [System.IO.File]::ReadAllLines($SANDBOX)) {
         $code = Strip-Comment $line
-        if ($code -match 'has_game_rule\s*=\s*tnt_') { $sandboxReads++ }
+        if ($code -match 'has_game_rule\s*=\s*tnt_|tnt_trade_(prestige|piety)_trigger\s*=') { $sandboxReads++ }
     }
     if ($sandboxReads -eq 0) {
         $notes += "B  tnt_38_ai_world.txt reads ZERO tnt_ game rules. No lobby switch reaches the AI-to-AI layer at all."
@@ -362,7 +304,7 @@ if (Test-Path $SANDBOX) {
         $notes += "B  question that has never been put to the user - see CLAUDE.md section 4."
     }
     else {
-        $notes += ("B  tnt_38_ai_world.txt now reads {0} tnt_ game rule(s) - the sandbox is no longer ungated; revisit this position." -f $sandboxReads)
+        $notes += ("B  AI-world has {0} direct/canonical rule reads; the prestige-transfer helper and penalty distinction are covered by test_currency_trade_rules.py." -f $sandboxReads)
     }
 }
 
@@ -387,7 +329,7 @@ foreach ($apath in @($APPLY, $CURRENCY)) {
                 }
                 if (-not $touches -or $reads) { continue }
                 if ($r.MidRung) {
-                    $notes += ("C! {0,-22} {1,-18} {2}:{3}  ({4})  MIDDLE RUNG - a stale letter can pay a currency the rung now forbids; OPEN RULING, tnt_33_currency_apply.txt:137-181" -f $r.Rule, $t, $aname, $b.Start, $b.Name)
+                    $notes += ("C  {0,-22} {1,-18} {2}:{3}  ({4})  per-leg gate intentionally absent; whole-deal atomic preflight and both directions are covered by test_currency_trade_rules.py" -f $r.Rule, $t, $aname, $b.Start, $b.Name)
                 }
                 else {
                     $notes += ("C  {0,-22} {1,-18} {2}:{3}  ({4})  end-rung only - safe by unreachability" -f $r.Rule, $t, $aname, $b.Start, $b.Name)

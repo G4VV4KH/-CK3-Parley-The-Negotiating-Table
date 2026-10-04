@@ -143,84 +143,10 @@ tnt_open_window_effect = {
 	}
 
 	# =====================================================================
-	# *** V17, USER ITEM 4 (STEP 0) - THE TWO CURRENCY RULES DID NOT DO WHAT
-	# *** THE LOBBY TOLD THE PLAYER THEY DID. THESE TWO BRIDGES ARE THE FIX.
-	#
-	# THE DEFECT, MEASURED LINK BY LINK. `tnt_trade_prestige = off` and
-	# `tnt_trade_piety = off` left BOTH rows visible, BOTH stepper sets
-	# clickable, the send button willing and the apply leg paying. All they ever
-	# switched off was the auto-balancer and the AI's price-balance step. The
-	# shipped lobby description says "Both prestige rows disappear from the
-	# negotiating table", and clause 1 of it was simply false.
-	# WHY. The rows read `visible = "[TntRow('tnt_show_prestige_p')]"`, and
-	# TntRow (data_binding\tnt_macros.txt) opens with
-	# `Or( Not( ...Var('tnt_hide_unavailable')... ), ... )` - and NOTHING IN THE
-	# MOD WRITES tnt_hide_unavailable. Measured: three mentions mod-wide, all
-	# three inside tnt_macros.txt itself (its comment, its description and its
-	# body), zero writers anywhere. The first disjunct is therefore
-	# unconditionally true and TntRow can never hide anything. That is
-	# deliberate since V4 ("show ALL the options and simply leave the
-	# unavailable ones blocked") - the bug is not TntRow, it is that the two
-	# currency rules were wired as if TntRow still gated.
-	# The tnt_show_prestige_*/_piety_* triggers DO NOT test has_game_rule any more
-	# - since W2 they read THESE bridges (tnt_41_gates.txt:1129-1163).
-	#
-	# WHY THE BRIDGE AND NOT SOMETHING ELSE. A .gui file cannot ask
-	# has_game_rule at all, which is why this pattern is never optional. The
-	# ONLY thing in this mod that actually hides a row is a SECOND raw-variable
-	# conjunct in the row's own `visible`, and tnt_advanced above is the proof
-	# it works: `visible = "[And( TntRow('tnt_show_title_p'),
-	# TntOn('tnt_advanced') )]"` (gui\tnt_diplomacy_window.gui). TntOn on an
-	# unset variable is 0, so the row really vanishes. These two bridges exist
-	# so the four currency rows can carry the same conjunct.
-	# THE NAMES ARE SHORTENED (tnt_trade_prest_on, tnt_trade_pty_on) so they can
-	# never be confused with the game-rule setting ids they mirror.
-	#
-	# MIRRORED IN THREE PLACES, AND ALL THREE ARE MANDATORY:
-	#   * here, E1 tnt_open_window_effect - the manual path;
-	#   * tnt_ai_offer_counter_effect (tnt_37_ai_offer.txt), which is the OTHER
-	#     path that opens this window - it writes tnt_advanced in the same shape
-	#     and would otherwise leave both currency rows invisible on every
-	#     counter-offer;
-	#   * E2 tnt_close_window_effect below, beside `remove_variable =
-	#     tnt_advanced`, so a stale 1 cannot outlive a rule change.
-	# A THIRD OPEN PATH WOULD BREAK THIS SILENTLY. If one is ever added, it must
-	# write all three bridges or its rows go dark with the rule switched ON.
-	#
-	# EXPECTED EFFECT: with both rules ON (the shipped default) nothing changes
-	# at all - the variables are 1 and the conjunct is true. With one switched
-	# OFF its two rows disappear, which is what the lobby has always claimed.
-	# No .yml change is needed and no key count moves.
-	#
-	# =====================================================================
-	# W2 - THE LIMIT IS NOW A PAIR QUESTION, AND NOTHING ELSE ABOUT THIS BLOCK
-	# MOVED. The two currency rules stopped being on/off switches and became
-	# ladders (common\game_rules\tnt_80_game_rules.txt, whose header carries the
-	# whole argument): piety is off / same faith / same religion / always, and
-	# prestige is off / peers-and-below / always. A hand-written
-	# `has_game_rule = tnt_trade_<cur>_on` cannot see a middle rung - it reads
-	# FALSE for a rung that is in fact TRUE for this pair - so the read moved
-	# into the two named triggers T2b / T2c
-	# (common\scripted_triggers\tnt_40_triggers.txt:284 and :306).
-	#
-	# WHY var:tnt_partner IS SAFE HERE, EXACTLY: this effect writes it as its
-	# FIRST statement, ~100 lines above (the `name = tnt_partner` block), so the
-	# handle is guaranteed by construction on this path. The counter-offer copy
-	# in tnt_37_ai_offer.txt is safe for the mirror-image reason - it does NOT
-	# write tnt_partner because the letter event already did.
-	#
-	# WHAT THE BRIDGE NOW MEANS. It is a PER-SESSION SNAPSHOT OF A RELATIONAL
-	# ANSWER: "may I trade this currency WITH HIM", taken once against the
-	# partner the window is opening on. That is the right granularity - one
-	# window, one partner - and it keeps the four .gui conjuncts unchanged
-	# (tnt_diplomacy_window.gui:529, :565, :2211, :2243). The four tnt_show_
-	# currency gates (tnt_41_gates.txt) read THIS VARIABLE rather than the game
-	# rule for the same reason, so a gate and the row it gates can never
-	# disagree.
-	# NOTHING OUTSIDE A WINDOW MAY READ THE BRIDGE. The auto-balance rungs call
-	# the trigger directly, because the AI's composition path never runs this
-	# effect and a bridge read there would evaluate 0 on every letter.
-	# =====================================================================
+	# Legacy session snapshots retained for save/addon compatibility only.
+	# Currency rows and controls now evaluate the canonical directional
+	# predicates live; neither side's permission may rely on this cache.
+	# The balancer and preflight also use live predicates, not these variables.
 	if = {
 		limit = { tnt_trade_prestige_trigger = { A = root  B = var:tnt_partner } }
 		set_variable = {

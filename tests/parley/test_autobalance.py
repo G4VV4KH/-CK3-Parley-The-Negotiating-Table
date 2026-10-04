@@ -2,6 +2,8 @@
 
 This is a constrained CK3-script interpreter, not a CK3 runtime replacement. It
 reads the actual effects, currency valuations, aggregates and acceptance formula.
+Currency permission predicates also execute their shipped trigger AST, including
+game-rule settings, faith/religion identities and directional fame/devotion comparisons.
 Non-currency prices and relationship inputs are explicit fixture leaves. Selection
 sorting and lumpy acquisition are explicit no-op mocks (fixtures have no eligible
 lumpy inventory). Unknown executed syntax raises; no blanket ignored commands.
@@ -77,12 +79,16 @@ class World:
     def __init__(self, source=DEFAULT_SOURCE, *, opinion=64, lumpy_p=0, lumpy_r=130,
                  traits=("arrogant",), player=(875, 2567, 1800, 0),
                  partner=(70, 2000, 1000, 0), prestige=True, piety=True,
-                 influence=False, tier_p=4, tier_r=3, threshold=0):
+                 influence=False, tier_p=4, tier_r=3, threshold=0,
+                 fame_p=3, fame_r=3, devotion_p=3, devotion_r=3,
+                 faith_p="catholic", faith_r="catholic",
+                 religion_p="christianity", religion_r="christianity"):
         self.source = Path(source)
         self.defs = {}
         self.hashes = {}
         files = [self.source / "common/scripted_effects/tnt_39_autobalance.txt"]
         files += sorted((self.source / "common/script_values").glob("tnt_*.txt"))
+        files += [self.source / "common/scripted_triggers/tnt_40_triggers.txt"]
         signature = tuple((str(f), f.stat().st_mtime_ns, f.stat().st_size) for f in files)
         if signature in self._cache:
             self.defs, self.hashes = self._cache[signature]
@@ -102,8 +108,22 @@ class World:
                       for side, wallet in (("p", player), ("r", partner))}
         self.stats["p"]["highest_held_title_tier"] = D(tier_p)
         self.stats["r"]["highest_held_title_tier"] = D(tier_r)
+        self.stats["p"]["prestige_level"] = D(fame_p)
+        self.stats["r"]["prestige_level"] = D(fame_r)
+        self.stats["p"]["piety_level"] = D(devotion_p)
+        self.stats["r"]["piety_level"] = D(devotion_r)
+        self.identities = {
+            "p": {"faith": faith_p, "faith.religion": religion_p},
+            "r": {"faith": faith_r, "faith.religion": religion_r},
+        }
         self.traits = {"p": set(), "r": set(traits)}
-        self.rules = {"prestige": prestige, "piety": piety}
+        # Boolean arguments preserve the original fixture API; named settings
+        # allow directional rules without substituting their truth values.
+        settings = {"prestige": prestige, "piety": piety}
+        self.game_rules = {f"tnt_trade_{currency}_{'on' if setting else 'off'}"
+                           if isinstance(setting, bool) else f"tnt_trade_{currency}_{setting}"
+                           for currency, setting in settings.items()}
+        self.rules = {currency: f"tnt_trade_{currency}_off" not in self.game_rules for currency in settings}
         self.influence = influence
         self.governments = {"p": influence, "r": influence}
         if influence:
@@ -158,11 +178,6 @@ class World:
             return D(item)
         except Exception:
             pass
-        if item.startswith("var:"):
-            name = item[4:]
-            if name not in self.vars:
-                raise Unsupported(f"read absent variable {name}")
-            return D(self.vars[name])
         if item in self.stats[current]:
             return self.stats[current][item]
         if "." in item:
@@ -170,6 +185,11 @@ class World:
             target = self.scope(prefix, current)
             if target and field in self.stats[target]:
                 return self.stats[target][field]
+        if item.startswith("var:"):
+            name = item[4:]
+            if name not in self.vars:
+                raise Unsupported(f"read absent variable {name}")
+            return D(self.vars[name])
         if item in self.leaves:
             leaf = self.leaves[item]
             return leaf() if callable(leaf) else leaf
@@ -234,6 +254,8 @@ class World:
 
     def exists(self, name, current):
         name = self.expand(name)
+        if name == "root":
+            return True
         if name.startswith("var:"):
             return name[4:] in self.vars
         if name.startswith("scope:"):
@@ -241,7 +263,50 @@ class World:
         raise Unsupported(f"exists operand {name}")
 
     def trigger(self, block, current="p"):
-        return all(self.condition(k, op, v, current) for k, op, v in block)
+        # A trigger_if and its consecutive else branches form one condition,
+        # not independent implications. An unmatched chain succeeds vacuously.
+        i = 0
+        while i < len(block):
+            key, op, val = block[i]
+            if key == "trigger_if":
+                selected = None
+                start = i
+                while i < len(block) and block[i][0] in ("trigger_if", "trigger_else_if", "trigger_else"):
+                    branch_key, _, branch = block[i]
+                    if i != start and branch_key == "trigger_if":
+                        break
+                    i += 1
+                    if selected is None and (branch_key == "trigger_else" or self.trigger(one(branch, "limit", []), current)):
+                        selected = self.trigger([x for x in branch if x[0] != "limit"], current)
+                if selected is False:
+                    return False
+                continue
+            if key in ("trigger_else_if", "trigger_else"):
+                raise Unsupported(f"orphan {key}")
+            if not self.condition(key, op, val, current):
+                return False
+            i += 1
+        return True
+
+    def scripted_trigger(self, name, params=None, current="p"):
+        previous = self.params
+        self.params = {**previous, **(params or {})}
+        try:
+            return self.trigger(self.defs[name], current)
+        finally:
+            self.params = previous
+
+    def identity(self, operand, current):
+        operand = self.expand(operand)
+        for field in ("faith.religion", "faith"):
+            if operand == field:
+                return self.identities[current][field]
+            if operand.endswith("." + field):
+                target = self.scope(operand[:-(len(field) + 1)], current)
+                if target is None:
+                    raise Unsupported(f"missing identity scope {operand}")
+                return self.identities[target][field]
+        raise Unsupported(f"identity operand {operand}")
 
     def condition(self, key, op, val, current):
         key = self.expand(key)
@@ -249,14 +314,17 @@ class World:
         if key == "OR": return any(self.condition(k, o, v, current) for k, o, v in val)
         if key == "AND": return self.trigger(val, current)
         if key == "NOR": return not any(self.condition(k, o, v, current) for k, o, v in val)
+        if key == "custom_tooltip": return self.trigger([x for x in val if x[0] != "text"], current)
         if key == "exists": return self.exists(val, current)
         if key == "always": return val == "yes"
+        if key == "has_game_rule": return self.expand(val) in self.game_rules
         if key == "has_trait": return val in self.traits[current]
         if key == "government_has_flag":
             if val != "government_has_influence": raise Unsupported(f"government flag {val}")
             return self.governments[current]
-        if key in ("tnt_trade_prestige_trigger", "tnt_trade_piety_trigger"):
-            return self.rules[key.split("_")[2]]
+        if key.endswith("_trigger") and key in self.defs:
+            params = {k: self.expand(v) for k, _, v in val} if isinstance(val, list) else None
+            return self.scripted_trigger(key, params, current)
         if key == "trigger_if":
             condition = self.trigger(one(val, "limit", []), current)
             return not condition or self.trigger([x for x in val if x[0] != "limit"], current)
@@ -267,6 +335,9 @@ class World:
                 raise Unsupported(f"missing trigger scope {key}")
             return self.trigger(val, target)
         if isinstance(val, list): raise Unsupported(f"trigger block {key}")
+        if key in ("faith", "faith.religion") or key.endswith((".faith", ".faith.religion")):
+            if op != "=": raise Unsupported(f"identity operator {op}")
+            return self.identity(key, current) == self.identity(val, current)
         # Nonexistent variables in a comparison fail, unlike numeric reads.
         if key.startswith("var:") and key[4:] not in self.vars:
             return False
@@ -308,7 +379,9 @@ class World:
                 self.vars[self.expand(one(val, "name"))] = self.value(one(val, "value"), current)
             elif key == "change_variable":
                 name = self.expand(one(val, "name"))
-                self.vars[name] = D(self.vars.get(name, 0)) + self.value(one(val, "add", one(val, "value")), current)
+                subtract = one(val, "subtract")
+                delta = -self.value(subtract, current) if subtract is not None else self.value(one(val, "add", one(val, "value")), current)
+                self.vars[name] = D(self.vars.get(name, 0)) + delta
             elif key == "remove_variable": self.vars.pop(self.expand(val), None)
             elif key == "save_temporary_scope_as": self.scopes[self.expand(val)] = current
             elif key == "while":

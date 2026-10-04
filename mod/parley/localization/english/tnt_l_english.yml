@@ -997,34 +997,35 @@
  setting_tnt_advanced_terms_on_desc:0 "Betrothals, ceded titles and sworn fealty may be traded at the negotiating table. Switch it off and AI rulers stop proposing marriages by letter as well."
  setting_tnt_advanced_terms_off:0 "Disabled"
  setting_tnt_advanced_terms_off_desc:0 "Betrothals, ceded titles and sworn fealty are hidden from the negotiating table."
- # The two currency-trading rules (common\game_rules\tnt_80_game_rules.txt:181,
- # :217 - both still default on). W2 TURNED BOTH INTO LADDERS: prestige is
- # off / peers-and-below / always and piety is off / same faith / same religion /
- # always, which is why this block grew from 10 keys to 16. The _on and _off ids
- # were KEPT, so these four keys are the same four keys they always were - only
- # their text was re-pointed, because "no AI offer ever includes it" is now a
- # promise about the _off rung alone and not about the rule.
- # Each desc names everything its rung turns off - the rows, the balance
- # button's spending and the AI's letters - because the setting description is
- # the one place the player reads the rule, and it is deliberately the ONLY
- # place: a rung hides its rows instead of greying them, so no tnt_err_* key is
- # born (the mod's own "structural impossibility hides the row" rule).
+ # Currency rules apply to the actual giver and receiver, including AI trades.
+ # Both defaults remain on. Legacy peer/religion IDs retain their meanings.
+ # Shared errors explain blocked directions without scope tokens in tooltips.
  rule_tnt_trade_prestige:0 "Parley: prestige trading"
- setting_tnt_trade_prestige_on:0 "Enabled"
- setting_tnt_trade_prestige_on_desc:0 "Prestige may be offered and demanded at the negotiating table with any partner — by you and by AI rulers alike. The widest of the three settings."
+ setting_tnt_trade_prestige_on:0 "Available"
+ setting_tnt_trade_prestige_on_desc:0 "Prestige may be offered and requested with any ruler. Applies to players and AI alike."
+ setting_tnt_trade_prestige_faith:0 "Same faith only"
+ setting_tnt_trade_prestige_faith_desc:0 "Prestige may be transferred only between rulers of the same faith. Sharing a religion alone is not enough. Applies to players and AI alike."
+ setting_tnt_trade_prestige_lower:0 "Lower fame only"
+ setting_tnt_trade_prestige_lower_desc:0 "Prestige may be transferred only from a ruler with a strictly higher level of fame to one with a lower level. Equal levels are excluded; the prestige balance does not matter. Applies to players and AI alike."
  setting_tnt_trade_prestige_peer:0 "Peers and lesser only"
- setting_tnt_trade_prestige_peer_desc:0 "Prestige may only be traded with a ruler whose level of fame is no higher than your own — renown is not sold upwards. Sit down with someone more famed than you and both prestige rows simply disappear for that negotiation, the balance button spends no prestige, and no letter of his ever asks for any. With everyone else nothing changes."
+ setting_tnt_trade_prestige_peer_desc:0 "Prestige may be transferred only when the giver's level of fame is at least as high as the receiver's. The reverse direction is checked separately. Applies to players and AI alike."
  setting_tnt_trade_prestige_off:0 "Disabled"
- setting_tnt_trade_prestige_off_desc:0 "Prestige is never traded, with anybody: both prestige rows disappear from the negotiating table, the balance button never spends prestige, and no AI offer ever includes it. Gold, piety and influence are unaffected."
+ setting_tnt_trade_prestige_off_desc:0 "Prestige cannot be traded by players or AI. Other currencies are unaffected."
  rule_tnt_trade_piety:0 "Parley: piety trading"
- setting_tnt_trade_piety_on:0 "Enabled"
- setting_tnt_trade_piety_on_desc:0 "Piety may be offered and demanded at the negotiating table with any partner — by you and by AI rulers alike. The widest of the four settings."
+ setting_tnt_trade_piety_on:0 "Available"
+ setting_tnt_trade_piety_on_desc:0 "Piety may be offered and requested with any ruler. Applies to players and AI alike."
  setting_tnt_trade_piety_faith:0 "Same faith only"
- setting_tnt_trade_piety_faith_desc:0 "Piety may only be traded between two rulers of the same faith — devotion counts for nothing before another man's clergy. Sit down with a partner of any other faith and both piety rows simply disappear for that negotiation, the balance button spends no piety, and no letter of his ever asks for any."
+ setting_tnt_trade_piety_faith_desc:0 "Piety may be transferred only between rulers of the same faith. Sharing a religion alone is not enough. Applies to players and AI alike."
+ setting_tnt_trade_piety_faith_lower:0 "Same faith: less devout"
+ setting_tnt_trade_piety_faith_lower_desc:0 "Piety may be transferred only between rulers of the same faith, strictly from a higher level of devotion to a lower one. Equal levels are not allowed. The comparison uses the level of devotion, not current piety points, and follows the actual transfer direction regardless of who initiated negotiations. Applies to players and AI alike."
+ setting_tnt_trade_piety_different_faith:0 "Different faiths only"
+ setting_tnt_trade_piety_different_faith_desc:0 "Piety may be transferred only between rulers of different faiths, including different faiths within the same religion. Applies to players and AI alike."
  setting_tnt_trade_piety_religion:0 "Same religion only"
- setting_tnt_trade_piety_religion_desc:0 "Piety may be traded whenever both rulers share a religion, even when their faiths differ — a Catholic and an Orthodox still trade devotion, a Catholic and a Sunni do not. With a partner of another religion both piety rows simply disappear for that negotiation, the balance button spends no piety, and no letter of his ever asks for any."
+ setting_tnt_trade_piety_religion_desc:0 "Piety may be transferred between rulers of the same religion, even if their faiths differ. Applies to players and AI alike."
  setting_tnt_trade_piety_off:0 "Disabled"
- setting_tnt_trade_piety_off_desc:0 "Piety is never traded, with anybody: both piety rows disappear from the negotiating table, the balance button never spends piety, and no AI offer ever includes it. Gold, prestige and influence are unaffected."
+ setting_tnt_trade_piety_off_desc:0 "Piety cannot be traded by players or AI. Other currencies are unaffected."
+ tnt_err_prestige_trade_rule:0 "Game rules forbid transferring prestige in this direction. Remove this payment or rebalance the deal."
+ tnt_err_piety_trade_rule:0 "Game rules forbid transferring piety in this direction. Remove this payment or rebalance the deal."
 
  # =========================================================================
  # BUILD 3 ADDITIONS BEGIN HERE - SECTIONS P TO Y, 202 KEYS

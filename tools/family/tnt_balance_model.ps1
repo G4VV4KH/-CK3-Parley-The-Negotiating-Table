@@ -8,7 +8,7 @@
 # ======================================================================================
 # CK3 mounts mod content by TOP-LEVEL DIRECTORY NAME. The complete set of top-level
 # names the game knows is the set it ships itself, measured this session under
-# D:\install\games\Crusader.Kings.III.Royal.Edition-InsaneRamZes\game :
+# <game> :
 #     common  content_source  data_binding  dlc  dlc_metadata  events  fonts  gfx
 #     gui  history  licenses  localization  map_data  music  notifications
 #     reader_export  sound  tests  tools  tweakergui_assets

@@ -964,18 +964,11 @@ tnt_can_war_each_other_trigger = {
 ##  VARIABLE. So a row whose tnt_show_* variable is never written does not fall
 ##  back to "visible"; it goes DARK.
 ##
-##  Consequence: the three currency items MUST have gates even when the answer
-##  is a foregone conclusion — gold's is always yes; prestige and piety are yes
-##  unless user item 16's lobby rules (tnt_trade_prestige / tnt_trade_piety,
-##  tnt_80_game_rules.txt) switched that currency off for the whole campaign.
-##  An earlier draft of this file left gold, prestige and
-##  piety ungated on the argument that a trivially-true trigger is
-##  dead code. That argument is wrong here — combined with tnt_gate_live it would
-##  have hidden all six currency rows the moment the gating pass ran, which is
-##  the single most destructive outcome available. THE COUNT IS NOT 20, AND IT IS
-##  WHATEVER THE GUI SAYS IT IS. If a future author adds a TntRow-bound row, a
-##  gate for it is MANDATORY, not optional — item 19 is that rule being obeyed
-##  eight times over, in tnt_42_people_gates.txt.
+##  Gold keeps its always-available pair gate for the legacy row snapshot.
+##  Prestige and piety now read their directional pair gates live, independently
+##  of TntRow and tnt_gate_live; these predicates also guard amount controls.
+##  The existing snapshot may still record them, but cannot grant permission.
+##  New TntRow-bound rows still require their own snapshot gate.
 ##
 ##  =========================================================================
 ##  THE ITEM-BY-ITEM RULING FOR THE ITEMS **THIS FILE** GATES: TWENTY-THREE LIVE
@@ -1006,12 +999,10 @@ tnt_can_war_each_other_trigger = {
 ##  THREE items x 2 sides = SIX CONTRACT gates:
 ##      gold, prestige, piety
 ##  GOLD is true whenever there is a partner at all. PRESTIGE and PIETY ask one
-##  thing more since user item 16: the lobby rule for that currency — since W2
-##  read as the per-open bridge snapshot var:tnt_trade_prest_on /
-##  var:tnt_trade_pty_on rather than has_game_rule directly, because both rules
-##  grew middle rungs that a plain _on test cannot see (T22a..T22f block note).
-##  The answer is fixed for the life of one window against one partner, so
-##  "this world does not trade honour with him" is STRUCTURAL, not a shortfall. Affordability stays TRANSIENT by the ruling —
+##  thing more: the canonical current-pair rule for that currency. Its answer
+##  can change during an open window when either character changes faith or
+##  fame. Each prestige direction is evaluated separately. Affordability stays
+##  TRANSIENT by the ruling —
 ##  "not enough gold right now" is exactly
 ##  the shortfall the player fixes with the stepper he is looking at, and all
 ##  three are already reported in tnt_send_offer.is_valid through
@@ -1042,50 +1033,12 @@ tnt_can_war_each_other_trigger = {
 
 
 # =============================================================================
-# T22a..T22f  THE SIX CURRENCY CONTRACT GATES
-#   tnt_show_gold_p_trigger      tnt_show_gold_r_trigger
-#   tnt_show_prestige_p_trigger  tnt_show_prestige_r_trigger
-#   tnt_show_piety_p_trigger     tnt_show_piety_r_trigger
-#                                             all = { OTHER = <character> }
-#
-# "Is this row structurally possible at all?" For GOLD the answer is always
-# yes, for any partner, in either direction: money can be offered to your
-# liege, your vassal, your enemy and your cousin alike. For PRESTIGE and PIETY
-# one structural question exists since user item 16: the lobby rule for that
-# currency (tnt_trade_prestige / tnt_trade_piety, tnt_80_game_rules.txt).
-# A game rule is fixed for the whole campaign, so "this world does not trade
-# honour" is exactly the season-long impossibility this gate family exists to
-# hide — when the rule is off, both of that currency's rows vanish, and with
-# them the steppers and preset popups that could write its amounts. The same
-# two rules gate the auto-balance rungs (tnt_39_autobalance.txt) and the
-# prestige-paid archetype A6 (tnt_37_ai_offer.txt), so no path re-opens what
-# the lobby closed.
-# W2 ADDED MIDDLE RUNGS TO BOTH RULES AND THE ARGUMENT ABOVE SURVIVES ONE STEP
-# NARROWER. "Fixed for the whole campaign" is still true of the RULE, but a rung
-# like "same faith only" or "peers and below only" is relational, and a faith or
-# a prestige level does change mid-campaign. What is still structural - and it is
-# the only thing this gate family needs - is that the answer is fixed for the
-# life of ONE WINDOW against ONE PARTNER, which is exactly the span a row's
-# visibility covers. That is why these four read the per-open bridge snapshot
-# rather than the rule; see the block note at the four bodies below.
-# Running OUT of a currency stays a TRANSIENT shortfall that the player fixes
-# with the stepper in front of him — the ruling says keep the row visible and
-# report the reason, and tnt_send_offer.is_valid already does exactly that
-# through tnt_gold_shortfall_value and its siblings.
-#
-# SO WHY WRITE THE GOLD GATES AT ALL? Because of the tnt_gate_live half of
-# TntRow — see the long note in the PART 2 header. A TntRow-bound row whose
-# variable is never written goes DARK the moment the gating pass runs. The six
-# bodies are the price of that safety net, and they cost one `exists` test
-# each — plus, for the four item-16 gates, one more `exists` on the bridge
-# variable (a has_game_rule lookup until W2) — once per window open.
-#
-# DO NOT "IMPROVE" THESE BY ADDING AN AFFORDABILITY TEST. Hiding the gold row
-# because the player is broke hides the control he needs in order to offer the
-# gold he does have, and it is the precise behaviour the user asked us to stop.
-# has_game_rule takes the SETTING id, not the rule id — real vanilla call
-# sites: GAME\common\character_interactions\00_adoption.txt:16
-# (has_game_rule = no_adoption) and 00_culture_interactions.txt:181.
+# T22a..T22f — Currency contract gates, all = { OTHER = <character> }.
+# Gold is available for either giver. Prestige and piety use the canonical
+# current-pair rule with A = giver and B = receiver. The four currency rows
+# evaluate these cheap predicates live: faith and fame can change while open.
+# These remain callable by the legacy show-gate snapshot, but currency UI and
+# amount writers do not read that snapshot. Affordability is checked separately.
 # =============================================================================
 tnt_show_gold_p_trigger = {
 	trigger_if = {
@@ -1103,34 +1056,11 @@ tnt_show_gold_r_trigger = {
 	trigger_else = { always = no }
 }
 
-# W2 - THESE FOUR NOW READ THE BRIDGE VARIABLE, NOT THE GAME RULE, AND THAT IS
-# THE WHOLE OF THE CHANGE. The two currency rules became LADDERS (piety off /
-# same faith / same religion / always; prestige off / peers-and-below / always,
-# common\game_rules\tnt_80_game_rules.txt), so has_game_rule = tnt_trade_<cur>_on
-# stopped being able to answer them: it reads FALSE for a middle rung that is
-# TRUE for this pair, and these four gates would have gone on hiding a row the
-# lobby had allowed. They could have called T2b / T2c directly, but the bridge is
-# strictly better here: tnt_trade_prest_on / tnt_trade_pty_on is the SAME
-# snapshot the four .gui rows gate on (tnt_diplomacy_window.gui:529, :565, :2211,
-# :2243), written by whichever of the two window-opening paths just ran, so a
-# gate and the row it gates cannot drift apart by construction - and it costs a
-# map lookup instead of a scope walk on a per-open pass. It is also correct by
-# ORDER: E1 tnt_open_window_effect writes both bridges long before its last
-# statement calls tnt_refresh_show_gates_effect, and tnt_ai_offer_counter_effect
-# does the same.
-# ONE HONEST CAVEAT, and it changes nothing observable. tnt_apply_deal_effect
-# also calls tnt_refresh_show_gates_effect, and on the LETTER-accept path no
-# window ever opened, so no bridge exists and these two pairs are removed there.
-# That is invisible: TntRow's first disjunct is unconditionally true (nothing
-# writes tnt_hide_unavailable), there is no window on that path, and the next
-# window open rewrites all four. IF tnt_tidy_table EVER SHIPS (CLAUDE.md section
-# 4, "the order of work" item 2) AND MAKES TntRow REALLY GATE, re-check this
-# paragraph before anything else in the file.
+# Direction matters for prestige; never reuse the player's result for _r.
 tnt_show_prestige_p_trigger = {
 	trigger_if = {
 		limit = { exists = $OTHER$ }
-		# USER ITEM 16 + the W2 ladder - see the block note directly above.
-		exists = var:tnt_trade_prest_on
+		tnt_trade_prestige_trigger = { A = root  B = $OTHER$ }
 	}
 	trigger_else = { always = no }
 }
@@ -1138,8 +1068,7 @@ tnt_show_prestige_p_trigger = {
 tnt_show_prestige_r_trigger = {
 	trigger_if = {
 		limit = { exists = $OTHER$ }
-		# USER ITEM 16 + the W2 ladder - see the block note directly above.
-		exists = var:tnt_trade_prest_on
+		tnt_trade_prestige_trigger = { A = $OTHER$  B = root }
 	}
 	trigger_else = { always = no }
 }
@@ -1147,8 +1076,7 @@ tnt_show_prestige_r_trigger = {
 tnt_show_piety_p_trigger = {
 	trigger_if = {
 		limit = { exists = $OTHER$ }
-		# USER ITEM 16 + the W2 ladder - see the block note directly above.
-		exists = var:tnt_trade_pty_on
+		tnt_trade_piety_trigger = { A = root  B = $OTHER$ }
 	}
 	trigger_else = { always = no }
 }
@@ -1156,8 +1084,7 @@ tnt_show_piety_p_trigger = {
 tnt_show_piety_r_trigger = {
 	trigger_if = {
 		limit = { exists = $OTHER$ }
-		# USER ITEM 16 + the W2 ladder - see the block note directly above.
-		exists = var:tnt_trade_pty_on
+		tnt_trade_piety_trigger = { A = $OTHER$  B = root }
 	}
 	trigger_else = { always = no }
 }
