@@ -18,6 +18,7 @@ STEAM_BYTE_LIMIT = 8000
 # Observed in the Paradox Mods description editor on 2026-10-04. Check both
 # text and the compact rich-text projection; the form may count its HTML value.
 PARADOX_CHARACTER_LIMIT = 10000
+DONATION_TEXT = 'Want to support my work? Donate on Ko-fi 💛'
 
 def platform_source(text, platform):
     """Select the approved short Steam/Paradox guide or full guide from one source.
@@ -50,8 +51,8 @@ def resolve(text, links, nexus=False):
     missing = sorted({key for key in TOKEN.findall(text) if not links.get(key)})
     lines = []
     for line in text.splitlines():
-        if nexus and '{{DONATION_URL}}' in line:
-            continue  # Use Nexus's own donation field; no solicitation in page copy.
+        # The platform selector is retained for callers. Nexus preserves the
+        # owner's support link just like the other publication projections.
         tokens = TOKEN.findall(line)
         if tokens and not any(links.get(key) for key in tokens) and any(x in line for x in ('CONTACT_EMAIL', 'mailto:', 'DONATION_URL', 'Source and issue reports')):
             continue
@@ -92,13 +93,86 @@ def plain(text):
     return text
 
 def paradox_html(text):
-    """Compact paragraph projection of plain copy for the rich-text editor.
+    """Rich editor fragment from resolved Markdown, preserving heading links.
 
-    Kept separate from the full semantic preview. This projection preserves all
-    words and links as visible plain text and measures escaped markup overhead.
+    Never pass the lossy plain-text export here. Only the small authored
+    Markdown dialect is supported; raw HTML is escaped, never executed.
+    Paradox's native heading is h3, including the separate support heading.
     """
-    return ''.join('<p>' + html.escape(paragraph).replace('\n', '<br>') + '</p>'
-                   for paragraph in text.strip().split('\n\n') if paragraph)
+    def inline(value):
+        escaped = html.escape(value)
+        escaped = LINK.sub(lambda m: f'<a href="{m[2]}">{m[1]}</a>', escaped)
+        escaped = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', escaped)
+        return re.sub(r'`([^`]+)`', r'<strong>\1</strong>', escaped)
+
+    rows, paragraph, listing = [], [], None
+    def flush():
+        if paragraph:
+            rows.append('<p>' + '<br>'.join(paragraph) + '</p>')
+            paragraph.clear()
+    def close_list():
+        nonlocal listing
+        if listing:
+            rows.append(f'</{listing}>')
+            listing = None
+    for line in flatten_tables(text).splitlines():
+        heading = re.match(r'^#{1,6}\s+(.+)', line)
+        item = re.match(r'^(?:([-*])\s+|\d+\.\s+)(.*)', line)
+        if heading:
+            flush()
+            close_list()
+            rows.append('<h3>' + inline(heading[1]) + '</h3>')
+        elif item:
+            flush()
+            kind = 'ul' if item[1] else 'ol'
+            if kind != listing:
+                close_list()
+                rows.append(f'<{kind}>')
+                listing = kind
+            rows.append('<li>' + inline(item[2]) + '</li>')
+        else:
+            close_list()
+            if not line.strip():
+                flush()
+            else:
+                paragraph.append(inline(line))
+    flush()
+    close_list()
+    return ''.join(rows)
+
+def publication_metadata(source, mod_version=None, target_game_version=None):
+    """Separate the mod's file version from its approved CK3 compatibility target."""
+    version_match = re.search(r'\bVersion\s+(\d+(?:\.\d+)+)', source)
+    target_match = re.search(r'\bTargets CK3\s+\*{0,2}(\d+(?:\.\d+)+)', source)
+    canonical_version = version_match[1] if version_match else None
+    canonical_target = target_match[1] if target_match else None
+    if mod_version and canonical_version and mod_version != canonical_version:
+        raise ValueError('Explicit mod version differs from canonical description')
+    if target_game_version and canonical_target and target_game_version != canonical_target:
+        raise ValueError('Explicit CK3 target differs from canonical description')
+    version = mod_version or canonical_version
+    target = target_game_version or canonical_target
+    return {'mod_version': version, 'target_game_version': target,
+            'nexus_file_version': version,
+            'nexus_file_description': f'For CK3 {target}' if target else None}
+
+def validate_support(source, files, donation_url):
+    """Require the approved heading once in every supported rich projection."""
+    if not donation_url:
+        return 'NOT_VERIFIED'
+    link = f'[{DONATION_TEXT}]({donation_url})'
+    required = {
+        'canonical': f'### {link}',
+        'github.md': f'### {link}',
+        'steam.bbcode': f'[h1][url={donation_url}]{DONATION_TEXT}[/url][/h1]',
+        'nexus.bbcode': f'[size=5][b][url={donation_url}]{DONATION_TEXT}[/url][/b][/size]',
+        'paradox.html': f'<h3><a href="{html.escape(donation_url)}">{DONATION_TEXT}</a></h3>',
+    }
+    for name, heading in required.items():
+        content = source if name == 'canonical' else files[name]
+        if content.count(heading) != 1 or content.count(DONATION_TEXT) != 1:
+            raise ValueError(f'{name}: missing, duplicate or incorrectly formatted support heading')
+    return 'PASS'
 
 def paradox_character_count(text):
     # Browser validators count JavaScript UTF-16 code units, not UTF-8 bytes or
@@ -166,8 +240,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dev-root', type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument('--config', type=Path)
+    parser.add_argument('--source-dir', type=Path, help='Exact selected repository; requires a single scoped mod')
+    parser.add_argument('--mod-version')
+    parser.add_argument('--target-game-version')
     parser.add_argument('--require-all-links', action='store_true')
     args = parser.parse_args()
+    if args.source_dir and len(SLUGS) != 1:
+        parser.error('--source-dir requires the single-mod wrapper')
     config = args.config or args.dev_root / 'parley/publishing/family-links.json'
     links = json.loads(config.read_text(encoding='utf-8'))['links']
     for key, value in links.items():
@@ -179,7 +258,7 @@ def main():
             raise ValueError('Invalid public contact email')
     reports = []
     for slug in SLUGS:
-        repo = args.dev_root / slug
+        repo = args.source_dir or args.dev_root / slug
         source = (repo / 'publishing/description.en.md').read_text(encoding='utf-8')
         full_source = platform_source(source, 'github')
         steam_source = platform_source(source, 'steam')
@@ -192,24 +271,27 @@ def main():
             raise ValueError(f'{slug}: missing metadata: {missing}')
         nexus, _ = resolve(full_source, links, nexus=True)
         github = resolved + github_gallery(repo)
-        files = {'steam.bbcode':bbcode(steam,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(paradox),'github.md':github,'preview.html':preview_html(resolved)}
+        metadata = publication_metadata(resolved, args.mod_version, args.target_game_version)
+        files = {'steam.bbcode':bbcode(steam,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(paradox),'paradox.html':paradox_html(paradox),'github.md':github,'preview.html':preview_html(resolved),
+                 'metadata.json':json.dumps(metadata, ensure_ascii=False, indent=2) + '\n'}
         steam_bytes = len(files['steam.bbcode'].encode('utf-8'))
         if steam_bytes > STEAM_BYTE_LIMIT:
             raise ValueError(f'{slug}: Steam description is {steam_bytes} UTF-8 bytes; limit is {STEAM_BYTE_LIMIT}')
         paradox_characters = paradox_character_count(files['paradox.txt'])
-        paradox_html_characters = paradox_character_count(paradox_html(files['paradox.txt']))
+        paradox_html_characters = paradox_character_count(files['paradox.html'])
         if max(paradox_characters, paradox_html_characters) > PARADOX_CHARACTER_LIMIT:
             raise ValueError(f'{slug}: Paradox description is {paradox_characters} text / {paradox_html_characters} HTML characters; limit is {PARADOX_CHARACTER_LIMIT}')
         # Validate the complete selected-mod render before touching any output.
         for name, content in files.items():
             if '{{' in content or '}}' in content:
                 raise ValueError('Unresolved placeholder in output')
+        support_status = validate_support(resolved, files, links.get('DONATION_URL'))
         target = repo / 'publishing/generated'
         target.mkdir(exist_ok=True)
         for name, content in files.items():
             (target / name).write_text(content, encoding='utf-8', newline='\n')
         (repo / 'README.md').write_text(github + '\n## Contributing\n\nSee [dev.md](dev.md) for the source layout, checks and pull-request workflow.\n', encoding='utf-8', newline='\n')
-        report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'steam_bytes':steam_bytes,'steam_under_8000_bytes':steam_bytes<=STEAM_BYTE_LIMIT,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'Plain text: verify final spacing in the actual upload editor.','paradox_characters':paradox_characters,'paradox_html_characters':paradox_html_characters,'paradox_under_10000':max(paradox_characters,paradox_html_characters)<=PARADOX_CHARACTER_LIMIT,'nexus_donation_link':'Omitted; use platform donation field.'}
+        report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'steam_bytes':steam_bytes,'steam_under_8000_bytes':steam_bytes<=STEAM_BYTE_LIMIT,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'paradox.html: native rich-text fragment with linked h3 headings; paradox.txt is reference text only. Verify public rendering after saving.','paradox_characters':paradox_characters,'paradox_html_characters':paradox_html_characters,'paradox_under_10000':max(paradox_characters,paradox_html_characters)<=PARADOX_CHARACTER_LIMIT,'required_support_local':support_status,'required_support_public':'NOT_VERIFIED','nexus_donation_link':'Preserved as the approved size=5 bold linked heading.',**metadata}
         (target / 'render-status.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8',newline='\n')
         reports.append(report)
     print(json.dumps(reports,indent=2))

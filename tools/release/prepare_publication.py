@@ -238,7 +238,9 @@ links to its expanded Getting started/game-rules anchor, which must be live.
 PARADOX
 Existing item: {PLATFORMS['paradox'][1]}
 Upload: 03-PARADOX/parley-{version}-PARADOX.zip
-descriptor.mod is at ZIP root. Description: 02-TEXT/paradox.txt
+descriptor.mod is at ZIP root. Rich description: 02-TEXT/paradox.html
+Use the rich fragment in the editor; 02-TEXT/paradox.txt is reference text only.
+Verify that the support heading is enlarged and clickable on the public page.
 Cover: 05-IMAGES/parley-cover-horizontal-1920x1080.png (do not use square cover).
 No required mod dependency. Language: English description; nine in-game languages.
 
@@ -246,7 +248,10 @@ NEXUS
 Existing item: {PLATFORMS['nexus'][1]}
 Upload: 04-NEXUS/parley-{version}-NEXUS-MANUAL.zip
 Contains parley/, portable parley.mod and INSTALL.txt. NOT the Paradox ZIP.
-Description: 02-TEXT/nexus.bbcode (donation CTA omitted for this profile).
+Main description: 02-TEXT/nexus.bbcode (large linked support heading preserved).
+Downloadable file version: {version}
+Downloadable file Description: For CK3 {TARGET}
+These are separate from the main mod description. Verify both on the Files tab.
 Preserve actual permissions/license. Review current form choices before submit.
 Cover: 05-IMAGES/parley-cover-square-1024x1024.jpg
 
@@ -272,8 +277,8 @@ disclosures based on the recorded provenance and actual publication form.
 
 Compatibility: vanilla CK3 1.20.* target {TARGET}; optional MCA is standalone.
 AGOT integration remains on hold; do not imply current AGOT compatibility.
-The held AGOT:MCA companion has no assigned Steam item. Its optional link is
-omitted; renderer PREVIEW_METADATA_PENDING for that one field is non-blocking.
+The held AGOT:MCA companion has no assigned Steam item. Use its assigned GitHub
+link and explicit held status; do not invent a Steam destination.
 All four Parley destinations above retain their assigned publication identities.
 Save backup recommended; new game-rule choices are selected for a new campaign.
 Close pending negotiations and use the mod's cleanup procedure before removal.
@@ -288,14 +293,25 @@ No playset, installed mod, save, old release or other mod was changed by this to
 
 
 def validate_copy(generated, readme, canonical, version):
-    require({"steam.bbcode", "paradox.txt", "nexus.bbcode", "github.md", "preview.html", "render-status.json"} <= generated.keys(),
+    require({"steam.bbcode", "paradox.txt", "paradox.html", "nexus.bbcode", "github.md", "preview.html", "render-status.json", "metadata.json"} <= generated.keys(),
             "Render all selected-mod publication outputs before preparing")
     require(readme == generated["github.md"] + CONTRIBUTING_FOOTER,
             "Generated GitHub copy/expected Contributing footer and README diverged")
     require(f"Version {version}".encode() in canonical, "Canonical description version differs")
     require(len(generated["steam.bbcode"]) <= 8000, "Steam description exceeds reviewed 8000 UTF-8-byte limit")
     require(b"{{" not in b"".join(generated.values()), "Unresolved publication placeholder")
-    require(b"ko-fi.com" not in generated["nexus.bbcode"].lower(), "Nexus description includes donation CTA")
+    label = "Want to support my work? Donate on Ko-fi 💛"
+    url = "https://ko-fi.com/g4vv4kh"
+    heading = f"[size=5][b][url={url}]{label}[/url][/b][/size]".encode()
+    require(generated["nexus.bbcode"].count(heading) == 1 and generated["nexus.bbcode"].count(label.encode()) == 1,
+            "Nexus description must preserve exactly one approved large linked support heading")
+    rich_heading = f'<h3><a href="{url}">{label}</a></h3>'.encode()
+    require(generated["paradox.html"].count(rich_heading) == 1, "Paradox requires the native linked support heading")
+    require(len(generated["paradox.html"].decode().encode("utf-16-le")) // 2 <= 10000, "Paradox rich description exceeds 10000 UTF-16 units")
+    metadata = json.loads(generated["metadata.json"])
+    require(metadata.get("nexus_file_version") == version, "Nexus file version must be the mod release version")
+    require(metadata.get("target_game_version") == TARGET and metadata.get("nexus_file_description") == f"For CK3 {TARGET}",
+            "Nexus file Description must match the approved CK3 target")
 
 
 def media_inputs(workspace, repo, runtime):
@@ -397,6 +413,7 @@ def prepare(args):
     files["02-TEXT/CHANGELOG.md"] = changelog
     files.update({f"02-TEXT/{name}": data for name, data in generated.items()})
     files["02-TEXT/metadata.json"] = json_bytes({"title": TITLE, "version": args.version, "game_version": TARGET,
+        "target_game_version": TARGET, "nexus_file_version": args.version, "nexus_file_description": f"For CK3 {TARGET}",
         "supported_version": "1.20.*", "tags": ["1.20 'Crozier'", "Gameplay", "Character Interactions", "Events"],
         "required_mods": [], "optional_companions": ["Marriage Calculation Assistant"], "agot_status": "HELD",
         "short_description": "Negotiate custom treaties: exchange wealth, prestige, piety, titles and political concessions, with configurable rules for players and AI.",

@@ -14,17 +14,29 @@
     "AGOT_MCA_NEXUS_URL": null,
     "AGOT_MCA_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant",
     "CONTACT_EMAIL": "g4vv4kh@gmail.com",
-    "DONATION_URL": "https://ko-fi.com/g4vv4kh"
+    "DONATION_URL": "https://ko-fi.com/g4vv4kh",
+    "HEGEMONY_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3811201582",
+    "HEGEMONY_PARADOX_URL": "https://mods.paradoxplaza.com/mods/161501/Any",
+    "HEGEMONY_NEXUS_URL": "https://www.nexusmods.com/crusaderkings3/mods/401",
+    "HEGEMONY_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Your-Own-Hegemony",
+    "VE_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3813943691",
+    "VE_PARADOX_URL": "https://mods.paradoxplaza.com/mods/162059/Any",
+    "VE_NEXUS_URL": "https://www.nexusmods.com/crusaderkings3/mods/407",
+    "VE_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Vassalization-Extended"
   },
   "workshop_ids": {
     "parley": "3811090081",
     "marriage_calc_assistant": "3811100163",
-    "agot_marriage_calc_assistant": null
+    "agot_marriage_calc_assistant": null,
+    "custom_hegemony": "3811201582",
+    "vassalization_extended": "3813943691"
   },
   "github_remotes": {
     "parley": "https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table.git",
     "marriage_calc_assistant": "https://github.com/G4VV4KH/-CK3-Marriage-Calculation-Assistant.git",
-    "agot_marriage_calc_assistant": "https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant.git"
+    "agot_marriage_calc_assistant": "https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant.git",
+    "custom_hegemony": "https://github.com/G4VV4KH/-CK3-Your-Own-Hegemony.git",
+    "vassalization_extended": "https://github.com/G4VV4KH/-CK3-Vassalization-Extended.git"
   },
-  "notes": "Fill with user-provided values and assigned publication IDs. No inferred contact details or invented URLs. Empty optional links are omitted from rendered previews."
+  "notes": "Assigned publication IDs verified against release-workflow.json on 2026-10-05. Related descriptions include the other released maintained mods; the held AGOT adapter uses its assigned GitHub URL, never a fabricated store destination. Empty unassigned AGOT store links are retained as unavailable."
 }

@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -172,11 +173,47 @@ class PublicationRendererTests(unittest.TestCase):
         self.assertEqual(renderer.paradox_html('First & <second>\nnext\n\nhttps://example.org\n'),
                          '<p>First &amp; &lt;second&gt;<br>next</p><p>https://example.org</p>')
 
-    def test_nexus_donation_filter_still_applies_to_full_guide(self):
-        self.config.write_text(json.dumps({'links': {'PARLEY_GITHUB_URL': 'https://example.org/parley', 'DONATION_URL': 'https://example.org/donate'}}), encoding='utf-8')
-        files = self.render(GUIDE.replace('FULL GUIDE: detailed rules.', 'FULL GUIDE: detailed rules.\n[Donate]({{DONATION_URL}})'))
-        self.assertNotIn('donate', files['nexus.bbcode'])
-        self.assertIn('https://example.org/donate', files['github.md'])
+    def test_required_support_heading_retained_on_every_platform(self):
+        url = 'https://ko-fi.com/g4vv4kh'
+        label = renderer.DONATION_TEXT
+        self.config.write_text(json.dumps({'links': {'PARLEY_GITHUB_URL': 'https://example.org/parley', 'DONATION_URL': url}}), encoding='utf-8')
+        source = GUIDE + f'\n### [{label}]({{{{DONATION_URL}}}})\n'
+        files = self.render(source)
+        self.assertIn(f'[size=5][b][url={url}]{label}[/url][/b][/size]', files['nexus.bbcode'])
+        self.assertIn(f'[h1][url={url}]{label}[/url][/h1]', files['steam.bbcode'])
+        self.assertIn(f'<h3><a href="{url}">{label}</a></h3>', files['paradox.html'])
+        self.assertEqual(json.loads(files['render-status.json'])['required_support_local'], 'PASS')
+        self.assertEqual(json.loads(files['render-status.json'])['required_support_public'], 'NOT_VERIFIED')
+        for name in ('steam.bbcode', 'nexus.bbcode', 'github.md', 'paradox.html'):
+            self.assertEqual(files[name].count(label), 1)
+        first = snapshot(self.repo)
+        self.render()
+        self.assertEqual(snapshot(self.repo), first)
+        self.assert_bad_without_writes(source.replace('### [', '['))
+        self.assert_bad_without_writes(source + f'\n### [{label}]({url})\n')
+
+    def test_rich_paradox_preserves_link_pairs_and_native_headings(self):
+        source = '# Title\n\nText **bold** & `code`.\n\n### [Support](https://example.org/?a=1&b=2)\n\n- [Other](https://example.org/other)\n- Plain item\n\n1. Open.\n2. Review.\n'
+        rich = renderer.paradox_html(source)
+        self.assertIn('<h3><a href="https://example.org/?a=1&amp;b=2">Support</a></h3>', rich)
+        self.assertIn('<ul><li><a href="https://example.org/other">Other</a></li><li>Plain item</li></ul>', rich)
+        self.assertIn('<ol><li>Open.</li><li>Review.</li></ol>', rich)
+        import html
+        self.assertEqual(renderer.LINK.findall(source), [(html.unescape(label), html.unescape(url))
+                         for url, label in re.findall(r'<a href="([^"]+)">([^<]+)</a>', rich)])
+
+    def test_nexus_file_metadata_uses_approved_game_target_not_mod_version(self):
+        for target in ('1.20.0.3', '1.20.0.4'):
+            source = f'# Mod\n\n- 🟢 **Version 3.1.0** · Targets CK3 **{target}**.\n'
+            files = self.render(source)
+            metadata = json.loads(files['metadata.json'])
+            self.assertEqual(metadata['nexus_file_version'], '3.1.0')
+            self.assertEqual(metadata['nexus_file_description'], 'For CK3 ' + target)
+            self.assertEqual(metadata['target_game_version'], target)
+        with self.assertRaises(ValueError):
+            renderer.publication_metadata(source, target_game_version='1.20.0.2')
+        with self.assertRaises(ValueError):
+            renderer.publication_metadata(source, mod_version='3.0.0')
 
     def test_scoped_wrapper_changes_only_selected_mod_in_isolated_copy(self):
         if not WRAPPER.is_file():
@@ -202,6 +239,16 @@ class PublicationRendererTests(unittest.TestCase):
         self.assertIn('FULL GUIDE', (self.repo / 'README.md').read_text(encoding='utf-8'))
         self.assertIn('SHORT GUIDE', (self.repo / 'publishing/generated/steam.bbcode').read_text(encoding='utf-8'))
         self.assertIn('SHORT GUIDE', (self.repo / 'publishing/generated/paradox.txt').read_text(encoding='utf-8'))
+        # A public metadata revision need not have the live dev-root layout.
+        projection = self.root / 'metadata-revision/parley/source'
+        shutil.copytree(self.repo, projection)
+        live_before = snapshot(self.dev)
+        result = subprocess.run([sys.executable, '-B', str(wrapper_copy), '--mod', 'parley', '--source-dir', str(projection), '--config', str(self.config)], capture_output=True, text=True, encoding='utf-8')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(snapshot(self.dev), live_before)
+        self.assertIn('FULL GUIDE', (projection / 'README.md').read_text(encoding='utf-8'))
+        result = subprocess.run([sys.executable, '-B', str(wrapper_copy), '--mod', 'parley', '--source-dir', str(projection), '--dev-root', str(self.dev)], capture_output=True, text=True, encoding='utf-8')
+        self.assertNotEqual(result.returncode, 0)
 
     def test_live_wrapper_fingerprint_matches_reviewed_renderer(self):
         if not WRAPPER.is_file():

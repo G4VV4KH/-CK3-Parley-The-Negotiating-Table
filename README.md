@@ -4,7 +4,8 @@
 
 - 🟢 **Version 1.2.0** · Targets CK3 **1.20.0.3**.
 - 🟢 **No other mod required.**
-- 🟢 **languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [來自無壹的中文翻譯](https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070) and Spanish.
+- 🟢 **Negotiate marriage, money and allegiance in one treaty.**
+- 🟢 **Languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [來自無壹的中文翻譯](https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070) and Spanish.
 - 🔴 **Changes gameplay:** treaties can transfer money, people, land and vassalage.
 - 🔴 **AGOT compatibility: awaiting the AGOT update for CK3 1.20.**
 - 🔴 **Direct ruler negotiations only.** Puppet proxy mode is unavailable.
@@ -166,7 +167,7 @@ When acting for a puppet, Parley's opener and marriage picker are hidden. Person
 **Submods and companion mods:**
 
 - [Marriage Calculation Assistant](https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163): marriage-candidate scores, breakdowns and sorting.
-- AGOT: Marriage Calculation Assistant: AGOT scoring for MCA; current compatibility is on hold.
+- [AGOT: Marriage Calculation Assistant](https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant): AGOT scoring for MCA; current compatibility is on hold.
 
 No other compatibility patches are included. Enable one copy of each mod.
 
@@ -196,9 +197,11 @@ For bugs, include versions, load order, UI scale, steps and a screenshot; check 
 
 ## My mods
 
-- [Parley: The Negotiating Table](https://steamcommunity.com/sharedfiles/filedetails/?id=3811090081) — negotiate complete diplomatic agreements.
 - [Marriage Calculation Assistant](https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163) — compare marriage candidates with readable scores and sorting.
-- AGOT: Marriage Calculation Assistant — add AGOT candidate potential to MCA.
+- [Your Own Hegemony](https://steamcommunity.com/sharedfiles/filedetails/?id=3811201582) — unite imperial crowns under a new hegemony.
+- [Vassalization Extended](https://steamcommunity.com/sharedfiles/filedetails/?id=3813943691) — choose the terms of forced vassalization without a target county limit.
+
+These mods are optional. [AGOT: Marriage Calculation Assistant](https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant) remains on hold for CK3 1.20.
 
 ## Screenshots
 

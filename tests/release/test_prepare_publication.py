@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import io
+import json
 import struct
 import unittest
 import zipfile
@@ -102,17 +103,36 @@ class PreparationTests(unittest.TestCase):
                 packager.verify_zip(Path(directory) / 'nexus.zip', runtime)
 
     def test_legitimate_generated_readme_footer_and_steam_utf8_budget(self):
-        generated = {name: b'text' for name in ('steam.bbcode', 'paradox.txt', 'nexus.bbcode', 'github.md', 'preview.html', 'render-status.json')}
+        generated = {name: b'text' for name in ('steam.bbcode', 'paradox.txt', 'paradox.html', 'nexus.bbcode', 'github.md', 'preview.html', 'render-status.json', 'metadata.json')}
+        label = 'Want to support my work? Donate on Ko-fi 💛'
+        generated['nexus.bbcode'] = f'[size=5][b][url=https://ko-fi.com/g4vv4kh]{label}[/url][/b][/size]'.encode()
+        generated['paradox.html'] = f'<h3><a href="https://ko-fi.com/g4vv4kh">{label}</a></h3>'.encode()
+        generated['metadata.json'] = json.dumps({'nexus_file_version': '1.2.0', 'target_game_version': kit.TARGET, 'nexus_file_description': f'For CK3 {kit.TARGET}'}).encode()
         readme = generated['github.md'] + kit.CONTRIBUTING_FOOTER
         kit.validate_copy(generated, readme, b'Version 1.2.0', '1.2.0')
         with self.assertRaises(kit.PreparationError):
             kit.validate_copy(generated, generated['github.md'], b'Version 1.2.0', '1.2.0')
+        valid_nexus = generated['nexus.bbcode']
+        for invalid in (b'', valid_nexus.replace(b'[size=5]', b'[size=3]'), valid_nexus * 2):
+            generated['nexus.bbcode'] = invalid
+            with self.assertRaises(kit.PreparationError):
+                kit.validate_copy(generated, readme, b'Version 1.2.0', '1.2.0')
+        generated['nexus.bbcode'] = valid_nexus
+        valid_metadata = generated['metadata.json']
+        generated['metadata.json'] = valid_metadata.replace(kit.TARGET.encode(), b'1.20.0.2')
+        with self.assertRaises(kit.PreparationError):
+            kit.validate_copy(generated, readme, b'Version 1.2.0', '1.2.0')
+        generated['metadata.json'] = valid_metadata
         generated['steam.bbcode'] = ('я' * 4001).encode()
         with self.assertRaises(kit.PreparationError):
             kit.validate_copy(generated, readme, b'Version 1.2.0', '1.2.0')
 
     def test_failed_external_media_preflight_creates_no_output_directories(self):
-        generated = {name: b'text' for name in ('steam.bbcode', 'paradox.txt', 'nexus.bbcode', 'github.md', 'preview.html', 'render-status.json')}
+        generated = {name: b'text' for name in ('steam.bbcode', 'paradox.txt', 'paradox.html', 'nexus.bbcode', 'github.md', 'preview.html', 'render-status.json', 'metadata.json')}
+        label = 'Want to support my work? Donate on Ko-fi 💛'
+        generated['nexus.bbcode'] = f'[size=5][b][url=https://ko-fi.com/g4vv4kh]{label}[/url][/b][/size]'.encode()
+        generated['paradox.html'] = f'<h3><a href="https://ko-fi.com/g4vv4kh">{label}</a></h3>'.encode()
+        generated['metadata.json'] = json.dumps({'nexus_file_version': '1.2.0', 'target_game_version': kit.TARGET, 'nexus_file_description': f'For CK3 {kit.TARGET}'}).encode()
         descriptor = b'version="1.2.0"\nname="Parley: The Negotiating Table"\nsupported_version="1.20.*"\n'
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
