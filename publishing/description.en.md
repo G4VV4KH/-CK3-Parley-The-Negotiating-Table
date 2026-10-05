@@ -3,7 +3,7 @@
 ## At a glance
 
 - 🟢 **Version 1.2.0** · Targets CK3 **1.20.0.3**.
-- 🟢 **No other mod required.**
+- 🟢 **Standalone:** no other mod required.
 - 🟢 **Negotiate marriage, money and allegiance in one treaty.**
 - 🟢 **Languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [來自無壹的中文翻譯](https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070) and Spanish.
 - 🔴 **Changes gameplay:** treaties can transfer money, people, land and vassalage.
@@ -188,22 +188,24 @@ Gallery images were captured on **CK3 1.19.0.6**; some interface details may dif
 
 For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.
 
-- [Source and issue reports]({{PARLEY_GITHUB_URL}})
-- **Email:** {{CONTACT_EMAIL}}
+[Report an issue on GitHub]({{PARLEY_GITHUB_URL}}/issues)
+
+Email: {{CONTACT_EMAIL}}
 
 ### [Want to support my work? Donate on Ko-fi 💛]({{DONATION_URL}})
 
-## Find Parley elsewhere
+## Find this mod elsewhere
 
 - [Steam Workshop]({{PARLEY_STEAM_URL}})
 - [Paradox Mods]({{PARLEY_PARADOX_URL}})
 - [Nexus Mods]({{PARLEY_NEXUS_URL}})
 - [GitHub]({{PARLEY_GITHUB_URL}})
 
-## My mods
+## My other mods
 
-- [Marriage Calculation Assistant]({{MCA_STEAM_URL}}) — compare marriage candidates with readable scores and sorting.
-- [Your Own Hegemony]({{HEGEMONY_STEAM_URL}}) — unite imperial crowns under a new hegemony.
-- [Vassalization Extended]({{VE_STEAM_URL}}) — choose the terms of forced vassalization without a target county limit.
+- [Marriage Calculation Assistant]({{MCA_STEAM_URL}}) — compare and sort marriage candidates.
+- [Your Own Hegemony]({{HEGEMONY_STEAM_URL}}) — found a custom hegemony.
+- [Vassalization Extended]({{VE_STEAM_URL}}) — choose Forced Vassalization terms without a county limit.
+- [Court Automation]({{COURT_STEAM_URL}}) — automate court positions and recruit courtiers or knights.
 
-These mods are optional. [AGOT: Marriage Calculation Assistant]({{AGOT_MCA_GITHUB_URL}}) remains on hold for CK3 1.20.
+These mods are optional.

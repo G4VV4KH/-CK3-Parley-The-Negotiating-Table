@@ -59,23 +59,9 @@ def platform_source(text, platform):
 
 def resolve(text, links, nexus=False):
     missing = sorted({key for key in TOKEN.findall(text) if not links.get(key)})
-    lines = []
-    for line in text.splitlines():
-        # The platform selector is retained for callers. Nexus preserves the
-        # owner's support link just like the other publication projections.
-        tokens = TOKEN.findall(line)
-        if tokens and not any(links.get(key) for key in tokens) and any(x in line for x in ('CONTACT_EMAIL', 'mailto:', 'DONATION_URL', 'Source and issue reports')):
-            continue
-        def replace_link(match):
-            label, url = match.groups()
-            keys = TOKEN.findall(url)
-            if any(not links.get(key) for key in keys):
-                return label
-            return f'[{label}](' + TOKEN.sub(lambda m: links[m[1]], url) + ')'
-        line = LINK.sub(replace_link, line)
-        line = TOKEN.sub(lambda m: links.get(m[1]) or '', line)
-        lines.append(line)
-    return '\n'.join(lines).strip() + '\n', missing
+    # Never silently drop a contact/support line or turn an unassigned URL into
+    # an unlinked label. The caller must reject missing inputs before any write.
+    return TOKEN.sub(lambda m: links.get(m[1]) or m[0], text).strip() + '\n', missing
 
 def flatten_tables(text):
     """Use labelled rows consistently on sites without a portable table dialect."""

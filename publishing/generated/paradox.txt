@@ -3,7 +3,7 @@ Parley: The Negotiating Table
 At a glance
 
 - 🟢 Version 1.2.0 · Targets CK3 1.20.0.3.
-- 🟢 No other mod required.
+- 🟢 Standalone: no other mod required.
 - 🟢 Negotiate marriage, money and allegiance in one treaty.
 - 🟢 Languages: English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, 來自無壹的中文翻譯: https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070 and Spanish.
 - 🔴 Changes gameplay: treaties can transfer money, people, land and vassalage.
@@ -94,22 +94,24 @@ Feedback and support
 
 For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.
 
-- Source and issue reports: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table
-- Email: g4vv4kh@gmail.com
+Report an issue on GitHub: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table/issues
+
+Email: g4vv4kh@gmail.com
 
 Want to support my work? Donate on Ko-fi 💛: https://ko-fi.com/g4vv4kh
 
-Find Parley elsewhere
+Find this mod elsewhere
 
 - Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3811090081
 - Paradox Mods: https://mods.paradoxplaza.com/mods/161475/Any
 - Nexus Mods: https://www.nexusmods.com/crusaderkings3/mods/399
 - GitHub: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table
 
-My mods
+My other mods
 
-- Marriage Calculation Assistant: https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163 — compare marriage candidates with readable scores and sorting.
-- Your Own Hegemony: https://steamcommunity.com/sharedfiles/filedetails/?id=3811201582 — unite imperial crowns under a new hegemony.
-- Vassalization Extended: https://steamcommunity.com/sharedfiles/filedetails/?id=3813943691 — choose the terms of forced vassalization without a target county limit.
+- Marriage Calculation Assistant: https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163 — compare and sort marriage candidates.
+- Your Own Hegemony: https://steamcommunity.com/sharedfiles/filedetails/?id=3811201582 — found a custom hegemony.
+- Vassalization Extended: https://steamcommunity.com/sharedfiles/filedetails/?id=3813943691 — choose Forced Vassalization terms without a county limit.
+- Court Automation: https://steamcommunity.com/sharedfiles/filedetails/?id=3814028714 — automate court positions and recruit courtiers or knights.
 
-These mods are optional. AGOT: Marriage Calculation Assistant: https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant remains on hold for CK3 1.20.
+These mods are optional.

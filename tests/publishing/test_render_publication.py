@@ -35,6 +35,13 @@ def snapshot(root):
 
 
 class PublicationRendererTests(unittest.TestCase):
+    def test_unassigned_contact_and_support_are_never_silently_removed(self):
+        source = 'Email: {{CONTACT_EMAIL}}\n### [Support]({{DONATION_URL}})\n'
+        for nexus in (False, True):
+            text, missing = renderer.resolve(source, {}, nexus=nexus)
+            self.assertEqual(source, text)
+            self.assertEqual(['CONTACT_EMAIL', 'DONATION_URL'], missing)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
