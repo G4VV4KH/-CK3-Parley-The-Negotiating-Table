@@ -123,6 +123,9 @@ class PreparationTests(unittest.TestCase):
         with self.assertRaises(kit.PreparationError):
             kit.validate_copy(generated, readme, b'Version 1.2.0', '1.2.0')
         generated['metadata.json'] = valid_metadata
+        generated['steam.bbcode'] = b'x\n' * 100 + b'x' * 7701
+        with self.assertRaises(kit.PreparationError):
+            kit.validate_copy(generated, readme, b'Version 1.2.0', '1.2.0')
         generated['steam.bbcode'] = ('я' * 4001).encode()
         with self.assertRaises(kit.PreparationError):
             kit.validate_copy(generated, readme, b'Version 1.2.0', '1.2.0')

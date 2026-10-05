@@ -299,6 +299,8 @@ def validate_copy(generated, readme, canonical, version):
             "Generated GitHub copy/expected Contributing footer and README diverged")
     require(f"Version {version}".encode() in canonical, "Canonical description version differs")
     require(len(generated["steam.bbcode"]) <= 8000, "Steam description exceeds reviewed 8000 UTF-8-byte limit")
+    transport = generated["steam.bbcode"].replace(b"\r\n", b"\n").replace(b"\r", b"\n").replace(b"\n", b"\r\n")
+    require(len(transport) <= 8000, "Steam description exceeds 8000 bytes after textarea CRLF normalization")
     require(b"{{" not in b"".join(generated.values()), "Unresolved publication placeholder")
     label = "Want to support my work? Donate on Ko-fi 💛"
     url = "https://ko-fi.com/g4vv4kh"

@@ -15,6 +15,16 @@ GUIDE_MARKERS = (
     '<!-- full-game-rules-guide:end -->',
 )
 STEAM_BYTE_LIMIT = 8000
+
+def steam_form_transport_size(text):
+    """Conservative UTF-8 budget after HTML textarea LF-to-CRLF normalization.
+
+    Count decoded field bytes, not URL-encoding overhead. Keep local exports LF;
+    browsers normalize text controls when serializing form submissions.
+    """
+    normalized = text.replace('\r\n', '\n').replace('\r', '\n')
+    return len(normalized.replace('\n', '\r\n').encode('utf-8'))
+
 # Observed in the Paradox Mods description editor on 2026-10-04. Check both
 # text and the compact rich-text projection; the form may count its HTML value.
 PARADOX_CHARACTER_LIMIT = 10000
@@ -275,8 +285,9 @@ def main():
         files = {'steam.bbcode':bbcode(steam,'steam'),'nexus.bbcode':bbcode(nexus,'nexus'),'paradox.txt':plain(paradox),'paradox.html':paradox_html(paradox),'github.md':github,'preview.html':preview_html(resolved),
                  'metadata.json':json.dumps(metadata, ensure_ascii=False, indent=2) + '\n'}
         steam_bytes = len(files['steam.bbcode'].encode('utf-8'))
-        if steam_bytes > STEAM_BYTE_LIMIT:
-            raise ValueError(f'{slug}: Steam description is {steam_bytes} UTF-8 bytes; limit is {STEAM_BYTE_LIMIT}')
+        steam_transport_bytes = steam_form_transport_size(files['steam.bbcode'])
+        if max(steam_bytes, steam_transport_bytes) > STEAM_BYTE_LIMIT:
+            raise ValueError(f'{slug}: Steam description is {steam_bytes} LF / {steam_transport_bytes} CRLF form UTF-8 bytes; limit is {STEAM_BYTE_LIMIT}')
         paradox_characters = paradox_character_count(files['paradox.txt'])
         paradox_html_characters = paradox_character_count(files['paradox.html'])
         if max(paradox_characters, paradox_html_characters) > PARADOX_CHARACTER_LIMIT:
@@ -291,7 +302,7 @@ def main():
         for name, content in files.items():
             (target / name).write_text(content, encoding='utf-8', newline='\n')
         (repo / 'README.md').write_text(github + '\n## Contributing\n\nSee [dev.md](dev.md) for the source layout, checks and pull-request workflow.\n', encoding='utf-8', newline='\n')
-        report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'steam_bytes':steam_bytes,'steam_under_8000_bytes':steam_bytes<=STEAM_BYTE_LIMIT,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'paradox.html: native rich-text fragment with linked h3 headings; paradox.txt is reference text only. Verify public rendering after saving.','paradox_characters':paradox_characters,'paradox_html_characters':paradox_html_characters,'paradox_under_10000':max(paradox_characters,paradox_html_characters)<=PARADOX_CHARACTER_LIMIT,'required_support_local':support_status,'required_support_public':'NOT_VERIFIED','nexus_donation_link':'Preserved as the approved size=5 bold linked heading.',**metadata}
+        report = {'mod':slug,'missing_metadata':missing,'steam_characters':len(files['steam.bbcode']),'steam_under_8000':len(files['steam.bbcode'])<=8000,'steam_bytes':steam_bytes,'steam_under_8000_bytes':steam_bytes<=STEAM_BYTE_LIMIT,'steam_form_transport_bytes':steam_transport_bytes,'steam_under_8000_form_transport_bytes':steam_transport_bytes<=STEAM_BYTE_LIMIT,'status':'PREVIEW_METADATA_PENDING' if missing else 'COPY_RENDERED','paradox_format':'paradox.html: native rich-text fragment with linked h3 headings; paradox.txt is reference text only. Verify public rendering after saving.','paradox_characters':paradox_characters,'paradox_html_characters':paradox_html_characters,'paradox_under_10000':max(paradox_characters,paradox_html_characters)<=PARADOX_CHARACTER_LIMIT,'required_support_local':support_status,'required_support_public':'NOT_VERIFIED','nexus_donation_link':'Preserved as the approved size=5 bold linked heading.',**metadata}
         (target / 'render-status.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8',newline='\n')
         reports.append(report)
     print(json.dumps(reports,indent=2))

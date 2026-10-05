@@ -60,9 +60,7 @@ Rounding can make displayed rows differ slightly from totals. These values belon
 4. Review and confirm. The mod rechecks that the agreement can be carried out.
 
 <!-- steam-guide-summary:start -->
-Choose rules before starting. Prestige and piety default to **Available**. Options restrict transfers by faith or from higher fame/devotion to lower. Direction follows the giver, not the initiator. Forbidden currencies disappear; Auto-balance and AI pricing follow these rules.
-
-Advanced terms default to **Enabled**, threats to **Standard**, and both AI frequency rules to **Frequent**. Incoming offers and AI-to-AI treaties are separate systems. [Full game-rules guide]({{PARLEY_GITHUB_URL}}#game-rules-guide).
+Set game rules before play. Currency limits apply to each giver and govern Auto-balance and AI pricing. Incoming offers and AI-to-AI treaties have separate frequency rules. [Full rules, defaults and examples]({{PARLEY_GITHUB_URL}}#game-rules-guide).
 <!-- steam-guide-summary:end -->
 
 <!-- full-game-rules-guide:start -->

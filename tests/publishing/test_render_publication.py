@@ -128,13 +128,24 @@ class PublicationRendererTests(unittest.TestCase):
         # 2,001 emoji plus LF is only 2,002 characters but exceeds 8,000 bytes.
         self.assert_bad_without_writes('🟢' * 2001)
 
-    def test_exact_steam_byte_limit_allowed_and_reported(self):
-        files = self.render('x' * 7999)
+    def test_exact_steam_form_byte_limit_allowed_and_reported(self):
+        files = self.render('x' * 7998)
         report = json.loads(files['render-status.json'])
-        self.assertEqual(report['steam_bytes'], 8000)
-        self.assertEqual(report['steam_characters'], 8000)
+        self.assertEqual(report['steam_bytes'], 7999)
+        self.assertEqual(report['steam_characters'], 7999)
+        self.assertEqual(report['steam_form_transport_bytes'], 8000)
         self.assertTrue(report['steam_under_8000'])
         self.assertTrue(report['steam_under_8000_bytes'])
+        self.assertTrue(report['steam_under_8000_form_transport_bytes'])
+
+    def test_steam_lf_payload_can_exceed_limit_after_form_normalization(self):
+        # 7,901 LF bytes pass the old gate; 101 CRLF lines total 8,002 bytes.
+        source = 'x\n' * 100 + 'x' * 7700
+        self.assert_bad_without_writes(source)
+
+    def test_form_normalization_handles_existing_crlf_and_utf8(self):
+        self.assertEqual(renderer.steam_form_transport_size('💛\na\r\nb\rc'),
+                         len('💛\r\na\r\nb\r\nc'.encode('utf-8')))
 
     def test_multibyte_report_retains_character_fields(self):
         files = self.render('🟢')

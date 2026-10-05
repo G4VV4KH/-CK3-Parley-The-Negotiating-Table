@@ -59,9 +59,7 @@ Getting started
 3. Read Their Answer, adjust the package or use Auto-balance.
 4. Review and confirm. The mod rechecks that the agreement can be carried out.
 
-Choose rules before starting. Prestige and piety default to Available. Options restrict transfers by faith or from higher fame/devotion to lower. Direction follows the giver, not the initiator. Forbidden currencies disappear; Auto-balance and AI pricing follow these rules.
-
-Advanced terms default to Enabled, threats to Standard, and both AI frequency rules to Frequent. Incoming offers and AI-to-AI treaties are separate systems. Full game-rules guide: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table#game-rules-guide.
+Set game rules before play. Currency limits apply to each giver and govern Auto-balance and AI pricing. Incoming offers and AI-to-AI treaties have separate frequency rules. Full rules, defaults and examples: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table#game-rules-guide.
 
 
 When acting for a puppet, Parley's opener and marriage picker are hidden. Personal Rites determine marriage defaults and lineality pricing; native marriage eligibility checks still apply.
