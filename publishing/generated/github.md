@@ -212,7 +212,7 @@ Before removal, use **Fold Away the Negotiating Table** under **Mod Removal Deci
 
 Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package.
 
-Gallery images were captured on **CK3 1.19.0.6**; some interface details may differ. **Multiplayer and long campaigns remain unverified.**
+The negotiation screenshots were captured on **CK3 1.19.0.6**; some interface details may differ. **Multiplayer and long campaigns remain unverified.**
 
 ## Feedback and support
 
@@ -250,6 +250,6 @@ Captured on CK3 1.19.0.6: Offer gold and prestige in exchange for fealty, with a
 
 Captured on CK3 1.19.0.6: Other rulers make offers of their own: gold today in exchange for a favor later.
 
-![Captured on CK3 1.19.0.6: Choose which treaty terms are available and how often AI rulers negotiate.](publishing/screenshots/04-game-rules.png)
+![Parley 1.2.1 game rules: Scaled valuation and a five-year threat cooldown selected (not defaults).](publishing/screenshots/04-game-rules.png)
 
-Captured on CK3 1.19.0.6: Choose which treaty terms are available and how often AI rulers negotiate.
+Parley 1.2.1 game rules: Scaled valuation and a five-year threat cooldown selected (not defaults).

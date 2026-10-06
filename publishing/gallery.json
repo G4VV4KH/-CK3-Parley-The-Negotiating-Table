@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "mod": "parley",
-  "source_gallery": "publication-media/parley/selected-gallery.json",
+  "source_gallery": "publishing/screenshot-brief.json",
   "items": [
     {
       "file": "publishing/screenshots/01-negotiating-table.png",
@@ -15,14 +15,25 @@
     },
     {
       "file": "publishing/screenshots/04-game-rules.png",
-      "caption_en": "Captured on CK3 1.19.0.6: Choose which treaty terms are available and how often AI rulers negotiate.",
-      "sha256": "6d26c21283ce20dc28f0fd1c13d1ab07abb2810a2d4e195daf69b694d8c24227"
+      "caption_en": "Parley 1.2.1 game rules: Scaled valuation and a five-year threat cooldown selected (not defaults).",
+      "sha256": "c164b78d3f38ac10ddc3a7ba2086ada7aeb4c68ba526032419f6919ff1c94f0d",
+      "provenance": {
+        "source": "User-supplied authentic CK3 screenshot, received 2026-10-06.",
+        "mod_version": "1.2.1",
+        "capture_game_patch": "Not established by the image; no exact CK3 patch claim.",
+        "selected_settings": "Scaled valuation and a five-year threat cooldown are illustrative selections, not the default settings.",
+        "transformation": "Repository PNG is the original capture, unchanged. Store-gallery JPEG is an uncropped 1920x1080 quality-95 compression."
+      }
     }
   ],
   "capture_baseline": {
     "build_id": "2026-09-30-game-rc3",
     "ck3": "1.19.0.6",
     "mod_version": "1.0.0",
-    "scope": "Historical interface illustrations; no CK3 1.20 game-validation claim."
+    "scope": "Applies only to the first two negotiation screenshots, not the replacement rules screenshot. Historical interface illustrations; no CK3 1.20 game-validation claim.",
+    "files": [
+      "publishing/screenshots/01-negotiating-table.png",
+      "publishing/screenshots/02-incoming-ai-offer.png"
+    ]
   }
 }

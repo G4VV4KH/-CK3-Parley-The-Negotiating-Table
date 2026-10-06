@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
   "created_date": "2026-09-30",
-  "updated_date": "2026-09-30",
+  "updated_date": "2026-10-06",
+  "revision_scope": "Parley game-rules capture only replaced on 2026-10-06. Other scenes and the historical workflow below retain their earlier provenance. The replacement has per-capture provenance and does not establish an exact CK3 patch.",
   "status": "screenshots_selected",
   "selected_image_count": 7,
   "workflow": {
@@ -75,14 +76,15 @@
       "id": "parley-game-rules",
       "mod": "parley",
       "status": "selected",
-      "purpose": "Show the configurable terms and AI negotiation frequency.",
+      "purpose": "Show all eight Parley 1.2.1 game rules, including Scaled term valuation and the separate threat strength and frequency settings.",
       "visible_requirements": [
         "Parley rule names",
-        "Advanced terms, prestige and piety settings",
-        "Threats and AI frequency settings"
+        "Advanced terms, Scaled valuation, prestige and piety settings",
+        "Separate threat strength and five-year threat frequency settings",
+        "AI-to-AI treaties and offers sent to the player"
       ],
       "selected_file": "publishing/screenshots/04-game-rules.png",
-      "caption_brief_en": "Choose which treaty terms are available and how often AI rulers negotiate."
+      "caption_brief_en": "Parley 1.2.1 game rules: Scaled valuation and a five-year threat cooldown selected (not defaults)."
     },
     {
       "id": "mca-recipient-sorted-list",
@@ -173,13 +175,18 @@
       "status": "selected",
       "file": "publishing/screenshots/04-game-rules.png",
       "file_reference_root": "owning mod repository",
-      "sha256": "6d26c21283ce20dc28f0fd1c13d1ab07abb2810a2d4e195daf69b694d8c24227",
+      "sha256": "c164b78d3f38ac10ddc3a7ba2086ada7aeb4c68ba526032419f6919ff1c94f0d",
       "language": "English",
       "resolution": [
         1920,
         1080
       ],
-      "caption_en": "Choose which treaty terms are available and how often AI rulers negotiate."
+      "caption_en": "Parley 1.2.1 game rules: Scaled valuation and a five-year threat cooldown selected (not defaults).",
+      "received_date": "2026-10-06",
+      "capture_game_patch": "Not established by the image.",
+      "provenance": "User-supplied original PNG retained unchanged. No crop, brightness change, compositing or AI alteration. Store upload derivative uses JPEG quality 95 at the same 1920x1080 resolution.",
+      "settings_note": "Scaled and five years are illustrative selected settings, not defaults.",
+      "superseded_capture_sha256": "6d26c21283ce20dc28f0fd1c13d1ab07abb2810a2d4e195daf69b694d8c24227"
     },
     {
       "scene_id": "mca-recipient-sorted-list",
