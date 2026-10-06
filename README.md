@@ -2,7 +2,7 @@
 
 ## At a glance
 
-- 🟢 **Version 1.2.1** · Targets CK3 **1.20.0.3**.
+- 🟢 **Version 1.2.1** · Targets CK3 **1.20.0.4**.
 - 🟢 **Standalone:** no other mod required.
 - 🟢 **Negotiate marriage, money and allegiance in one treaty.**
 - 🟢 **Languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [來自無壹的中文翻譯](https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070) and Spanish.
