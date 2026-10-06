@@ -232,7 +232,11 @@
 
  # --- A. Interaction (3) --------------------------------------------------
  tnt_open_negotiations:0 "Negotiate a Treaty"
- tnt_open_negotiations_desc:0 "Send an envoy to [recipient.GetShortUIName] and lay a full treaty upon the table - every term, both sides at once."
+ tnt_open_negotiations_desc:0 "Send an envoy to [recipient.GetShortUIName] and lay a full treaty upon the table - every term, both sides at once.[actor.Custom('TntThreatCooldownStatus')]"
+ tnt_bd_floor_panel:0 "Gift floor"
+ tnt_threat_cooldown_status:0 "\n\n#high Threat cooldown#!\nDays remaining: [GetVarTimeRemaining(tnt_cooldown_actor.MakeScope, 'tnt_threat_cooldown')|0] (until [GetCurrentDateWithDiff(GetVarTimeRemaining(tnt_cooldown_actor.MakeScope, 'tnt_threat_cooldown'))])."
+ tnt_threat_cooldown_short:0 "Cooldown: [GetVarTimeRemaining(tnt_cooldown_actor.MakeScope, 'tnt_threat_cooldown')|0] d."
+ tnt_threat_cooldown_empty:0 ""
  # THE ENGINE NAMES THIS KEY, NOT A CALL SITE. <interaction id>_extra_icon is
  # the fixed tooltip of the extra icon drawn on the right-click menu row
  # (GAME\common\character_interactions\_character_interactions.info:150-155);
@@ -874,6 +878,7 @@
  # stays diegetic on purpose: no numbers, no "opinion" jargon.
  tnt_err_at_war:0 "There can be no negotiations while you are at war with each other."
  tnt_err_hatred:0 "Their hatred of you is absolute — they will not come to the table."
+ NOT_tnt_err_hatred:0 "Their hatred of you is absolute — they will not come to the table."
  tnt_err_advanced_off:0 "Advanced terms are switched off in the game rules."
  tnt_err_no_gold:0 "You cannot afford the gold you are offering."
  tnt_err_partner_no_gold:0 "They cannot afford the gold you are demanding."
@@ -1000,6 +1005,12 @@
  # Currency rules apply to the actual giver and receiver, including AI trades.
  # Both defaults remain on. Legacy peer/religion IDs retain their meanings.
  # Shared errors explain blocked directions without scope tokens in tooltips.
+ rule_tnt_advanced_valuation:0 "Parley: Advanced term valuation"
+ setting_tnt_advanced_valuation_classic:0 "Classic"
+ setting_tnt_advanced_valuation_classic_desc:0 "Uses the original advanced-term prices, including their existing limits. Default; also used when an older save has no setting."
+ setting_tnt_advanced_valuation_scaled:0 "Scaled"
+ setting_tnt_advanced_valuation_scaled_desc:0 "Land and ruler transfers scale with actual territory and development; people with their usefulness and political importance. Applies to players and AI. Does not unlock terms or change currency-trading rules."
+
  rule_tnt_trade_prestige:0 "Parley: prestige trading"
  setting_tnt_trade_prestige_on:0 "Available"
  setting_tnt_trade_prestige_on_desc:0 "Prestige may be offered and requested with any ruler. Applies to players and AI alike."
@@ -1874,14 +1885,24 @@
  # explains the greyed box, and the rung's own _desc is where the player chose
  # the scale. NO game_rule_category_* key either - game_modes, ai and tweaks
  # all exist in vanilla.
- rule_tnt_threat_scale:0 "Parley: threats at the table"
- setting_tnt_threat_scale_rare:0 "Rare"
+ rule_tnt_threat_frequency:0 "Parley: threat frequency"
+ setting_tnt_threat_frequency_unlimited:0 "0 years"
+ setting_tnt_threat_frequency_unlimited_desc:0 "No additional cooldown between threats against different rulers. Default setting. The existing 15-year restriction on threatening the same ruler still applies to players and AI."
+ setting_tnt_threat_frequency_1_year:0 "1 year"
+ setting_tnt_threat_frequency_1_year_desc:0 "After using a threat, that ruler cannot threaten anyone for 1 year. This applies equally to players and AI. The existing 15-year restriction on threatening the same ruler also remains."
+ setting_tnt_threat_frequency_5_years:0 "5 years"
+ setting_tnt_threat_frequency_5_years_desc:0 "After using a threat, that ruler cannot threaten anyone for 5 years. This applies equally to players and AI. The existing 15-year restriction on threatening the same ruler also remains."
+ setting_tnt_threat_frequency_10_years:0 "10 years"
+ setting_tnt_threat_frequency_10_years_desc:0 "After using a threat, that ruler cannot threaten anyone for 10 years. This applies equally to players and AI. The existing 15-year restriction on threatening the same ruler also remains."
+ tnt_err_threat_cooldown:0 "You have used a threat recently and cannot threaten anyone until your threat cooldown expires."
+ rule_tnt_threat_scale:0 "Parley: threat strength"
+ setting_tnt_threat_scale_rare:0 "Weak"
  setting_tnt_threat_scale_rare_desc:0 "Coefficient N = 2.5. Every threat needs #high at least 100 deal points#!. With equal prestige and dread, this requires an army ratio of 41:1.\n\n#weak Higher prestige and dread reduce the army advantage required. A full prestige level below the target makes the threat worth zero. The same rules apply to players and AI.#!"
- setting_tnt_threat_scale_normal:0 "Standard"
+ setting_tnt_threat_scale_normal:0 "Normal"
  setting_tnt_threat_scale_normal_desc:0 "Coefficient N = 5. Every threat needs #high at least 100 deal points#!. With equal prestige and dread, the minimum army ratio is #high 21:1#!.\n\nHigher prestige and dread reduce the army advantage required. A full prestige level below the target makes the threat worth zero.\n\n#weak Default setting. The same rules apply to players and AI.#!"
- setting_tnt_threat_scale_frequent:0 "Frequent"
+ setting_tnt_threat_scale_frequent:0 "Strong"
  setting_tnt_threat_scale_frequent_desc:0 "Coefficient N = 7.5. Every threat still needs #high at least 100 deal points#!.\n\n#weak Higher prestige and dread reduce the army advantage required. A full prestige level below the target makes the threat worth zero. The same rules apply to players and AI.#!"
- setting_tnt_threat_scale_constant:0 "Ever-present"
+ setting_tnt_threat_scale_constant:0 "Very strong"
  setting_tnt_threat_scale_constant_desc:0 "Coefficient N = 10. Every threat needs #high at least 100 deal points#!. With equal prestige and dread, the minimum army ratio is #high 11:1#!.\n\n#weak Higher prestige and dread reduce the army advantage required. A full prestige level below the target makes the threat worth zero. The same rules apply to players and AI.#!"
 
  # =========================================================================

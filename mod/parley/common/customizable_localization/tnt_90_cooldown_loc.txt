@@ -1,0 +1,33 @@
+﻿# Read-only presentation of the EXISTING actor-global timer, including RC2 saves.
+# Native APIs: laws_l_english.yml CROWN_AUTHORITY_IS_ON_COOLDOWN;
+# interactions_l_english.yml puppet_gift_cooldown_tt. No duplicate saved timer.
+# Keep dynamic loc OUTSIDE ScriptedGui.BuildTooltip's bare reason wrappers.
+TntThreatCooldownStatus = {
+	type = character
+	text = {
+		setup_scope = { save_scope_as = tnt_cooldown_actor }
+		trigger = {
+			NOT = { tnt_threat_cooldown_available_trigger = { A = this } }
+		}
+		localization_key = tnt_threat_cooldown_status
+	}
+	text = { localization_key = tnt_threat_cooldown_empty }
+}
+
+# The row has a fixed-height subtitle slot. Active cooldown takes precedence
+# over a stale checked draft; otherwise retain the existing pressure summary.
+TntThreatRowSubtitle = {
+	type = character
+	text = {
+		setup_scope = { save_scope_as = tnt_cooldown_actor }
+		trigger = {
+			NOT = { tnt_threat_cooldown_available_trigger = { A = this } }
+		}
+		localization_key = tnt_threat_cooldown_short
+	}
+	text = {
+		trigger = { exists = var:tnt_threat_p var:tnt_threat_p > 0 }
+		localization_key = tnt_threat_sub
+	}
+	text = { localization_key = tnt_threat_cooldown_empty }
+}

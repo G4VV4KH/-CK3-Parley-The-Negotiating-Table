@@ -4300,14 +4300,23 @@ tnt_ai_compose_offer_effect = {
 						# IDENTICAL, or the entry promises a man the pick cannot find.
 						# ACCEPTANCE TEST: COMPOSE arch=19 between 1 and 5 next run, and
 						# every one of them followed by a TERM item=courtier row.
-						OR = {
-							exists = inspiration
-							martial >= very_high_skill_rating
-							prowess >= high_skill_rating
-							diplomacy >= very_high_skill_rating
-							learning >= very_high_skill_rating
-							has_relation_friend = scope:tnt_ai
-							has_relation_lover = scope:tnt_ai
+						# Scaled: buy useful individuals, never weaken the global
+						# substance gate to accommodate the new one-point floor.
+						trigger_if = {
+							limit = { tnt_scaled_valuation_enabled_value > 0 }
+							scope:tnt_ai = { save_temporary_scope_as = tnt_scaled_person_receiver }
+							tnt_scaled_courtier_intrinsic_value >= 10
+						}
+						trigger_else = {
+							OR = {
+								exists = inspiration
+								martial >= very_high_skill_rating
+								prowess >= high_skill_rating
+								diplomacy >= very_high_skill_rating
+								learning >= very_high_skill_rating
+								has_relation_friend = scope:tnt_ai
+								has_relation_lover = scope:tnt_ai
+							}
 						}
 					}
 				}
@@ -4331,14 +4340,22 @@ tnt_ai_compose_offer_effect = {
 						# change both in the same edit; the argument for the two
 						# lowered rungs and the two new reasons is on the entry
 						# trigger above.
-						OR = {
-							exists = inspiration
-							martial >= very_high_skill_rating
-							prowess >= high_skill_rating
-							diplomacy >= very_high_skill_rating
-							learning >= very_high_skill_rating
-							has_relation_friend = scope:tnt_ai
-							has_relation_lover = scope:tnt_ai
+						# Mirror the entry predicate, including claim receiver scope.
+						trigger_if = {
+							limit = { tnt_scaled_valuation_enabled_value > 0 }
+							scope:tnt_ai = { save_temporary_scope_as = tnt_scaled_person_receiver }
+							tnt_scaled_courtier_intrinsic_value >= 10
+						}
+						trigger_else = {
+							OR = {
+								exists = inspiration
+								martial >= very_high_skill_rating
+								prowess >= high_skill_rating
+								diplomacy >= very_high_skill_rating
+								learning >= very_high_skill_rating
+								has_relation_friend = scope:tnt_ai
+								has_relation_lover = scope:tnt_ai
+							}
 						}
 					}
 					scope:tnt_list_owner = {
@@ -4405,22 +4422,29 @@ tnt_ai_compose_offer_effect = {
 					limit = {
 						any_in_list = {
 							variable = tnt_sel_courtier_p
-							OR = {
-								# THESE ROWS MUST STAY IDENTICAL TO THE ENTRY TRIGGER ABOVE, AND V18
-								# SHIPPED THEM DIVERGED. The entry was loosened to very_high martial /
-								# diplomacy / learning and high prowess, and this test was left at the old
-								# monumentally_high / extremely_high bar with no diplomacy or learning row
-								# at all - so every courtier the loosened gate admitted failed this test and
-								# the letter shipped with goal 0, which is the "anonymous retainer" filler
-								# the project measured as arch19's worst fault (6 of 8 letters declined).
-								# A motive that cannot fire for the men the gate admits is not a motive.
-								exists = inspiration
-								martial >= very_high_skill_rating
-								prowess >= high_skill_rating
-								diplomacy >= very_high_skill_rating
-								learning >= very_high_skill_rating
-								has_relation_friend = scope:tnt_ai
-								has_relation_lover = scope:tnt_ai
+							trigger_if = {
+								limit = { tnt_scaled_valuation_enabled_value > 0 }
+								scope:tnt_ai = { save_temporary_scope_as = tnt_scaled_person_receiver }
+								tnt_scaled_courtier_intrinsic_value >= 10
+							}
+							trigger_else = {
+								OR = {
+									# THESE ROWS MUST STAY IDENTICAL TO THE ENTRY TRIGGER ABOVE, AND V18
+									# SHIPPED THEM DIVERGED. The entry was loosened to very_high martial /
+									# diplomacy / learning and high prowess, and this test was left at the old
+									# monumentally_high / extremely_high bar with no diplomacy or learning row
+									# at all - so every courtier the loosened gate admitted failed this test and
+									# the letter shipped with goal 0, which is the "anonymous retainer" filler
+									# the project measured as arch19's worst fault (6 of 8 letters declined).
+									# A motive that cannot fire for the men the gate admits is not a motive.
+									exists = inspiration
+									martial >= very_high_skill_rating
+									prowess >= high_skill_rating
+									diplomacy >= very_high_skill_rating
+									learning >= very_high_skill_rating
+									has_relation_friend = scope:tnt_ai
+									has_relation_lover = scope:tnt_ai
+								}
 							}
 						}
 					}
@@ -5234,7 +5258,13 @@ tnt_ai_offer_clear_effect = {
 tnt_demand_paid_effect = {
 	# The bully's name grows by it. Vanilla's own payout for a successful
 	# extortion: GAME\events\lifestyles\subject_extortion_events.txt:43.
-	scope:tnt_deal_partner ?= { add_dread = minor_dread_gain }
+	# Pay rechecks the aggressor's cooldown before any transfer. Consume it
+	# here, after settlement, never on composition/emission: a pending letter
+	# must not fail its own validation merely because it was delivered.
+	scope:tnt_deal_partner ?= {
+		add_dread = minor_dread_gain
+		tnt_start_threat_cooldown_effect = yes
+	}
 
 	# The memory, on the player, toward him. See the header for the direction.
 	if = {
@@ -5285,6 +5315,10 @@ tnt_demand_refused_effect = {
 		else = {
 			add_prestige = minor_prestige_loss
 		}
+		# A valid demand was faced down. Its attempt spends the aggressor's
+		# global frequency allowance too; an expired/otherwise stale demand
+		# does not start or extend it. Validate before writing either lock.
+		scope:tnt_deal_partner = { tnt_start_threat_cooldown_effect = yes }
 	}
 
 	#-----------------------------------------------------------------

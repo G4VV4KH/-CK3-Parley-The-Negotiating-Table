@@ -1,0 +1,67 @@
+﻿###############################################################################
+# PARLEY 1.2.1 - SCALED TERRITORIAL VALUES
+# Pure, rule-independent helpers. Callers opt into these ONLY when
+# tnt_scaled_valuation_enabled_value > 0; Classic retains its old arithmetic.
+#
+# Actual counties, not realm_size (holdings) and not de jure title trees:
+# every_sub_realm_county includes the scoped ruler's subordinate realm, even
+# when that ruler is himself a vassal. It counts each county once. This is the
+# installed 1.20.0.3 vanilla script-value pattern in 00_law_values.txt:7-9,
+# 00_invasion_values.txt:8-11 and 00_hold_court_values.txt:11-14.
+# County development as a script-value field: 00_council_values.txt:112;
+# tier constants through hegemony: 00_title_tiers_values.txt:1-7.
+#
+# County-only cession remains county-only. tnt_can_cede_title_trigger refuses
+# higher ranks because its executor transfers the coronet, not de jure vassals.
+# Do not charge an untransferred duchy's nominal land, or sum all nested titles.
+###############################################################################
+
+# LANDED COUNTY TITLE scope. Twenty points per actual county, plus half its
+# development (prosperity). Development is the only local prosperity input:
+# there is no speculative income, building or unowned de jure land valuation.
+tnt_scaled_county_land_value = {
+	value = 0
+	if = {
+		limit = { tier = tier_county }
+		add = 20
+		add = {
+			value = development_level
+			min = 0
+			multiply = 0.5
+		}
+	}
+}
+
+# CHARACTER scope. Territorial authority is priced ONCE, by primary rank.
+# Additional or empty secondary duchies/kingdoms cannot multiply the price.
+tnt_scaled_realm_rank_value = {
+	value = 0
+	primary_title ?= {
+		if = { limit = { tier = tier_hegemony } add = 80 }
+		else_if = { limit = { tier = tier_empire } add = 60 }
+		else_if = { limit = { tier = tier_kingdom } add = 40 }
+		else_if = { limit = { tier = tier_duchy } add = 20 }
+	}
+}
+
+# CHARACTER scope: own counties + every subordinate county, without a low cap.
+# Fealty, independence and transferred-vassal consumers share this exact basis.
+tnt_scaled_realm_land_value = {
+	value = 0
+	every_sub_realm_county = {
+		add = tnt_scaled_county_land_value
+	}
+	add = tnt_scaled_realm_rank_value
+}
+
+# CHARACTER scope is always the ruler who becomes a vassal. Keep the existing
+# 50-point gap between voluntary and demanded submission, without 200/250 caps.
+tnt_scaled_fealty_offer_value = {
+	value = 50
+	add = tnt_scaled_realm_land_value
+}
+
+tnt_scaled_fealty_demand_value = {
+	value = 100
+	add = tnt_scaled_realm_land_value
+}

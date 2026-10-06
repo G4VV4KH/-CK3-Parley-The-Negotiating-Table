@@ -84,6 +84,13 @@ tnt_val_usehook_p_value = {
 			limit = { tnt_usehook_strength_value >= 1 }
 			add = 45
 		}
+		# A hook called in by the player is leverage over the partner.
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			var:tnt_partner ?= {
+				multiply = tnt_scaled_hook_leverage_factor_value
+			}
+		}
 	}
 }
 
@@ -171,6 +178,12 @@ tnt_val_usehook_r_value = {
 		else_if = {
 			limit = { tnt_usehook_r_strength_value >= 1 }
 			add = -45
+		}
+		# The partner calls in a debt on the table owner. Preserve the negative
+		# acceptance sign: this is his leverage, never a gift to himself.
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			multiply = tnt_scaled_hook_leverage_factor_value
 		}
 	}
 }

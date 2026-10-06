@@ -503,9 +503,15 @@ tnt_partner_gold_shortfall_value = {
 ###############################################################################
 
 tnt_tier_base_title_p_value = {
+	# Scaled prices the actual county, not its nominal tier. Classic below is
+	# unchanged; cession legality continues to exclude higher/empty titles.
 	value = 0
 	var:tnt_title_p ?= {
-		if = { limit = { tier = tier_barony }   add = 15 }
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			add = tnt_scaled_county_land_value
+		}
+		else_if = { limit = { tier = tier_barony }   add = 15 }
 		else_if = { limit = { tier = tier_county }  add = 30 }
 		else_if = { limit = { tier = tier_duchy }   add = 45 }
 		else_if = { limit = { tier = tier_kingdom } add = 60 }
@@ -516,7 +522,11 @@ tnt_tier_base_title_p_value = {
 tnt_tier_base_title_r_value = {
 	value = 0
 	var:tnt_title_r ?= {
-		if = { limit = { tier = tier_barony }   add = 15 }
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			add = tnt_scaled_county_land_value
+		}
+		else_if = { limit = { tier = tier_barony }   add = 15 }
 		else_if = { limit = { tier = tier_county }  add = 30 }
 		else_if = { limit = { tier = tier_duchy }   add = 45 }
 		else_if = { limit = { tier = tier_kingdom } add = 60 }
@@ -2156,19 +2166,27 @@ tnt_val_artifact_r_value = {
 # realm_size: field, GAME\common\script_values\00_law_values.txt:615,
 #   GAME\common\script_values\09_mpo_values.txt:96.
 tnt_val_vassal_p_value = {
+	# The capped formula described above is Classic. Scaled uses actual
+	# counties/development and one primary-rank premium through shared helpers.
 	value = 0
 	if = {
 		limit = {
 			exists = var:tnt_vassal_p
 			var:tnt_vassal_p > 0
 		}
-		add = {
-			value = 50
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			add = tnt_scaled_fealty_offer_value
+		}
+		else = {
 			add = {
-				value = realm_size
-				multiply = 5
+				value = 50
+				add = {
+					value = realm_size
+					multiply = 5
+				}
+				max = 200
 			}
-			max = 200
 		}
 	}
 }
@@ -2227,27 +2245,39 @@ tnt_val_vassal_r_value = {
 					var:tnt_ai_offer_arch = 20
 				}
 			}
-			add = {
-				value = 50
-				scope:tnt_p ?= {
-					add = {
-						value = realm_size
-						multiply = 5
+			if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				scope:tnt_p ?= { add = tnt_scaled_fealty_offer_value }
+			}
+			else = {
+				add = {
+					value = 50
+					scope:tnt_p ?= {
+						add = {
+							value = realm_size
+							multiply = 5
+						}
 					}
+					max = 200
 				}
-				max = 200
 			}
 		}
 		else = {
-			add = {
-				value = 100
-				scope:tnt_p ?= {
-					add = {
-						value = realm_size
-						multiply = 5
+			if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				scope:tnt_p ?= { add = tnt_scaled_fealty_demand_value }
+			}
+			else = {
+				add = {
+					value = 100
+					scope:tnt_p ?= {
+						add = {
+							value = realm_size
+							multiply = 5
+						}
 					}
+					max = 250
 				}
-				max = 250
 			}
 		}
 	}

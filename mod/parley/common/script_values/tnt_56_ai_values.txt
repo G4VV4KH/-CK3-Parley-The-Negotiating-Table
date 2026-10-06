@@ -859,10 +859,18 @@ tnt_ai_truce_cost_value = {
 # priced separately, inline, in each interaction's ai_accept. 30-V2-DESIGN §2 C-1
 # settles that contradiction explicitly; the 85/210/300 table of report 41 §1.9 must
 # never be used.
-# A flat constant and not a ratio: the value of a favour is the favour, not the
-# realm behind it.
+# Classic is a flat constant. Scaled uses the same bounded actual-debtor leverage
+# as the window's promised hooks; it is not ownership of the debtor's realm.
 tnt_ai_hook_cost_value = {
 	value = 20
+	if = {
+		limit = {
+			tnt_scaled_valuation_enabled_value > 0
+			exists = scope:recipient
+		}
+		# The recipient promises a hook on himself: he is the debtor.
+		multiply = scope:recipient.tnt_scaled_hook_leverage_factor_value
+	}
 }
 
 
@@ -1628,6 +1636,13 @@ tnt_ai_hookcall_points_value = {
 		limit = { scope:actor ?= { has_weak_hook = scope:recipient } }
 		add = 45
 	}
+	if = {
+		limit = {
+			tnt_scaled_valuation_enabled_value > 0
+			exists = scope:recipient
+		}
+		multiply = scope:recipient.tnt_scaled_hook_leverage_factor_value
+	}
 }
 
 tnt_ai_hookcall_gold_value = {
@@ -1682,6 +1697,9 @@ tnt_ai_deal_hookcall_value = {
 # same constants inlined there for the same no-per-element-value-name reason).
 # Only the county rung is reachable today (E20 limits to tier_county); the full
 # ladder is written so the two files cannot drift if the gate is ever widened.
+# 1.2.1: those are Classic anchors. Scaled delegates the county's base to the
+# same development-aware helper as the window. The existing world-specific
+# out-of-de-jure loss rider and purse/acceptance policy remain separate context.
 #
 # THE PRICE IS FULL VALUE, NOT THE ULTIMATUM'S 60%. The buyer pays
 # points x tnt_ai_gold_per_point_value, which round-trips to exactly the points
@@ -1701,6 +1719,10 @@ tnt_ai_title_points_value = {
 		limit = { exists = scope:tnt_deal_title }
 		scope:tnt_deal_title = {
 			if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				add = tnt_scaled_county_land_value
+			}
+			else_if = {
 				limit = { tier = tier_barony }
 				add = 15
 			}
@@ -1867,16 +1889,36 @@ tnt_ai_deal_title_value = {
 # LIEGE IT ALREADY LIKES, and never to a stranger with a purse. The engine's
 # realm mutation itself is vanilla's own on_accept body
 # (offer_vassalization_interaction_effect, :1326-1327), called by E21.
+# 1.2.1 SCALED: actor is purchasing the recipient's submission, so its cost is
+# the same 100 + uncapped actual realm value as requested fealty in the table.
+# The 50 + realm voluntary quote applies only to unsolicited incoming offers.
+# Neither the 1,200 Classic bill ceiling nor a missing realm valuation may
+# turn a large submission into a cheap sale; insufficient gold fails normally.
 ###############################################################################
 tnt_ai_vassal_cost_value = {
-	value = 50
+	value = 0
+	if = {
+		limit = { tnt_scaled_valuation_enabled_value > 0 }
+		if = {
+			limit = { exists = scope:recipient }
+			# Actor asks the recipient to submit, rather than receiving an
+			# unsolicited voluntary offer. The submitting ruler owns the land.
+			add = scope:recipient.tnt_scaled_fealty_demand_value
+		}
+	}
+	else = { add = 50 }
 }
 
 tnt_ai_vassal_gold_value = {
 	value = tnt_ai_vassal_cost_value
 	multiply = tnt_ai_gold_per_point_value
 	min = 25
-	max = 1200
+	# Scaled land has no cheap ceiling. A buyer unable to pay must fail the
+	# normal affordability test; do not compress a large realm to 1,200 gold.
+	if = {
+		limit = { tnt_scaled_valuation_enabled_value = 0 }
+		max = 1200
+	}
 	round = yes
 }
 

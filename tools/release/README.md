@@ -11,18 +11,44 @@ The builder never edits dev files, live mods, saves, playsets or Workshop files.
 It refuses to overwrite an existing build. Reports and the manifest are siblings
 of the selected mod folders and are not part of any game payload.
 
-## Parley 1.2.0 preparation
+## Parley 1.2.1 preparation
 
-The current currency-rule candidate is scoped to **Parley only**; it does not rebuild MCA or the held AGOT adapter. The versioned localization contract is explicit: Parley 1.1.0 has 632 DEV / 622 GAME keys per language; 1.2.0 has 642 / 632. The same ten diagnostic/test-only keys are removed. Unknown versions and mismatched counts fail closed. Historical packages still require their pinned builder and source bytes; the pre-1.2 builder is archived outside frozen builds at `backup-storage/2026-10-04-before-parley-1.2-builder/`.
+The current Advanced term valuation candidate is scoped to **Parley only**; it does not rebuild MCA or the held AGOT adapter. The versioned localization contract is explicit:
+
+| Version | DEV keys per language | GAME keys per language | DEV files | GAME files |
+| --- | ---: | ---: | ---: | ---: |
+| 1.1.0 | 632 | 622 | 76 | 75 |
+| 1.2.0 | 642 | 632 | 76 | 75 |
+| 1.2.1 RC3 (cooldown tracking and UI fixes) | 662 | 652 | 83 | 82 |
+
+The earlier frozen 1.2.1 RC1 (Scaled only) retains its original 647/637-key
+manifest and pinned builder. Frozen RC2 (threat frequency) retains its original
+657/647-key, 81/80-file profile and source commit
+`71e8ce2b5fbe87cf8ceb215ac6426062da47691e`. Do not regenerate either historical
+candidate with the current RC3 profile; changed inputs require a new candidate.
+
+The same ten diagnostic/test-only keys are removed. Five public keys describe Advanced term valuation; ten more describe Threat frequency and its blocked-use reason. RC3 adds exactly five presentation keys: `NOT_tnt_err_hatred`, `tnt_bd_floor_panel`, `tnt_threat_cooldown_status`, `tnt_threat_cooldown_short`, and `tnt_threat_cooldown_empty`. The seven runtime additions over 1.2.0 are exactly:
+
+- `common/script_values/tnt_5b_scaled_land_values.txt`
+- `common/script_values/tnt_5c_scaled_person_values.txt`
+- `common/script_values/tnt_5d_scaled_strategic_values.txt`
+- `common/script_values/tnt_5e_valuation_policy.txt`
+- `common/script_values/tnt_5f_scaled_balance_values.txt`
+- `common/script_values/tnt_5e_display_values.txt` (RC3 display-only rounding)
+- `common/customizable_localization/tnt_90_cooldown_loc.txt` (RC3 read-only timer presentation)
+
+The preparation helper checks the complete versioned file-name allowlist, so substituting an unexpected file for a required helper cannot pass merely because the count matches. Unknown versions, missing/extra files and mismatched localization counts fail closed. The helper accepts only explicitly reviewed preparation profiles (1.2.0 and current 1.2.1 RC3); builder support for 1.1.0 does not create a new preparation profile.
+
+Historical packages still require their pinned builder, generator and source bytes. The pre-1.2 builder is archived outside frozen builds at `backup-storage/2026-10-04-before-parley-1.2-builder/`. The original 1.2.0 tools and source remain recoverable from source commit `9a100b0a0f9142a08006f3935850115d5e7f3229`; use a separate checkout matching the frozen source evidence and compare tool hashes with that release's manifests. Do not use the changed 1.2.1 builder to certify the 1.2.0 manifest, or edit old manifests to accept its new hash. The frozen `2026-10-04-parley-1.2.0-rc1` build and `deploy/parley-1.2.0/` kit are immutable.
 
 After committing reviewed runtime, generated copy and tools, prepare a new numbered kit from this repository root:
 
 ```powershell
-python -B tools/release/prepare_publication.py --workspace ../.. --build-id 2026-10-04-parley-1.2.0-rc1 --version 1.2.0 --changelog publishing/changelog-1.2.0.en.md
-python -B tools/release/prepare_publication.py --workspace ../.. --build-id 2026-10-04-parley-1.2.0-rc1 --version 1.2.0 --verify
+python -B tools/release/prepare_publication.py --workspace ../.. --build-id 2026-10-06-parley-1.2.1-rc3 --version 1.2.1 --bundle ../../deploy/parley-1.2.1-rc3 --changelog publishing/changelog-1.2.1.en.md
+python -B tools/release/prepare_publication.py --workspace ../.. --build-id 2026-10-06-parley-1.2.1-rc3 --version 1.2.1 --bundle ../../deploy/parley-1.2.1-rc3 --verify
 ```
 
-The helper uses the existing builder/packager, pins its own source lock in `verification-evidence/<build-id>/`, and assembles `deploy/parley-1.2.0/`. It refuses existing identities, verifies Steam's assigned-ID-only overlay, root-layout Paradox ZIP and portable manual Nexus ZIP, and records a sanitized GitHub source projection. Existing releases, installations, playsets, saves and platform pages are not changed. Journal initialization/registry reconciliation remain separate steps. The kit's status is **PREPARED_RUNTIME_SMOKE_PENDING**, never an implicit upload or engine PASS. Publish the full GitHub guide before changing Steam's short description and new guide link.
+The helper uses the existing builder/packager, pins its own source lock in `verification-evidence/<build-id>/`, and assembles the explicitly named `deploy/parley-1.2.1-rc3/` kit. Supply the same `--bundle` on creation and verification: the default `deploy/parley-1.2.1/` belongs to the frozen Scaled-only RC1, and `deploy/parley-1.2.1-rc2/` is also frozen. The example identities must still be unused when preparing. It refuses existing identities, verifies Steam's assigned-ID-only overlay, root-layout Paradox ZIP and portable manual Nexus ZIP, and records a sanitized GitHub source projection. Existing releases, installations, playsets, saves and platform pages are not changed. Journal initialization/registry reconciliation remain separate steps. The kit's status is **PREPARED_RUNTIME_SMOKE_PENDING**, never an implicit upload or engine PASS. Publish the full GitHub guide before changing Steam's short description and new guide link.
 
 Expected layout:
 
@@ -129,7 +155,7 @@ relationships. No active diagnostic variable reference remains, including in the
 uninstall decision. The dev source retains complete diagnostic state cleanup for
 dev saves; the public game build is not a migration tool for torn debug sessions.
 
-Input files: Parley 76, MCA 17, AGOT:MCA 12. Output files: 75, 17, 12. Localization
+Historical RC3 input files: Parley 76, MCA 17, AGOT:MCA 12. Output files: 75, 17, 12. Localization
 coverage: nine languages per mod; 623, 22, and 5 keys per language respectively.
 Parley's 633 dev keys minus ten diagnostic keys give 623 public keys in RC3.
 

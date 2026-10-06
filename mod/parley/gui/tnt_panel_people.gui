@@ -523,7 +523,7 @@ types TwdPeople
 
 		blockoverride "tnt_multi_title"        { text = "tnt_picker_title_courtier_r" }
 		blockoverride "tnt_multi_counter"      { text = "tnt_sel_count_courtier_r" }
-		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_val_courtier_multi_r_value')|+=0]" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_display_courtier_multi_r_value')|+=0]" }
 		blockoverride "tnt_multi_cap_visible"  { visible = no }
 		blockoverride "tnt_multi_clear_click"  { onclick = "[TntExec('tnt_sel_courtier_r_clear')]"  tooltip = "tnt_btn_none" }
 
@@ -744,7 +744,7 @@ types TwdPeople
 
 		blockoverride "tnt_multi_title"        { text = "tnt_picker_title_subject_r" }
 		blockoverride "tnt_multi_counter"      { text = "tnt_sel_count_subject_r" }
-		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_val_subject_multi_r_value')|+=0]" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_display_subject_multi_r_value')|+=0]" }
 		blockoverride "tnt_multi_cap_visible"  { visible = no }
 		blockoverride "tnt_multi_clear_click"  { onclick = "[TntExec('tnt_sel_subject_r_clear')]"  tooltip = "tnt_btn_none" }
 

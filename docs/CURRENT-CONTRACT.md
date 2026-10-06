@@ -1,6 +1,6 @@
 # Current development and release contract
 
-Updated 2026-10-04: Parley 1.2.0 targets CK3 1.20.0.3 and is being prepared as a new currency-rule release. The developer-session acceptance and controlled AI probes are recorded in [CURRENCY-RULES-1.2.md](CURRENCY-RULES-1.2.md); they do not certify a newly projected GAME package. The published Parley 1.1.0 payload remains `2026-10-01-game-rc11` and is not overwritten. Standalone MCA remains version 3.1.0; its own repository records its patch review. AGOT:MCA 2.2.0 remains on its historical CK3 1.19.0.6 / AGOT 0.5.2.1 / MCA 3.0.1 baseline, pending compatible upstream AGOT. Parley and MCA publication records are maintained separately from the held AGOT adapter. Runtime source and its explicit checks resolve implementation details; historical `_docs` specifications must not override this record.
+Updated 2026-10-05: Parley 1.2.1 is in local development for CK3 1.20.0.3, adding optional **Advanced term valuation — Classic / Scaled**. [The implementation record](ADVANCED-VALUATION-1.2.1.md) describes formulas, AI coverage and pending native evidence. Classic remains the default, including saves without the new setting. Parley 1.2.0 is the verified public release on all four platforms; its immutable payload is `2026-10-04-parley-1.2.0-rc1`. The earlier 1.1.0 payload `2026-10-01-game-rc11` and all historical evidence remain unchanged. The currency-rule developer evidence is in [CURRENCY-RULES-1.2.md](CURRENCY-RULES-1.2.md); it is not Scaled evidence. Standalone MCA remains version 3.1.0. AGOT:MCA 2.2.0 remains on its historical CK3 1.19.0.6 / AGOT 0.5.2.1 / MCA 3.0.1 baseline, pending compatible upstream AGOT. Publication records remain separate. Runtime source and explicit checks resolve implementation details; historical `_docs` specifications must not override this record.
 
 The historical RC10 compatibility candidate contained only Parley and MCA; RC11 is the published payload. Parley's AGOT-specific integration is disabled at the author's request, with the checks and their calls preserved as comments: dragon exclusions, Night's Watch and wildling restrictions, uninteractable-government checks and the temporary-independence marker are no longer queried by Parley. Current public copy states **AGOT compatibility: awaiting the AGOT update for CK3 1.20.** The original AGOT screenshot is preserved but excluded from the current public gallery. Source/package checks and a fresh Parley-only native startup/UI smoke passed. The smoke covered the empty table, ordinary fealty, courtiers and the native marriage picker on a paused original baseline, with no proposal, time advance or save. Post-exit logs contain only two known human-only interaction notices; the 38 prior AGOT diagnostics are absent. This is scoped RC10 evidence, not a repeated full gameplay or AI-campaign test.
 
@@ -19,6 +19,16 @@ Runtime source resides under `dev/<repository>/mod/<folder>/`. The folders are `
 Publication preparation deliberately creates a different Parley game projection: developer documents, telemetry and the test-only AI offer-rate option are excluded by the release tool in `tools/release/`. Instrumented developer logic remains in `dev`. Package verification must prove the allowed differences explicitly, not silently refresh or relax the source checks. The frozen 1.19 package `2026-09-30-game-rc3` includes the corrected auto-balancer and matches its engine-tested staging payload for all 104 files. Its focused result and limits are recorded in [AUTOBALANCE-FIX.md](AUTOBALANCE-FIX.md). The earlier [RC2 smoke](RC2-SMOKE.md) remains historical evidence for its stated scenarios; it did not exercise the later-reported balancing failure. Neither record establishes publication or Workshop delivery, nor compatibility with CK3 1.20.
 
 ## Parley behavior and ownership
+
+As of 2026-10-06, 1.2.1 also adds **Threat frequency**: a global cooldown on
+the threatening character, 0/1/5/10 years, default0 including missing-setting
+saves. It applies to manual and AI threats independently of Classic/Scaled.
+Drafts do not consume it; successful threatened treaties and valid paid/refused
+AI demands do. The separate 15-year same-target memory remains. Existing
+calibration is visibly renamed **Threat strength**, retaining IDs/coefficients.
+See [the 1.2.1 record](ADVANCED-VALUATION-1.2.1.md) for execution boundaries and
+pending native checks. Frozen 1.2.1 RC1 is Scaled-only and must not be reused
+to test or publish the new rule.
 
 Parley provides a two-sided negotiation window, partner-oriented valuation and auto-balancing, incoming AI letters and an AI-to-AI negotiation layer. It owns its `tnt_` runtime namespace and five legacy addon hooks. MCA does not define or call those hooks. Parley does not override a vanilla file path in the checked source tree; this is a measured compatibility surface, not a guarantee for every mod combination.
 
@@ -55,6 +65,14 @@ AGOT:MCA owns six pure overrides: P c1, R c1–c4, and alliance base 40. P c1 al
 The adapter owns twelve payload files and five localization keys in each of nine languages. It adds no GUI, interaction, effect, decision or on-action files. Its checks pin the relevant upstream predicate bodies and require the current MCA formula-zero defaults. MCA owns the aggregate scores, row and sorting state.
 
 ## Localization and compatibility evidence
+
+The pending RC3 display-correction profile has **662 DEV / 652 GAME keys**
+per language and **83 DEV / 82 GAME files**. It adds a display-only rounding
+file and read-only cooldown custom localization. Existing RC2 saves require no
+migration. The RC2 native follow-up and RC3 smoke boundaries are recorded in
+`ADVANCED-VALUATION-1.2.1.md`; all earlier counts below remain historical.
+
+The RC2 1.2.1 rules added fifteen keys per language: 657 DEV / 647 GAME keys across the same nine languages. Five new script-value files brought its explicit runtime inventory to 81 DEV / 80 GAME files. The earlier Scaled-only RC1 retains 647/637 keys; its frozen manifests are not rewritten. Fresh native verification of RC3's display changes remains necessary.
 
 RC8 retains 40 classified startup diagnostics. Seven additional native log records reproduced exactly apart from wall-clock timestamps with all mods disabled on the same original save through 24 May 1179. This supports attribution outside active Parley/MCA for those records, not a globally clean log or an explanation of the original saved state. The separate AI harness also retains 11 nonshipping fixture-format warnings despite its 12 passing assertions. See the compatibility record for archived evidence.
 

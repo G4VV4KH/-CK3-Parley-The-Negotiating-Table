@@ -451,6 +451,83 @@ tnt_deal_preflight_trigger = {
 				}
 			}
 
+			# Scaled also prices accompanying family. Two otherwise distinct heads
+			# may share an unselected dependent; refuse that overlapping bundle
+			# rather than charge for the same implicit move twice. Classic keeps
+			# its original preflight. Existing same-side explicit-person guards
+			# above remain unchanged. Receiver courtiers are not accompanying.
+			# A moving dependent also cannot be a selected marriage endpoint:
+			# marriage executes first and can change the already-priced bundle.
+			trigger_if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_courtier_p }
+					NOT = {
+						any_in_list = {
+							variable = tnt_sel_courtier_p
+							save_temporary_scope_as = tnt_pf_scaled_bundle_head
+							any_traveling_family_member = {
+								NOT = { this = scope:tnt_pf_scaled_bundle_head }
+								NOT = { is_courtier_of = $PARTNER$ }
+								save_temporary_scope_as = tnt_pf_scaled_bundle_member
+								$PLAYER$ = {
+									OR = {
+										any_in_list = {
+											variable = tnt_sel_courtier_p
+											NOT = { this = scope:tnt_pf_scaled_bundle_head }
+											any_traveling_family_member = { this = scope:tnt_pf_scaled_bundle_member }
+										}
+										AND = {
+											has_variable_list = tnt_wed_list
+											OR = {
+												is_target_in_variable_list = { name = tnt_wed_list target = scope:tnt_pf_scaled_bundle_member }
+												any_in_list = {
+													variable = tnt_wed_list
+													var:tnt_wed_partner ?= { this = scope:tnt_pf_scaled_bundle_member }
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				trigger_if = {
+					limit = { has_variable_list = tnt_sel_courtier_r }
+					NOT = {
+						any_in_list = {
+							variable = tnt_sel_courtier_r
+							save_temporary_scope_as = tnt_pf_scaled_bundle_head
+							any_traveling_family_member = {
+								NOT = { this = scope:tnt_pf_scaled_bundle_head }
+								NOT = { is_courtier_of = $PLAYER$ }
+								save_temporary_scope_as = tnt_pf_scaled_bundle_member
+								$PLAYER$ = {
+									OR = {
+										any_in_list = {
+											variable = tnt_sel_courtier_r
+											NOT = { this = scope:tnt_pf_scaled_bundle_head }
+											any_traveling_family_member = { this = scope:tnt_pf_scaled_bundle_member }
+										}
+										AND = {
+											has_variable_list = tnt_wed_list
+											OR = {
+												is_target_in_variable_list = { name = tnt_wed_list target = scope:tnt_pf_scaled_bundle_member }
+												any_in_list = {
+													variable = tnt_wed_list
+													var:tnt_wed_partner ?= { this = scope:tnt_pf_scaled_bundle_member }
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
 			trigger_if = {
 				limit = { has_variable_list = tnt_sel_subject_p }
 				trigger_if = {

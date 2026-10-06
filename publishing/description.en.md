@@ -2,7 +2,7 @@
 
 ## At a glance
 
-- 🟢 **Version 1.2.0** · Targets CK3 **1.20.0.3**.
+- 🟢 **Version 1.2.1** · Targets CK3 **1.20.0.3**.
 - 🟢 **Standalone:** no other mod required.
 - 🟢 **Negotiate marriage, money and allegiance in one treaty.**
 - 🟢 **Languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [來自無壹的中文翻譯](https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070) and Spanish.
@@ -60,15 +60,15 @@ Rounding can make displayed rows differ slightly from totals. These values belon
 4. Review and confirm. The mod rechecks that the agreement can be carried out.
 
 <!-- steam-guide-summary:start -->
-Set game rules before play. Currency limits apply to each giver and govern Auto-balance and AI pricing. Incoming offers and AI-to-AI treaties have separate frequency rules. [Full rules, defaults and examples]({{PARLEY_GITHUB_URL}}#game-rules-guide).
+Set rules before play. Currency limits apply to each giver, Auto-balance and AI pricing. Classic valuation is default; Scaled adjusts territory and people prices. Threat strength and the global 0/1/5/10-year threat cooldown are separate. [Full rules, defaults and examples]({{PARLEY_GITHUB_URL}}#game-rules-guide).
 <!-- steam-guide-summary:end -->
 
 <!-- full-game-rules-guide:start -->
 ### Game rules guide
 
-Choose these rules in **Game Rules** before starting a campaign. Updating the mod does not replace the choices already stored in a save. Parley's six public rules are independent: choose the combination you want rather than treating one setting as a master switch.
+Choose these rules in **Game Rules** before starting a campaign. Updating the mod does not replace the choices already stored in a save. Parley's eight public rules are independent: choose the combination you want rather than treating one setting as a master switch.
 
-**Default setup:** advanced terms **Enabled**; prestige and piety **Available**; threats **Standard**; AI-to-AI treaties and offers sent to you **Frequent**.
+**Default setup:** advanced terms **Enabled**; advanced term valuation **Classic**; prestige and piety **Available**; threat strength **Normal**; threat frequency **0 years**; AI-to-AI treaties and offers sent to you **Frequent**.
 
 #### 1. Advanced terms
 
@@ -77,7 +77,32 @@ Choose these rules in **Game Rules** before starting a campaign. Updating the mo
 
 This is not a universal restriction on the separate AI-to-AI treaty system. To stop autonomous bargains between AI rulers, set **AI-to-AI treaties** to **Disabled** as well.
 
-#### 2. Prestige trading
+#### 2. Advanced term valuation
+
+- **Classic** (default): keeps the earlier valuation formulas and ceilings. A save without the new setting also uses Classic.
+- **Scaled**: makes territorial and personal stakes matter more. The table, Auto-balance, incoming AI proposals and applicable AI-to-AI bargains all use the selected valuation policy.
+
+This changes **prices**, not permissions. It does not enable a forbidden term, change who can be transferred, or override prestige/piety trading rules. Prices are points used to evaluate an entire treaty, not fixed gold fees or guarantees of acceptance.
+
+**Land and allegiance.** Each actual county contributes **20 + half its development**. A ruler's territorial value includes counties held through subordinate vassals, counted once. Add one authority premium for the ruler's primary rank: **duke 20, king 40, emperor 60, hegemon 80**. Additional title names do not count the same land again. County cession prices only the county actually transferred, with the existing contextual adjustments; higher-rank title cession remains unavailable.
+
+Before the existing contextual adjustments, a transferred vassal costs **40 + territorial value**. Voluntary fealty offers use **50 + territorial value**; requested fealty and independence use **100 + territorial value**. The old 200/250-point ceilings do not apply in Scaled. For example, a duke controlling twelve counties at development 10 has a territorial value of **12 × 25 + 20 = 320**: transferring that vassal starts at **360**, requesting their submission at **420**. A count with one equally developed county starts at **65** for a vassal transfer. De jure interest and the rest of the treaty can change the final result.
+
+**Courtiers.** The minimum starts at **1**, not 10. The strongest of the five regular skills and prowess are assessed separately, with larger bonuses for exceptional ability. Inspiration, physician training, beneficial congenital traits, dynasty standing and the strongest relevant explicit claim can add value. Multiple claims do not stack; unpressed claims count less. Family attachment and an existing friendship or romance with the receiving ruler add small bounded adjustments. This does not make spouses, heirs, serving councillors, knights or employed court-position holders newly tradable. AI courtier proposals select useful candidates instead of treating every ordinary courtier as a meaningful payment.
+
+Family members who accompany a selected courtier under the game's normal transfer rules contribute their own intrinsic values, up to **60 additional points per selected courtier**. The selected person and family already at the receiving court are excluded from that addition. In Scaled, two selections cannot share an accompanying dependent, and that dependent cannot also be selected for marriage in the same treaty: overlapping groups must be corrected before settlement. Age, future lifespan and health are not forecast by this price.
+
+**Hostages.** Keep their native personal, family and succession value, with a minimum of 10. The home realm adds limited political leverage: an heir can add up to **60**, a child up to **30**, another relative up to **15**. These alternatives do not stack. A hostage is not priced as ownership of their family's whole realm.
+
+**Favors and contracts.** Promised and spent hooks become more valuable against a larger debtor, up to **twice** their usual value. Economic contract changes—taxes, levies, fortification and coinage—scale with the subject's territory, up to **three times** their ordinary weight. Their direction and positive/negative sign remain intact. Personal protections keep their existing contextual weights.
+
+**What stays contextual.** Artifact rarity, condition, usefulness and ownership claims retain their existing valuation. Marriage and alliance terms retain their pair-specific calculation and diminishing returns; positive marriage value stays bounded, while Scaled removes the aggregate ceiling on marriage costs. AI-to-AI marriage gifts remain a separate dowry system with native matching restrictions, not a purchase of a realm. Currency conversion, resource permissions, relationship adjustments and threat strength keep their own rules.
+
+**AI and pressure.** A large realm must not become cheap through the autonomous AI path. Paid AI fealty uses the same demanded-fealty land basis and must be affordable; coercive AI submission must cover that value in threat points as well as passing the normal threat gates. Auto-balance uses the new values and may report that available payments are insufficient.
+
+Scaled is useful if land expansion feels too inexpensive, but it is not a universal difficulty setting. It does not stop a piety-rich ruler selling piety, remove all sources of wealth, or guarantee that every exchange is equally attractive to the player and AI. Combine it with the separate currency rules if you want to restrict those transfers.
+
+#### 3. Prestige trading
 
 - **Available** (default): prestige may be offered or requested from any eligible partner.
 - **Same faith only**: both rulers must follow exactly the same faith. Belonging to the same broader religion is not enough.
@@ -87,7 +112,7 @@ This is not a universal restriction on the separate AI-to-AI treaty system. To s
 
 The directional rules compare **level of fame**, not stored prestige, title rank or who initiated negotiations. With fame levels 4 and 2, **Lower fame only** permits 4 → 2, but not 2 → 4. At equal levels, neither direction is allowed in strict mode; **Peers and lesser only** permits both. The giver must still have enough spendable prestige.
 
-#### 3. Piety trading
+#### 4. Piety trading
 
 - **Available** (default): piety may be offered or requested regardless of faith.
 - **Same faith only**: both rulers must follow exactly the same faith; devotion levels do not restrict the direction.
@@ -108,22 +133,30 @@ The final agreement is checked again before execution. If a ruler's faith or fam
 
 The prestige and piety rules are separate choices. For the faith-based exchange suggested by the community, choose **Prestige: Same faith only** and **Piety: Different faiths only**. Compliance does not mean the AI must include prestige or piety in every offer; a gold-only proposal is still valid.
 
-#### 4. Threats at the table
+#### 5. Threat strength
 
 These labels adjust **how much pressure military superiority provides**, not a guaranteed schedule of incoming demands:
 
-- **Rare**: coefficient 2.5; at equal fame and dread, the military-strength ratio needed is 41:1.
-- **Standard** (default): coefficient 5; at equal fame and dread, the ratio needed is 21:1.
-- **Frequent**: coefficient 7.5; at equal fame and dread, the ratio needed is about 14.34:1.
-- **Ever-present**: coefficient 10; at equal fame and dread, the ratio needed is 11:1.
+- **Weak**: coefficient 2.5; at equal fame and dread, the military-strength ratio needed is 41:1.
+- **Normal** (default): coefficient 5; at equal fame and dread, the ratio needed is 21:1.
+- **Strong**: coefficient 7.5; at equal fame and dread, the ratio needed is about 14.34:1.
+- **Very strong**: coefficient 10; at equal fame and dread, the ratio needed is 11:1.
 
-Every option requires **at least 100 threat points**, for both player and AI. Under **Standard**, a 2:1 military advantage at equal fame and dread gives only 5 points: it is not enough to threaten. The comparison uses maximum military strength, not just the troops currently raised. Higher fame and dread can lower the military advantage needed; being a full fame level below the target makes the threat worth zero regardless of army size.
+Every option requires **at least 100 threat points**, for both player and AI. Under **Normal**, a 2:1 military advantage at equal fame and dread gives only 5 points: it is not enough to threaten. The comparison uses maximum military strength, not just the troops currently raised. Higher fame and dread can lower the military advantage needed; being a full fame level below the target makes the threat worth zero regardless of army size.
 
 The target must be an independent ruler, cannot be your ally, and neither ruler may hold a hostage from the other's home court. Other eligibility checks still apply. A completed treaty signed under threat causes a **-100 opinion modifier that decays over 15 years**; while that modifier remains, the same ruler cannot threaten that target again.
 
 Threatening adds pressure to negotiations; it is not an automatic declaration of war. A large army does not guarantee a demand letter or the annexation of neighbors. This rule has no **Disabled** option; incoming demands can instead be silenced with the incoming-offer rule or the embassy decision below.
 
-#### 5. AI-to-AI treaties
+#### 6. Threat frequency
+
+Choose **0 years** (default), **1 year**, **5 years** or **10 years** between uses. This is a **global cooldown on the ruler making the threat**, applying equally to the player and AI: changing targets cannot bypass it. It does not change the pressure calculation or stop ordinary diplomacy.
+
+The cooldown starts when a treaty using a threat is concluded. An AI demand consumes its use when a valid demand is paid or refused; a stale, invalid demand does not. Merely ticking the threat box, auto-balancing or abandoning a draft does not start it. Successful AI-to-AI extortion and coerced fealty use the same cooldown. Already-open drafts and demand letters are checked again before execution.
+
+**0 years** means no additional global cooldown, not unlimited threats against the same victim. The existing **15-year same-pair restriction**, incoming-letter limits and AI-to-AI bargain cooldown remain separate. A timed cooldown belongs to the individual character and survives saving/reloading or closing the table; it is not inherited by a successor.
+
+#### 7. AI-to-AI treaties
 
 - **Disabled**: stops the autonomous system for bargains between AI rulers. It does not stop you opening talks or receiving AI offers.
 - **Occasional**: fewer opportunities for autonomous bargains.
@@ -133,7 +166,7 @@ This separate system can arrange payments, favors, artifacts, eligible land tran
 
 Frequency changes opportunities, not a guaranteed number of treaties per year, and it does not make the AI's prices more generous. **Advanced terms** is not a universal switch for this system.
 
-#### 6. Offers sent to you
+#### 8. Offers sent to you
 
 - **Never**: stops unsolicited AI offers and demands. You can still initiate negotiations; AI-to-AI treaties retain their own setting.
 - **Rare**: a three-year recipient quiet period after a visible letter; an individual proposer has a six-year attempt cooldown.
@@ -149,6 +182,8 @@ During a campaign, **Receive No More Embassies** silences incoming treaty envoys
 #### Suggested combinations
 
 - **Start with the defaults** for the full negotiating table and unrestricted prestige/piety payments.
+- **Territory-sensitive expansion:** advanced term valuation **Scaled**. Large realms cost more; ordinary courtiers no longer all start at 10 points.
+- **Less frequent extortion:** threat frequency **5 years** or **10 years**. A ruler must wait before threatening another target, even with overwhelming dread and military strength.
 - **Faith-based exchange:** prestige **Same faith only**, piety **Different faiths only**.
 - **Strict downward transfers:** prestige **Lower fame only**, piety **Same faith: less devout**.
 - **You initiate diplomacy:** incoming offers **Never**. Disable AI-to-AI treaties separately only if you also want to stop autonomous world bargains.

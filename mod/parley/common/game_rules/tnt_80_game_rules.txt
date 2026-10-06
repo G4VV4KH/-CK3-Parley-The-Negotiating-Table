@@ -37,6 +37,16 @@ tnt_advanced_terms = {
 	tnt_advanced_terms_off = { }
 }
 
+# Pricing only: never hides terms or changes transfer eligibility. Missing or
+# Classic settings preserve the historical formulas. One shared script value
+# reads Scaled for the table, incoming letters and AI-to-AI valuation alike.
+tnt_advanced_valuation = {
+	categories = { game_modes ai tweaks }
+	default = tnt_advanced_valuation_classic
+	tnt_advanced_valuation_classic = { }
+	tnt_advanced_valuation_scaled = { }
+}
+
 # Prestige: same faith, strictly lower receiver fame, or the retained legacy
 # equal-or-lower setting. Fame means prestige_level, not spendable prestige.
 tnt_trade_prestige = {
@@ -146,4 +156,15 @@ tnt_threat_scale = {
 	tnt_threat_scale_normal = { }
 	tnt_threat_scale_frequent = { }
 	tnt_threat_scale_constant = { }
+}
+
+# Independent of strength and the existing 15-year victim/actor opinion lock.
+# Zero (also the missing-setting fallback) preserves the old global frequency.
+tnt_threat_frequency = {
+	categories = { game_modes ai tweaks }
+	default = tnt_threat_frequency_unlimited
+	tnt_threat_frequency_unlimited = { }
+	tnt_threat_frequency_1_year = { }
+	tnt_threat_frequency_5_years = { }
+	tnt_threat_frequency_10_years = { }
 }

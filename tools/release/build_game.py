@@ -46,7 +46,11 @@ EXPECTED_CALLS = {
     OFFER_FILE: 14, "common/scripted_effects/tnt_38_ai_world.txt": 43,
 }
 EXPECTED_TEST_CHECKS = {EVENT_FILE: 3, OFFER_FILE: 5}
-PARLEY_LOCALIZATION_COUNTS = {"1.1.0": (632, 622), "1.2.0": (642, 632)}
+PARLEY_LOCALIZATION_COUNTS = {
+    "1.1.0": (632, 622),
+    "1.2.0": (642, 632),
+    "1.2.1": (662, 652),
+}
 
 
 class ReleaseError(Exception):

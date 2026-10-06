@@ -51,7 +51,11 @@ $RULES = @(
     # deliberate - see THE NAMED EXEMPTION in the header. This row exists so the
     # rule appears in "rules checked" and so the next author finds the exemption
     # written down instead of re-deriving it. POSITION D is its real check.
-    @{ Rule = 'tnt_threat_scale';   Bridge = '<none>';              MidRung = $false; Terms = @() }
+    @{ Rule = 'tnt_threat_scale';   Bridge = '<none>';              MidRung = $false; Terms = @() },
+    # Valuation changes prices, not visibility. POSITION E checks the single
+    # policy read; test_scaled_valuation.py executes formulas and Classic parity.
+    @{ Rule = 'tnt_advanced_valuation'; Bridge = '<none>';          MidRung = $false; Terms = @() },
+    @{ Rule = 'tnt_threat_frequency'; Bridge = '<none>';            MidRung = $false; Terms = @() }
 )
 
 $COMPOSER   = Join-Path $ModRoot 'common\scripted_effects\tnt_37_ai_offer.txt'
@@ -476,6 +480,54 @@ if ($dRelationHits.Count -ne 4 -or -not $dRelationShapeOk) {
 }
 if ($dBarHits.Count -eq 8 -and $dBaseBars.Count -eq 6 -and $dStrategicBars.Count -eq 1 -and $dPriceBars.Count -eq 1 -and $dOtherBars.Count -eq 0 -and $dStrategicOwnerOk -and $dStrategicRatioOk -and ($dScaleValues -join ',') -eq '5,2.5,7.5,10' -and $dRelationHits.Count -eq 4 -and $dRelationShapeOk) {
     $notes += 'D  threat calibration : scale [2.5,5,7.5,10], all 8 comparisons >= 100, submission raw ratio=4, shared independent/non-allied/no-hostage relation gate - locked.'
+}
+
+# POSITION E - valuation policy must not fork between live UI and hidden AI.
+$eReads = @()
+foreach ($f in Get-ChildItem -LiteralPath $dRoot -Recurse -File -Filter '*.txt') {
+    foreach ($line in [IO.File]::ReadAllLines($f.FullName)) {
+        if ((Strip-Comment $line) -match 'has_game_rule\s*=\s*tnt_advanced_valuation_') {
+            $eReads += $f.Name
+        }
+    }
+}
+$ePolicyPath = Join-Path $dRoot 'script_values/tnt_5e_valuation_policy.txt'
+$ePolicyBlocks = @(Get-TopLevelBlocks $ePolicyPath)
+$eRulePath = Join-Path $dRoot 'game_rules/tnt_80_game_rules.txt'
+$eRules = [IO.File]::ReadAllText($eRulePath)
+if ($eReads.Count -ne 1 -or $eReads[0] -ne 'tnt_5e_valuation_policy.txt' -or
+    $ePolicyBlocks.Count -ne 1 -or $ePolicyBlocks[0].Name -ne 'tnt_scaled_valuation_enabled_value' -or
+    $eRules -notmatch 'default\s*=\s*tnt_advanced_valuation_classic') {
+    $fails += [pscustomobject]@{
+        Pos = 'E POLICY'; Rule = 'tnt_advanced_valuation'; Term = 'valuation'
+        Where = 'tnt_5e_valuation_policy.txt / tnt_80_game_rules.txt'
+        What = 'Expected Classic default and exactly one Scaled rule read in the shared policy value.'
+    }
+} else {
+    $notes += 'E  advanced valuation : Classic default; one live rule read, no UI-only rule branch. Formula/AI/Classic AST coverage: test_scaled_valuation.py.'
+}
+
+# POSITION F - global aggressor cooldown is a separate single-read policy.
+$fReads = @()
+foreach ($f in Get-ChildItem -LiteralPath $dRoot -Recurse -File -Filter '*.txt') {
+    foreach ($block in Get-TopLevelBlocks $f.FullName) {
+        foreach ($line in $block.Body) {
+            if ((Body-Code $line) -match 'has_game_rule\s*=\s*tnt_threat_frequency_') {
+                $fReads += ($f.Name + ':' + $block.Name)
+            }
+        }
+    }
+}
+if ($fReads.Count -ne 3 -or
+    @($fReads | Where-Object { $_ -ne 'tnt_57_threat_values.txt:tnt_threat_cooldown_years_value' }).Count -ne 0 -or
+    $eRules -notmatch 'default\s*=\s*tnt_threat_frequency_unlimited') {
+    $fails += [pscustomobject]@{
+        Pos = 'F POLICY'; Rule = 'tnt_threat_frequency'; Term = 'threat'
+        Where = 'tnt_57_threat_values.txt / tnt_80_game_rules.txt'
+        What = 'Expected zero default and exactly three rule reads inside the shared cooldown-duration value.'
+    }
+} else {
+    $notes += 'F  threat frequency : zero default; one duration policy for player and AI. Lifecycle/source coverage: test_threat_frequency.py.'
 }
 
 # ================================= REPORT ====================================

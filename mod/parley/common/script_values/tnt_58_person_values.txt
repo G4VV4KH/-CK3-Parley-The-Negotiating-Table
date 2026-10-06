@@ -1,6 +1,11 @@
 ﻿###############################################################################
 # PARLEY — THE PRICE OF A PERSON.  Item 19, values domain (contract v1 §1.B).
 #
+# 1.2.1: the historical ladder notes below describe CLASSIC. Scaled is opt-in
+# through tnt_scaled_valuation_enabled_value; absent/Classic rules preserve the
+# exact historical AST. Scaled courtier/hostage helpers live in tnt_5c; Scaled
+# independence and subject transfer reuse the common uncapped realm-land helper.
+#
 # Ten values: the eight item prices of the four new people-terms, plus the two
 # courtier selection counters the ledger rows in tnt_50_values.txt need.
 #   HOSTAGES            tnt_val_hostage_p_value / _r_value
@@ -117,27 +122,33 @@ tnt_val_hostage_p_value = {
 		scope:tnt_p = { save_temporary_scope_as = warden }
 		var:tnt_hostage_p ?= {
 			save_temporary_scope_as = hostage
-			add = {
-				value = hostage_value
-				min = 0
-				# THE FLOOR, AND ITS REASON IS NOW STATED HERE RATHER THAN BORROWED.
-				# It used to read "the same floor the ward ladder carries, and for the
-				# same reason (see section 3's clamp note)"; section 3 is a tombstone
-				# since V16 user item 5, so the argument lives here, on the surviving
-				# term that needs it. 10 IS THIS MOD'S OWN FLOOR FOR ONE UNREMARKABLE
-				# HUMAN BEING — the base rung of the prisoner ladder, which is itself
-				# retired with its term but whose rungs this file inherited and still
-				# uses at :492 for the courtier price, so the number is anchored in a
-				# live sibling and not in a dead section.
-				# WHY A FLOOR AT ALL: a term that prices to 0 is a row the
-				# player cannot see while the send gate counts it anyway. It is not
-				# theoretical here - vanilla's hostage_value carries three negative
-				# riders (-50 non-inheriting, -25 sickly, -15 bad genes) and falls
-				# with age, so an ordinary adult kinsman, a sickly child or a
-				# daughter under male-only succession all price under 10 and some
-				# price at 0. Without this floor the AI's hostage archetype composes
-				# a letter that then dies unseen in .0001's substance floor.
-				min = 10
+			if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				add = tnt_scaled_hostage_value
+			}
+			else = {
+				add = {
+					value = hostage_value
+					min = 0
+					# THE FLOOR, AND ITS REASON IS NOW STATED HERE RATHER THAN BORROWED.
+					# It used to read "the same floor the ward ladder carries, and for the
+					# same reason (see section 3's clamp note)"; section 3 is a tombstone
+					# since V16 user item 5, so the argument lives here, on the surviving
+					# term that needs it. 10 IS THIS MOD'S OWN FLOOR FOR ONE UNREMARKABLE
+					# HUMAN BEING — the base rung of the prisoner ladder, which is itself
+					# retired with its term but whose rungs this file inherited and still
+					# uses at :492 for the courtier price, so the number is anchored in a
+					# live sibling and not in a dead section.
+					# WHY A FLOOR AT ALL: a term that prices to 0 is a row the
+					# player cannot see while the send gate counts it anyway. It is not
+					# theoretical here - vanilla's hostage_value carries three negative
+					# riders (-50 non-inheriting, -25 sickly, -15 bad genes) and falls
+					# with age, so an ordinary adult kinsman, a sickly child or a
+					# daughter under male-only succession all price under 10 and some
+					# price at 0. Without this floor the AI's hostage archetype composes
+					# a letter that then dies unseen in .0001's substance floor.
+					min = 10
+				}
 			}
 		}
 	}
@@ -172,13 +183,19 @@ tnt_val_hostage_r_value = {
 		scope:tnt_me = { save_temporary_scope_as = warden }
 		var:tnt_hostage_r ?= {
 			save_temporary_scope_as = hostage
-			add = {
-				value = hostage_value
-				min = 0
-				# The mirror of the _p side's floor - see its note. This is the side
-				# the AI's own hostage archetype writes, so it is the one that was
-				# actually losing letters.
-				min = 10
+			if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				add = tnt_scaled_hostage_value
+			}
+			else = {
+				add = {
+					value = hostage_value
+					min = 0
+					# The mirror of the _p side's floor - see its note. This is the side
+					# the AI's own hostage archetype writes, so it is the one that was
+					# actually losing letters.
+					min = 10
+				}
 			}
 		}
 	}
@@ -232,15 +249,21 @@ tnt_val_indep_p_value = {
 			exists = var:tnt_indep_p
 			var:tnt_indep_p > 0
 		}
-		add = {
-			value = 100
-			scope:tnt_p ?= {
-				add = {
-					value = realm_size
-					multiply = 5
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			scope:tnt_p ?= { add = tnt_scaled_fealty_demand_value }
+		}
+		else = {
+			add = {
+				value = 100
+				scope:tnt_p ?= {
+					add = {
+						value = realm_size
+						multiply = 5
+					}
 				}
+				max = 250
 			}
-			max = 250
 		}
 	}
 }
@@ -252,13 +275,19 @@ tnt_val_indep_r_value = {
 			exists = var:tnt_indep_r
 			var:tnt_indep_r > 0
 		}
-		add = {
-			value = 100
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			add = tnt_scaled_fealty_demand_value
+		}
+		else = {
 			add = {
-				value = realm_size
-				multiply = 5
+				value = 100
+				add = {
+					value = realm_size
+					multiply = 5
+				}
+				max = 250
 			}
-			max = 250
 		}
 	}
 }
@@ -579,45 +608,56 @@ tnt_val_courtier_multi_p_value = {
 			exists = var:tnt_partner
 			has_variable_list = tnt_sel_courtier_p
 		}
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			scope:tnt_me = { save_temporary_scope_as = tnt_scaled_person_giver }
+			scope:tnt_p = { save_temporary_scope_as = tnt_scaled_person_receiver }
+		}
 		every_in_list = {
 			variable = tnt_sel_courtier_p
-			add = {
-				value = 10
-				# The court he is LEAVING is the player's, so kin and knighthood read on him.
-				if = {
-					limit = { is_close_or_extended_family_of = scope:tnt_me }
-					add = 15
-				}
-				# (The +10 knight row stood here and is RETIRED as unreachable —
-				# see the ladder header.)
-				# ONE charge for being exceptional. if / else_if, never a sum (R5).
-				if = {
-					limit = { exists = inspiration }
-					add = 25
-				}
-				else_if = {
-					limit = { sum_of_all_skills_value >= sum_of_all_skills_threshold_good }
-					add = 25
-				}
-				else_if = {
-					limit = { martial >= monumentally_high_skill_rating }
-					add = 25
-				}
-				else_if = {
-					limit = { prowess >= extremely_high_skill_rating }
-					add = 25
-				}
-				else_if = {
-					# The receiving side's own attachment to the man — vanilla's
-					# ai_will_do reason, read against the partner because he is the
-					# one being handed the courtier on this side of the ledger.
-					limit = {
-						OR = {
-							has_relation_friend = scope:tnt_p
-							has_relation_lover = scope:tnt_p
-						}
+			if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				add = tnt_scaled_courtier_head_value
+			}
+			else = {
+				add = {
+					value = 10
+					# The court he is LEAVING is the player's, so kin and knighthood read on him.
+					if = {
+						limit = { is_close_or_extended_family_of = scope:tnt_me }
+						add = 15
 					}
-					add = 25
+					# (The +10 knight row stood here and is RETIRED as unreachable —
+					# see the ladder header.)
+					# ONE charge for being exceptional. if / else_if, never a sum (R5).
+					if = {
+						limit = { exists = inspiration }
+						add = 25
+					}
+					else_if = {
+						limit = { sum_of_all_skills_value >= sum_of_all_skills_threshold_good }
+						add = 25
+					}
+					else_if = {
+						limit = { martial >= monumentally_high_skill_rating }
+						add = 25
+					}
+					else_if = {
+						limit = { prowess >= extremely_high_skill_rating }
+						add = 25
+					}
+					else_if = {
+						# The receiving side's own attachment to the man — vanilla's
+						# ai_will_do reason, read against the partner because he is the
+						# one being handed the courtier on this side of the ledger.
+						limit = {
+							OR = {
+								has_relation_friend = scope:tnt_p
+								has_relation_lover = scope:tnt_p
+							}
+						}
+						add = 25
+					}
 				}
 			}
 		}
@@ -664,44 +704,55 @@ tnt_val_courtier_multi_r_value = {
 			exists = var:tnt_partner
 			has_variable_list = tnt_sel_courtier_r
 		}
+		if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			scope:tnt_p = { save_temporary_scope_as = tnt_scaled_person_giver }
+			scope:tnt_me = { save_temporary_scope_as = tnt_scaled_person_receiver }
+		}
 		every_in_list = {
 			variable = tnt_sel_courtier_r
-			add = {
-				value = 10
-				# Mirror image: these men leave the PARTNER's court and arrive in the
-				# player's, so the "his court minds" row reads on scope:tnt_p and
-				# the attachment row reads on the player.
-				if = {
-					limit = { is_close_or_extended_family_of = scope:tnt_p }
-					add = 15
-				}
-				# (The +10 knight row stood here and is RETIRED as unreachable — the
-				# candidate trigger refuses a knight of scope:tnt_p, who is $SENDER$
-				# on this side. See the ladder header.)
-				if = {
-					limit = { exists = inspiration }
-					add = 25
-				}
-				else_if = {
-					limit = { sum_of_all_skills_value >= sum_of_all_skills_threshold_good }
-					add = 25
-				}
-				else_if = {
-					limit = { martial >= monumentally_high_skill_rating }
-					add = 25
-				}
-				else_if = {
-					limit = { prowess >= extremely_high_skill_rating }
-					add = 25
-				}
-				else_if = {
-					limit = {
-						OR = {
-							has_relation_friend = scope:tnt_me
-							has_relation_lover = scope:tnt_me
-						}
+			if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				add = tnt_scaled_courtier_head_value
+			}
+			else = {
+				add = {
+					value = 10
+					# Mirror image: these men leave the PARTNER's court and arrive in the
+					# player's, so the "his court minds" row reads on scope:tnt_p and
+					# the attachment row reads on the player.
+					if = {
+						limit = { is_close_or_extended_family_of = scope:tnt_p }
+						add = 15
 					}
-					add = 25
+					# (The +10 knight row stood here and is RETIRED as unreachable — the
+					# candidate trigger refuses a knight of scope:tnt_p, who is $SENDER$
+					# on this side. See the ladder header.)
+					if = {
+						limit = { exists = inspiration }
+						add = 25
+					}
+					else_if = {
+						limit = { sum_of_all_skills_value >= sum_of_all_skills_threshold_good }
+						add = 25
+					}
+					else_if = {
+						limit = { martial >= monumentally_high_skill_rating }
+						add = 25
+					}
+					else_if = {
+						limit = { prowess >= extremely_high_skill_rating }
+						add = 25
+					}
+					else_if = {
+						limit = {
+							OR = {
+								has_relation_friend = scope:tnt_me
+								has_relation_lover = scope:tnt_me
+							}
+						}
+						add = 25
+					}
 				}
 			}
 		}
@@ -823,9 +874,15 @@ tnt_count_sel_courtier_r_value = {
 # partnerless evaluation rather than a throw.
 tnt_subject_head_value = {
 	value = 40
-	add = {
-		value = realm_size
-		multiply = 5
+	if = {
+		limit = { tnt_scaled_valuation_enabled_value > 0 }
+		add = tnt_scaled_realm_land_value
+	}
+	else = {
+		add = {
+			value = realm_size
+			multiply = 5
+		}
 	}
 	if = {
 		limit = {
@@ -838,7 +895,10 @@ tnt_subject_head_value = {
 		}
 		multiply = 1.4
 	}
-	max = 200
+	if = {
+		limit = { tnt_scaled_valuation_enabled_value = 0 }
+		max = 200
+	}
 }
 
 # --- the player's side: HE hands vassals to the partner ----------------------

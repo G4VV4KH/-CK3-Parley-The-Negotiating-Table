@@ -1,0 +1,16 @@
+﻿# Conservative acquisition budgets for Scaled auto-balance. These are bounds,
+# not new prices: normal gain/loss values still settle the final proposal.
+# Owner scope, existing partner. The two-point cushion covers display rounding.
+tnt_scaled_ab_fealty_budget_value = {
+	value = 2
+	var:tnt_partner ?= { add = tnt_scaled_fealty_demand_value }
+}
+
+# Picked county TITLE scope: maximum existing land-context multipliers are
+# 1.4 de jure * 1.25 culture * 1.2 neighbour = 2.1. Do not use the Classic
+# county bound65: development may raise Scaled county value beyond that bound.
+tnt_scaled_ab_county_budget_value = {
+	value = tnt_scaled_county_land_value
+	multiply = 2.1
+	add = 2
+}

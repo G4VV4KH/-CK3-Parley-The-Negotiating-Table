@@ -1,9 +1,9 @@
 """Pure/temp-file checks; never build into the owner's release workspace."""
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import io
-import json
 import struct
 import unittest
 import zipfile
@@ -17,6 +17,69 @@ SPEC.loader.exec_module(kit)
 
 
 class PreparationTests(unittest.TestCase):
+    @staticmethod
+    def runtime_fixture(version, public=False):
+        names = kit.PARLEY_RUNTIME_FILES[version] - ({kit.LOGGER_FILE} if public else set())
+        files = dict.fromkeys(names, b'fixture=yes\n')
+        files['descriptor.mod'] = f'version="{version}"\n'.encode()
+        return files
+
+    def test_runtime_inventory_has_exact_historical_base_and_seven_new_helpers(self):
+        original = json.loads((SCRIPT.parent / 'release-inputs.json').read_text(encoding='utf-8'))
+        self.assertEqual(kit.PARLEY_120_RUNTIME_FILES, set(original['mods']['parley']['files']))
+        self.assertEqual(kit.PARLEY_121_ADDITIONS, {
+            'common/customizable_localization/tnt_90_cooldown_loc.txt',
+            'common/script_values/tnt_5b_scaled_land_values.txt',
+            'common/script_values/tnt_5c_scaled_person_values.txt',
+            'common/script_values/tnt_5d_scaled_strategic_values.txt',
+            'common/script_values/tnt_5e_display_values.txt',
+            'common/script_values/tnt_5e_valuation_policy.txt',
+            'common/script_values/tnt_5f_scaled_balance_values.txt',
+        })
+        for version, dev_count, game_count in [('1.2.0', 76, 75), ('1.2.1', 83, 82)]:
+            for public, count in [(False, dev_count), (True, game_count)]:
+                with self.subTest(version=version, public=public):
+                    files = self.runtime_fixture(version, public)
+                    self.assertEqual(len(files), count)
+                    kit.validate_runtime_inventory(files, public=public)
+
+    def test_each_missing_or_substituted_121_helper_fails_closed(self):
+        for helper in kit.PARLEY_121_ADDITIONS:
+            for public in [False, True]:
+                files = self.runtime_fixture('1.2.1', public)
+                del files[helper]
+                with self.subTest(helper=helper, public=public, replacement=False), self.assertRaises(kit.PreparationError):
+                    kit.validate_runtime_inventory(files, public=public)
+                files['common/script_values/unreviewed.txt'] = b'unknown=yes\n'
+                with self.subTest(helper=helper, public=public, replacement=True), self.assertRaises(kit.PreparationError):
+                    kit.validate_runtime_inventory(files, public=public)
+
+    def test_version_drift_and_logger_in_public_inventory_are_rejected(self):
+        source = self.runtime_fixture('1.2.0')
+        for descriptor in [b'version="1.2.1"\n', b'version="1.2.2"\n',
+                           b'version="1.2.0"\nversion="1.2.1"\n', b'name="Parley"\n']:
+            with self.subTest(descriptor=descriptor), self.assertRaises(kit.PreparationError):
+                kit.validate_runtime_inventory({**source, 'descriptor.mod': descriptor})
+        with self.assertRaises(kit.PreparationError):
+            kit.validate_runtime_inventory(self.runtime_fixture('1.2.1'), public=True)
+        with self.assertRaises(kit.PreparationError):
+            kit.validate_runtime_inventory(self.runtime_fixture('1.2.1', True))
+
+    def test_frozen_rc2_inventory_requires_its_pinned_preparation_tool(self):
+        for public, old_count in [(False, 81), (True, 80)]:
+            files = self.runtime_fixture('1.2.1', public)
+            del files['common/customizable_localization/tnt_90_cooldown_loc.txt']
+            del files['common/script_values/tnt_5e_display_values.txt']
+            self.assertEqual(len(files), old_count)
+            with self.subTest(public=public), self.assertRaises(kit.PreparationError):
+                kit.validate_runtime_inventory(files, public=public)
+
+    def test_actual_authoring_runtime_matches_reviewed_versioned_inventory(self):
+        repo = SCRIPT.parents[2]
+        files = kit.runtime_inputs(repo)
+        self.assertEqual(len(files), 83)
+        self.assertTrue(kit.PARLEY_121_ADDITIONS <= files.keys())
+
     def test_steam_identity_overlay_is_only_descriptor_delta(self):
         source = {"descriptor.mod": b'version="1.2.0"\nname="Parley: The Negotiating Table"\n', "common/x.txt": b'x=yes\n'}
         steam, wrapper, portable = kit.platform_payloads(source)

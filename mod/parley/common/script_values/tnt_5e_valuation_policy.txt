@@ -1,0 +1,10 @@
+﻿# Parley 1.2.1: one live policy read for every advanced-term valuation path.
+# No cached character variable: AI-world and closed-window letters must agree
+# with the table. An old save with no setting remains on Classic calculations.
+tnt_scaled_valuation_enabled_value = {
+	value = 0
+	if = {
+		limit = { has_game_rule = tnt_advanced_valuation_scaled }
+		add = 1
+	}
+}

@@ -137,6 +137,20 @@
 #     time must be wrapped in hidden_effect INSIDE its own exec effect, not
 #     here — that is defect D5.
 ########################################################################
+# Call only after a valid threat is resolved, in the actual aggressor's scope.
+# Unlike draft state this timed variable survives window close and save/reload.
+# set_variable with a script-value duration is native (00_councillor_effects).
+tnt_start_threat_cooldown_effect = {
+	if = {
+		limit = { tnt_threat_cooldown_years_value > 0 }
+		set_variable = {
+			name = tnt_threat_cooldown
+			value = 1
+			years = tnt_threat_cooldown_years_value
+		}
+	}
+}
+
 tnt_apply_deal_effect = {
 	if = {
 		limit = {
@@ -625,6 +639,7 @@ tnt_apply_deal_effect = {
 				}
 			}
 			add_dread = minor_dread_gain	# root IS the threatener here. Vanilla pays successful extortion in dread: GAME\events\lifestyles\subject_extortion_events.txt:43 (minor_dread_gain = 10, GAME\common\script_values\00_basic_values.txt:731)
+			tnt_start_threat_cooldown_effect = yes
 		}
 
 		#===============================================================

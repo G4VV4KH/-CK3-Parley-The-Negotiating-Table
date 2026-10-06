@@ -571,7 +571,7 @@ types TwdPanels
 
 			block "tnt_sheet_points"
 			{
-				text = "[TntSV('tnt_val_gold_p_value')|0]"
+				text = "[TntSV('tnt_display_gold_p_value')|0]"
 			}
 		}
 	}
@@ -697,7 +697,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_gold" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_gold_p')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_gold_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_gold_p_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -720,7 +720,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_prestige" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_prestige_p')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_prestige_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_prestige_p_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -740,7 +740,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_piety" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_piety_p')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_piety_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_piety_p_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -758,7 +758,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_influence_01.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_influence" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_influence_p')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_influence_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_influence_p_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1158,7 +1158,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_icon.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_hook" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntHookTier('tnt_hook_p')]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_hook_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_hook_p_value')|0]" }
 			### X wired to tnt_hook_p_clear (tnt_22c_hooks_contracts.txt, V5): the
 			### tier controls step up/down, this removes the term outright,
 			### whatever the tier.
@@ -1223,7 +1223,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_vassal" }
 			blockoverride "tnt_sheet_detail"  { text = "" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_vassal_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_vassal_p_value')|0]" }
 			### The fealty row's own gated toggle - 2b header's rebind note.
 			blockoverride "tnt_sheet_remove"
 			{
@@ -1265,7 +1265,7 @@ types TwdPanels
 			### hidden - it is the row's only expanding child, and hiding it would
 			### pull the points column 170 px left of every other row.
 			blockoverride "tnt_sheet_detail"  { text = "" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_indep_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_indep_p_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1301,7 +1301,7 @@ types TwdPanels
 			### tooltips keep NoTooltip because a tooltip inside a tooltip is the one
 			### place the link must not fire.
 			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_hostage_p').Char.GetUIName]"  alwaystransparent = no }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_hostage_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_hostage_p_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1425,7 +1425,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_strong.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_usehook_r" }
 			blockoverride "tnt_sheet_detail"  { text = "tnt_usehook_r_sub" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_usehook_r_value')|+=0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_usehook_r_value')|+=0]" }
 			### Prose detail in an elidable cell - same reason as the threat row.
 			blockoverride "tnt_sheet_tooltip" { tooltip = "tnt_item_usehook_r_desc" }
 			### NO X (user item 15a): the AI's OWN demand, written by the letter
@@ -1440,7 +1440,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_strong.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_usehook" }
 			blockoverride "tnt_sheet_detail"  { text = "tnt_usehook_sub" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_usehook_p_value')|+=0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_usehook_p_value')|+=0]" }
 			### Prose detail in an elidable cell - same reason as the threat row.
 			blockoverride "tnt_sheet_tooltip" { tooltip = "tnt_item_usehook_desc" }
 			### The spend-a-hook row's own gated toggle - 2b header's rebind note.
@@ -1461,7 +1461,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/icon_dread.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_threat" }
 			blockoverride "tnt_sheet_detail"  { text = "tnt_threat_sub" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_threat_p_value')|+=0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_threat_p_value')|+=0]" }
 			### The detail above is prose in a 170 px elidable cell, so the row
 			### hands over the same full description the window row gives.
 			blockoverride "tnt_sheet_tooltip" { tooltip = "tnt_item_threat_desc" }
@@ -1549,7 +1549,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/alliance.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_alliance" }
 			blockoverride "tnt_sheet_detail"  { text = "tnt_bd_alliance_p" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_alliance_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_alliance_p_value')|0]" }
 		}
 
 		### BUILD 1 reserved this block for "the three multi-select datamodels of
@@ -1586,7 +1586,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_gold" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_gold_r')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_gold_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_gold_r_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1609,7 +1609,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_prestige" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_prestige_r')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_prestige_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_prestige_r_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1629,7 +1629,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_piety" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_piety_r')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_piety_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_piety_r_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1647,7 +1647,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_influence_01.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_influence" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_influence_r')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_influence_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_influence_r_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1748,7 +1748,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_icon.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_hook" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntHookTier('tnt_hook_r')]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_hook_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_hook_r_value')|0]" }
 			### X wired to tnt_hook_r_clear - the mirror of hook_p's, see there.
 			blockoverride "tnt_sheet_remove"
 			{
@@ -1800,7 +1800,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_vassal" }
 			blockoverride "tnt_sheet_detail"  { text = "" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_vassal_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_vassal_r_value')|0]" }
 			### The fealty row's own gated toggle - 2b header's rebind note.
 			blockoverride "tnt_sheet_remove"
 			{
@@ -1826,7 +1826,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/independence.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_indep" }
 			blockoverride "tnt_sheet_detail"  { text = "" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_indep_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_indep_r_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1845,7 +1845,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_hostage" }
 			### User item 2: linked name - the full note is on tnt_sheet_hostage_p.
 			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_hostage_r').Char.GetUIName]"  alwaystransparent = no }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_hostage_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_hostage_r_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1884,7 +1884,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/courtier_interaction.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_courtier" }
 			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_courtier_r" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_courtier_multi_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_courtier_multi_r_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1897,15 +1897,15 @@ types TwdPanels
 		}
 
 		### THE TRANSFERRED VASSALS, partner's side (V26). The mirror of
-		### tnt_sheet_subject_p; the points read the RAW _r value because demands
-		### are unscaled (I5) and no tnt_shown_* wrapper is registered for them.
+		### tnt_sheet_subject_p; demands remain unscaled (I5). The display wrapper
+		### only rounds the raw list sum; it does not apply the gift multiplier.
 		tnt_sheet_row = {
 			name = "tnt_sheet_subject_r"
 			blockoverride "tnt_sheet_visible" { visible = "[TntAny('tnt_sel_subject_r')]" }
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_subject" }
 			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_subject_r" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_val_subject_multi_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_subject_multi_r_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {

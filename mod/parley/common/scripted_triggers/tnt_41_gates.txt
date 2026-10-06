@@ -2252,6 +2252,18 @@ tnt_threat_feared_trigger = {
 #   GAME\common\scripted_rules\00_rules.txt:367-374
 #   GAME\common\character_interactions\00_alliance.txt:1172-1175
 # =============================================================================
+# Global aggressor lock, separate from the target-specific opinion below.
+# A zero/missing setting bypasses an old timer; merely opening or clearing a
+# deal never removes the saved timer. Native timed variables expire in saves.
+tnt_threat_cooldown_available_trigger = {
+	$A$ = {
+		OR = {
+			tnt_threat_cooldown_years_value <= 0
+			NOT = { exists = var:tnt_threat_cooldown }
+		}
+	}
+}
+
 tnt_threat_unspent_trigger = {
 	NOT = {
 		$B$ = {
@@ -2356,6 +2368,7 @@ tnt_can_threat_trigger = {
 		tnt_threat_target_allowed_trigger = { A = $A$  B = $B$ }
 		$A$ = { tnt_threat_points_value >= 100 }
 		tnt_threat_unspent_trigger = { A = $A$  B = $B$ }
+		tnt_threat_cooldown_available_trigger = { A = $A$ }
 	}
 	trigger_else = { always = no }
 }
@@ -2407,6 +2420,7 @@ tnt_can_demand_trigger = {
 		$A$ = { tnt_threat_points_value >= 100 }
 		$A$ = { can_attack_in_hierarchy = $B$ }
 		tnt_threat_unspent_trigger = { A = $A$  B = $B$ }
+		tnt_threat_cooldown_available_trigger = { A = $A$ }
 	}
 	trigger_else = { always = no }
 }

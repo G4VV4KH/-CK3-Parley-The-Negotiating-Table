@@ -199,6 +199,14 @@ tnt_val_hook_tier_p_value = {
 		}
 		add = 100
 	}
+	# A promised hook is on its giver, not on the receiving partner.
+	if = {
+		limit = { tnt_scaled_valuation_enabled_value > 0 }
+		if = {
+			limit = { exists = var:tnt_hook_p var:tnt_hook_p > 0 }
+			multiply = tnt_scaled_hook_leverage_factor_value
+		}
+	}
 }
 
 tnt_val_hook_tier_r_value = {
@@ -223,6 +231,15 @@ tnt_val_hook_tier_r_value = {
 			var:tnt_hook_r >= 3
 		}
 		add = 100
+	}
+	if = {
+		limit = { tnt_scaled_valuation_enabled_value > 0 }
+		if = {
+			limit = { exists = var:tnt_hook_r var:tnt_hook_r > 0 }
+			var:tnt_partner ?= {
+				multiply = tnt_scaled_hook_leverage_factor_value
+			}
+		}
 	}
 }
 
@@ -688,6 +705,12 @@ tnt_ob_revoke_ok_value = {
 # for a line that tnt_36_hooks_contracts.txt is about to refuse to emit, which is
 # the exact class of dishonesty user item 1.2 is about.
 #
+# 1.2.1 SCALED EXCEPTION: tax, levy, fortification and coinage prices multiply
+# once by the actual subject's economic factor (1 + territorial value / 200,
+# capped at 3). This is an opt-in gameplay scale, NOT a new vanilla anchor.
+# The pre-signed contract convention, legality and five personal-right prices
+# are unchanged. Classic multiplies by exactly 1 and retains the old figures.
+#
 # ===========================================================================
 # v3 ITERATION 2 — WHY THIS SECTION SURVIVED THE RECALIBRATION ALMOST INTACT
 # ===========================================================================
@@ -755,6 +778,14 @@ tnt_val_ob_tax_value = {
 		}
 		add = -45
 	}
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_tax
+			NOT = { var:tnt_ob_tax = 2 }
+		}
+		multiply = tnt_contract_economic_scale_value
+	}
 	multiply = tnt_ob_sign_value
 }
 
@@ -792,6 +823,14 @@ tnt_val_ob_levy_value = {
 			var:tnt_ob_levy >= 4
 		}
 		add = -30
+	}
+	if = {
+		limit = {
+			tnt_ob_feudal_value > 0
+			exists = var:tnt_ob_levy
+			NOT = { var:tnt_ob_levy = 2 }
+		}
+		multiply = tnt_contract_economic_scale_value
 	}
 	multiply = tnt_ob_sign_value
 }
@@ -884,6 +923,14 @@ tnt_val_ob_fort_value = {
 		}
 		add = 20
 	}
+	if = {
+		limit = {
+			tnt_ob_fort_ok_value > 0
+			exists = var:tnt_ob_fort
+			var:tnt_ob_fort > 0
+		}
+		multiply = tnt_contract_economic_scale_value
+	}
 	multiply = tnt_ob_sign_value
 }
 
@@ -897,6 +944,14 @@ tnt_val_ob_coin_value = {
 			var:tnt_ob_coin > 0
 		}
 		add = 20
+	}
+	if = {
+		limit = {
+			tnt_ob_coin_ok_value > 0
+			exists = var:tnt_ob_coin
+			var:tnt_ob_coin > 0
+		}
+		multiply = tnt_contract_economic_scale_value
 	}
 	multiply = tnt_ob_sign_value
 }

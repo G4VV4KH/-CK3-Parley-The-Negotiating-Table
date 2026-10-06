@@ -888,7 +888,10 @@ tnt_ai_world_do_submission_effect = {
 		scope:recipient = { save_temporary_scope_as = tnt_thr_you }
 
 		tnt_ai_world_apply_vassal_effect = yes
-		scope:actor = { add_dread = minor_dread_gain }
+		scope:actor = {
+			add_dread = minor_dread_gain
+			tnt_start_threat_cooldown_effect = yes
+		}
 		scope:recipient = {
 			add_opinion = {
 				target = scope:actor
@@ -2233,6 +2236,9 @@ tnt_ai_world_do_hook_effect = {
 tnt_ai_world_do_ultimatum_effect = {
 	if = {
 		limit = {
+			# Candidate selection uses the shared threat gate; recheck the
+			# aggressor's frequency at the final cash-settlement boundary too.
+			tnt_threat_cooldown_available_trigger = { A = scope:actor }
 			# There must be something to take. A21's own floor, verbatim.
 			scope:recipient = { gold >= 13 }
 			tnt_ai_deal_ultimatum_value > 0
@@ -2246,6 +2252,7 @@ tnt_ai_world_do_ultimatum_effect = {
 			# at the same value in the same commit - one atom, revert together.
 			AMOUNT = tnt_ai_demand_gold_value
 		}
+		scope:actor = { tnt_start_threat_cooldown_effect = yes }
 		scope:recipient = {
 			add_opinion = {
 				target = scope:actor

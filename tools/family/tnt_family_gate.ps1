@@ -1632,10 +1632,10 @@ $autoSessionOk = ($autoCanonical.Contains('custom_description={text=tnt_err_no_p
     $autoCanonical.Contains('effect={if={limit={exists=var:tnt_openexists=var:tnt_partner}tnt_autobalance_effect={MARGIN=1CEILING=1}}}'))
 $autoThreatSeedOk = (([regex]::Matches($autoCanonical, [regex]::Escape('custom_description={text=tnt_err_ab_emptyOR={tnt_offer_nonempty_trigger=yesAND={exists=var:tnt_threat_pvar:tnt_threat_p>0tnt_val_threat_p_value>0}}}'))).Count -eq 1)
 $threatPriceCode = Get-CanonicalTopLevelDefinition (Join-Path $CoreRoot 'common\script_values\tnt_57_threat_values.txt') 'tnt_val_threat_p_value'
-$threatPriceOk = ($threatPriceCode -ceq 'tnt_val_threat_p_value={value=0if={limit={exists=var:tnt_threat_pvar:tnt_threat_p>0exists=var:tnt_partnertnt_threat_points_value>=100}add=tnt_threat_points_value}}')
+$threatPriceOk = ($threatPriceCode -ceq 'tnt_val_threat_p_value={value=0if={limit={exists=var:tnt_threat_pvar:tnt_threat_p>0exists=var:tnt_partnertnt_threat_points_value>=100tnt_threat_cooldown_available_trigger={A=this}}add=tnt_threat_points_value}}')
 $threatRemoveOk = ([regex]::Replace($windowCode, '\s+', '').Contains('enabled="[Or(TntOn(''tnt_threat_p''),TntValid(''tnt_threat_p_toggle''))]"'))
 if (-not $threatPriceOk -or -not $threatRemoveOk) {
-    Write-Host "  FAIL  8c threat must give zero below100 and a stale selected threat must remain removable"; $fails++
+    Write-Host "  FAIL  8c threat must give zero below100 or during aggressor cooldown, and a stale selected threat must remain removable"; $fails++
 }
 $threatNotSendableOk = (-not $itemsCountCanonical.Contains('tnt_threat_p') -and
     ([regex]::Matches($sendDefinitionCanonical, [regex]::Escape('custom_tooltip={text=tnt_err_nothingtnt_offer_nonempty_trigger=yes}'))).Count -eq 1)
@@ -1702,7 +1702,11 @@ $applyMutation = ([regex]::Matches($applyBlock, 'offer_vassalization_interaction
 $applyObligationNames = @([regex]::Matches($applyBlock, 'save_scope_value_as=\{name=(?<n>[a-z_]+)value=no\}') | ForEach-Object { $_.Groups['n'].Value } | Sort-Object)
 $applyObligationsOk = (($applyObligationNames -join ',') -ceq 'high_obligations,low_obligations,religious_exemption,religious_exemption_clan')
 $submissionOpinion = ([regex]::Matches($doBlock, 'modifier=tnt_threat_opinion')).Count
-$submissionDread = ([regex]::Matches($doBlock, 'scope:actor=\{add_dread=minor_dread_gain\}')).Count
+$submissionDread = ([regex]::Matches($doBlock, 'scope:actor=\{add_dread=minor_dread_gaintnt_start_threat_cooldown_effect=yes\}')).Count
+# The new global threat timer must be written once, on the aggressor, only
+# after native submission. Keep the separate existing world-lane cooldown too.
+$submissionThreatCooldownOk = (([regex]::Matches($doBlock, 'tnt_start_threat_cooldown_effect=yes')).Count -eq 1 -and
+    $doBlock.Contains('tnt_ai_world_apply_vassal_effect=yesscope:actor={add_dread=minor_dread_gaintnt_start_threat_cooldown_effect=yes}'))
 $submissionCooldown = ([regex]::Matches($doBlock, 'tnt_ai_world_cooldown_effect=\{A=scope:actorB=scope:recipient\}')).Count
 $routeShape = ($worldOnActionCanonical.Contains('highest_held_title_tier>=tier_countyis_at_war=noNOT={has_variable=tnt_ai_world_cd}') -and
     $worldOnActionCanonical.Contains('tnt_ai_world_submission_pulse_effect=yesif={limit={NOT={has_variable=tnt_ai_world_cd}}tnt_ai_world_pulse_effect=yes}'))
@@ -1768,9 +1772,10 @@ $submissionShapeOk = ($submissionDefs -eq 1 -and $submissionDoDefs -eq 1 -and $p
     $structuralPartnerCalls -eq 1 -and $willingPartnerCalls -eq 0 -and $capacityFloor -eq 2 -and $staleCapacityFloor -eq 0 -and
     $privateRecipientLeak -eq 0 -and $recipientBridge -eq 1 -and $applyDefs -eq 1 -and $applyCalls -eq 2 -and
     $vanillaVassalMutation -eq 1 -and $applyMutation -eq 1 -and $applyObligationsOk -and
-    $submissionOpinion -eq 1 -and $submissionDread -eq 1 -and $submissionCooldown -eq 1 -and
+    $submissionOpinion -eq 1 -and $submissionDread -eq 1 -and $submissionCooldown -eq 1 -and $submissionThreatCooldownOk -and
     $submissionEdgeDefs -eq 1 -and $routeShape -and $submissionSafetyShape -and $orderShape -and $telemetryOk -and $submissionMessageOk)
 if (-not $submissionShapeOk) {
+    if (-not $submissionThreatCooldownOk) { Write-Host '  FAIL  8d global threat cooldown must start exactly once on actor after native submission' }
     Write-Host ("  FAIL  8d strategic submission defs/do/pair/structDef/calls/pts/ratio/pick/walk/target/candidateSave/candidateCall/revalidateCall/relativeCall/structCall/willingCall/capacity/staleCapacity/leak/bridge/applyDefs/applyCalls/mutation/applyMutation/obligations/opinion/dread/cd/edge/route/safety/order/log/message={0}/{1}/{2}/{3}/{4}/{5}/{6}/{7}/{8}/{9}/{10}/{11}/{12}/{13}/{14}/{15}/{16}/{17}/{18}/{19}/{20}/{21}/{22}/{23}/{24}/{25}/{26}/{27}/{28}/{29}/{30}/{31}/{32}/{33}" -f $submissionDefs,$submissionDoDefs,$pairDefs,$structuralPartnerDefs,$pairCalls,$points100,$ratio4,$boundedPick,$unboundedWalks,$privateTargetSaves,$candidateScopeSaves,$candidatePairCall,$revalidationPairCall,$relativePairCalls,$structuralPartnerCalls,$willingPartnerCalls,$capacityFloor,$staleCapacityFloor,$privateRecipientLeak,$recipientBridge,$applyDefs,$applyCalls,$vanillaVassalMutation,$applyMutation,$applyObligationsOk,$submissionOpinion,$submissionDread,$submissionCooldown,$submissionEdgeDefs,$routeShape,$submissionSafetyShape,$orderShape,$telemetryOk,$submissionMessageOk)
     $fails++
 }

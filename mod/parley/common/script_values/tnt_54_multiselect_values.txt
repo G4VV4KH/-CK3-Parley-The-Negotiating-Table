@@ -449,6 +449,10 @@ tnt_val_title_multi_p_value = {
 				value = 0
 
 				if = {
+					limit = { tnt_scaled_valuation_enabled_value > 0 }
+					add = tnt_scaled_county_land_value
+				}
+				else_if = {
 					limit = { tier = tier_barony }
 					add = 15
 				}
@@ -525,6 +529,10 @@ tnt_val_title_multi_r_value = {
 				value = 0
 
 				if = {
+					limit = { tnt_scaled_valuation_enabled_value > 0 }
+					add = tnt_scaled_county_land_value
+				}
+				else_if = {
 					limit = { tier = tier_barony }
 					add = 15
 				}

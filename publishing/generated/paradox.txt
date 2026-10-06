@@ -2,7 +2,7 @@ Parley: The Negotiating Table
 
 At a glance
 
-- 🟢 Version 1.2.0 · Targets CK3 1.20.0.3.
+- 🟢 Version 1.2.1 · Targets CK3 1.20.0.3.
 - 🟢 Standalone: no other mod required.
 - 🟢 Negotiate marriage, money and allegiance in one treaty.
 - 🟢 Languages: English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, 來自無壹的中文翻譯: https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070 and Spanish.
@@ -59,7 +59,7 @@ Getting started
 3. Read Their Answer, adjust the package or use Auto-balance.
 4. Review and confirm. The mod rechecks that the agreement can be carried out.
 
-Set game rules before play. Currency limits apply to each giver and govern Auto-balance and AI pricing. Incoming offers and AI-to-AI treaties have separate frequency rules. Full rules, defaults and examples: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table#game-rules-guide.
+Set rules before play. Currency limits apply to each giver, Auto-balance and AI pricing. Classic valuation is default; Scaled adjusts territory and people prices. Threat strength and the global 0/1/5/10-year threat cooldown are separate. Full rules, defaults and examples: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table#game-rules-guide.
 
 
 When acting for a puppet, Parley's opener and marriage picker are hidden. Personal Rites determine marriage defaults and lineality pricing; native marriage eligibility checks still apply.

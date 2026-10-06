@@ -2332,7 +2332,13 @@ tnt_marriage_offer_r_value = {
 			# NOT tapered — see tnt_marriage_taper_value's header. Volume must
 			# never dilute a veto.
 			min = 0
-			max = 6000
+			# Scaled territorial gifts can exceed 6,000 points. Do not flatten
+			# the cost of a seventh vetoed match while those gifts remain uncapped.
+			# The 2,000 gain ceiling and diminishing returns above are unchanged.
+			if = {
+				limit = { tnt_scaled_valuation_enabled_value = 0 }
+				max = 6000
+			}
 		}
 	}
 }

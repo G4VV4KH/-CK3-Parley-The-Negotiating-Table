@@ -1457,7 +1457,7 @@ tnt_ab_lumpy_r_effect = {
 #=======================================================================
 # D3 - tnt_ab_lumpy_vassal_r_effect        THE CROWN RUNG
 #
-# 252 = the 250 hard ceiling of tnt_val_vassal_r_value's own `add` block plus the
+# Classic: 252 = the 250 hard ceiling of tnt_val_vassal_r_value's own `add` block plus the
 # two-point rounding cushion of D.2. There is no cheaper reading: the value is
 # 100 + 5 x his realm_size, and the button must be sure BEFORE it ticks the box,
 # so it prices him at the ceiling.
@@ -1472,7 +1472,11 @@ tnt_ab_lumpy_vassal_r_effect = {
 	if = {
 		limit = {
 			exists = var:tnt_ab_snap
-			var:tnt_ab_snap >= 252
+			trigger_if = {
+				limit = { tnt_scaled_valuation_enabled_value > 0 }
+				var:tnt_ab_snap >= tnt_scaled_ab_fealty_budget_value
+			}
+			trigger_else = { var:tnt_ab_snap >= 252 }
 
 			exists = var:tnt_partner
 			exists = var:tnt_advanced
@@ -1613,7 +1617,12 @@ tnt_ab_lumpy_title_r_effect = {
 
 						# THE FIT TEST. One rung of the tier ladder fires; the tiers
 						# are read off the candidate, the budget off the player.
+						# Scaled counties have a development-sensitive bound instead.
 						trigger_if = {
+							limit = { tnt_scaled_valuation_enabled_value > 0 }
+							var:tnt_ab_snap >= scope:tnt_picked.tnt_scaled_ab_county_budget_value
+						}
+						trigger_else_if = {
 							limit = { scope:tnt_picked = { tier = tier_barony } }
 							var:tnt_ab_snap >= 34
 						}

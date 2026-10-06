@@ -1765,15 +1765,16 @@ window = {
 						blockoverride "tnt_row_tooltip" { tooltip = "tnt_item_threat_desc" }
 						blockoverride "tnt_row_sub"
 						{
-							visible = "[TntOn('tnt_threat_p')]"
-							text = "tnt_threat_sub"
+							visible = yes
+							text = "[GetPlayer.Custom('TntThreatRowSubtitle')]"
 							default_format = "#high"
 						}
 						blockoverride "tnt_toggle_sgui"    { onclick = "[TntExec('tnt_threat_p_toggle')]" }
 						blockoverride "tnt_toggle_var"     { checked = "[TntOn('tnt_threat_p')]" }
 						# A selected threat can always be removed, even after its power drops.
 						blockoverride "tnt_toggle_enabled" { enabled = "[Or(TntOn('tnt_threat_p'), TntValid('tnt_threat_p_toggle'))]" }
-						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_threat_p_toggle')]" }
+						# Dynamic countdown is appended outside BuildTooltip's bare reasons.
+						blockoverride "tnt_toggle_tooltip" { tooltip = "[TntTip('tnt_threat_p_toggle')][GetPlayer.Custom('TntThreatCooldownStatus')]" }
 					}
 				}
 			}

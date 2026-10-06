@@ -1,0 +1,52 @@
+﻿###############################################################################
+# PARLEY 1.2.1 - SCALED STRATEGIC VALUES
+# Scope contracts are explicit so the table and AI-world can share formulas
+# without importing a player's draft, frozen marriage rows or root scope.
+###############################################################################
+
+# CHARACTER scope: the actual debtor, not the beneficiary or the initiator.
+# A favour over a larger ruler has more possible uses, but it is not ownership
+# of that ruler's land. Keep leverage bounded at twice the ordinary tier price.
+# Landless courtiers do not inherit their liege's realm value.
+tnt_scaled_hook_leverage_factor_value = {
+	value = 1
+	add = {
+		value = tnt_scaled_realm_land_value
+		divide = 400
+	}
+	min = 1
+	max = 2
+}
+
+# CHARACTER scope: the subject of a proposed vassal contract. Economic rights
+# cover more tax/levy-producing territory in a larger realm, but cannot alone
+# cancel the uncapped price of submitting that realm.
+tnt_scaled_contract_economic_factor_value = {
+	value = 1
+	add = {
+		value = tnt_scaled_realm_land_value
+		divide = 200
+	}
+	min = 1
+	max = 3
+}
+
+# TABLE OWNER scope. Only tax, levy, fortification and coinage rows consume
+# this factor, exactly once BEFORE their existing sign is applied. Personal
+# protections keep their native acceptance anchors; normal obligations stay 0.
+tnt_contract_economic_scale_value = {
+	value = 1
+	if = {
+		limit = { tnt_scaled_valuation_enabled_value > 0 }
+		if = {
+			limit = { tnt_ob_dir_value = 1 }
+			multiply = tnt_scaled_contract_economic_factor_value
+		}
+		else_if = {
+			limit = { tnt_ob_dir_value = 2 }
+			var:tnt_partner ?= {
+				multiply = tnt_scaled_contract_economic_factor_value
+			}
+		}
+	}
+}

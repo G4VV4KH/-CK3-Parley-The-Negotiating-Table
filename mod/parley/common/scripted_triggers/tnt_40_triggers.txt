@@ -1864,6 +1864,15 @@ tnt_ai_coercive_fealty_pair_trigger = {
 		tnt_can_threat_trigger = { A = $A$  B = $B$ }
 		$A$ = { tnt_threat_ratio_value >= 4 }
 		$A$ = { tnt_threat_points_value >= 100 }
+		# Scaled fealty cannot bypass territorial value by using the silent
+		# coercion lane. Preserve the ordinary minimum and ratio above, then
+		# require enough pressure for THIS submitting ruler's actual realm.
+		trigger_if = {
+			limit = { tnt_scaled_valuation_enabled_value > 0 }
+			$A$ = {
+				tnt_threat_points_value >= $B$.tnt_scaled_fealty_demand_value
+			}
+		}
 	}
 	trigger_else = { always = no }
 }

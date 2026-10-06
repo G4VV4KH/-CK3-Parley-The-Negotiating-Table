@@ -36,6 +36,100 @@ SOURCE_ROOTS = {"mod", "docs", "publishing", "tests", "tools"}
 SOURCE_TOP = {".gitattributes", ".gitignore", "README.md", "dev.md", "CHANGELOG.md", "LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING"}
 TEXT_SUFFIXES = {".md", ".txt", ".gui", ".yml", ".mod", ".json", ".py", ".ps1", ".bbcode", ".html", ".patch"}
 CONTRIBUTING_FOOTER = b'\n## Contributing\n\nSee [dev.md](dev.md) for the source layout, checks and pull-request workflow.\n'
+LOGGER_FILE = "common/scripted_effects/tnt_3b_log.txt"
+# File identities are reviewed, not just counts: a missing helper cannot be
+# disguised by an unrelated replacement with the same total number of files.
+PARLEY_120_RUNTIME_FILES = frozenset("""
+common/character_interactions/tnt_10_interaction.txt
+common/character_interactions/tnt_12_marriage_picker.txt
+common/decision_group_types/tnt_92_decision_groups.txt
+common/decisions/tnt_85_decisions.txt
+common/decisions/tnt_86_uninstall.txt
+common/game_rules/tnt_80_game_rules.txt
+common/game_rules/tnt_81_ai_rules.txt
+common/hook_types/tnt_90_hook_types.txt
+common/important_actions/tnt_91_alerts.txt
+common/on_action/tnt_70_on_actions.txt
+common/on_action/tnt_71_ai.txt
+common/on_action/tnt_72_ai_world.txt
+common/on_action/tnt_73_intro.txt
+common/opinion_modifiers/tnt_61_opinions.txt
+common/script_values/tnt_50_values.txt
+common/script_values/tnt_51_relation_values.txt
+common/script_values/tnt_52_marriage_values.txt
+common/script_values/tnt_53_currency_values.txt
+common/script_values/tnt_54_multiselect_values.txt
+common/script_values/tnt_55_hc_values.txt
+common/script_values/tnt_56_ai_values.txt
+common/script_values/tnt_57_threat_values.txt
+common/script_values/tnt_58_person_values.txt
+common/script_values/tnt_59_usehook_values.txt
+common/script_values/tnt_5a_stress_values.txt
+common/scripted_effects/tnt_1f_addon_hooks.txt
+common/scripted_effects/tnt_30_effects.txt
+common/scripted_effects/tnt_31_lists.txt
+common/scripted_effects/tnt_32_apply.txt
+common/scripted_effects/tnt_33_currency_apply.txt
+common/scripted_effects/tnt_34_marriage.txt
+common/scripted_effects/tnt_35_multiselect.txt
+common/scripted_effects/tnt_35a_sort.txt
+common/scripted_effects/tnt_36_hooks_contracts.txt
+common/scripted_effects/tnt_37_ai_offer.txt
+common/scripted_effects/tnt_38_ai_world.txt
+common/scripted_effects/tnt_39_autobalance.txt
+common/scripted_effects/tnt_3a_people.txt
+common/scripted_effects/tnt_3b_log.txt
+common/scripted_effects/tnt_3c_stress.txt
+common/scripted_guis/tnt_20_scripted_guis.txt
+common/scripted_guis/tnt_21_pickers.txt
+common/scripted_guis/tnt_22_v2.txt
+common/scripted_guis/tnt_22a_marriage.txt
+common/scripted_guis/tnt_22b_multiselect.txt
+common/scripted_guis/tnt_22c_hooks_contracts.txt
+common/scripted_guis/tnt_23_usehook.txt
+common/scripted_guis/tnt_24_people.txt
+common/scripted_triggers/tnt_40_triggers.txt
+common/scripted_triggers/tnt_41_gates.txt
+common/scripted_triggers/tnt_42_people_gates.txt
+common/scripted_triggers/tnt_43_preflight.txt
+data_binding/tnt_macros.txt
+descriptor.mod
+events/tnt_ai_events.txt
+events/tnt_events.txt
+events/tnt_intro_events.txt
+gui/event_window_widgets/tnt_offer_summary.gui
+gui/scripted_widgets/tnt_diplomacy.txt
+gui/tnt_diplomacy_window.gui
+gui/tnt_panel_contract.gui
+gui/tnt_panel_marriage.gui
+gui/tnt_panel_multiselect.gui
+gui/tnt_panel_people.gui
+gui/tnt_panels.gui
+gui/tnt_types.gui
+localization/english/tnt_l_english.yml
+localization/french/tnt_l_french.yml
+localization/german/tnt_l_german.yml
+localization/japanese/tnt_l_japanese.yml
+localization/korean/tnt_l_korean.yml
+localization/polish/tnt_l_polish.yml
+localization/russian/tnt_l_russian.yml
+localization/simp_chinese/tnt_l_simp_chinese.yml
+localization/spanish/tnt_l_spanish.yml
+thumbnail.png
+""".split())
+PARLEY_121_ADDITIONS = frozenset({
+    "common/customizable_localization/tnt_90_cooldown_loc.txt",
+    "common/script_values/tnt_5b_scaled_land_values.txt",
+    "common/script_values/tnt_5c_scaled_person_values.txt",
+    "common/script_values/tnt_5d_scaled_strategic_values.txt",
+    "common/script_values/tnt_5e_display_values.txt",
+    "common/script_values/tnt_5e_valuation_policy.txt",
+    "common/script_values/tnt_5f_scaled_balance_values.txt",
+})
+PARLEY_RUNTIME_FILES = {
+    "1.2.0": PARLEY_120_RUNTIME_FILES,
+    "1.2.1": PARLEY_120_RUNTIME_FILES | PARLEY_121_ADDITIONS,
+}
 
 
 class PreparationError(Exception):
@@ -104,12 +198,26 @@ def load_module(path):
     return module
 
 
+def validate_runtime_inventory(files, *, public=False):
+    versions = re.findall(r'^\s*version\s*=\s*"([^"\r\n]+)"',
+                          files.get("descriptor.mod", b"").decode("utf-8-sig"), re.M)
+    require(len(versions) == 1 and versions[0] in PARLEY_RUNTIME_FILES,
+            "Unreviewed Parley version for runtime inventory")
+    expected = PARLEY_RUNTIME_FILES[versions[0]]
+    if public:
+        expected = expected - {LOGGER_FILE}
+    require(set(files) == expected,
+            f"Reviewed Parley {'GAME' if public else 'DEV'} inventory differs for {versions[0]} "
+            f"({len(expected)} files): missing={sorted(expected - files.keys())}; "
+            f"extra={sorted(files.keys() - expected)}")
+
+
 def runtime_inputs(repo):
     files = {name: data for name, data in tree(repo / "mod/parley").items()
              if PurePosixPath(name).parts[0] in RUNTIME_ROOTS}
-    require(len(files) == 76, "Reviewed Parley source inventory must contain exactly 76 runtime files")
+    validate_runtime_inventory(files)
     for name, data in files.items():
-        if name != "common/scripted_effects/tnt_3b_log.txt" and Path(name).suffix in TEXT_SUFFIXES:
+        if name != LOGGER_FILE and Path(name).suffix in TEXT_SUFFIXES:
             require(not re.search(rb"(?<![A-Za-z])[A-Z]:[/\\]", data),
                     f"Normalize machine-path citations in authoritative source before locking runtime: {name}")
     return files
@@ -270,7 +378,7 @@ Short description and platform metadata: 02-TEXT/metadata.json
 Runtime thumbnail: 05-IMAGES/thumbnail.png (512x512 PNG).
 Gallery order/captions/provenance: 05-IMAGES/gallery.json
 Use GALLERY/01, 02, 03 in that order. Existing captures illustrate the historical
-1.19.0.6 interface; they do not show the new 1.2 currency-rule choices.
+1.19.0.6 interface; they do not show the newer currency or valuation rule choices.
 Gallery images are below 2 MB each and the complete batch below 8 MB.
 Cover artwork and actual gameplay captures are distinct; apply required AI-media
 disclosures based on the recorded provenance and actual publication form.
@@ -393,7 +501,7 @@ def prepare(args):
     for platform, (_, url) in PLATFORMS.items():
         require(links[f"PARLEY_{platform.upper()}_URL"] == url, f"Assigned {platform} identity changed")
 
-    lock = {"schema": 1, "baseline": f"Parley {args.version}, scoped currency-rule update for CK3 {TARGET}; source {commit}. No engine verification of the GAME projection is implied.",
+    lock = {"schema": 1, "baseline": f"Parley {args.version}, reviewed Parley-only update for CK3 {TARGET}; source {commit}. No engine verification of the GAME projection is implied.",
             "mods": {MOD: {"files": inventory(runtime)}}}
     evidence.mkdir(parents=True)
     write_new(evidence, "release-inputs.json", json_bytes(lock))
@@ -407,6 +515,7 @@ def prepare(args):
     package = [sys.executable, "-B", tools / "package_game.py", "--build-dir", build, "--output-dir", distribution]
     commands.extend([json.loads(run(package)), json.loads(run(package + ["--verify"]))])
     game_files = tree(build / MOD)
+    validate_runtime_inventory(game_files, public=True)
     steam, steam_wrapper, portable_wrapper = platform_payloads(game_files)
     files = {f"01-STEAM/runtime/parley/{name}": data for name, data in steam.items()}
     files["01-STEAM/runtime/parley.mod"] = steam_wrapper
@@ -478,6 +587,7 @@ def verify(workspace, bundle, build_id, version, tools, packager):
     require(record(read_file(Path(__file__))) == manifest["generator"], "Kit generator changed")
     build = workspace / "game" / build_id
     game_files = tree(build / MOD)
+    validate_runtime_inventory(game_files, public=True)
     require(inventory(game_files) == manifest["game_payload"], "Frozen GAME payload drift")
     steam, steam_wrapper, portable_wrapper = platform_payloads(game_files)
     require(tree(bundle / "01-STEAM/runtime/parley") == steam, "Steam overlay drift")

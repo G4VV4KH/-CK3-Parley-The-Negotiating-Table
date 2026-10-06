@@ -1,0 +1,152 @@
+﻿# Display-only whole-point values for GUI labels.
+# Native GUI |0 formatting and script round = yes disagree at .5; the
+# acceptance aggregates use script rounding. Apply that same operation here
+# AFTER evaluating each existing term/list sum, not inside pricing or settlement.
+# These wrappers must never feed AI, autobalance, gain/loss totals or effects.
+# Existing tnt_shown_* wrappers already round their opinion-adjusted result
+# and remain unchanged. These preserve the original labels' raw/net meaning.
+# Independently rounded rows can still differ from a rounded total by one point:
+# keep all underlying fractions until the existing aggregate rounds the sum.
+
+tnt_display_alliance_p_value = {
+	value = tnt_val_alliance_p_value
+	round = yes
+}
+
+tnt_display_artifact_multi_r_value = {
+	value = tnt_val_artifact_multi_r_value
+	round = yes
+}
+
+tnt_display_courtier_multi_r_value = {
+	value = tnt_val_courtier_multi_r_value
+	round = yes
+}
+
+tnt_display_deal_floor_value = {
+	value = tnt_deal_floor_value
+	round = yes
+}
+
+tnt_display_gold_p_value = {
+	value = tnt_val_gold_p_value
+	round = yes
+}
+
+tnt_display_gold_r_value = {
+	value = tnt_val_gold_r_value
+	round = yes
+}
+
+tnt_display_hook_p_value = {
+	value = tnt_val_hook_p_value
+	round = yes
+}
+
+tnt_display_hook_r_value = {
+	value = tnt_val_hook_r_value
+	round = yes
+}
+
+tnt_display_hostage_p_value = {
+	value = tnt_val_hostage_p_value
+	round = yes
+}
+
+tnt_display_hostage_r_value = {
+	value = tnt_val_hostage_r_value
+	round = yes
+}
+
+tnt_display_indep_p_value = {
+	value = tnt_val_indep_p_value
+	round = yes
+}
+
+tnt_display_indep_r_value = {
+	value = tnt_val_indep_r_value
+	round = yes
+}
+
+tnt_display_influence_p_value = {
+	value = tnt_val_influence_p_value
+	round = yes
+}
+
+tnt_display_influence_r_value = {
+	value = tnt_val_influence_r_value
+	round = yes
+}
+
+tnt_display_piety_p_value = {
+	value = tnt_val_piety_p_value
+	round = yes
+}
+
+tnt_display_piety_r_value = {
+	value = tnt_val_piety_r_value
+	round = yes
+}
+
+tnt_display_pressure_p_value = {
+	value = tnt_val_pressure_p_value
+	# The compact ledger includes the partner's signed leverage too; the
+	# original player-pressure value and all gameplay consumers stay unchanged.
+	add = tnt_val_usehook_r_value
+	round = yes
+}
+
+tnt_display_prestige_p_value = {
+	value = tnt_val_prestige_p_value
+	round = yes
+}
+
+tnt_display_prestige_r_value = {
+	value = tnt_val_prestige_r_value
+	round = yes
+}
+
+tnt_display_relation_mod_value = {
+	value = tnt_relation_mod_value
+	round = yes
+}
+
+tnt_display_subject_multi_r_value = {
+	value = tnt_val_subject_multi_r_value
+	round = yes
+}
+
+tnt_display_threat_p_value = {
+	value = tnt_val_threat_p_value
+	round = yes
+}
+
+tnt_display_threshold_delta_value = {
+	value = tnt_threshold_delta_value
+	round = yes
+}
+
+tnt_display_title_multi_r_value = {
+	value = tnt_val_title_multi_r_value
+	round = yes
+}
+
+tnt_display_usehook_p_value = {
+	value = tnt_val_usehook_p_value
+	round = yes
+}
+
+tnt_display_usehook_r_value = {
+	value = tnt_val_usehook_r_value
+	round = yes
+}
+
+tnt_display_vassal_p_value = {
+	value = tnt_val_vassal_p_value
+	round = yes
+}
+
+tnt_display_vassal_r_value = {
+	value = tnt_val_vassal_r_value
+	round = yes
+}

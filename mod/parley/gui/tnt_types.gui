@@ -1782,16 +1782,12 @@ types TwdDiplomacy
 			layoutpolicy_horizontal = expanding
 		}
 
-		### THE EXACT DECOMPOSITION OF THE HEADLINE (30-V2-DESIGN section 5.2):
-		###   row 1  they receive       + tnt_gain_total_value
-		###   row 2  they give up       - tnt_loss_total_value      (minus in the label)
-		###   row 3  standing           +/- tnt_relation_mod_value
-		###   row 4  what they demand   - tnt_threshold_value       (minus in the label)
-		###   =      headline           tnt_ai_accept_value
-		### Row 1 - row 2 + row 3 - row 4 equals the headline EXACTLY, because all
-		### four aggregates carry `round = yes` and tnt_ai_accept_value sums those
-		### same rounded numbers. The minus signs live in the loc labels, not in
-		### the values, so nothing here needs a negating value.
+		### COMPACT DECOMPOSITION OF THE HEADLINE:
+		### receive - give up + standing + signed demand + pressure + gift floor.
+		### The production score rounds once at the end. Display-only wrappers
+		### round fractional components with that same rule; independently rounded
+		### figures can differ slightly from the rounded headline when added.
+		### The loss label carries its minus; the other adjustments are signed.
 		###
 		### BUILD 2 - THE TWO SIGNED LABELS ARE _panel KEYS, NOT THE desc KEYS.
 		### The panel prints an UNSIGNED figure (|0 below), so its label must carry
@@ -1865,7 +1861,7 @@ types TwdDiplomacy
 				### inside tnt_ai_accept_value and stays long there; see the note on
 				### tnt_bd_gain_panel above.
 				blockoverride "tnt_figure_label" { text = "tnt_bd_relation_panel" }
-				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_relation_mod_value')|+=0]" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_display_relation_mod_value')|+=0]" }
 			}
 
 			### V4: THE FIGURE PRINTS tnt_threshold_delta_value, NOT tnt_threshold_value.
@@ -1879,45 +1875,39 @@ types TwdDiplomacy
 				name = "tnt_figure_threshold"
 				layoutpolicy_horizontal = expanding
 				blockoverride "tnt_figure_label" { text = "tnt_bd_threshold_panel" }
-				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_threshold_delta_value')|+=0]" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_display_threshold_delta_value')|+=0]" }
 			}
 		}
 
-		### FIGURE 5 - NAKED PRESSURE (V4 expansion 1), and it has to be a figure of
-		### its own or the panel stops adding up.
-		###
-		### tnt_val_threat_p_value is the one term of tnt_ai_accept_value that is NOT
-		### inside any of the four figures above. It is deliberately outside
-		### tnt_gain_total_value - fix 5 turned opinion into a multiplier on that
-		### total, and fear has to keep working on a ruler who hates you - so without
-		### this row the four figures would sum to something other than the headline,
-		### which is the invariant the note above figure 3/4 spends a paragraph on.
-		###
-		### IT IS GATED ON AVAILABILITY, NOT ON BEING TICKED, which is what keeps the
-		### panel from changing height under the cursor: tnt_show_threat_p is settled
-		### once, when the window opens, so the row appears or does not for the whole
-		### session with this partner. When the threat is available but unticked the
-		### figure honestly reads 0, exactly as the threshold row does.
-		###
-		### One figure alone in its hbox rather than a third one squeezed into the row
-		### above: three expanding figures in a ~470 px centre column leave ~150 px
-		### each, and tnt_bd_threat_panel does not fit in 150 px at Font_Size_Small.
+		### Pressure and the gift-floor correction share the existing third row.
+		### Both stay visible at zero, keeping the panel height constant. Do not
+		### gate this row on threat availability: pressure also includes hooks,
+		### and the gift floor can apply to a completely peaceful offer.
+		### The floor prevents contempt from making gifts harmful; omitting its
+		### positive correction hid why an otherwise negative gift totals zero.
 		hbox = {
 			name = "tnt_figure_row_threat"
 			layoutpolicy_horizontal = expanding
 			spacing = 12
-			visible = "[TntRow('tnt_show_threat_p')]"
 
 			tnt_balance_figure = {
 				name = "tnt_figure_threat"
 				layoutpolicy_horizontal = expanding
-				### V4 item 2: the figure prints tnt_val_pressure_p_value, which is the
-				### threat PLUS a spent hook. Both are outside the gift total and outside
-				### the opinion multiplier, so they belong to one figure - and the panel's
-				### rows must cover every term of the headline or they stop summing to it.
-				### The breakdown tooltip still names the two separately.
+				### Pressure combines the threat and both signed hook contributions.
+				### It stays outside the gift/opinion multiplier; the display wrapper
+				### does not alter any gameplay value. The full tooltip names each part.
 				blockoverride "tnt_figure_label" { text = "tnt_bd_threat_panel" }
-				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_val_pressure_p_value')|+=0]" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_display_pressure_p_value')|+=0]" }
+			}
+
+			tnt_balance_figure = {
+				name = "tnt_figure_floor"
+				layoutpolicy_horizontal = expanding
+				alwaystransparent = no
+				using = tooltip_es
+				tooltip = "tnt_bd_floor"
+				blockoverride "tnt_figure_label" { text = "tnt_bd_floor_panel" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_display_deal_floor_value')|+=0]" }
 			}
 		}
 

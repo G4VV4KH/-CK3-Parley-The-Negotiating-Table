@@ -1748,6 +1748,11 @@ tnt_ai_offer.0003 = {
 					PLAYER = root
 					PARTNER = scope:tnt_deal_partner
 				}
+				# This demand stores only a gold payment, not tnt_threat_p, so
+				# package preflight cannot check the aggressor's frequency for it.
+				# Another resolved threat can stale a pending letter. Pay remains
+				# clickable and uses the normal no-transfer cleanup in that case.
+				tnt_threat_cooldown_available_trigger = { A = scope:tnt_deal_partner }
 			}
 
 			custom_tooltip = tnt_ai_demand_pay_tt

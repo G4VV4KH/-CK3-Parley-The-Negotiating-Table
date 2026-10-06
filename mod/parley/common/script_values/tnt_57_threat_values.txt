@@ -423,6 +423,24 @@ tnt_threat_scale_value = {
 	min = 1
 }
 
+# Single policy read for all player/AI paths. Duration is attached to the
+# aggressor, never to a particular target or to the current negotiation window.
+tnt_threat_cooldown_years_value = {
+	value = 0
+	if = {
+		limit = { has_game_rule = tnt_threat_frequency_1_year }
+		value = 1
+	}
+	else_if = {
+		limit = { has_game_rule = tnt_threat_frequency_5_years }
+		value = 5
+	}
+	else_if = {
+		limit = { has_game_rule = tnt_threat_frequency_10_years }
+		value = 10
+	}
+}
+
 
 ###############################################################################
 # 6. THE POINTS - THE GATE AND THE PRICE, ONE NUMBER
@@ -469,6 +487,7 @@ tnt_val_threat_p_value = {
 			exists = var:tnt_partner
 			# A stale selected threat below the access bar has no deal value.
 			tnt_threat_points_value >= 100
+			tnt_threat_cooldown_available_trigger = { A = this }
 		}
 		add = tnt_threat_points_value
 	}

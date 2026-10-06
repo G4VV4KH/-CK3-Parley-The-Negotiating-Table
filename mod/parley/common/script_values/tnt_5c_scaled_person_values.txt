@@ -1,0 +1,189 @@
+﻿# Parley 1.2.1 - opt-in Scaled people valuation. Classic never reads these prices.
+# All numbers below are design weights, not imported native acceptance weights.
+# Character helpers are evaluated on the PERSON, never the negotiating ruler.
+# Native precedent: 01_dynamic_values.txt:1343-1382 prices recruitable claimants
+# and dynasty standing; destiny_score_interest_value.txt:437-496 supplies the
+# pressed/no claim filters. Native 00_traits.txt defines lifestyle_physician.
+
+# Strongest useful skill, one band only. No sum-of-five-skills inflation.
+tnt_scaled_courtier_skill_value = {
+	value = 0
+	if = {
+		limit = { OR = { diplomacy >= 30 martial >= 30 stewardship >= 30 intrigue >= 30 learning >= 30 } }
+		add = 60
+	}
+	else_if = {
+		limit = { OR = { diplomacy >= 25 martial >= 25 stewardship >= 25 intrigue >= 25 learning >= 25 } }
+		add = 40
+	}
+	else_if = {
+		limit = { OR = { diplomacy >= 20 martial >= 20 stewardship >= 20 intrigue >= 20 learning >= 20 } }
+		add = 24
+	}
+	else_if = {
+		limit = { OR = { diplomacy >= 18 martial >= 18 stewardship >= 18 intrigue >= 18 learning >= 18 } }
+		add = 16
+	}
+	else_if = {
+		limit = { OR = { diplomacy >= 15 martial >= 15 stewardship >= 15 intrigue >= 15 learning >= 15 } }
+		add = 10
+	}
+	else_if = {
+		limit = { OR = { diplomacy >= 12 martial >= 12 stewardship >= 12 intrigue >= 12 learning >= 12 } }
+		add = 5
+	}
+	else_if = {
+		limit = { OR = { diplomacy >= 10 martial >= 10 stewardship >= 10 intrigue >= 10 learning >= 10 } }
+		add = 2
+	}
+}
+
+# Prowess is a separate usable role; current knights remain ineligible for trade.
+tnt_scaled_courtier_prowess_value = {
+	value = 0
+	if = { limit = { prowess >= 30 } add = 30 }
+	else_if = { limit = { prowess >= 25 } add = 20 }
+	else_if = { limit = { prowess >= 20 } add = 12 }
+	else_if = { limit = { prowess >= 15 } add = 6 }
+	else_if = { limit = { prowess >= 12 } add = 3 }
+}
+
+# Scope: claimed TITLE. Rank is potential only, not ownership or guaranteed conquest.
+tnt_scaled_claim_title_value = {
+	value = 0
+	if = { limit = { tier >= tier_empire } add = 26 }
+	else_if = { limit = { tier = tier_kingdom } add = 18 }
+	else_if = { limit = { tier = tier_duchy } add = 10 }
+	else_if = { limit = { tier = tier_county } add = 4 }
+}
+
+tnt_scaled_unpressed_claim_title_value = {
+	value = tnt_scaled_claim_title_value
+	multiply = 0.5
+}
+
+# One strongest extant explicit claim only, capped by the 26-point top band.
+# The native recruit-guest gate excludes titles already controlled by the receiver
+# (including the native liege-chain check). This is not a promise that a claim war
+# is currently legal.
+# `min` raises the accumulator's floor: using it here selects the greatest price,
+# never the sum. Scoped min has native precedent in 07_ep3_values.txt:999/1030.
+tnt_scaled_courtier_claim_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:tnt_scaled_person_receiver }
+		every_claim = {
+			explicit = yes
+			pressed = yes
+			limit = {
+				tier >= tier_county
+				courtier_or_guest_claim_trigger = { RULER = scope:tnt_scaled_person_receiver }
+			}
+			min = tnt_scaled_claim_title_value
+		}
+		every_claim = {
+			explicit = yes
+			pressed = no
+			limit = {
+				tier >= tier_county
+				courtier_or_guest_claim_trigger = { RULER = scope:tnt_scaled_person_receiver }
+			}
+			min = tnt_scaled_unpressed_claim_title_value
+		}
+	}
+}
+
+# Same intrinsic score is used by manual values and Scaled AI candidate selection.
+# Lowest-value ordinary adult = 1. Dynasty standing adds at most 5, not a separate
+# sum for every title/family member. No job bonus bypasses the existing eligibility
+# prohibitions on heirs, consorts, councillors, knights or court-position holders.
+tnt_scaled_courtier_intrinsic_value = {
+	value = 1
+	add = tnt_scaled_courtier_skill_value
+	add = tnt_scaled_courtier_prowess_value
+	add = tnt_scaled_courtier_claim_value
+	if = { limit = { exists = inspiration } add = 15 }
+	if = { limit = { has_trait = lifestyle_physician } add = 6 }
+	if = {
+		limit = { exists = dynasty }
+		add = { value = dynasty.dynasty_prestige_level multiply = 0.5 min = 0 max = 5 }
+	}
+	if = { limit = { has_trait = intellect_good_3 } add = 10 }
+	else_if = { limit = { has_trait = intellect_good_2 } add = 6 }
+	else_if = { limit = { has_trait = intellect_good_1 } add = 3 }
+	if = { limit = { has_trait = physique_good_3 } add = 6 }
+	else_if = { limit = { has_trait = physique_good_2 } add = 4 }
+	else_if = { limit = { has_trait = physique_good_1 } add = 2 }
+	if = { limit = { has_trait = beauty_good_3 } add = 6 }
+	else_if = { limit = { has_trait = beauty_good_2 } add = 4 }
+	else_if = { limit = { has_trait = beauty_good_1 } add = 2 }
+}
+
+# Price only the native accompanying bundle, not every spouse/child by relation.
+# The native iterator includes its owner; the head is already priced separately.
+# Receiver courtiers do not move. Native recruit_guest_interaction_cost prices
+# this same iterator; tnt_3a_people and vanilla 10_tgp_interactions also use it
+# after moving the head. The engine, not this formula, decides who accompanies.
+# Companions use their present intrinsic characteristics; no adulthood/health
+# forecast or attachment bonus. Total contribution per head is capped at 60.
+# Preflight rejects overlapping same-side bundles, so no dependent is sold twice.
+tnt_scaled_courtier_companion_value = {
+	value = 0
+	save_temporary_scope_as = tnt_scaled_family_head
+	if = {
+		limit = { exists = scope:tnt_scaled_person_receiver }
+		every_traveling_family_member = {
+			limit = {
+				NOT = { this = scope:tnt_scaled_family_head }
+				NOT = { is_courtier_of = scope:tnt_scaled_person_receiver }
+			}
+			add = tnt_scaled_courtier_intrinsic_value
+		}
+	}
+	max = 60
+}
+
+# Caller refreshes giver/receiver immediately before each selected-person loop.
+# Attachment is bounded and is not used to make an otherwise worthless AI pick.
+tnt_scaled_courtier_head_value = {
+	value = tnt_scaled_courtier_intrinsic_value
+	add = tnt_scaled_courtier_companion_value
+	if = {
+		limit = {
+			exists = scope:tnt_scaled_person_giver
+			is_close_or_extended_family_of = scope:tnt_scaled_person_giver
+		}
+		add = 5
+	}
+	if = {
+		limit = {
+			exists = scope:tnt_scaled_person_receiver
+			OR = {
+				has_relation_friend = scope:tnt_scaled_person_receiver
+				has_relation_lover = scope:tnt_scaled_person_receiver
+			}
+		}
+		add = 5
+	}
+}
+
+# Scope: hostage, with the same home_court/warden/hostage scopes as native.
+# Preserve the entire native contextual value ONCE and the existing floor of 10.
+# Territory adds bounded leverage, never the value of acquiring the home realm:
+# heir: 10%, cap60; own child: 5%, cap30; other close/extended kin: 2.5%, cap15.
+tnt_scaled_hostage_value = {
+	value = hostage_value
+	min = 10
+	if = {
+		limit = { exists = scope:home_court is_heir_of = scope:home_court }
+		add = { value = scope:home_court.tnt_scaled_realm_land_value multiply = 0.1 max = 60 }
+	}
+	else_if = {
+		limit = { exists = scope:home_court is_child_of = scope:home_court }
+		add = { value = scope:home_court.tnt_scaled_realm_land_value multiply = 0.05 max = 30 }
+	}
+	else_if = {
+		limit = { exists = scope:home_court is_close_or_extended_family_of = scope:home_court }
+		add = { value = scope:home_court.tnt_scaled_realm_land_value multiply = 0.025 max = 15 }
+	}
+}

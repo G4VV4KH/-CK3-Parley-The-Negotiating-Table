@@ -1010,7 +1010,7 @@ if ($trows.Count -eq 0) {
         Write-Host ("      row {0}  {1,-28} {2}:{3}" -f $i, $r.Key, $r.File, $r.Line)
     }
     $tk    = @($trows | Where-Object { $_.Key -like 'tnt_err_threat_*' } | Select-Object -ExpandProperty Key)
-    $SHIP  = 'tnt_err_threat_relation|tnt_err_threat_weak|tnt_err_threat_recent'
+    $SHIP  = 'tnt_err_threat_relation|tnt_err_threat_weak|tnt_err_threat_recent|tnt_err_threat_cooldown'
     $have  = ($tk -join '|')
     if ($have -eq $SHIP) {
         Write-Host "      STATE: SHIPPED ROSTER - no experiment is armed, nothing to revert."

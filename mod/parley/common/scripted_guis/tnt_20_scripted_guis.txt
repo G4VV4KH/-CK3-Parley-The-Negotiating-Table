@@ -654,6 +654,10 @@ tnt_threat_p_toggle = {
 					B = var:tnt_partner
 				}
 			}
+			custom_tooltip = {
+				text = tnt_err_threat_cooldown
+				tnt_threat_cooldown_available_trigger = { A = root }
+			}
 		}
 		trigger_else = {
 			custom_tooltip = {
@@ -668,7 +672,10 @@ tnt_threat_p_toggle = {
 			limit = { exists = var:tnt_threat_p }
 			remove_variable = tnt_threat_p
 		}
-		else = {
+		else_if = {
+			# A stale UI callback may remove a selected threat, never re-add
+			# one after this aggressor has used a threat elsewhere.
+			limit = { tnt_threat_cooldown_available_trigger = { A = root } }
 			set_variable = {
 				name = tnt_threat_p
 				value = 1
