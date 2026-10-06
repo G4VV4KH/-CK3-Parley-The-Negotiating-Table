@@ -242,5 +242,6 @@ Email: {{CONTACT_EMAIL}}
 - [Your Own Hegemony]({{HEGEMONY_STEAM_URL}}) — found a custom hegemony.
 - [Vassalization Extended]({{VE_STEAM_URL}}) — choose Forced Vassalization terms without a county limit.
 - [Court Automation]({{COURT_STEAM_URL}}) — automate court positions and recruit courtiers or knights.
+- [Nomad Autorefill](https://steamcommunity.com/sharedfiles/filedetails/?id=3814793283) — automatically reinforce nomadic Men-at-Arms using herd or gold.
 
 These mods are optional.
