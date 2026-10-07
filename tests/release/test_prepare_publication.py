@@ -36,7 +36,7 @@ class PreparationTests(unittest.TestCase):
             'common/script_values/tnt_5e_valuation_policy.txt',
             'common/script_values/tnt_5f_scaled_balance_values.txt',
         })
-        for version, dev_count, game_count in [('1.2.0', 76, 75), ('1.2.1', 83, 82)]:
+        for version, dev_count, game_count in [('1.2.0', 76, 75), ('1.2.1', 83, 82), ('1.2.2', 83, 82)]:
             for public, count in [(False, dev_count), (True, game_count)]:
                 with self.subTest(version=version, public=public):
                     files = self.runtime_fixture(version, public)
@@ -129,8 +129,8 @@ class PreparationTests(unittest.TestCase):
             self.assertEqual((root / "a/b").read_bytes(), b"old")
 
     def test_guide_is_honest_and_uses_distinct_platform_shapes(self):
-        guide = kit.guide("1.2.0", "test", "a" * 40)
-        for expected in ("PREPARED_RUNTIME_SMOKE_PENDING", "NOT_UPLOADED", "03-PARADOX/parley-1.2.0-PARADOX.zip", "04-NEXUS/parley-1.2.0-NEXUS-MANUAL.zip", "AGOT integration remains on hold"):
+        guide = kit.guide("1.2.2", "test", "a" * 40)
+        for expected in ("PREPARED_LOCAL_GATES_PASS_PUBLICATION_PENDING", "NOT_UPLOADED", "03-PARADOX/parley-1.2.2-PARADOX.zip", "04-NEXUS/parley-1.2.2-NEXUS-MANUAL.zip", "AGOT integration remains on hold"):
             self.assertIn(expected, guide)
 
     def test_known_backslash_path_and_utf8_bom_are_preserved(self):
@@ -193,25 +193,58 @@ class PreparationTests(unittest.TestCase):
         with self.assertRaises(kit.PreparationError):
             kit.validate_copy(generated, readme, b'Version 1.2.0', '1.2.0')
 
-    def test_failed_external_media_preflight_creates_no_output_directories(self):
-        generated = {name: b'text' for name in ('steam.bbcode', 'paradox.txt', 'paradox.html', 'nexus.bbcode', 'github.md', 'preview.html', 'render-status.json', 'metadata.json')}
-        label = 'Want to support my work? Donate on Ko-fi 💛'
-        generated['nexus.bbcode'] = f'[size=5][b][url=https://ko-fi.com/g4vv4kh]{label}[/url][/b][/size]'.encode()
-        generated['paradox.html'] = f'<h3><a href="https://ko-fi.com/g4vv4kh">{label}</a></h3>'.encode()
-        generated['metadata.json'] = json.dumps({'nexus_file_version': '1.2.0', 'target_game_version': kit.TARGET, 'nexus_file_description': f'For CK3 {kit.TARGET}'}).encode()
-        descriptor = b'version="1.2.0"\nname="Parley: The Negotiating Table"\nsupported_version="1.20.*"\n'
+    def test_missing_native_acceptance_blocks_before_outputs(self):
+        # Exercise the real release guard. Candidate/source proof is a separate
+        # preflight; this test proves packaging cannot replace native acceptance.
+        actual_guards = kit.load_module(SCRIPT.parent / 'candidate_release_guards.py')
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            changelog = root / 'changelog.md'
-            changelog.write_bytes(b'Version 1.2.0')
+            args = SimpleNamespace(workspace=root, version='1.2.2',
+                candidate_manifest=root / 'unused.json', candidate_receipt=None,
+                check_candidate_only=False, localization_acceptance=None)
+            with mock.patch.multiple(actual_guards,
+                    candidate_proof=mock.Mock(return_value=({}, {})),
+                    assert_projection=mock.Mock(return_value={})):
+                with mock.patch.multiple(kit, load_module=mock.Mock(return_value=actual_guards),
+                        runtime_inputs=mock.Mock(return_value={})):
+                    with self.assertRaisesRegex(ValueError, 'localization acceptance'):
+                        kit.prepare(args)
+            for path in ('game', 'distribution', 'deploy', 'verification-evidence'):
+                self.assertFalse((root / path).exists())
+
+    def test_failed_external_media_preflight_creates_no_output_directories(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
             repo = root / 'dev/parley'
-            reads = {repo / 'README.md': b'text' + kit.CONTRIBUTING_FOOTER,
-                     repo / 'publishing/description.en.md': b'Version 1.2.0', changelog: b'Version 1.2.0'}
-            args = SimpleNamespace(workspace=root, version='1.2.0', build_id='fixture', bundle=None, verify=False, changelog=changelog)
-            with mock.patch.multiple(kit, load_module=mock.Mock(return_value=None),
-                    run=mock.Mock(side_effect=['', 'a'*40]), runtime_inputs=mock.Mock(return_value={'descriptor.mod': descriptor}),
-                    source_snapshot=mock.Mock(return_value=({}, {})), tree=mock.Mock(return_value=generated),
-                    read_file=mock.Mock(side_effect=lambda path: reads[path]),
+            changelog = root / 'changelog.md'
+            changelog.write_bytes(b'Version 1.2.2')
+            revision_path = root / 'revision.json'
+            revision = {'source_projection': str(repo),
+                'canonical_description': str(repo / 'publishing/description.en.md'),
+                'rendered_outputs': {k: str(repo / 'publishing/generated' / v) for k, v in
+                    {'steam':'steam.bbcode','paradox_rich':'paradox.html','nexus':'nexus.bbcode',
+                     'github':'github.md','metadata':'metadata.json'}.items()}}
+            args = SimpleNamespace(workspace=root, version='1.2.2', build_id='fixture', bundle=None,
+                verify=False, changelog=changelog, candidate_manifest=None, candidate_receipt=None,
+                check_candidate_only=False, localization_acceptance=root / 'gate.json',
+                publication_revision=revision_path, family_config=repo / 'publishing/family-links.json',
+                copy_validator=root / 'validator.py', contract_dir=root / 'contract', media_workspace=root)
+            guards = SimpleNamespace(candidate_proof=mock.Mock(return_value=({}, {})),
+                assert_projection=mock.Mock(return_value={}), acceptance=mock.Mock(return_value={}))
+            validator = SimpleNamespace(validate=mock.Mock(return_value={'status':'PASS', 'mod':'parley',
+                'mod_version':'1.2.2', 'target_game_version':kit.TARGET}))
+            def module(path):
+                if path.name == 'candidate_release_guards.py': return guards
+                if path.name == 'validator.py': return validator
+                return None
+            def read(path):
+                if path == revision_path: return json.dumps(revision).encode()
+                if path == changelog: return b'Version 1.2.2'
+                return b'fixture'
+            with mock.patch.multiple(kit, load_module=mock.Mock(side_effect=module),
+                    run=mock.Mock(side_effect=['', 'a'*40]), runtime_inputs=mock.Mock(return_value={'descriptor.mod':b'fixture'}),
+                    source_snapshot=mock.Mock(return_value=({}, {})), tree=mock.Mock(return_value={}),
+                    read_file=mock.Mock(side_effect=read), descriptor_check=mock.Mock(), validate_copy=mock.Mock(),
                     media_inputs=mock.Mock(side_effect=kit.PreparationError('media mismatch'))):
                 with self.assertRaisesRegex(kit.PreparationError, 'media mismatch'):
                     kit.prepare(args)

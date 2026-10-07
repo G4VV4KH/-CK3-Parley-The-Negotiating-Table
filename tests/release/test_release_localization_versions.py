@@ -45,7 +45,16 @@ class LocalizationVersionTests(unittest.TestCase):
         for report in changes["parley"].values():
             self.assertEqual(set(report["localization_keys_removed"]), builder.REMOVED_LOC)
 
-    def test_actual_121_localizations_keep_valuation_frequency_and_presentation_keys(self):
+    def test_122_translation_patch_keeps_121_counts_and_diagnostic_boundary(self):
+        source = fixture("1.2.2", 652)
+        self.assertEqual(builder.parley_localization_counts(source["parley"]), (662, 652))
+        output, changes = builder.project(source)
+        self.assertEqual(builder.validate_localizations(output)["parley"]["keys_per_language"], 652)
+        self.assertEqual(len(changes["parley"]), 9)
+        for report in changes["parley"].values():
+            self.assertEqual(set(report["localization_keys_removed"]), builder.REMOVED_LOC)
+
+    def test_actual_current_localizations_keep_valuation_frequency_and_presentation_keys(self):
         root = SCRIPT.parents[2] / "mod/parley"
         files = {"descriptor.mod": (root / "descriptor.mod").read_bytes()}
         for language in builder.LANGUAGES:
@@ -70,7 +79,7 @@ class LocalizationVersionTests(unittest.TestCase):
                     self.assertTrue(expected <= builder.localization_keys(data, name))
 
     def test_versions_do_not_accept_each_others_counts(self):
-        profiles = {"1.1.0": 622, "1.2.0": 632, "1.2.1": 652}
+        profiles = {"1.1.0": 622, "1.2.0": 632, "1.2.1": 652, "1.2.2": 652}
         for version, expected in profiles.items():
             for wrong_count in set(profiles.values()) - {expected}:
                 with self.subTest(version=version, wrong_count=wrong_count), self.assertRaises(builder.ReleaseError):
@@ -81,7 +90,7 @@ class LocalizationVersionTests(unittest.TestCase):
             with self.subTest(old_game_count=old_game_count), self.assertRaises(builder.ReleaseError):
                 builder.project(fixture("1.2.1", old_game_count))
 
-    def test_actual_121_projection_preserves_cooldown_runtime_and_cleanup(self):
+    def test_actual_current_projection_preserves_cooldown_runtime_and_cleanup(self):
         root = SCRIPT.parents[2] / "mod/parley"
         files = {path.relative_to(root).as_posix(): path.read_bytes()
                  for path in root.rglob("*") if path.is_file()}
@@ -113,7 +122,7 @@ class LocalizationVersionTests(unittest.TestCase):
                       projected["events/tnt_ai_events.txt"])
 
     def test_unknown_or_duplicate_version_rejected(self):
-        for descriptor in (b'version="1.2.2"\n', b'version="1.3.0"\n', b'version="1.2.1"\nversion="1.2.0"\n', b'name="Parley"\n'):
+        for descriptor in (b'version="1.2.3"\n', b'version="1.3.0"\n', b'version="1.2.1"\nversion="1.2.0"\n', b'name="Parley"\n'):
             with self.subTest(descriptor=descriptor), self.assertRaises(builder.ReleaseError):
                 builder.parley_localization_counts({"descriptor.mod": descriptor})
 

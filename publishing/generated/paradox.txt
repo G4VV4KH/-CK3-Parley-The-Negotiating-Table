@@ -2,7 +2,7 @@ Parley: The Negotiating Table
 
 At a glance
 
-- 🟢 Version 1.2.1 · Targets CK3 1.20.0.4.
+- 🟢 Version 1.2.2 · Targets CK3 1.20.0.4.
 - 🟢 Standalone: no other mod required.
 - 🟢 Negotiate marriage, money and allegiance in one treaty.
 - 🟢 Languages: English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, 來自無壹的中文翻譯: https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070 and Spanish.
@@ -12,11 +12,9 @@ At a glance
 
 A wedding can win what a war cannot
 
-Put marriage, money and allegiance on the same table. Give your counterpart a reason to sign.
+Negotiate marriage, money and allegiance with both sides and your counterpart's valuation visible.
 
-See both sides of the treaty and your counterpart's valuation in one window.
-
-Auto-balance adjusts currencies toward +1 acceptance and reports if it cannot reach that target. Relationships and concessions affect the result.
+Auto-balance adjusts currencies toward +1 acceptance or reports it cannot; relationships and concessions affect the result.
 
 AI envoys bring offers and demands: accept, negotiate or turn them away.
 
@@ -28,11 +26,11 @@ What you can negotiate
 - People and possessions: exchange artifacts, pledge relatives as hostages, or transfer eligible courtiers and accompanying families.
 - Favors and pressure: promise or use a hook, or threaten a ruler with sufficient army, prestige and dread. Player and AI threats share the same minimum.
 
-Tooltips explain eligibility and game-rule restrictions. Eligible marriages can create alliances; alliances cannot be bought separately.
+Tooltips explain eligibility and rules. Eligible marriages can create alliances, but alliances are not sold separately.
 
 Reading the central panel
 
-Their Answer evaluates the treaty from your counterpart's perspective: benefits, costs, standing, extra demands and pressure combine into acceptance.
+Their Answer combines benefits, costs, standing, extra demands and pressure into acceptance from your counterpart's perspective.
 
 This historical AGOT example gives 197 + 136 - 322 - 10 = +1, with no pressure:
 
@@ -48,9 +46,9 @@ The individual treaty rows use a different breakdown:
 - Military alliance: 68 — this marriage's alliance value, counted once.
 - Swear fealty: 250 — the counterpart's submission cost in this example.
 
-Why can -32 improve the treaty by about +100? The alliance adds value, and the marriage's positive components change the standing and extra-demand shares. Those shares apply to positive value, not the net -32 row. The figures imply roughly 106-107 points of improvement for this marriage-and-alliance package: an inference from the panel, not an exact measured before-and-after result.
+Why can -32 improve the treaty by about +100? The alliance adds value, while positive marriage components change standing and extra-demand shares. Those shares use positive value, not the net -32 row. The panel implies roughly 106-107 points gained from this marriage-and-alliance package; this is an inference, not a measured before-and-after result.
 
-Rounding can make displayed rows differ slightly from totals. These values belong to this proposal; they are not universal prices.
+Rounding can make rows differ slightly from totals. These example values are not universal prices.
 
 Getting started
 
@@ -114,5 +112,6 @@ My other mods
 - Vassalization Extended: https://steamcommunity.com/sharedfiles/filedetails/?id=3813943691 — choose Forced Vassalization terms without a county limit.
 - Court Automation: https://steamcommunity.com/sharedfiles/filedetails/?id=3814028714 — automate court positions and recruit courtiers or knights.
 - Nomad Autorefill: https://steamcommunity.com/sharedfiles/filedetails/?id=3814793283 — automatically reinforce nomadic Men-at-Arms using herd or gold.
+- Tax Collection Automation: https://steamcommunity.com/sharedfiles/filedetails/?id=3815381275 — automatically assign tax collectors and optimize tax jurisdictions.
 
 These mods are optional.

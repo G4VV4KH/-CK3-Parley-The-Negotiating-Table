@@ -26,7 +26,15 @@
     "COURT_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3814028714",
     "COURT_PARADOX_URL": "https://mods.paradoxplaza.com/mods/162080/Any",
     "COURT_NEXUS_URL": "https://www.nexusmods.com/crusaderkings3/mods/408",
-    "COURT_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Court-Automation"
+    "COURT_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Court-Automation",
+    "NOMAD_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3814793283",
+    "NOMAD_PARADOX_URL": "https://mods.paradoxplaza.com/mods/162238/Any",
+    "NOMAD_NEXUS_URL": "https://www.nexusmods.com/crusaderkings3/mods/409",
+    "NOMAD_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Nomad-Autorefill",
+    "TCA_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3815381275",
+    "TCA_PARADOX_URL": "https://mods.paradoxplaza.com/mods/162345/Any",
+    "TCA_NEXUS_URL": "https://www.nexusmods.com/crusaderkings3/mods/410",
+    "TCA_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Tax-Collection-Automation"
   },
   "workshop_ids": {
     "parley": "3811090081",
@@ -34,7 +42,9 @@
     "agot_marriage_calc_assistant": null,
     "custom_hegemony": "3811201582",
     "vassalization_extended": "3813943691",
-    "court_automation": "3814028714"
+    "court_automation": "3814028714",
+    "nomad_autorefill": "3814793283",
+    "tax_collection_automation": "3815381275"
   },
   "github_remotes": {
     "parley": "https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table.git",
@@ -42,7 +52,9 @@
     "agot_marriage_calc_assistant": "https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant.git",
     "custom_hegemony": "https://github.com/G4VV4KH/-CK3-Your-Own-Hegemony.git",
     "vassalization_extended": "https://github.com/G4VV4KH/-CK3-Vassalization-Extended.git",
-    "court_automation": "https://github.com/G4VV4KH/-CK3-Court-Automation.git"
+    "court_automation": "https://github.com/G4VV4KH/-CK3-Court-Automation.git",
+    "nomad_autorefill": "https://github.com/G4VV4KH/-CK3-Nomad-Autorefill.git",
+    "tax_collection_automation": "https://github.com/G4VV4KH/-CK3-Tax-Collection-Automation.git"
   },
-  "notes": "Assigned publication IDs verified against release-workflow.json on 2026-10-05. Related descriptions include the other released maintained mods; the held AGOT adapter uses its assigned GitHub URL, never a fabricated store destination. Empty unassigned AGOT store links are retained as unavailable."
+  "notes": "Previous six-member public metadata verified on 2026-10-06. TCA assigned URLs added on 2026-10-07 after Steam public metadata and all 29 delivered runtime files were verified. Seven-member sibling description updates and applicable localization gates remain pending; this catalog is not evidence of those updates. TCA remaining-platform reconciliation is owned by its publication task. The held AGOT adapter retains its assigned GitHub URL and unavailable store destinations. Archive-delivery status is tracked separately in the release registry."
 }

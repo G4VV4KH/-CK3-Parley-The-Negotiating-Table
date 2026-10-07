@@ -21,7 +21,7 @@ from pathlib import Path, PurePosixPath
 
 MOD = "parley"
 TITLE = "Parley: The Negotiating Table"
-TARGET = "1.20.0.3"
+TARGET = "1.20.0.4"
 STEAM_ID = "3811090081"
 PLATFORMS = {
     "steam": (STEAM_ID, f"https://steamcommunity.com/sharedfiles/filedetails/?id={STEAM_ID}"),
@@ -129,6 +129,7 @@ PARLEY_121_ADDITIONS = frozenset({
 PARLEY_RUNTIME_FILES = {
     "1.2.0": PARLEY_120_RUNTIME_FILES,
     "1.2.1": PARLEY_120_RUNTIME_FILES | PARLEY_121_ADDITIONS,
+    "1.2.2": PARLEY_120_RUNTIME_FILES | PARLEY_121_ADDITIONS,
 }
 
 
@@ -192,8 +193,10 @@ def run(args, cwd=None):
 
 
 def load_module(path):
-    spec = importlib.util.spec_from_file_location("parley_kit_packager", path)
+    name = "parley_release_" + Path(path).stem
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -324,13 +327,13 @@ def source_snapshot(repo):
 def guide(version, build_id, source_commit):
     return f"""Parley: The Negotiating Table — {version}
 Target CK3: {TARGET}; supported_version: 1.20.*
-Status: PREPARED_RUNTIME_SMOKE_PENDING / NOT_UPLOADED
+Status: PREPARED_LOCAL_GATES_PASS_PUBLICATION_PENDING / NOT_UPLOADED
 Build: {build_id}
 Source commit: {source_commit}
 
 This folder prepares an UPDATE to the existing items, not new publications.
-Do not upload before the focused smoke of this GAME projection is recorded.
-DEV tests and the new production projection are distinct evidence scopes.
+Exact candidate localization acceptance and unchanged-gameplay inheritance are
+recorded in 07-VERIFICATION. Native text resolution does not prove visual layout.
 
 STEAM
 Existing item: {PLATFORMS['steam'][1]}
@@ -377,25 +380,27 @@ Changelog: 02-TEXT/CHANGELOG.md
 Short description and platform metadata: 02-TEXT/metadata.json
 Runtime thumbnail: 05-IMAGES/thumbnail.png (512x512 PNG).
 Gallery order/captions/provenance: 05-IMAGES/gallery.json
-Use GALLERY/01, 02, 03 in that order. Existing captures illustrate the historical
-1.19.0.6 interface; they do not show the newer currency or valuation rule choices.
+Use GALLERY/01, 02, 03 in that order. The first two negotiations are historical
+CK3 1.19.0.6 captures. The third is the published 1.2.1 rules image; Scaled and
+five-year threat cooldown are selected examples, not defaults. Its exact game
+patch is not established. Preserve existing live galleries unless replacement
+is needed; never restore the superseded old rules image.
 Gallery images are below 2 MB each and the complete batch below 8 MB.
 Cover artwork and actual gameplay captures are distinct; apply required AI-media
 disclosures based on the recorded provenance and actual publication form.
 
 Compatibility: vanilla CK3 1.20.* target {TARGET}; optional MCA is standalone.
 AGOT integration remains on hold; do not imply current AGOT compatibility.
-The held AGOT:MCA companion has no assigned Steam item. Use its assigned GitHub
-link and explicit held status; do not invent a Steam destination.
+Related-mod links follow the current reviewed published-family catalog.
 All four Parley destinations above retain their assigned publication identities.
 Save backup recommended; new game-rule choices are selected for a new campaign.
 Close pending negotiations and use the mod's cleanup procedure before removal.
 
-NEXT: review copy/media, record focused GAME smoke, then upload only with human
-authorization. Reopen each page and verify downloaded runtime bytes separately.
+NEXT: publish this authorized update, then reopen each page and verify downloaded
+runtime bytes separately. Preserve the previous release and its evidence.
 Prepared files do not establish upload, publication or delivered-byte verification.
 Rendered format structure was checked; actual upload-form visual review remains
-pending. Local-file browser preview was unavailable; no bypass was attempted.
+pending; this packaging tool does not inspect browser rendering.
 No playset, installed mod, save, old release or other mod was changed by this tool.
 """
 
@@ -431,16 +436,36 @@ def media_inputs(workspace, repo, runtime):
         "05-IMAGES/parley-cover-horizontal-1920x1080.png": media / "paradox-upload-png/parley-cover-horizontal-1920x1080.png",
         "05-IMAGES/thumbnail.png": repo / "mod/parley/thumbnail.png",
     }
-    gallery_source = json.loads(read_file(media / "steam-upload-jpg-manifest.json"))
+    # Use the latest published gallery, never restore the superseded rules image.
+    gallery_bytes = read_file(repo / "publishing/gallery.json")
+    require(record(gallery_bytes)["sha256"] == "3f772681e4d3557e18b66c430dbfd85058152967a266c8ccbba75bc657e60524",
+            "Reviewed current gallery manifest changed")
+    gallery_source = json.loads(gallery_bytes)
+    specs = [
+        ("publishing/screenshots/01-negotiating-table.png", media / "steam-upload-jpg/01-negotiating-table.jpg",
+         "dd31703cc31d2c0d08ec4ca9ac69d0ed76da2657d1ab87efad815306a99c134a"),
+        ("publishing/screenshots/02-incoming-ai-offer.png", media / "steam-upload-jpg/02-incoming-ai-offer.jpg",
+         "d83217cbc5fa363a955019b89178b571e2827af59aae2140b4813c5d3184cc44"),
+        ("publishing/screenshots/04-game-rules.png",
+         workspace / "publication-review/parley-rules-media-2026-10-06/05-IMAGES/GALLERY/03-game-rules.jpg",
+         "308c682ade369eabeae4a3753a07f71d00ca5b1442d554125e9748f97f66cd0d"),
+    ]
+    require([item["file"] for item in gallery_source["items"]] == [row[0] for row in specs],
+            "Current source gallery order changed")
     gallery = []
-    for item in gallery_source["images"]:
-        path = Path(item["file"])
+    for order, (item, (source_name, path, jpeg_sha)) in enumerate(zip(gallery_source["items"], specs), 1):
+        original = read_file(repo / source_name)
+        require(record(original)["sha256"] == item["sha256"] and image_size(original) == (1920, 1080),
+                "Repository gallery original differs from reviewed provenance")
         data = read_file(path)
-        require(record(data)["sha256"] == item["sha256"] and len(data) < 2_000_000, "Gallery source hash/Steam size limit mismatch")
+        require(record(data)["sha256"] == jpeg_sha and len(data) < 2_000_000,
+                "Current gallery derivative hash/Steam size limit mismatch")
         name = "05-IMAGES/GALLERY/" + path.name
         selected_media[name] = path
-        gallery.append({"order": item["order"], "file": name.removeprefix("05-IMAGES/"), "caption": item["caption_en"],
-                        "provenance": "Unaltered gameplay capture, historical CK3 1.19.0.6; JPEG compression of preserved PNG.", **record(data)})
+        provenance = item.get("provenance", {"source": "Unaltered historical CK3 1.19.0.6 gameplay capture; uncropped JPEG derivative."})
+        gallery.append({"order": order, "file": name.removeprefix("05-IMAGES/"), "caption": item["caption_en"],
+                        "source_file": source_name, "source_sha256": item["sha256"],
+                        "provenance": provenance, **record(data)})
     require(len(gallery) == 3 and [item["order"] for item in gallery] == [1, 2, 3]
             and sum(row["bytes"] for row in gallery) < 8_000_000, "Unexpected gallery inventory/order/batch size")
     files = {name: read_file(path) for name, path in selected_media.items()}
@@ -454,10 +479,10 @@ def media_inputs(workspace, repo, runtime):
     for item in gallery:
         require(image_size(files["05-IMAGES/" + item["file"]]) == (1920, 1080), "Gallery aspect ratio changed")
     media_inventory = inventory(files)
-    files["05-IMAGES/gallery.json"] = json_bytes({"items": gallery, "new_rules_not_depicted": True})
-    files["05-IMAGES/provenance.json"] = json_bytes({"gallery": "Historical authentic gameplay captures; no AI alteration.",
+    files["05-IMAGES/gallery.json"] = json_bytes({"items": gallery, "rules_screenshot": "Published 1.2.1 rules capture reused unchanged; selected Scaled and five-year cooldown are not defaults."})
+    files["05-IMAGES/provenance.json"] = json_bytes({"gallery": "Authentic gameplay captures; first two historical CK3 1.19.0.6, third reviewed 1.2.1 game-rules capture with unknown exact game patch; no AI alteration.",
         "cover": "Existing approved composition reused unchanged. Horizontal cover is deterministic lossless padding of the supplied square; no newly generated artwork.",
-        "source_records": ["publication-media/parley/paradox-upload-png-manifest.json", "publication-media/parley/steam-upload-jpg-manifest.json"],
+        "source_records": ["publishing/gallery.json", "publication-media/parley/paradox-upload-png-manifest.json", "publication-media/parley/steam-upload-jpg-manifest.json (first two images only)", "publication-review/parley-rules-media-2026-10-06/artifact-pins.json"],
         "media": media_inventory})
     return files
 
@@ -465,7 +490,31 @@ def media_inputs(workspace, repo, runtime):
 def prepare(args):
     workspace = args.workspace.resolve()
     repo = workspace / "dev/parley"
-    tools = repo / "tools/release"
+    tools = Path(__file__).resolve().parent
+    guards = load_module(tools / "candidate_release_guards.py")
+    require(args.version == "1.2.2", "This isolated tool is only for the reviewed 1.2.2 translation release")
+    candidate, candidate_proof = guards.candidate_proof(args.candidate_manifest, args.candidate_receipt)
+    builder = load_module(tools / "build_game.py")
+    projection_proof = guards.assert_projection(runtime_inputs(repo), candidate, builder)
+    if args.check_candidate_only:
+        return {"status": "CANDIDATE_PROJECTION_PASS_NATIVE_ACCEPTANCE_PENDING", "candidate_proof": candidate_proof, "projection_proof": projection_proof}
+    gate = guards.acceptance(args.localization_acceptance, args.candidate_manifest)
+    require(all(value is not None for value in (args.publication_revision, args.family_config,
+            args.copy_validator, args.contract_dir, args.media_workspace)), "Explicit copy, contract and media inputs required")
+    copy_revision = json.loads(read_file(args.publication_revision))
+    require(Path(copy_revision["source_projection"]).resolve() == repo.resolve(), "Copy revision must name this exact isolated source")
+    require(Path(copy_revision["canonical_description"]).resolve() == (repo / "publishing/description.en.md").resolve(),
+            "Copy revision canonical must match packaging input")
+    require(read_file(args.family_config) == read_file(repo / "publishing/family-links.json"), "Source family config differs from validation config")
+    required_copy_names = {"steam": "steam.bbcode", "paradox_rich": "paradox.html", "nexus": "nexus.bbcode", "github": "github.md", "metadata": "metadata.json"}
+    for key, filename in required_copy_names.items():
+        require(Path(copy_revision["rendered_outputs"][key]).resolve() == (repo / "publishing/generated" / filename).resolve(),
+                f"Validated {key} copy is not the packaging input")
+    validator = load_module(args.copy_validator)
+    copy_validation = validator.validate(args.publication_revision, args.family_config, args.contract_dir / "contract.json")
+    require(copy_validation["status"] == "PASS" and copy_validation["mod"] == MOD and copy_validation["mod_version"] == args.version and copy_validation["target_game_version"] == TARGET, "Complete current publication-copy validation required")
+    for name in ("build_game.py", "package_game.py", "prepare_publication.py", "candidate_release_guards.py"):
+        require(read_file(repo / "tools/release" / name) == read_file(tools / name), f"GitHub source lacks the reviewed release tool: {name}")
     bundle = (args.bundle or workspace / "deploy" / f"parley-{args.version}").resolve()
     build = workspace / "game" / args.build_id
     distribution = workspace / "distribution" / args.build_id
@@ -493,15 +542,15 @@ def prepare(args):
     validate_copy(generated, readme, canonical, args.version)
     changelog = read_file(args.changelog)
     require(args.version.encode() in changelog, "Changelog must identify the prepared version")
-    media_files = media_inputs(workspace, repo, runtime)
-    contract_root = workspace.parent / "ck3-mods/docs/publishing"
+    media_files = media_inputs(args.media_workspace, repo, runtime)
+    contract_root = args.contract_dir
     contract_files = {"07-VERIFICATION/publication-contract/" + name: read_file(contract_root / name)
                       for name in ("CONTRACT.md", "contract.json", "description.template.en.md")}
     links = json.loads(read_file(repo / "publishing/family-links.json"))["links"]
     for platform, (_, url) in PLATFORMS.items():
         require(links[f"PARLEY_{platform.upper()}_URL"] == url, f"Assigned {platform} identity changed")
 
-    lock = {"schema": 1, "baseline": f"Parley {args.version}, reviewed Parley-only update for CK3 {TARGET}; source {commit}. No engine verification of the GAME projection is implied.",
+    lock = {"schema": 1, "baseline": f"Parley {args.version}, reviewed Parley-only update for CK3 {TARGET}; source {commit}. Exact native localization acceptance is recorded separately; build success alone is not native acceptance.",
             "mods": {MOD: {"files": inventory(runtime)}}}
     evidence.mkdir(parents=True)
     write_new(evidence, "release-inputs.json", json_bytes(lock))
@@ -515,6 +564,7 @@ def prepare(args):
     package = [sys.executable, "-B", tools / "package_game.py", "--build-dir", build, "--output-dir", distribution]
     commands.extend([json.loads(run(package)), json.loads(run(package + ["--verify"]))])
     game_files = tree(build / MOD)
+    require(game_files == candidate, "Built GAME changed after preflight candidate comparison")
     validate_runtime_inventory(game_files, public=True)
     steam, steam_wrapper, portable_wrapper = platform_payloads(game_files)
     files = {f"01-STEAM/runtime/parley/{name}": data for name, data in steam.items()}
@@ -528,7 +578,7 @@ def prepare(args):
         "supported_version": "1.20.*", "tags": ["1.20 'Crozier'", "Gameplay", "Character Interactions", "Events"],
         "required_mods": [], "optional_companions": ["Marriage Calculation Assistant"], "agot_status": "HELD",
         "short_description": "Negotiate custom treaties: exchange wealth, prestige, piety, titles and political concessions, with configurable rules for players and AI.",
-        "manual_choices": ["Preserve existing platform item IDs", "Review actual license/permissions; no new license granted", "Apply required AI-media provenance tags", "Record GAME smoke before upload"]})
+        "manual_choices": ["Preserve existing platform item IDs", "Review actual license/permissions; no new license granted", "Apply required AI-media provenance tags", "Read exact candidate localization acceptance before upload"]})
     files[f"03-PARADOX/parley-{args.version}-PARADOX.zip"] = read_file(distribution / f"parley-{args.version}-payload.zip")
     nexus_files = {f"parley/{name}": data for name, data in game_files.items()}
     nexus_files["parley.mod"] = portable_wrapper
@@ -551,6 +601,13 @@ def prepare(args):
         "Original repository history is preserved. Do not initialize/replace it from this snapshot.\n"
         f"Original reviewed source commit: {commit}\n").encode()
     files["07-VERIFICATION/source-export.json"] = json_bytes(export_report)
+    files["07-VERIFICATION/candidate-proof.json"] = json_bytes(candidate_proof)
+    files["07-VERIFICATION/source-to-candidate-proof.json"] = json_bytes(projection_proof)
+    files["07-VERIFICATION/localization-acceptance.json"] = read_file(args.localization_acceptance)
+    files["07-VERIFICATION/localization-gate.json"] = json_bytes(gate)
+    files["07-VERIFICATION/publication-copy-validation.json"] = json_bytes(copy_validation)
+    files["07-VERIFICATION/candidate-runtime-manifest.json"] = read_file(args.candidate_manifest)
+    files["07-VERIFICATION/candidate-preparation-receipt.json"] = read_file(args.candidate_receipt)
     for path in (evidence / "release-inputs.json", evidence / "source-evidence.json", build / "manifest.json", build / "transform-report.json", distribution / "archive-manifest.json"):
         files["07-VERIFICATION/" + path.name] = read_file(path)
     files["07-VERIFICATION/build-results.json"] = json_bytes(commands)
@@ -558,10 +615,11 @@ def prepare(args):
     files["07-VERIFICATION/steam-overlay.json"] = json_bytes({"only_change": "Append existing Steam remote_file_id to public descriptor; no name/script changes.",
         "remote_file_id": STEAM_ID, "before": record(game_files["descriptor.mod"]), "after": record(steam["descriptor.mod"])})
     files["PUBLICATION-STATUS.json"] = json_bytes({"schema": 1, "mod": MOD, "version": args.version, "build_id": args.build_id,
-        "status": "PREPARED_RUNTIME_SMOKE_PENDING", "game_target": TARGET, "source_commit": commit,
+        "status": "PREPARED_LOCAL_GATES_PASS_PUBLICATION_PENDING", "game_target": TARGET, "source_commit": commit,
         "platforms": {name: {"status": "NOT_UPLOADED", "remote_id": item_id, "url": url} for name, (item_id, url) in PLATFORMS.items()},
-        "runtime_smoke": "NOT_YET_RUN_ON_THIS_GAME_PROJECTION", "external_publication_performed": False})
+        "runtime_smoke": "SEE_EXACT_CANDIDATE_LOCALIZATION_REPORT_AND_SCOPED_INHERITANCE", "localization_gate": gate, "external_publication_performed": False})
     start = guide(args.version, args.build_id, commit)
+    start += "\nLOCALIZATION RELEASE GATE: PASS; exact candidate report and hash in 07-VERIFICATION/localization-gate.json. Visual status: " + gate["visual_status"] + ". External publication and delivered-byte verification remain pending.\n"
     files["00-START-HERE.txt"] = start.encode()
     files["00-START-HERE.html"] = ("<!doctype html><meta charset='utf-8'><title>Parley publication kit</title>"
         "<style>body{max-width:1000px;margin:3rem auto;background:#182020;color:#eee;font:16px system-ui}"
@@ -604,7 +662,7 @@ def verify(workspace, bundle, build_id, version, tools, packager):
     run([sys.executable, "-B", tools / "build_game.py", "--dev-root", workspace / "dev", "--output-root", workspace / "game",
          "--lock", workspace / "verification-evidence" / build_id / "release-inputs.json", "--build-id", build_id, "--mods", MOD, "--verify"])
     run([sys.executable, "-B", tools / "package_game.py", "--build-dir", build, "--output-dir", workspace / "distribution" / build_id, "--verify"])
-    return {"status": "PREPARED_RUNTIME_SMOKE_PENDING", "publication": "NOT_UPLOADED", "build_id": build_id,
+    return {"status": "PREPARED_LOCAL_GATES_PASS_PUBLICATION_PENDING", "publication": "NOT_UPLOADED", "build_id": build_id,
             "bundle": str(bundle), "files": len(actual) + 1, "game_files": len(game_files),
             "paradox_sha256": paradox["sha256"], "nexus_sha256": nexus_checked["sha256"], "verification": "PASS"}
 
@@ -617,6 +675,15 @@ def main():
     parser.add_argument("--changelog", type=Path)
     parser.add_argument("--bundle", type=Path)
     parser.add_argument("--verify", action="store_true")
+    parser.add_argument("--candidate-manifest", type=Path, required=True)
+    parser.add_argument("--candidate-receipt", type=Path, required=True)
+    parser.add_argument("--localization-acceptance", type=Path)
+    parser.add_argument("--publication-revision", type=Path)
+    parser.add_argument("--family-config", type=Path)
+    parser.add_argument("--copy-validator", type=Path)
+    parser.add_argument("--contract-dir", type=Path)
+    parser.add_argument("--media-workspace", type=Path)
+    parser.add_argument("--check-candidate-only", action="store_true")
     args = parser.parse_args()
     try:
         print(json.dumps(prepare(args), ensure_ascii=False, indent=2))
