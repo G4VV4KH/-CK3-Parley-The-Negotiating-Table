@@ -113,7 +113,11 @@ tnt_cur_step_p_effect = {
 		name = $VAR$
 		value = {
 			value = var:$VAR$
-			add = $DELTA$
+			add = {
+				value = $DELTA$
+				# Positive steps stop at the opposing row; reductions still work.
+				if = { limit = { NOT = { tnt_currency_p_unlocked_trigger = { CURRENCY = $FIELD$ } } } max = 0 }
+			}
 			min = 0
 		}
 	}
@@ -150,7 +154,11 @@ tnt_cur_step_r_effect = {
 		name = $VAR$
 		value = {
 			value = var:$VAR$
-			add = $DELTA$
+			add = {
+				value = $DELTA$
+				# Positive steps stop at the opposing row; reductions still work.
+				if = { limit = { NOT = { tnt_currency_r_unlocked_trigger = { CURRENCY = $FIELD$ } } } max = 0 }
+			}
 			min = 0
 		}
 	}
@@ -184,68 +192,74 @@ tnt_cur_step_r_effect = {
 # AMOUNT is a NAMED script value, never a literal, so that the semantics of a
 # preset live in tnt_53_currency_values.txt and not in 32 GUI entry points.
 tnt_cur_set_p_effect = {
-	set_variable = {
-		name = $VAR$
-		value = {
-			value = $AMOUNT$
-			min = 0
-			round = yes
-		}
-	}
 	if = {
-		limit = { $FIELD$ >= 1 }
+		limit = { tnt_currency_p_unlocked_trigger = { CURRENCY = $FIELD$ } }
 		set_variable = {
 			name = $VAR$
 			value = {
-				value = var:$VAR$
+				value = $AMOUNT$
 				min = 0
-				max = $FIELD$
+				round = yes
 			}
 		}
-	}
-	else = {
-		set_variable = {
-			name = $VAR$
-			value = 0
+		if = {
+			limit = { $FIELD$ >= 1 }
+			set_variable = {
+				name = $VAR$
+				value = {
+					value = var:$VAR$
+					min = 0
+					max = $FIELD$
+				}
+			}
 		}
+		else = {
+			set_variable = {
+				name = $VAR$
+				value = 0
+			}
+		}
+		remove_variable = tnt_ab_state
 	}
-	remove_variable = tnt_ab_state
 }
 
 # A5 - SET AN ABSOLUTE AMOUNT, THE PARTNER IS THE GIVER.
 tnt_cur_set_r_effect = {
-	set_variable = {
-		name = $VAR$
-		value = {
-			value = $AMOUNT$
-			min = 0
-			round = yes
-		}
-	}
 	if = {
-		limit = {
-			exists = var:tnt_partner
-			var:tnt_partner ?= { $FIELD$ >= 1 }
-		}
-		var:tnt_partner ?= {
-			save_temporary_scope_as = tnt_cap_giver
-		}
+		limit = { tnt_currency_r_unlocked_trigger = { CURRENCY = $FIELD$ } }
 		set_variable = {
 			name = $VAR$
 			value = {
-				value = var:$VAR$
+				value = $AMOUNT$
 				min = 0
-				max = scope:tnt_cap_giver.$FIELD$
+				round = yes
 			}
 		}
-	}
-	else = {
-		set_variable = {
-			name = $VAR$
-			value = 0
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { $FIELD$ >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = $VAR$
+				value = {
+					value = var:$VAR$
+					min = 0
+					max = scope:tnt_cap_giver.$FIELD$
+				}
+			}
 		}
+		else = {
+			set_variable = {
+				name = $VAR$
+				value = 0
+			}
+		}
+		remove_variable = tnt_ab_state
 	}
-	remove_variable = tnt_ab_state
 }
 
 # A6 - SET A FRACTION OF WHAT THE PLAYER HOLDS.
@@ -256,45 +270,51 @@ tnt_cur_set_r_effect = {
 # expressed as MULT = 1 rather than as a named per-currency value - there is
 # nothing left to name.
 tnt_cur_frac_p_effect = {
-	set_variable = {
-		name = $VAR$
-		value = {
-			value = $FIELD$
-			multiply = $MULT$
-			min = 0
-			round = yes
+	if = {
+		limit = { tnt_currency_p_unlocked_trigger = { CURRENCY = $FIELD$ } }
+		set_variable = {
+			name = $VAR$
+			value = {
+				value = $FIELD$
+				multiply = $MULT$
+				min = 0
+				round = yes
+			}
 		}
+		remove_variable = tnt_ab_state
 	}
-	remove_variable = tnt_ab_state
 }
 
 # A7 - SET A FRACTION OF WHAT THE PARTNER HOLDS.
 tnt_cur_frac_r_effect = {
 	if = {
-		limit = {
-			exists = var:tnt_partner
-			var:tnt_partner ?= { $FIELD$ >= 1 }
-		}
-		var:tnt_partner ?= {
-			save_temporary_scope_as = tnt_cap_giver
-		}
-		set_variable = {
-			name = $VAR$
-			value = {
-				value = scope:tnt_cap_giver.$FIELD$
-				multiply = $MULT$
-				min = 0
-					round = yes
+		limit = { tnt_currency_r_unlocked_trigger = { CURRENCY = $FIELD$ } }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				var:tnt_partner ?= { $FIELD$ >= 1 }
+			}
+			var:tnt_partner ?= {
+				save_temporary_scope_as = tnt_cap_giver
+			}
+			set_variable = {
+				name = $VAR$
+				value = {
+					value = scope:tnt_cap_giver.$FIELD$
+					multiply = $MULT$
+					min = 0
+						round = yes
+				}
 			}
 		}
-	}
-	else = {
-		set_variable = {
-			name = $VAR$
-			value = 0
+		else = {
+			set_variable = {
+				name = $VAR$
+				value = 0
+			}
 		}
+		remove_variable = tnt_ab_state
 	}
-	remove_variable = tnt_ab_state
 }
 
 # A8 - CLEAR THIS CURRENCY. "Nothing", the fourth preset.
@@ -653,8 +673,8 @@ tnt_ab_add_offer_currency_effect = {
 	}
 }
 
-# Gold and influence permit both directions. Prestige and piety call these
-# halves separately so the actual giver controls each currency-rule check.
+# Gold and influence allow either giver. Prestige and piety call these halves
+# separately so the actual giver controls each currency-rule check.
 tnt_ab_close_deficit_currency_effect = {
 	tnt_ab_reduce_return_currency_effect = { VAR = $R$ }
 	tnt_ab_add_offer_currency_effect = { P = $P$ R = $R$ CAP = $CAP$ }
@@ -669,7 +689,12 @@ tnt_ab_trim_currency_effect = {
 
 tnt_ab_pay_currency_effect = {
 	if = {
-		limit = { tnt_ab_surplus_value > 0 }
+		# Caller supplies the opposite variable even for influence; its existing
+		# own-currency-wide gate already required this. Keep this helper safe alone.
+		limit = {
+			tnt_ab_surplus_value > 0
+			NOT = { AND = { exists = var:$P$ var:$P$ > 0 } }
+		}
 		tnt_ab_search_effect = { VAR = $VAR$ BOUND = $CAP$ STEP = 1 DIRECTION = -1 }
 	}
 }
@@ -1065,18 +1090,18 @@ tnt_ab_solve_effect = {
 	}
 	if = {
 		limit = { tnt_ab_own_currency_value <= 0 tnt_ab_surplus_value > 0 }
-		tnt_ab_pay_currency_effect = { VAR = tnt_gold_r CAP = tnt_ai_pay_cap_value }
+		tnt_ab_pay_currency_effect = { VAR = tnt_gold_r P = tnt_gold_p CAP = tnt_ai_pay_cap_value }
 		if = {
 			limit = { tnt_trade_prestige_trigger = { A = var:tnt_partner B = root } }
-			tnt_ab_pay_currency_effect = { VAR = tnt_prestige_r CAP = tnt_ai_pay_cap_prestige_value }
+			tnt_ab_pay_currency_effect = { VAR = tnt_prestige_r P = tnt_prestige_p CAP = tnt_ai_pay_cap_prestige_value }
 		}
 		if = {
 			limit = { tnt_trade_piety_trigger = { A = var:tnt_partner B = root } }
-			tnt_ab_pay_currency_effect = { VAR = tnt_piety_r CAP = tnt_ai_pay_cap_piety_value }
+			tnt_ab_pay_currency_effect = { VAR = tnt_piety_r P = tnt_piety_p CAP = tnt_ai_pay_cap_piety_value }
 		}
 		if = {
 			limit = { tnt_influence_ok_value > 0 government_has_flag = government_has_influence }
-			tnt_ab_pay_currency_effect = { VAR = tnt_influence_r CAP = tnt_ab_r_influence_cap_value }
+			tnt_ab_pay_currency_effect = { VAR = tnt_influence_r P = tnt_influence_p CAP = tnt_ab_r_influence_cap_value }
 		}
 	}
 	remove_variable = tnt_ab_search_target
@@ -1137,8 +1162,10 @@ tnt_autobalance_effect = {
 
 # The incoming-letter composer keeps its gift ceiling and never adds lumpy terms.
 tnt_ai_pricebalance_effect = {
-	# The gift ceiling is priced before solve, so sanitize before that read too.
+	# Repair legacy opposing rows before even the gift-ceiling quote. The
+	# solver repeats this normalization; new composition never needs a conflict.
 	tnt_ab_sanitize_currencies_effect = yes
+	tnt_ab_net_effect = yes
 	set_variable = { name = tnt_ab_margin value = $MARGIN$ }
 	set_variable = { name = tnt_ab_ceiling value = $CEILING$ }
 	if = {

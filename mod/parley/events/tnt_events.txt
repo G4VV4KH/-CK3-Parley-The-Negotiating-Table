@@ -117,7 +117,13 @@ tnt_diplomacy.0001 = {
 		hidden_effect = { remove_variable = tnt_confirm_pending }
 
 		if = {
-			limit = { tnt_deal_preflight_trigger = { PLAYER = root  PARTNER = scope:tnt_deal_partner } }
+			limit = {
+				tnt_deal_preflight_trigger = { PLAYER = root  PARTNER = scope:tnt_deal_partner }
+				trigger_if = {
+					limit = { tnt_interests_enabled_value > 0 }
+					tnt_ai_accept_value > 0
+				}
+			}
 			tnt_apply_deal_effect = yes
 
 		#===================================================================

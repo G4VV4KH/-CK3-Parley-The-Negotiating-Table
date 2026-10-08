@@ -62,7 +62,7 @@ class LocalizationVersionTests(unittest.TestCase):
             files[name] = (root / name).read_bytes()
         output, _ = builder.project({"parley": files})
         evidence = builder.validate_localizations(output)["parley"]
-        self.assertEqual(evidence["keys_per_language"], 652)
+        self.assertEqual(evidence["keys_per_language"], 720)
         expected = {"rule_tnt_advanced_valuation", "setting_tnt_advanced_valuation_classic",
                     "setting_tnt_advanced_valuation_classic_desc", "setting_tnt_advanced_valuation_scaled",
                     "setting_tnt_advanced_valuation_scaled_desc", "rule_tnt_threat_frequency",
@@ -75,11 +75,11 @@ class LocalizationVersionTests(unittest.TestCase):
         for name, data in output["parley"].items():
             if name.endswith(".yml"):
                 with self.subTest(language=name):
-                    self.assertEqual(len(builder.localization_keys(files[name], name)), 662)
+                    self.assertEqual(len(builder.localization_keys(files[name], name)), 730)
                     self.assertTrue(expected <= builder.localization_keys(data, name))
 
     def test_versions_do_not_accept_each_others_counts(self):
-        profiles = {"1.1.0": 622, "1.2.0": 632, "1.2.1": 652, "1.2.2": 652}
+        profiles = {"1.1.0": 622, "1.2.0": 632, "1.2.1": 652, "1.2.2": 652, "1.3.0": 720}
         for version, expected in profiles.items():
             for wrong_count in set(profiles.values()) - {expected}:
                 with self.subTest(version=version, wrong_count=wrong_count), self.assertRaises(builder.ReleaseError):
@@ -94,11 +94,11 @@ class LocalizationVersionTests(unittest.TestCase):
         root = SCRIPT.parents[2] / "mod/parley"
         files = {path.relative_to(root).as_posix(): path.read_bytes()
                  for path in root.rglob("*") if path.is_file()}
-        self.assertEqual(len(files), 83)
+        self.assertEqual(len(files), 89)
         output, transforms = builder.project({"parley": files})
         projected = output["parley"]
-        self.assertEqual(len(projected), 82)
-        self.assertEqual(builder.validate_localizations(output)["parley"]["keys_per_language"], 652)
+        self.assertEqual(len(projected), 88)
+        self.assertEqual(builder.validate_localizations(output)["parley"]["keys_per_language"], 720)
         builder.transform_totals(transforms)
         for path in (
             "common/game_rules/tnt_80_game_rules.txt",
@@ -122,9 +122,18 @@ class LocalizationVersionTests(unittest.TestCase):
                       projected["events/tnt_ai_events.txt"])
 
     def test_unknown_or_duplicate_version_rejected(self):
-        for descriptor in (b'version="1.2.3"\n', b'version="1.3.0"\n', b'version="1.2.1"\nversion="1.2.0"\n', b'name="Parley"\n'):
+        for descriptor in (b'version="1.2.3"\n', b'version="1.3.1"\n', b'version="1.2.1"\nversion="1.2.0"\n', b'name="Parley"\n'):
             with self.subTest(descriptor=descriptor), self.assertRaises(builder.ReleaseError):
                 builder.parley_localization_counts({"descriptor.mod": descriptor})
+
+    def test_130_interest_profile_keeps_all_720_public_keys(self):
+        source = fixture("1.3.0", 720)
+        self.assertEqual(builder.parley_localization_counts(source["parley"]), (730, 720))
+        output, changes = builder.project(source)
+        self.assertEqual(builder.validate_localizations(output)["parley"]["keys_per_language"], 720)
+        self.assertEqual(len(changes["parley"]), 9)
+        for report in changes["parley"].values():
+            self.assertEqual(set(report["localization_keys_removed"]), builder.REMOVED_LOC)
 
     def test_same_drift_in_all_languages_still_rejected(self):
         output, _ = builder.project(fixture("1.2.0", 632))

@@ -368,6 +368,32 @@
       },
       "evidence": "Current committed dev runtime and frozen game payload match the build manifest.",
       "note": "Association verified now; this does not assert the original build commit or build time."
+    },
+    {
+      "recorded_at": "2026-10-06T09:44:14+00:00",
+      "status": "VERIFIED_ASSOCIATION",
+      "build_id": "2026-10-06-parley-1.2.1-rc5",
+      "mod": "parley",
+      "version": "1.2.1",
+      "manifest_sha256": "e3bd78ac67002290a60f2e844ad9f4eb9bcac9ff0a7c66485d0d0b039bcb50b5",
+      "payload_fingerprint": "e5e1f5c9a2ac1bc8a4e27e50089f9821afb79bb611e46c816994df43a50b3b23",
+      "source_fingerprint": "2a6eae5362b9363ede0ce4bcab6ba556054d7dac73433bbd5fc0ff046096d092",
+      "current_source_fingerprint": "2a6eae5362b9363ede0ce4bcab6ba556054d7dac73433bbd5fc0ff046096d092",
+      "source_matches": true,
+      "payload_files": 82,
+      "source_files": 83,
+      "source_git": {
+        "commit": "78a12e4e4f2c5d05e99708dd94c1e95299c0ac5d",
+        "runtime_tree": "7f7623a1eccd6730a6b048b1e2ced680b76d2e41",
+        "runtime_committed": true
+      },
+      "archive": {
+        "file": "distribution/2026-10-06-parley-1.2.1-rc5/parley-1.2.1-payload.zip",
+        "sha256": "aeaf649f54204dc415e0c2782503a8082837c99adaac79864028305937690865",
+        "bytes": 5734198
+      },
+      "evidence": "Current committed dev runtime and frozen game payload match the build manifest.",
+      "note": "Association verified now; this does not assert the original build commit or build time."
     }
   ]
 }

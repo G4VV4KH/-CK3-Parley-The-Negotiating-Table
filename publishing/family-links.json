@@ -37,8 +37,8 @@
     "TCA_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Tax-Collection-Automation",
     "CAA_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3815689627",
     "CAA_GITHUB_URL": "https://github.com/G4VV4KH/council_assignment_automation",
-    "CAA_PARADOX_URL": null,
-    "CAA_NEXUS_URL": null
+    "CAA_PARADOX_URL": "https://mods.paradoxplaza.com/mods/162417/Any",
+    "CAA_NEXUS_URL": "https://www.nexusmods.com/crusaderkings3/mods/413"
   },
   "workshop_ids": {
     "parley": "3811090081",
@@ -62,5 +62,5 @@
     "tax_collection_automation": "https://github.com/G4VV4KH/-CK3-Tax-Collection-Automation.git",
     "council_assignment_automation": "https://github.com/G4VV4KH/council_assignment_automation.git"
   },
-  "notes": "The previous seven-member publication workflow closed on 2026-10-08 at 03:29 UTC. CAA joined the maintained Steam family after public identity and 20 delivered runtime files were verified; its initial GitHub source and release are verified. The new eight-member/32-page family update is pending. Browser verification is NOT_VERIFIED; CAA Nexus/Paradox identities are pending. Related-mod links use assigned Steam URLs only. Held AGOT and historical payload evidence remain separate."
+  "notes": "The previous seven-member publication workflow closed on 2026-10-08 at 03:29 UTC. The eight-member CAA family now has all 32 public descriptions verified in Chrome; 16 Steam/GitHub API description/source byte checks remain distinct from rendered-description verification. CAA Nexus 413 and Paradox 162417 are published and browser-verified; their site-specific downloaded ZIP bytes remain NOT_VERIFIED. Related-mod links remain assigned Steam URLs. Historical native/runtime/archive evidence, held AGOT and gameplay-feedback limits remain separate."
 }

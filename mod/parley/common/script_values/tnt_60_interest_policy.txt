@@ -1,0 +1,43 @@
+﻿# Negotiation interest policy. The absence of a recorded setting is Off.
+# The game-rule definition belongs to the central rules file; all consumers use
+# these pure values rather than cached character variables.
+tnt_interests_enabled_value = {
+	value = 0
+	if = {
+		limit = {
+			OR = {
+				has_game_rule = tnt_interests_mild
+				has_game_rule = tnt_interests_standard
+				has_game_rule = tnt_interests_strict
+			}
+		}
+		add = 1
+	}
+}
+
+tnt_interest_strength_value = {
+	value = 0
+	if = {
+		limit = { has_game_rule = tnt_interests_mild }
+		add = 0.5
+	}
+	else_if = {
+		limit = { has_game_rule = tnt_interests_standard }
+		add = 1
+	}
+	else_if = {
+		limit = { has_game_rule = tnt_interests_strict }
+		add = 2
+	}
+}
+
+# f(0.5,s) = 1/(1+s), applied to the marginal band BEFORE summing.
+# Transforming the aggregate factor would make transaction splitting profitable.
+tnt_interest_receiving_tail_factor_value = {
+	value = 1
+	divide = {
+		value = 1
+		add = tnt_interest_strength_value
+		min = 1
+	}
+}

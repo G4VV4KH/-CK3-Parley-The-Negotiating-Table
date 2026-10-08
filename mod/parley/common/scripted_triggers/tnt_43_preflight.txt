@@ -97,6 +97,7 @@ tnt_deal_preflight_trigger = {
 			# Package-shape laws already owned by named triggers.
 			# -------------------------------------------------------------
 			tnt_no_double_vassal_trigger = yes
+			tnt_currencies_exclusive_trigger = yes
 			tnt_people_pair_trigger = yes
 
 			# A side may not both grant and spend the same hook.

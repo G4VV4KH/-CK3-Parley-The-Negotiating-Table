@@ -2459,7 +2459,7 @@ tnt_gain_total_value = {
 # in vanilla, while `value = <named value>` with a `min` is used all over this file.
 ###############################################################################
 tnt_gain_positive_value = {
-	value = tnt_gain_total_value
+	value = tnt_interest_quote_gain_value
 	min = 0
 }
 
@@ -3584,12 +3584,12 @@ tnt_threshold_value = {
 tnt_ai_accept_value = {
 	value = { value = 0  desc = tnt_bd_base }
 	# --- figure row 1: everything the partner receives ---------------------
-	add = { value = tnt_gain_total_value  desc = tnt_bd_gain }
+	add = { value = tnt_interest_quote_gain_value  desc = tnt_bd_gain }
 	# --- figure row 2: everything the partner hands over -------------------
 	# `multiply = -1` inside the desc-bearing add block is the sanctioned
 	# negative row; verbatim vanilla at
 	# GAME\common\script_values\00_activity_values.txt:286-290.
-	add = { value = tnt_loss_total_value  multiply = -1  desc = tnt_bd_loss }
+	add = { value = tnt_interest_quote_loss_value  multiply = -1  desc = tnt_bd_loss }
 	# --- figure row 3: the standing between the two rulers -----------------
 	# Emitted as its eight named parts, not as tnt_relation_mod_value, so the
 	# player can see WHICH part of the relationship is carrying the deal. The
@@ -3626,6 +3626,9 @@ tnt_ai_accept_value = {
 	# when the rows above sum past -100, where without it each further coin offered
 	# made the headline WORSE. Full argument at tnt_deal_floor_value.
 	add = { value = tnt_deal_floor_value  desc = tnt_bd_floor }
+	# Contextual utility changes ordinary terms, never the pressure rows below.
+	# Includes the standing bonus lost when a gift is not useful.
+	add = { value = tnt_interest_penalty_value multiply = -1 desc = tnt_interest_penalty_title }
 	# --- figure row 5: NAKED PRESSURE (V4 expansion 1) ---------------------
 	# Its own row, and NOT a member of tnt_gain_total_value, for one reason that
 	# must not be undone: fix 5 made opinion a multiplier on the gift total, so a
@@ -3745,7 +3748,7 @@ tnt_balance_frame_value = {
 # way. Do NOT reintroduce a floor here to "protect" the division.
 tnt_accept_pos_value = {
 	value = 0
-	add = tnt_gain_total_value
+	add = tnt_interest_quote_gain_value
 	if = {
 		limit = { tnt_relation_mod_value > 0 }
 		add = tnt_relation_mod_value
@@ -3765,7 +3768,8 @@ tnt_accept_pos_value = {
 
 tnt_accept_neg_value = {
 	value = 0
-	add = tnt_loss_total_value
+	add = tnt_interest_quote_loss_value
+	add = tnt_interest_penalty_value
 	# V4: THE SCALED THRESHOLD, NOT THE RAW ONE. tnt_threshold_value is a PERCENTAGE
 	# now (0..40 of the offer); adding it here as though it were points would put up
 	# to 40 on the "no" side of an empty treaty, which is exactly the reading the

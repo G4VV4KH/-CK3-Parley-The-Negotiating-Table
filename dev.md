@@ -1,10 +1,8 @@
 # Contributing to Parley
 
-Parley 1.2.2 is prepared in `mod/parley/` for CK3 1.20.0.4. This candidate corrects 13 translations across four languages; gameplay logic is unchanged from published 1.2.1. Its complete localization gate and external publication remain pending. See [the candidate record](docs/LOCALIZATION-1.2.2.md).
+Parley 1.3.0 is developed in `mod/parley/` for CK3 1.20.0.4. This working tree adds Negotiation interests and is not the published 1.2.2 snapshot. Candidate preparation uses `tools/release/prepare_parley_1_3_candidate.py`; the historical 1.2.2 publication guard must not be repinned or bypassed. The new projection contains 88 runtime files and 720 public localization keys per language, with developer diagnostics removed. All-language native localization and exact-candidate acceptance remain release gates; a version number, static pass or prepared candidate does not establish publication. Read actual delivery status from the current release registry. Historical records below retain their original dates and limits.
 
-Historical 1.2.1 evidence: The new optional Scaled valuation and global threat cooldown are in GAME candidate `2026-10-06-parley-1.2.1-rc5`, which passed the scoped native acceptance below. Platform availability and delivered-byte verification are separate release-chain steps. The [currency-rule record](docs/CURRENCY-RULES-1.2.md) retains the earlier directional faith/fame/devotion test evidence and its diagnostic caveats. Read [the current contract](docs/CURRENT-CONTRACT.md) and [the 1.20 compatibility decisions](docs/CK3-1.20-COMPATIBILITY.md) before changing runtime behavior. Keep a pull request focused on one behavior, describe its visible effect, and distinguish passing source checks from observed game results.
-
-**Historical publication addendum, 2026-10-04 (Parley 1.2.0 only):** the frozen `2026-10-04-parley-1.2.0-rc1` GAME candidate passed its focused standalone CK3 1.20.0.3 smoke with retained log notes; see the [acceptance addendum](docs/CURRENCY-RULES-1.2.md#game-acceptance-addendum-2026-10-04). This historical acceptance does not certify RC5 or Steam, Paradox or Nexus delivery. The AGOT support hold remains unchanged. No runtime or frozen-package bytes were changed by this publication-only documentation update.
+The player guide remains canonical in `publishing/description.en.md`; README and store variants are generated. Version 1.3.0 adds an explicitly highlighted Negotiation interests rule and a text-annotated authentic screenshot. Its original capture is preserved in `publishing/media-sources/`; the rejected AI-redrawn attempt is not publication media. The deterministic annotation helper verifies zero changed pixels outside the caption rectangle.
 
 ## Repository and release copies
 
@@ -63,8 +61,6 @@ The checks are source contracts and bounded models, not a CK3 parser or proof of
 
 Publication copy has one editable English source: `publishing/description.en.md`. The shared release-workspace wrapper renders **only Parley** with `--mod parley`; do not call the original family-wide renderer CLI for a scoped edit. The full game-rules guide lives in that canonical source. Steam and Paradox get the marked short summary and a link to the README guide; GitHub, Nexus and the preview get the full guide. Steam is validated against 8,000 UTF-8 bytes before outputs are written, and Paradox against its 10,000-character limit. Run `python -B -m unittest discover -s tests/publishing -v` for the renderer and `python -B -m unittest discover -s tests/release -v` for the numbered deployment-kit checks. Follow the existing release journal procedure after committing reviewed inputs; no tool in this preparation flow uploads a release.
 
-The `parley-rules-media-2026-10-06` metadata revision replaces only the selected game-rules screenshot and its provenance/caption. Resolve its current canonical working projection through the release registry before synchronizing future edits; older publication projections remain historical. The repository retains the user-supplied PNG at `publishing/screenshots/04-game-rules.png`; store galleries use a same-resolution JPEG derivative. The two negotiation screenshots retain their historical CK3 1.19.0.6 provenance. The replacement shows Scaled valuation and a five-year threat cooldown as selected examples, not defaults, and does not establish an exact capture-game patch. Runtime, mod version, current CK3 target and downloadable archive bytes are unchanged by this media revision.
-
 ## Parley 1.2.1 development
 
 2026-10-06: **Threat frequency** adds a per-aggressor global cooldown of 0
@@ -72,22 +68,12 @@ The `parley-rules-media-2026-10-06` metadata revision replaces only the selected
 coefficients under clearer labels. This change is independent of Classic/Scaled.
 Run `python -B tests/parley/test_threat_frequency.py --source mod/parley` for
 source-backed duration, actor/target, stale-deal, AI and cleanup regressions.
-The frozen 1.2.1 RC1 predates this rule; the release candidate is RC5.
-Do not overwrite earlier candidates or infer engine validation from model/source tests.
+The runtime needs a new GAME candidate: the frozen 1.2.1 RC1 predates this rule.
+Do not overwrite RC1 or infer engine validation from these model/source tests.
 
-The new optional **Advanced term valuation — Classic / Scaled** is described in [the implementation and coverage record](docs/ADVANCED-VALUATION-1.2.1.md). Classic is the default and preserves earlier calculations, including absent-setting saves. The scoped native results below supplement source/model checks; large-realm responsiveness and long-campaign behavior remain outside this acceptance.
+The new optional **Advanced term valuation — Classic / Scaled** is described in [the implementation and coverage record](docs/ADVANCED-VALUATION-1.2.1.md). Published 1.2.0 remains the current public release until a separately verified upload. Classic is the default and preserves earlier calculations, including absent-setting saves. Scaled needs fresh native gameplay and large-realm responsiveness evidence; source/model passes alone do not establish that.
 
 Run the three additional source-backed suites with `--source mod/parley`: `test_scaled_valuation.py`, `test_scaled_people.py`, and `test_scaled_strategic.py` under `tests/parley/`. The normal developer runner includes them. They use strict explicit-fixture models and baseline AST/numeric comparisons, not an alternative game engine.
-
-### Scoped native acceptance — 2026-10-06
-
-RC5 was checked in standalone CK3 1.20.0.3, with the final UI session using only the frozen release mod. Read-only opening, hovering and clearing did not consume or refresh the global threat cooldown. Six natural game days changed the saved timer from 365 to 359 days; saving and reloading preserved 359 days and the same 1 October 1179 expiry. The row, toggle tooltip and negotiation opener exposed the countdown. The zero-cooldown Russian rule label is `нету`. In a Classic fixture, Musa's fealty cost was 135 and threat-free auto-balance reached +1; this was a preview, not a committed treaty.
-
-Ten isolated native harness suites produced 101 passing assertions across the 0/1/5/10-year duration primitive, AI-world cash and submission effects, and paid/refused/stale incoming-demand effects. They exercise real production effect bodies and guards, not random AI-pulse frequency or spontaneous letter/option-button dispatch. One original primitive verifier was corrected in a separate receipt. An earlier incoming fixture had no eligible proposer and failed; that raw failure remains preserved. Four later successful incoming runs are accepted only within their byte-pinned run windows, not as a clean whole-session result.
-
-Earlier RC2 manual settlements covered scaled vassals, courtiers, a hostage, fealty, independence, a title transfer and a hook; RC2-to-RC5 gameplay script bytes are unchanged. RC4 UI observations covered the displayed gift-floor adjustment, landless courtier labels and rounding; RC5 changes only two cooldown localization strings per language from RC4. These prior observations retain their own candidate scope.
-
-The final no-harness session exited normally. Its logs retain persistent-reader key diagnostics, two human-only interaction AI-frequency warnings, and wrong-scope records at the game's adoption-interaction path. File location alone does not establish causality, and the complete session is not claimed error-free. No new cooldown or custom-localization error was found. Full-year natural expiry, full 5/10-year persistence, multiplayer, spontaneous demand dispatch and long campaigns are not certified by this focused acceptance. Private receipts, original failed runs, saves and raw logs remain in the release evidence store; they are not shipped in this public repository.
 
 ## Change conventions
 

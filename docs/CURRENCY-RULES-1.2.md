@@ -2,16 +2,6 @@
 
 Recorded 2026-10-04. Status: developer-session functional acceptance complete; publication preparation in progress. The existing published release is Parley 1.1.0 / RC11. A new transformed GAME candidate needs its own focused smoke before publication. This record does not claim an upload, clean whole-game logs or a long campaign.
 
-## GAME acceptance addendum (2026-10-04)
-
-The preparation-time pending status above and the preparation checklist below are now historical. The frozen `2026-10-04-parley-1.2.0-rc1` GAME candidate passed its focused standalone smoke on CK3 **1.20.0.3** with retained log notes. The user reported no issues. Two autosaves from Salah al-Din's campaign and `prod_run1.ck3` (1180.5.28), together with startup logs, confirmed the intended package and strict directional currency rules. Package reverification matched all 75 GAME files and the unchanged 261-file preparation kit.
-
-No currency-policy or settlement-namespace error and no saved pending-draft, solver or diagnostic state was found. Four AI-to-AI threat opinion pairs were present in the final save; three also had same-date vassalization memories, including Tekish to Saratan. Cooldowns are not transaction counts, and save snapshots do not independently reconstruct every currency transfer or prove global proposal frequency.
-
-The whole-game log was **not clean**. Retained notes cover vanilla domicile-effect stacks containing a merged startup hook, three references to the removed DEV telemetry option of unproven cached origin, and two player-only interaction warnings. Attribution is based on inspected stacks and merge semantics, not a separate no-mod reproduction. No Parley blocker was found in this scoped run; it does not lift the AGOT hold or retest MCA.
-
-The local release workspace retains the full, private-log-aware evidence at `verification-evidence/2026-10-04-parley-1.2.0-rc1/runtime-smoke/result.json`, SHA-256 `38152ba513be105a3462a71fbb3d5a9ed8464f52f72bb8f92d35b688d579ad11`. Raw logs and saves are not part of this repository. This addendum changes developer documentation only, not the frozen GAME or kit. Platform upload and delivered-byte verification remain separate records.
-
 ## Implementation contract
 
 - Canonical transfer permissions live in `common/scripted_triggers/tnt_40_triggers.txt`: A is the actual giver, B the receiver.

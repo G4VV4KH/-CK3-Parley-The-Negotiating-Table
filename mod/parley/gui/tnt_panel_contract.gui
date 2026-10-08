@@ -828,6 +828,7 @@ types TwdContract
 
 			block "tnt_contract_level_label" {}
 		}
+		block "tnt_contract_interest" {}
 
 		### R5: tnt_contract_ladder is an hbox, so it may not anchor as a direct
 		### child of this hbox. It does not need to - a 26 px ladder in a 40 px row
@@ -1288,6 +1289,27 @@ types TwdContract
 										################################
 										tnt_contract_level_row = {
 											name = "tnt_contract_row_tax"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_tax_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_tax_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_tax_base_value'), Not( TntPos('tnt_interest_ob_tax_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_tax_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_tax_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_tax_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_tax_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_tax_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_tax_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_tax_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_tax_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_tax_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_tax_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[TntPos('tnt_ob_feudal_value')]"
 
 											blockoverride "tnt_contract_level_label"   { text = "tnt_ob_tax_label" }
@@ -1345,6 +1367,27 @@ types TwdContract
 										################################
 										tnt_contract_level_row = {
 											name = "tnt_contract_row_levy"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_levy_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_levy_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_levy_base_value'), Not( TntPos('tnt_interest_ob_levy_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_levy_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_levy_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_levy_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_levy_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_levy_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_levy_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_levy_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_levy_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_levy_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_levy_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[TntPos('tnt_ob_feudal_value')]"
 
 											blockoverride "tnt_contract_level_label"   { text = "tnt_ob_levy_label" }
@@ -1455,6 +1498,27 @@ types TwdContract
 										################################
 										tnt_contract_right_row = {
 											name = "tnt_contract_row_relig"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_relig_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_relig_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_relig_base_value'), Not( TntPos('tnt_interest_ob_relig_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_relig_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_relig_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_relig_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_relig_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_relig_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_relig_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_relig_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_relig_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_relig_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_relig_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[Or( TntPos('tnt_ob_feudal_value'), TntPos('tnt_ob_clan_value') )]"
 
 											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/character_interactions/religious.dds" }
@@ -1504,6 +1568,27 @@ types TwdContract
 										################################
 										tnt_contract_right_row = {
 											name = "tnt_contract_row_council"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_council_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_council_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_council_base_value'), Not( TntPos('tnt_interest_ob_council_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_council_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_council_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_council_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_council_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_council_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_council_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_council_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_council_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_council_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_council_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[TntPos('tnt_ob_feudal_value')]"
 
 											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/character_interactions/council.dds" }
@@ -1524,6 +1609,27 @@ types TwdContract
 										################################
 										tnt_contract_right_row = {
 											name = "tnt_contract_row_revoke"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_revoke_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_revoke_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_revoke_base_value'), Not( TntPos('tnt_interest_ob_revoke_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_revoke_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_revoke_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_revoke_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_revoke_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_revoke_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_revoke_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_revoke_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_revoke_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_revoke_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_revoke_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[TntPos('tnt_ob_feudal_value')]"
 
 											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/character_interactions/revoke_title.dds" }
@@ -1545,6 +1651,27 @@ types TwdContract
 										################################
 										tnt_contract_right_row = {
 											name = "tnt_contract_row_war"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_war_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_war_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_war_base_value'), Not( TntPos('tnt_interest_ob_war_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_war_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_war_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_war_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_war_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_war_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_war_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_war_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_war_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_war_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_war_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[TntPos('tnt_ob_feudal_value')]"
 
 											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/character_interactions/declare_war_interaction.dds" }
@@ -1571,6 +1698,27 @@ types TwdContract
 										################################
 										tnt_contract_right_row = {
 											name = "tnt_contract_row_fort"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_fort_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_fort_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_fort_base_value'), Not( TntPos('tnt_interest_ob_fort_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_fort_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_fort_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_fort_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_fort_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_fort_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_fort_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_fort_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_fort_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_fort_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_fort_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[TntPos('tnt_ob_feudal_value')]"
 
 											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/culture_innovations/innovation_fortifications.dds" }
@@ -1595,6 +1743,27 @@ types TwdContract
 										################################
 										tnt_contract_right_row = {
 											name = "tnt_contract_row_coin"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_coin_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_coin_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_coin_base_value'), Not( TntPos('tnt_interest_ob_coin_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_coin_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_coin_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_coin_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_coin_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_coin_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_coin_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_coin_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_coin_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_coin_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_coin_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[TntPos('tnt_ob_feudal_value')]"
 
 											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/culture_innovations/innovation_coinage.dds" }
@@ -1626,6 +1795,27 @@ types TwdContract
 										################################
 										tnt_contract_right_row = {
 											name = "tnt_contract_row_succ"
+											blockoverride "tnt_contract_interest" {
+												tnt_interest_badge = {
+													blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+													blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_ob_succ_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_ob_succ_badge_percent_value')|0]%" }
+													blockoverride "tnt_interest_tooltip" {
+														tooltipwidget = {
+															tnt_interest_tooltip = {
+																blockoverride "tnt_interest_heading" { text = "[Select_CString( Or( TntPos('tnt_interest_ob_succ_base_value'), Not( TntPos('tnt_interest_ob_succ_selected_value') ) ), Localize('tnt_interest_receive'), Localize('tnt_interest_surrender') )]" }
+																blockoverride "tnt_interest_detail" { text = "tnt_ob_succ_label" }
+																blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_ob_succ_selected_value') )]" text = "tnt_interest_preview_contract" }
+																blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_ob_succ_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_ob_succ_preview_percent_value')]" }
+																blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_ob_succ_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_ob_succ_percent_value')]" }
+																blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_ob_succ_selected_value')]" }
+																blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_ob_succ_display_percent_value')|2]%" }
+																blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_ob_succ_base_value')|3]" }
+																blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_ob_succ_adjusted_value')|3]" }
+															}
+														}
+													}
+												}
+											}
 											visible = "[TntPos('tnt_ob_feudal_value')]"
 
 											blockoverride "tnt_contract_right_icon" { texture = "gfx/interface/icons/flat_icons/succession.dds" }

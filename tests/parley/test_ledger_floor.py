@@ -44,12 +44,20 @@ class LedgerFloorTests(unittest.TestCase):
 
     def test_pressure_and_floor_share_an_always_visible_row(self):
         row = named_gui_block(self.gui(), "hbox", "tnt_figure_row_threat")
-        self.assertNotRegex(row, r"\b(?:visible|enabled)\s*=")
+        self.assertNotRegex(row.split("tnt_balance_figure", 1)[0], r"\b(?:visible|enabled)\s*=")
+        for name in ("threat", "floor"):
+            child = named_gui_block(row, "tnt_balance_figure", "tnt_figure_" + name)
+            self.assertNotRegex(child, r"\b(?:visible|enabled)\s*=")
         self.assertNotIn("tnt_show_threat_p", row)
         names = re.findall(r'name\s*=\s*"(tnt_figure_[^\"]+)"', row)
         self.assertEqual(names, ["tnt_figure_row_threat", "tnt_figure_threat", "tnt_figure_floor"])
         self.assertIn("TntSV('tnt_display_pressure_p_value')|+=0", row)
         self.assertIn("TntSV('tnt_display_deal_floor_value')|+=0", row)
+        interest_row = named_gui_block(self.gui(), "hbox", "tnt_figure_row_interest")
+        self.assertIn("TntPos('tnt_interests_enabled_value')", interest_row)
+        interest = named_gui_block(interest_row, "tnt_balance_figure", "tnt_figure_interest")
+        self.assertIn("TntPos('tnt_interests_enabled_value')", interest)
+        self.assertIn("TntSV('tnt_interest_penalty_display_value')|+=0", interest)
 
     def test_floor_has_a_short_label_and_hover_explanation(self):
         floor = named_gui_block(self.gui(), "tnt_balance_figure", "tnt_figure_floor")

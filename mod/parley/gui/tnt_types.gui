@@ -119,14 +119,157 @@ types TwdDiplomacy
 	###     currency slot 226 -> name 120   (V3 iteration 3, tnt_item_row_currency:
 	###                                      coarse pair + fine pair + preset opener)
 	###
-	### `maximumsize = { -1 56 }` is the second anti-spill guard: no child may
+	### `maximumsize = { -1 64 }` is the second anti-spill guard: no child may
 	### make the row taller, whatever its text does.
 	####################################################################
+	# Dedicated fixed-width hover target on the row's second line. Never competes
+	# with the name or with currency controls; hidden entirely when interests are Off.
+	type tnt_interest_badge = widget
+	{
+		name = "tnt_interest_badge"
+		size = { 52 23 }
+		minimumsize = { 52 23 }
+		maximumsize = { 52 23 }
+		alwaystransparent = no
+		using = tooltip_es
+		block "tnt_interest_state" { visible = no }
+		block "tnt_interest_tooltip" { tooltip = "tnt_interest_choose" }
+		# One persistent label: the display API chooses preview versus selected.
+		# Never swap visible siblings in a flow layout just to print the same API.
+		text_single = {
+			name = "tnt_interest_value"
+			using = Font_Size_Small
+			position = { 0 0 }
+			parentanchor = top|left
+			widgetanchor = top|left
+			size = { 52 23 }
+			align = nobaseline|left
+			autoresize = no
+			min_width = 52
+			max_width = 52
+			default_format = ""
+			alwaystransparent = yes
+			block "tnt_interest_value" {}
+		}
+	}
+
+	type tnt_interest_tooltip = container
+	{
+		name = "tnt_interest_tooltip"
+		alwaystransparent = no
+		using = DefaultTooltipBackground
+		flowcontainer = {
+			name = "tnt_interest_tooltip_body"
+			direction = vertical
+			ignoreinvisible = yes
+			margin = { 18 12 }
+			spacing = 5
+			minimumsize = { 340 0 }
+			text_multi = {
+				name = "tnt_interest_direction"
+				using = DefaultTooltipText
+				autoresize = yes
+				max_width = 420
+				block "tnt_interest_heading" { text = "tnt_interest_receive" }
+			}
+			text_multi = {
+				name = "tnt_interest_detail"
+				using = DefaultTooltipText
+				autoresize = yes
+				max_width = 420
+				block "tnt_interest_detail" { text = "tnt_item_gold" }
+			}
+			text_multi = {
+				name = "tnt_interest_empty"
+				using = DefaultTooltipText
+				autoresize = yes
+				max_width = 420
+				text = "tnt_interest_choose"
+				block "tnt_interest_empty_state" { visible = no }
+			}
+			widget_value_breakdown_list = {
+				name = "tnt_interest_reason_rows"
+				blockoverride "background" {}
+				block "tnt_interest_breakdown" { visible = no }
+			}
+			widget_value_breakdown_list = {
+				name = "tnt_interest_preview_reason_rows"
+				blockoverride "background" {}
+				block "tnt_interest_preview_breakdown" { visible = no }
+			}
+			# Both selected and preliminary reasons reconcile to this unrounded total.
+			# Prices below remain hidden until a concrete term or amount is selected.
+			text_multi = {
+				name = "tnt_interest_total"
+				using = DefaultTooltipText
+				autoresize = yes
+				max_width = 420
+				block "tnt_interest_points_effective" {}
+			}
+			flowcontainer = {
+				direction = vertical
+				name = "tnt_interest_points"
+				spacing = 0
+				block "tnt_interest_points" { visible = no }
+				# Separate native text rows avoid GUI-string newline escaping.
+				text_multi = {
+					using = DefaultTooltipText
+					autoresize = yes
+					max_width = 420
+					block "tnt_interest_points_base" {}
+				}
+				text_multi = {
+					using = DefaultTooltipText
+					autoresize = yes
+					max_width = 420
+					block "tnt_interest_points_adjusted" {}
+				}
+			}
+			flowcontainer = {
+				direction = vertical
+				name = "tnt_interest_capacity"
+				spacing = 3
+				block "tnt_interest_capacity_state" { visible = no }
+				# Currency needs are resource units, not more percentage-point reasons.
+				text_multi = {
+					using = DefaultTooltipText
+					autoresize = yes
+					max_width = 420
+					block "tnt_interest_capacity_target" {}
+				}
+				text_multi = {
+					using = DefaultTooltipText
+					autoresize = yes
+					max_width = 420
+					block "tnt_interest_capacity_stock" {}
+				}
+				widget_value_breakdown_list = {
+					name = "tnt_interest_capacity_reasons"
+					blockoverride "background" {}
+					block "tnt_interest_capacity_breakdown" {}
+				}
+				text_multi = {
+					using = DefaultTooltipText
+					autoresize = yes
+					max_width = 420
+					text = "tnt_interest_capacity_note"
+				}
+			}
+			text_multi = {
+				name = "tnt_interest_semantics"
+				using = DefaultTooltipText
+				autoresize = yes
+				max_width = 420
+				text = "tnt_interest_not_chance"
+			}
+		}
+	}
+
 	type tnt_item_frame = hbox
 	{
 		name = "tnt_item_frame"
 		layoutpolicy_horizontal = expanding
-		size = { 0 56 }
+		size = { 0 64 }
 		### An hbox derives its cross-axis extent from its CHILDREN, so the `size`
 		### above is inert for height and this row was never 56 px. Measured on
 		### temp\screen1.png: 26 px with one text line, 49 px with two - the only
@@ -140,10 +283,10 @@ types TwdDiplomacy
 		### GAME\gui\interaction_confirmation.gui:134-136,
 		### GAME\gui\multiplayer_frontend.gui:64-66,
 		### GAME\gui\hud_notification_templates.gui:2557-2561.
-		### With min = max = 56 the icon gets 4 px of air each way and every `100%`
-		### child in this row resolves against a real height for the first time.
-		minimumsize = { 0 56 }
-		maximumsize = { -1 56 }
+		### 64 px contains the native medium (26) and small (23) text boxes,
+		### leaving 15 px for vertical padding. Every `100%` child has a real height.
+		minimumsize = { 0 64 }
+		maximumsize = { -1 64 }
 		spacing = 6
 		margin = { 6 0 }
 		alwaystransparent = no
@@ -195,7 +338,7 @@ types TwdDiplomacy
 		### are centred by an `expand = {}` above and below instead
 		### (type expand = hbox with growing policies,
 		###  GAME\gui\shared\windows.gui:597-601). `layoutpolicy_vertical =
-		### expanding` is what gives the vbox the full 56 px for those expands to
+		### expanding` is what gives the vbox the full 64 px for those expands to
 		### divide.
 		###
 		### BOTH EXPANDS CARRY AN EXPLICIT UNIQUE NAME. `type expand` hard-codes
@@ -214,44 +357,61 @@ types TwdDiplomacy
 			layoutpolicy_vertical = expanding
 			spacing = 0
 			ignoreinvisible = yes
-			alwaystransparent = yes
+			alwaystransparent = no
 
 			expand = {
 				name = "tnt_row_text_pad_top"
 			}
 
-			text_single = {
-				name = "tnt_row_name"
+			hbox = {
+				name = "tnt_row_name_line"
 				layoutpolicy_horizontal = expanding
-				autoresize = no
-				align = nobaseline|left
-				default_format = "#high"
-				alwaystransparent = yes
-				fontsize_min = 12
-				using = Font_Size_Medium
-
-				block "tnt_row_name"
-				{
-					text = "tnt_item_gold"
+				minimumsize = { 0 26 }
+				maximumsize = { -1 26 }
+				spacing = 4
+				ignoreinvisible = yes
+				text_single = {
+					name = "tnt_row_name"
+					layoutpolicy_horizontal = expanding
+					autoresize = no
+					align = nobaseline|left
+					default_format = "#high"
+					alwaystransparent = yes
+					fontsize_min = 12
+					using = Font_Size_Medium
+					block "tnt_row_name" { text = "tnt_item_gold" }
 				}
 			}
 
 			### This is the line that prints game text - a title name, an artifact
 			### name, a character name - so R-SPILL matters most here. The engine
 			### shrinks the font to fontsize_min = 12 and only then elides right.
-			text_single = {
-				name = "tnt_row_sub"
+			hbox = {
+				name = "tnt_row_detail_line"
 				layoutpolicy_horizontal = expanding
-				autoresize = no
-				align = nobaseline|left
-				default_format = "#weak"
-				alwaystransparent = yes
-				fontsize_min = 12
-				using = Font_Size_Small
-
-				block "tnt_row_sub"
-				{
-					visible = no
+				minimumsize = { 0 23 }
+				maximumsize = { -1 23 }
+				spacing = 8
+				ignoreinvisible = yes
+				block "tnt_row_interest" {}
+				# Keep the slot visible even when its text is hidden: it takes the
+				# remaining width and holds the badge flush with the option name.
+				widget = {
+					name = "tnt_row_sub_slot"
+					layoutpolicy_horizontal = expanding
+					size = { 0 23 }
+					alwaystransparent = yes
+					text_single = {
+						name = "tnt_row_sub"
+						using = Font_Size_Small
+						size = { 100% 100% }
+						autoresize = no
+						align = nobaseline|left
+						default_format = "#weak"
+						alwaystransparent = yes
+						fontsize_min = 12
+						block "tnt_row_sub" { visible = no }
+					}
 				}
 			}
 
@@ -553,7 +713,7 @@ types TwdDiplomacy
 				onclick = "[TntExec('tnt_gold_p_add_huge')]"
 			}
 
-			tooltip = "tnt_tt_step_huge_add"
+			block "tnt_stepper_tt_huge_plus" { tooltip = "tnt_tt_step_huge_add" }
 
 			button_plus_small = {
 				name = "tnt_stepper_huge_inc"
@@ -1272,7 +1432,7 @@ types TwdDiplomacy
 
 			block "tnt_figure_value"
 			{
-				text = "[TntSV('tnt_gain_total_value')|0]"
+				text = "[TntSV('tnt_interest_quote_gain_value')|0]"
 			}
 		}
 
@@ -1825,14 +1985,14 @@ types TwdDiplomacy
 				### desc = tnt_bd_gain }`), and the breakdown tooltip has room for the
 				### long wording while this 169 px slot does not.
 				blockoverride "tnt_figure_label" { text = "tnt_bd_gain_panel" }
-				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_gain_total_value')|0]" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_interest_quote_gain_value')|0]" }
 			}
 
 			tnt_balance_figure = {
 				name = "tnt_figure_loss"
 				layoutpolicy_horizontal = expanding
 				blockoverride "tnt_figure_label" { text = "tnt_bd_loss_panel" }
-				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_loss_total_value')|0]" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_interest_quote_loss_value')|0]" }
 			}
 		}
 
@@ -1889,6 +2049,7 @@ types TwdDiplomacy
 			name = "tnt_figure_row_threat"
 			layoutpolicy_horizontal = expanding
 			spacing = 12
+			ignoreinvisible = yes
 
 			tnt_balance_figure = {
 				name = "tnt_figure_threat"
@@ -1908,6 +2069,31 @@ types TwdDiplomacy
 				tooltip = "tnt_bd_floor"
 				blockoverride "tnt_figure_label" { text = "tnt_bd_floor_panel" }
 				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_display_deal_floor_value')|+=0]" }
+			}
+		}
+		# Full-width interest ledger row keeps all three adjustment labels readable.
+		hbox = {
+			name = "tnt_figure_row_interest"
+			layoutpolicy_horizontal = expanding
+			visible = "[TntPos('tnt_interests_enabled_value')]"
+			tnt_balance_figure = {
+				name = "tnt_figure_interest"
+				layoutpolicy_horizontal = expanding
+				visible = "[TntPos('tnt_interests_enabled_value')]"
+				alwaystransparent = no
+				using = tooltip_es
+				tooltipwidget = {
+					tnt_interest_tooltip = {
+						blockoverride "tnt_interest_heading" { text = "tnt_interest_penalty_title" }
+						blockoverride "tnt_interest_detail" { text = "tnt_interest_penalty_desc" }
+						blockoverride "tnt_interest_breakdown" {
+							visible = yes
+							datacontext = "[TntBreakdown('tnt_interest_penalty_value')]"
+						}
+					}
+				}
+				blockoverride "tnt_figure_label" { text = "tnt_interest_penalty_short" }
+				blockoverride "tnt_figure_value" { text = "[TntSV('tnt_interest_penalty_display_value')|+=0]" }
 			}
 		}
 

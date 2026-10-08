@@ -1,0 +1,3031 @@
+﻿# Parley negotiation interests: advanced terms, table-owner scope only.
+# The evaluator is the current var:tnt_partner. No cached tnt_p/actor/root scope
+# is trusted. No effects, game permissions, MCA values, pressure or spent hooks
+# are changed here. Base skills, family, de-jure, greed and artifact usability
+# remain in the existing valuation layer and are not scored again.
+#
+# Public API: tnt_interest_<term>_<p|r>_{factor,percent,selected}_value.
+# p is incoming benefit factor [0,1]; r is outgoing cost factor [1,100].
+# Percent values carry exact signed percentage-point breakdowns.
+# Signed contracts additionally expose undirected factor/percent/selected and
+# effective_value; a negative base uses the r factor, never a receiving discount.
+#
+# Native precedents (installed CK3 1.20):
+# 00_courtier_and_guest_interactions.txt:189-270, cp:* council vacancies.
+# 00_artifact_interactions.txt:498-740, equipped artifacts and personal slots.
+# 00_vassal_interactions.txt:77,1140, vassal capacity.
+# Existing tnt_54_multiselect_values: domain_size/domain_limit and guarded lists.
+# Motive constants are Parley policy, not numbers claimed to come from vanilla.
+# Context formulas account for both selected directions. They do not simulate
+# all prospective income/contract effects: native whole-deal coupling remains a
+# separate acceptance gate. No exact arbitrary-transaction split invariant is
+# asserted by these bounded contextual advanced-term factors.
+
+tnt_interest_council_vacancies_value = {
+	value = 0
+	var:tnt_partner ?= {
+		if = { limit = { NOT = { exists = cp:councillor_chancellor } } add = 1 }
+		if = { limit = { NOT = { exists = cp:councillor_marshal } } add = 1 }
+		if = { limit = { NOT = { exists = cp:councillor_steward } } add = 1 }
+		if = { limit = { NOT = { exists = cp:councillor_spymaster } } add = 1 }
+	}
+}
+
+tnt_interest_domain_incoming_excess_share_value = {
+	value = 0
+	if = {
+		limit = { tnt_domain_titles_p_value > 0 }
+		var:tnt_partner ?= { add = domain_size subtract = domain_limit }
+		subtract = tnt_domain_titles_r_value
+		add = tnt_domain_titles_p_value
+		min = 0
+		max = tnt_domain_titles_p_value
+		divide = tnt_domain_titles_p_value
+	}
+}
+
+tnt_interest_domain_outgoing_relief_share_value = {
+	value = 0
+	if = {
+		limit = { tnt_domain_titles_r_value > 0 }
+		var:tnt_partner ?= { add = domain_size subtract = domain_limit }
+		min = 0
+		max = tnt_domain_titles_r_value
+		divide = tnt_domain_titles_r_value
+	}
+}
+
+tnt_interest_vassal_incoming_excess_share_value = {
+	value = 0
+	if = {
+		limit = { tnt_count_sel_subject_p_value > 0 }
+		var:tnt_partner ?= { add = vassal_count subtract = vassal_limit }
+		subtract = tnt_count_sel_subject_r_value
+		add = tnt_count_sel_subject_p_value
+		min = 0
+		max = tnt_count_sel_subject_p_value
+		divide = tnt_count_sel_subject_p_value
+	}
+}
+
+tnt_interest_vassal_outgoing_relief_share_value = {
+	value = 0
+	if = {
+		limit = { tnt_count_sel_subject_r_value > 0 }
+		var:tnt_partner ?= { add = vassal_count subtract = vassal_limit }
+		min = 0
+		max = tnt_count_sel_subject_r_value
+		divide = tnt_count_sel_subject_r_value
+	}
+}
+
+tnt_interest_artifact_equipped_share_value = {
+	value = 0
+	if = {
+		limit = { tnt_count_sel_artifact_r_value > 0 }
+		every_in_list = {
+			variable = tnt_sel_artifact_r
+			limit = { is_equipped = yes }
+			add = 1
+		}
+		divide = tnt_count_sel_artifact_r_value
+	}
+}
+
+tnt_interest_artifact_primary_armament_incoming_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_p }
+		every_in_list = {
+			variable = tnt_sel_artifact_p
+			limit = { artifact_slot_type = primary_armament }
+			add = 1
+		}
+	}
+}
+
+tnt_interest_artifact_primary_armament_retained_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { any_equipped_character_artifact = { artifact_slot_type = primary_armament } } }
+		add = 1
+	}
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_r }
+		every_in_list = {
+			variable = tnt_sel_artifact_r
+			limit = { artifact_slot_type = primary_armament is_equipped = yes }
+			subtract = 1
+		}
+	}
+	min = 0
+}
+
+tnt_interest_artifact_armor_incoming_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_p }
+		every_in_list = {
+			variable = tnt_sel_artifact_p
+			limit = { artifact_slot_type = armor }
+			add = 1
+		}
+	}
+}
+
+tnt_interest_artifact_armor_retained_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { any_equipped_character_artifact = { artifact_slot_type = armor } } }
+		add = 1
+	}
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_r }
+		every_in_list = {
+			variable = tnt_sel_artifact_r
+			limit = { artifact_slot_type = armor is_equipped = yes }
+			subtract = 1
+		}
+	}
+	min = 0
+}
+
+tnt_interest_artifact_regalia_incoming_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_p }
+		every_in_list = {
+			variable = tnt_sel_artifact_p
+			limit = { artifact_slot_type = regalia }
+			add = 1
+		}
+	}
+}
+
+tnt_interest_artifact_regalia_retained_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { any_equipped_character_artifact = { artifact_slot_type = regalia } } }
+		add = 1
+	}
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_r }
+		every_in_list = {
+			variable = tnt_sel_artifact_r
+			limit = { artifact_slot_type = regalia is_equipped = yes }
+			subtract = 1
+		}
+	}
+	min = 0
+}
+
+tnt_interest_artifact_helmet_incoming_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_p }
+		every_in_list = {
+			variable = tnt_sel_artifact_p
+			limit = { artifact_slot_type = helmet }
+			add = 1
+		}
+	}
+}
+
+tnt_interest_artifact_helmet_retained_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { any_equipped_character_artifact = { artifact_slot_type = helmet } } }
+		add = 1
+	}
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_r }
+		every_in_list = {
+			variable = tnt_sel_artifact_r
+			limit = { artifact_slot_type = helmet is_equipped = yes }
+			subtract = 1
+		}
+	}
+	min = 0
+}
+
+tnt_interest_artifact_alternative_share_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_partner tnt_count_sel_artifact_p_value > 0 }
+		add = {
+			value = tnt_interest_artifact_primary_armament_incoming_value
+			add = tnt_interest_artifact_primary_armament_retained_value
+			subtract = 1
+			min = 0
+		}
+		add = {
+			value = tnt_interest_artifact_armor_incoming_value
+			add = tnt_interest_artifact_armor_retained_value
+			subtract = 1
+			min = 0
+		}
+		add = {
+			value = tnt_interest_artifact_regalia_incoming_value
+			add = tnt_interest_artifact_regalia_retained_value
+			subtract = 1
+			min = 0
+		}
+		add = {
+			value = tnt_interest_artifact_helmet_incoming_value
+			add = tnt_interest_artifact_helmet_retained_value
+			subtract = 1
+			min = 0
+		}
+		divide = tnt_count_sel_artifact_p_value
+	}
+}
+
+tnt_interest_title_p_selected_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_title_p variable_list_size = { name = tnt_sel_title_p value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_title_p_domain_capacity_value = {
+	value = tnt_interest_domain_incoming_excess_share_value
+	multiply = -0.6
+}
+
+tnt_interest_title_p_raw_value = {
+	value = 0.9
+	add = tnt_interest_title_p_domain_capacity_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_title_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_title_p_selected_value > 0 }
+		value = tnt_interest_title_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_title_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_title_p_factor_value = {
+	value = tnt_interest_title_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_title_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_title_p_selected_value > 0 }
+		value = 0
+		add = { value = 90 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_title_p_domain_capacity_value multiply = 100 desc = tnt_interest_bd_domain_capacity }
+		add = {
+			value = tnt_interest_title_p_raw_value
+			subtract = 0.9
+			subtract = tnt_interest_title_p_domain_capacity_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_title_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_title_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_title_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_title_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_title_r_selected_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_title_r variable_list_size = { name = tnt_sel_title_r value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_title_r_domain_relief_value = {
+	value = tnt_interest_domain_outgoing_relief_share_value
+	multiply = 0.3
+}
+
+tnt_interest_title_r_raw_value = {
+	value = 0.6
+	add = tnt_interest_title_r_domain_relief_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_title_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_title_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_title_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_title_r_factor_value = {
+	value = tnt_interest_title_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_title_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_title_r_selected_value > 0 }
+		value = 0
+		add = { value = 60 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_title_r_domain_relief_value multiply = 100 desc = tnt_interest_bd_domain_relief }
+		add = {
+			value = tnt_interest_title_r_raw_value
+			subtract = 0.6
+			subtract = tnt_interest_title_r_domain_relief_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_title_r_unclamped_factor_value
+			subtract = { value = tnt_interest_title_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_title_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_title_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_subject_p_selected_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_subject_p variable_list_size = { name = tnt_sel_subject_p value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_subject_p_vassal_capacity_value = {
+	value = tnt_interest_vassal_incoming_excess_share_value
+	multiply = -0.6
+}
+
+tnt_interest_subject_p_raw_value = {
+	value = 0.85
+	add = tnt_interest_subject_p_vassal_capacity_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_subject_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_subject_p_selected_value > 0 }
+		value = tnt_interest_subject_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_subject_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_subject_p_factor_value = {
+	value = tnt_interest_subject_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_subject_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_subject_p_selected_value > 0 }
+		value = 0
+		add = { value = 85 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_subject_p_vassal_capacity_value multiply = 100 desc = tnt_interest_bd_vassal_capacity }
+		add = {
+			value = tnt_interest_subject_p_raw_value
+			subtract = 0.85
+			subtract = tnt_interest_subject_p_vassal_capacity_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_subject_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_subject_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_subject_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_subject_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_subject_r_selected_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_subject_r variable_list_size = { name = tnt_sel_subject_r value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_subject_r_vassal_relief_value = {
+	value = tnt_interest_vassal_outgoing_relief_share_value
+	multiply = 0.3
+}
+
+tnt_interest_subject_r_raw_value = {
+	value = 0.6
+	add = tnt_interest_subject_r_vassal_relief_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_subject_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_subject_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_subject_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_subject_r_factor_value = {
+	value = tnt_interest_subject_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_subject_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_subject_r_selected_value > 0 }
+		value = 0
+		add = { value = 60 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_subject_r_vassal_relief_value multiply = 100 desc = tnt_interest_bd_vassal_relief }
+		add = {
+			value = tnt_interest_subject_r_raw_value
+			subtract = 0.6
+			subtract = tnt_interest_subject_r_vassal_relief_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_subject_r_unclamped_factor_value
+			subtract = { value = tnt_interest_subject_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_subject_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_subject_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_courtier_p_selected_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_courtier_p variable_list_size = { name = tnt_sel_courtier_p value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_courtier_p_council_vacancies_value = {
+	value = 0
+	if = {
+		limit = { tnt_count_sel_courtier_p_value > 0 }
+		add = tnt_interest_council_vacancies_value
+		divide = tnt_count_sel_courtier_p_value
+		max = 1
+		multiply = 0.35
+	}
+}
+
+tnt_interest_courtier_p_raw_value = {
+	value = 0.5
+	add = tnt_interest_courtier_p_council_vacancies_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_courtier_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_courtier_p_selected_value > 0 }
+		value = tnt_interest_courtier_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_courtier_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_courtier_p_factor_value = {
+	value = tnt_interest_courtier_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_courtier_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_courtier_p_selected_value > 0 }
+		value = 0
+		add = { value = 50 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_courtier_p_council_vacancies_value multiply = 100 desc = tnt_interest_bd_council_vacancies }
+		add = {
+			value = tnt_interest_courtier_p_raw_value
+			subtract = 0.5
+			subtract = tnt_interest_courtier_p_council_vacancies_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_courtier_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_courtier_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_courtier_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_courtier_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_courtier_r_selected_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_courtier_r variable_list_size = { name = tnt_sel_courtier_r value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_courtier_r_court_replacement_value = {
+	value = 0
+	if = {
+		limit = { tnt_interest_council_vacancies_value > 0 }
+		subtract = 0.25
+	}
+}
+
+tnt_interest_courtier_r_raw_value = {
+	value = 0.7
+	add = tnt_interest_courtier_r_court_replacement_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_courtier_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_courtier_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_courtier_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_courtier_r_factor_value = {
+	value = tnt_interest_courtier_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_courtier_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_courtier_r_selected_value > 0 }
+		value = 0
+		add = { value = 70 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_courtier_r_court_replacement_value multiply = 100 desc = tnt_interest_bd_court_replacement }
+		add = {
+			value = tnt_interest_courtier_r_raw_value
+			subtract = 0.7
+			subtract = tnt_interest_courtier_r_court_replacement_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_courtier_r_unclamped_factor_value
+			subtract = { value = tnt_interest_courtier_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_courtier_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_courtier_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_artifact_p_selected_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_p variable_list_size = { name = tnt_sel_artifact_p value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_artifact_p_artifact_alternative_value = {
+	value = tnt_interest_artifact_alternative_share_value
+	multiply = -0.25
+}
+
+tnt_interest_artifact_p_raw_value = {
+	value = 0.85
+	add = tnt_interest_artifact_p_artifact_alternative_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_artifact_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_artifact_p_selected_value > 0 }
+		value = tnt_interest_artifact_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_artifact_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_artifact_p_factor_value = {
+	value = tnt_interest_artifact_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_artifact_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_artifact_p_selected_value > 0 }
+		value = 0
+		add = { value = 85 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_artifact_p_artifact_alternative_value multiply = 100 desc = tnt_interest_bd_artifact_alternative }
+		add = {
+			value = tnt_interest_artifact_p_raw_value
+			subtract = 0.85
+			subtract = tnt_interest_artifact_p_artifact_alternative_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_artifact_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_artifact_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_artifact_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_artifact_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_artifact_r_selected_value = {
+	value = 0
+	if = {
+		limit = { has_variable_list = tnt_sel_artifact_r variable_list_size = { name = tnt_sel_artifact_r value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_artifact_r_artifact_equipped_value = {
+	value = tnt_interest_artifact_equipped_share_value
+	multiply = -0.35
+}
+
+tnt_interest_artifact_r_raw_value = {
+	value = 0.75
+	add = tnt_interest_artifact_r_artifact_equipped_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_artifact_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_artifact_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_artifact_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_artifact_r_factor_value = {
+	value = tnt_interest_artifact_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_artifact_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_artifact_r_selected_value > 0 }
+		value = 0
+		add = { value = 75 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_artifact_r_artifact_equipped_value multiply = 100 desc = tnt_interest_bd_artifact_equipped }
+		add = {
+			value = tnt_interest_artifact_r_raw_value
+			subtract = 0.75
+			subtract = tnt_interest_artifact_r_artifact_equipped_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_artifact_r_unclamped_factor_value
+			subtract = { value = tnt_interest_artifact_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_artifact_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_artifact_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_vassal_p_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_vassal_p var:tnt_vassal_p > 0 }
+		add = 1
+	}
+}
+
+tnt_interest_vassal_p_vassal_capacity_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { vassal_limit_available <= 0 } }
+		add = -0.45
+	}
+}
+
+tnt_interest_vassal_p_raw_value = {
+	value = 0.85
+	add = tnt_interest_vassal_p_vassal_capacity_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_vassal_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_vassal_p_selected_value > 0 }
+		value = tnt_interest_vassal_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_vassal_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_vassal_p_factor_value = {
+	value = tnt_interest_vassal_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_vassal_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_vassal_p_selected_value > 0 }
+		value = 0
+		add = { value = 85 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_vassal_p_vassal_capacity_value multiply = 100 desc = tnt_interest_bd_vassal_capacity }
+		add = {
+			value = tnt_interest_vassal_p_raw_value
+			subtract = 0.85
+			subtract = tnt_interest_vassal_p_vassal_capacity_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_vassal_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_vassal_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_vassal_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_vassal_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_vassal_r_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_vassal_r var:tnt_vassal_r > 0 }
+		add = 1
+	}
+}
+
+tnt_interest_vassal_r_protection_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = 0.25
+	}
+}
+
+tnt_interest_vassal_r_raw_value = {
+	value = 0.4
+	add = tnt_interest_vassal_r_protection_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_vassal_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_vassal_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_vassal_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_vassal_r_factor_value = {
+	value = tnt_interest_vassal_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_vassal_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_vassal_r_selected_value > 0 }
+		value = 0
+		add = { value = 40 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_vassal_r_protection_value multiply = 100 desc = tnt_interest_bd_protection }
+		add = {
+			value = tnt_interest_vassal_r_raw_value
+			subtract = 0.4
+			subtract = tnt_interest_vassal_r_protection_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_vassal_r_unclamped_factor_value
+			subtract = { value = tnt_interest_vassal_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_vassal_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_vassal_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_indep_p_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_indep_p var:tnt_indep_p > 0 }
+		add = 1
+	}
+}
+
+tnt_interest_indep_p_autonomy_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = no } }
+		add = 0.1
+	}
+}
+
+tnt_interest_indep_p_protection_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = -0.3
+	}
+}
+
+tnt_interest_indep_p_raw_value = {
+	value = 0.85
+	add = tnt_interest_indep_p_autonomy_value
+	add = tnt_interest_indep_p_protection_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_indep_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_indep_p_selected_value > 0 }
+		value = tnt_interest_indep_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_indep_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_indep_p_factor_value = {
+	value = tnt_interest_indep_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_indep_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_indep_p_selected_value > 0 }
+		value = 0
+		add = { value = 85 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_indep_p_autonomy_value multiply = 100 desc = tnt_interest_bd_autonomy }
+		add = { value = tnt_interest_indep_p_protection_value multiply = 100 desc = tnt_interest_bd_protection }
+		add = {
+			value = tnt_interest_indep_p_raw_value
+			subtract = 0.85
+			subtract = tnt_interest_indep_p_autonomy_value
+			subtract = tnt_interest_indep_p_protection_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_indep_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_indep_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_indep_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_indep_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_indep_r_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_indep_r var:tnt_indep_r > 0 }
+		add = 1
+	}
+}
+
+tnt_interest_indep_r_vassal_relief_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { vassal_limit_available < 0 } }
+		add = 0.3
+	}
+}
+
+tnt_interest_indep_r_control_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = -0.15
+	}
+}
+
+tnt_interest_indep_r_raw_value = {
+	value = 0.4
+	add = tnt_interest_indep_r_vassal_relief_value
+	add = tnt_interest_indep_r_control_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_indep_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_indep_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_indep_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_indep_r_factor_value = {
+	value = tnt_interest_indep_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_indep_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_indep_r_selected_value > 0 }
+		value = 0
+		add = { value = 40 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_indep_r_vassal_relief_value multiply = 100 desc = tnt_interest_bd_vassal_relief }
+		add = { value = tnt_interest_indep_r_control_value multiply = 100 desc = tnt_interest_bd_control }
+		add = {
+			value = tnt_interest_indep_r_raw_value
+			subtract = 0.4
+			subtract = tnt_interest_indep_r_vassal_relief_value
+			subtract = tnt_interest_indep_r_control_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_indep_r_unclamped_factor_value
+			subtract = { value = tnt_interest_indep_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_indep_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_indep_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_hostage_p_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_hostage_p  }
+		add = 1
+	}
+}
+
+tnt_interest_hostage_p_leverage_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = 0.15
+	}
+}
+
+tnt_interest_hostage_p_raw_value = {
+	value = 0.7
+	add = tnt_interest_hostage_p_leverage_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_hostage_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_hostage_p_selected_value > 0 }
+		value = tnt_interest_hostage_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_hostage_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_hostage_p_factor_value = {
+	value = tnt_interest_hostage_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_hostage_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_hostage_p_selected_value > 0 }
+		value = 0
+		add = { value = 70 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_hostage_p_leverage_value multiply = 100 desc = tnt_interest_bd_leverage }
+		add = {
+			value = tnt_interest_hostage_p_raw_value
+			subtract = 0.7
+			subtract = tnt_interest_hostage_p_leverage_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_hostage_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_hostage_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_hostage_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_hostage_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_hostage_r_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_hostage_r  }
+		add = 1
+	}
+}
+
+tnt_interest_hostage_r_protection_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = 0.15
+	}
+}
+
+tnt_interest_hostage_r_raw_value = {
+	value = 0.55
+	add = tnt_interest_hostage_r_protection_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_hostage_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_hostage_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_hostage_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_hostage_r_factor_value = {
+	value = tnt_interest_hostage_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_hostage_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_hostage_r_selected_value > 0 }
+		value = 0
+		add = { value = 55 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_hostage_r_protection_value multiply = 100 desc = tnt_interest_bd_protection }
+		add = {
+			value = tnt_interest_hostage_r_raw_value
+			subtract = 0.55
+			subtract = tnt_interest_hostage_r_protection_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_hostage_r_unclamped_factor_value
+			subtract = { value = tnt_interest_hostage_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_hostage_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_hostage_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_hook_p_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_hook_p var:tnt_hook_p > 0 }
+		add = 1
+	}
+}
+
+tnt_interest_hook_p_leverage_value = {
+	value = 0
+	if = {
+		limit = { is_ruler = yes }
+		add = 0.15
+	}
+}
+
+tnt_interest_hook_p_raw_value = {
+	value = 0.7
+	add = tnt_interest_hook_p_leverage_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_hook_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_hook_p_selected_value > 0 }
+		value = tnt_interest_hook_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_hook_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_hook_p_factor_value = {
+	value = tnt_interest_hook_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_hook_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_hook_p_selected_value > 0 }
+		value = 0
+		add = { value = 70 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_hook_p_leverage_value multiply = 100 desc = tnt_interest_bd_leverage }
+		add = {
+			value = tnt_interest_hook_p_raw_value
+			subtract = 0.7
+			subtract = tnt_interest_hook_p_leverage_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_hook_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_hook_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_hook_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_hook_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_hook_r_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_hook_r var:tnt_hook_r > 0 }
+		add = 1
+	}
+}
+
+tnt_interest_hook_r_control_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_ruler = yes } }
+		add = -0.2
+	}
+}
+
+tnt_interest_hook_r_raw_value = {
+	value = 0.55
+	add = tnt_interest_hook_r_control_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_hook_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_hook_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_hook_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_hook_r_factor_value = {
+	value = tnt_interest_hook_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_hook_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_hook_r_selected_value > 0 }
+		value = 0
+		add = { value = 55 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_hook_r_control_value multiply = 100 desc = tnt_interest_bd_control }
+		add = {
+			value = tnt_interest_hook_r_raw_value
+			subtract = 0.55
+			subtract = tnt_interest_hook_r_control_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_hook_r_unclamped_factor_value
+			subtract = { value = tnt_interest_hook_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_hook_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_hook_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_marriage_p_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_marriage_p var:tnt_marriage_p > 0 has_variable_list = tnt_wed_list variable_list_size = { name = tnt_wed_list value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_marriage_p_wartime_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = 0.1
+	}
+}
+
+tnt_interest_marriage_p_raw_value = {
+	value = 0.85
+	add = tnt_interest_marriage_p_wartime_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_marriage_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_marriage_p_selected_value > 0 }
+		value = tnt_interest_marriage_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_marriage_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_marriage_p_factor_value = {
+	value = tnt_interest_marriage_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_marriage_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_marriage_p_selected_value > 0 }
+		value = 0
+		add = { value = 85 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_marriage_p_wartime_value multiply = 100 desc = tnt_interest_bd_wartime }
+		add = {
+			value = tnt_interest_marriage_p_raw_value
+			subtract = 0.85
+			subtract = tnt_interest_marriage_p_wartime_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_marriage_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_marriage_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_marriage_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_marriage_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_marriage_r_selected_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_marriage_r var:tnt_marriage_r > 0 has_variable_list = tnt_wed_list variable_list_size = { name = tnt_wed_list value > 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_marriage_r_wartime_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = -0.1
+	}
+}
+
+tnt_interest_marriage_r_raw_value = {
+	value = 0.7
+	add = tnt_interest_marriage_r_wartime_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_marriage_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_marriage_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_marriage_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_marriage_r_factor_value = {
+	value = tnt_interest_marriage_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_marriage_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_marriage_r_selected_value > 0 }
+		value = 0
+		add = { value = 70 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_marriage_r_wartime_value multiply = 100 desc = tnt_interest_bd_wartime }
+		add = {
+			value = tnt_interest_marriage_r_raw_value
+			subtract = 0.7
+			subtract = tnt_interest_marriage_r_wartime_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_marriage_r_unclamped_factor_value
+			subtract = { value = tnt_interest_marriage_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_marriage_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_marriage_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_tax_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_tax_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_tax_p_debt_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { gold < 0 } }
+		add = 0.2
+	}
+}
+
+tnt_interest_ob_tax_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_tax_p_debt_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_tax_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_tax_p_selected_value > 0 }
+		value = tnt_interest_ob_tax_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_tax_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_tax_p_factor_value = {
+	value = tnt_interest_ob_tax_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_tax_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_tax_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_tax_p_debt_value multiply = 100 desc = tnt_interest_bd_debt }
+		add = {
+			value = tnt_interest_ob_tax_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_tax_p_debt_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_tax_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_tax_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_tax_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_tax_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_tax_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_tax_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_tax_r_debt_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { gold < 0 } }
+		add = -0.3
+	}
+}
+
+tnt_interest_ob_tax_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_tax_r_debt_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_tax_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_tax_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_tax_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_tax_r_factor_value = {
+	value = tnt_interest_ob_tax_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_tax_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_tax_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_tax_r_debt_value multiply = 100 desc = tnt_interest_bd_debt }
+		add = {
+			value = tnt_interest_ob_tax_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_tax_r_debt_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_tax_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_tax_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_tax_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_tax_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_levy_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_levy_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_levy_p_wartime_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = 0.2
+	}
+}
+
+tnt_interest_ob_levy_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_levy_p_wartime_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_levy_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_levy_p_selected_value > 0 }
+		value = tnt_interest_ob_levy_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_levy_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_levy_p_factor_value = {
+	value = tnt_interest_ob_levy_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_levy_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_levy_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_levy_p_wartime_value multiply = 100 desc = tnt_interest_bd_wartime }
+		add = {
+			value = tnt_interest_ob_levy_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_levy_p_wartime_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_levy_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_levy_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_levy_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_levy_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_levy_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_levy_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_levy_r_wartime_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = -0.25
+	}
+}
+
+tnt_interest_ob_levy_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_levy_r_wartime_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_levy_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_levy_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_levy_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_levy_r_factor_value = {
+	value = tnt_interest_ob_levy_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_levy_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_levy_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_levy_r_wartime_value multiply = 100 desc = tnt_interest_bd_wartime }
+		add = {
+			value = tnt_interest_ob_levy_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_levy_r_wartime_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_levy_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_levy_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_levy_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_levy_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_fort_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_fort_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_fort_p_wartime_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = 0.2
+	}
+}
+
+tnt_interest_ob_fort_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_fort_p_wartime_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_fort_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_fort_p_selected_value > 0 }
+		value = tnt_interest_ob_fort_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_fort_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_fort_p_factor_value = {
+	value = tnt_interest_ob_fort_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_fort_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_fort_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_fort_p_wartime_value multiply = 100 desc = tnt_interest_bd_wartime }
+		add = {
+			value = tnt_interest_ob_fort_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_fort_p_wartime_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_fort_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_fort_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_fort_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_fort_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_fort_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_fort_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_fort_r_wartime_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = -0.25
+	}
+}
+
+tnt_interest_ob_fort_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_fort_r_wartime_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_fort_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_fort_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_fort_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_fort_r_factor_value = {
+	value = tnt_interest_ob_fort_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_fort_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_fort_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_fort_r_wartime_value multiply = 100 desc = tnt_interest_bd_wartime }
+		add = {
+			value = tnt_interest_ob_fort_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_fort_r_wartime_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_fort_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_fort_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_fort_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_fort_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_coin_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_coin_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_coin_p_debt_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { gold < 0 } }
+		add = 0.2
+	}
+}
+
+tnt_interest_ob_coin_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_coin_p_debt_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_coin_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_coin_p_selected_value > 0 }
+		value = tnt_interest_ob_coin_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_coin_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_coin_p_factor_value = {
+	value = tnt_interest_ob_coin_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_coin_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_coin_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_coin_p_debt_value multiply = 100 desc = tnt_interest_bd_debt }
+		add = {
+			value = tnt_interest_ob_coin_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_coin_p_debt_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_coin_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_coin_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_coin_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_coin_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_coin_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_coin_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_coin_r_debt_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { gold < 0 } }
+		add = -0.3
+	}
+}
+
+tnt_interest_ob_coin_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_coin_r_debt_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_coin_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_coin_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_coin_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_coin_r_factor_value = {
+	value = tnt_interest_ob_coin_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_coin_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_coin_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_coin_r_debt_value multiply = 100 desc = tnt_interest_bd_debt }
+		add = {
+			value = tnt_interest_ob_coin_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_coin_r_debt_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_coin_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_coin_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_coin_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_coin_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_relig_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_relig_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_relig_p_religious_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_partner exists = faith exists = var:tnt_partner.faith faith = var:tnt_partner.faith }
+		subtract = 0.3
+	}
+}
+
+tnt_interest_ob_relig_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_relig_p_religious_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_relig_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_relig_p_selected_value > 0 }
+		value = tnt_interest_ob_relig_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_relig_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_relig_p_factor_value = {
+	value = tnt_interest_ob_relig_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_relig_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_relig_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_relig_p_religious_value multiply = 100 desc = tnt_interest_bd_religious }
+		add = {
+			value = tnt_interest_ob_relig_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_relig_p_religious_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_relig_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_relig_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_relig_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_relig_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_relig_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_relig_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_relig_r_religious_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_partner exists = faith exists = var:tnt_partner.faith faith = var:tnt_partner.faith }
+		add = 0.2
+	}
+}
+
+tnt_interest_ob_relig_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_relig_r_religious_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_relig_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_relig_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_relig_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_relig_r_factor_value = {
+	value = tnt_interest_ob_relig_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_relig_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_relig_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_relig_r_religious_value multiply = 100 desc = tnt_interest_bd_religious }
+		add = {
+			value = tnt_interest_ob_relig_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_relig_r_religious_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_relig_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_relig_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_relig_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_relig_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_council_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_council_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_council_p_council_vacancies_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_councillor = yes } }
+		add = -0.35
+	}
+}
+
+tnt_interest_ob_council_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_council_p_council_vacancies_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_council_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_council_p_selected_value > 0 }
+		value = tnt_interest_ob_council_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_council_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_council_p_factor_value = {
+	value = tnt_interest_ob_council_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_council_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_council_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_council_p_council_vacancies_value multiply = 100 desc = tnt_interest_bd_council_vacancies }
+		add = {
+			value = tnt_interest_ob_council_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_council_p_council_vacancies_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_council_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_council_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_council_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_council_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_council_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_council_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_council_r_council_vacancies_value = {
+	value = 0
+	if = {
+		limit = { tnt_interest_council_vacancies_value = 0 }
+		subtract = 0.2
+	}
+}
+
+tnt_interest_ob_council_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_council_r_council_vacancies_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_council_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_council_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_council_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_council_r_factor_value = {
+	value = tnt_interest_ob_council_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_council_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_council_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_council_r_council_vacancies_value multiply = 100 desc = tnt_interest_bd_council_vacancies }
+		add = {
+			value = tnt_interest_ob_council_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_council_r_council_vacancies_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_council_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_council_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_council_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_council_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_revoke_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_revoke_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_revoke_p_control_value = {
+	value = 0
+	if = {
+		limit = { dread >= 50 }
+		add = 0.15
+	}
+}
+
+tnt_interest_ob_revoke_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_revoke_p_control_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_revoke_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_revoke_p_selected_value > 0 }
+		value = tnt_interest_ob_revoke_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_revoke_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_revoke_p_factor_value = {
+	value = tnt_interest_ob_revoke_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_revoke_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_revoke_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_revoke_p_control_value multiply = 100 desc = tnt_interest_bd_control }
+		add = {
+			value = tnt_interest_ob_revoke_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_revoke_p_control_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_revoke_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_revoke_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_revoke_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_revoke_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_revoke_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_revoke_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_revoke_r_control_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { dread >= 50 } }
+		add = -0.2
+	}
+}
+
+tnt_interest_ob_revoke_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_revoke_r_control_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_revoke_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_revoke_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_revoke_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_revoke_r_factor_value = {
+	value = tnt_interest_ob_revoke_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_revoke_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_revoke_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_revoke_r_control_value multiply = 100 desc = tnt_interest_bd_control }
+		add = {
+			value = tnt_interest_ob_revoke_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_revoke_r_control_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_revoke_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_revoke_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_revoke_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_revoke_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_war_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_war_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_war_p_wartime_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = 0.2
+	}
+}
+
+tnt_interest_ob_war_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_war_p_wartime_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_war_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_war_p_selected_value > 0 }
+		value = tnt_interest_ob_war_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_war_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_war_p_factor_value = {
+	value = tnt_interest_ob_war_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_war_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_war_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_war_p_wartime_value multiply = 100 desc = tnt_interest_bd_wartime }
+		add = {
+			value = tnt_interest_ob_war_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_war_p_wartime_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_war_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_war_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_war_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_war_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_war_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_war_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_war_r_wartime_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { is_at_war = yes } }
+		add = -0.25
+	}
+}
+
+tnt_interest_ob_war_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_war_r_wartime_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_war_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_war_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_war_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_war_r_factor_value = {
+	value = tnt_interest_ob_war_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_war_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_war_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_war_r_wartime_value multiply = 100 desc = tnt_interest_bd_wartime }
+		add = {
+			value = tnt_interest_ob_war_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_war_r_wartime_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_war_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_war_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_war_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_war_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_succ_p_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_succ_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_succ_p_succession_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { exists = player_heir } }
+		add = 0.15
+	}
+}
+
+tnt_interest_ob_succ_p_raw_value = {
+	value = 0.8
+	add = tnt_interest_ob_succ_p_succession_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_succ_p_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_succ_p_selected_value > 0 }
+		value = tnt_interest_ob_succ_p_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ob_succ_p_raw_value
+			add = tnt_interest_strength_value
+		}
+	}
+}
+
+tnt_interest_ob_succ_p_factor_value = {
+	value = tnt_interest_ob_succ_p_unclamped_factor_value
+	min = 0
+	max = 1
+}
+
+tnt_interest_ob_succ_p_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_succ_p_selected_value > 0 }
+		value = 0
+		add = { value = 80 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_succ_p_succession_value multiply = 100 desc = tnt_interest_bd_succession }
+		add = {
+			value = tnt_interest_ob_succ_p_raw_value
+			subtract = 0.8
+			subtract = tnt_interest_ob_succ_p_succession_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = tnt_interest_ob_succ_p_unclamped_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_succ_p_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = tnt_interest_ob_succ_p_factor_value
+			multiply = 100
+			subtract = { value = tnt_interest_ob_succ_p_unclamped_factor_value multiply = 100 }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_succ_r_selected_value = {
+	value = 0
+	if = {
+		limit = { NOT = { tnt_val_ob_succ_value = 0 } }
+		add = 1
+	}
+}
+
+tnt_interest_ob_succ_r_succession_value = {
+	value = 0
+	if = {
+		limit = { var:tnt_partner ?= { exists = player_heir } }
+		add = -0.2
+	}
+}
+
+tnt_interest_ob_succ_r_raw_value = {
+	value = 0.65
+	add = tnt_interest_ob_succ_r_succession_value
+	min = 0.001
+	max = 1
+}
+
+tnt_interest_ob_succ_r_unclamped_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_succ_r_selected_value > 0 }
+		value = 1
+		divide = tnt_interest_ob_succ_r_raw_value
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+}
+
+tnt_interest_ob_succ_r_factor_value = {
+	value = tnt_interest_ob_succ_r_unclamped_factor_value
+	min = 1
+	max = 100
+}
+
+tnt_interest_ob_succ_r_percent_value = {
+	value = 100
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = var:tnt_partner tnt_interest_ob_succ_r_selected_value > 0 }
+		value = 0
+		add = { value = 65 desc = tnt_interest_bd_base }
+		add = { value = tnt_interest_ob_succ_r_succession_value multiply = 100 desc = tnt_interest_bd_succession }
+		add = {
+			value = tnt_interest_ob_succ_r_raw_value
+			subtract = 0.65
+			subtract = tnt_interest_ob_succ_r_succession_value
+			multiply = 100
+			desc = tnt_interest_bd_clamp
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_succ_r_unclamped_factor_value
+			subtract = { value = tnt_interest_ob_succ_r_raw_value multiply = 100 }
+			desc = tnt_interest_bd_rule
+		}
+		add = {
+			value = 100
+			divide = tnt_interest_ob_succ_r_factor_value
+			subtract = { value = 100 divide = tnt_interest_ob_succ_r_unclamped_factor_value }
+			desc = tnt_interest_bd_floor
+		}
+	}
+}
+
+tnt_interest_ob_tax_selected_value = {
+	value = tnt_interest_ob_tax_p_selected_value
+}
+
+tnt_interest_ob_tax_factor_value = {
+	value = tnt_interest_ob_tax_p_factor_value
+	if = {
+		limit = { tnt_val_ob_tax_value < 0 }
+		value = tnt_interest_ob_tax_r_factor_value
+	}
+}
+
+tnt_interest_ob_tax_percent_value = {
+	value = tnt_interest_ob_tax_p_percent_value
+	if = {
+		limit = { tnt_val_ob_tax_value < 0 }
+		value = tnt_interest_ob_tax_r_percent_value
+	}
+}
+
+tnt_interest_ob_tax_effective_value = {
+	value = tnt_val_ob_tax_value
+	multiply = tnt_interest_ob_tax_factor_value
+}
+
+tnt_interest_ob_levy_selected_value = {
+	value = tnt_interest_ob_levy_p_selected_value
+}
+
+tnt_interest_ob_levy_factor_value = {
+	value = tnt_interest_ob_levy_p_factor_value
+	if = {
+		limit = { tnt_val_ob_levy_value < 0 }
+		value = tnt_interest_ob_levy_r_factor_value
+	}
+}
+
+tnt_interest_ob_levy_percent_value = {
+	value = tnt_interest_ob_levy_p_percent_value
+	if = {
+		limit = { tnt_val_ob_levy_value < 0 }
+		value = tnt_interest_ob_levy_r_percent_value
+	}
+}
+
+tnt_interest_ob_levy_effective_value = {
+	value = tnt_val_ob_levy_value
+	multiply = tnt_interest_ob_levy_factor_value
+}
+
+tnt_interest_ob_fort_selected_value = {
+	value = tnt_interest_ob_fort_p_selected_value
+}
+
+tnt_interest_ob_fort_factor_value = {
+	value = tnt_interest_ob_fort_p_factor_value
+	if = {
+		limit = { tnt_val_ob_fort_value < 0 }
+		value = tnt_interest_ob_fort_r_factor_value
+	}
+}
+
+tnt_interest_ob_fort_percent_value = {
+	value = tnt_interest_ob_fort_p_percent_value
+	if = {
+		limit = { tnt_val_ob_fort_value < 0 }
+		value = tnt_interest_ob_fort_r_percent_value
+	}
+}
+
+tnt_interest_ob_fort_effective_value = {
+	value = tnt_val_ob_fort_value
+	multiply = tnt_interest_ob_fort_factor_value
+}
+
+tnt_interest_ob_coin_selected_value = {
+	value = tnt_interest_ob_coin_p_selected_value
+}
+
+tnt_interest_ob_coin_factor_value = {
+	value = tnt_interest_ob_coin_p_factor_value
+	if = {
+		limit = { tnt_val_ob_coin_value < 0 }
+		value = tnt_interest_ob_coin_r_factor_value
+	}
+}
+
+tnt_interest_ob_coin_percent_value = {
+	value = tnt_interest_ob_coin_p_percent_value
+	if = {
+		limit = { tnt_val_ob_coin_value < 0 }
+		value = tnt_interest_ob_coin_r_percent_value
+	}
+}
+
+tnt_interest_ob_coin_effective_value = {
+	value = tnt_val_ob_coin_value
+	multiply = tnt_interest_ob_coin_factor_value
+}
+
+tnt_interest_ob_relig_selected_value = {
+	value = tnt_interest_ob_relig_p_selected_value
+}
+
+tnt_interest_ob_relig_factor_value = {
+	value = tnt_interest_ob_relig_p_factor_value
+	if = {
+		limit = { tnt_val_ob_relig_value < 0 }
+		value = tnt_interest_ob_relig_r_factor_value
+	}
+}
+
+tnt_interest_ob_relig_percent_value = {
+	value = tnt_interest_ob_relig_p_percent_value
+	if = {
+		limit = { tnt_val_ob_relig_value < 0 }
+		value = tnt_interest_ob_relig_r_percent_value
+	}
+}
+
+tnt_interest_ob_relig_effective_value = {
+	value = tnt_val_ob_relig_value
+	multiply = tnt_interest_ob_relig_factor_value
+}
+
+tnt_interest_ob_council_selected_value = {
+	value = tnt_interest_ob_council_p_selected_value
+}
+
+tnt_interest_ob_council_factor_value = {
+	value = tnt_interest_ob_council_p_factor_value
+	if = {
+		limit = { tnt_val_ob_council_value < 0 }
+		value = tnt_interest_ob_council_r_factor_value
+	}
+}
+
+tnt_interest_ob_council_percent_value = {
+	value = tnt_interest_ob_council_p_percent_value
+	if = {
+		limit = { tnt_val_ob_council_value < 0 }
+		value = tnt_interest_ob_council_r_percent_value
+	}
+}
+
+tnt_interest_ob_council_effective_value = {
+	value = tnt_val_ob_council_value
+	multiply = tnt_interest_ob_council_factor_value
+}
+
+tnt_interest_ob_revoke_selected_value = {
+	value = tnt_interest_ob_revoke_p_selected_value
+}
+
+tnt_interest_ob_revoke_factor_value = {
+	value = tnt_interest_ob_revoke_p_factor_value
+	if = {
+		limit = { tnt_val_ob_revoke_value < 0 }
+		value = tnt_interest_ob_revoke_r_factor_value
+	}
+}
+
+tnt_interest_ob_revoke_percent_value = {
+	value = tnt_interest_ob_revoke_p_percent_value
+	if = {
+		limit = { tnt_val_ob_revoke_value < 0 }
+		value = tnt_interest_ob_revoke_r_percent_value
+	}
+}
+
+tnt_interest_ob_revoke_effective_value = {
+	value = tnt_val_ob_revoke_value
+	multiply = tnt_interest_ob_revoke_factor_value
+}
+
+tnt_interest_ob_war_selected_value = {
+	value = tnt_interest_ob_war_p_selected_value
+}
+
+tnt_interest_ob_war_factor_value = {
+	value = tnt_interest_ob_war_p_factor_value
+	if = {
+		limit = { tnt_val_ob_war_value < 0 }
+		value = tnt_interest_ob_war_r_factor_value
+	}
+}
+
+tnt_interest_ob_war_percent_value = {
+	value = tnt_interest_ob_war_p_percent_value
+	if = {
+		limit = { tnt_val_ob_war_value < 0 }
+		value = tnt_interest_ob_war_r_percent_value
+	}
+}
+
+tnt_interest_ob_war_effective_value = {
+	value = tnt_val_ob_war_value
+	multiply = tnt_interest_ob_war_factor_value
+}
+
+tnt_interest_ob_succ_selected_value = {
+	value = tnt_interest_ob_succ_p_selected_value
+}
+
+tnt_interest_ob_succ_factor_value = {
+	value = tnt_interest_ob_succ_p_factor_value
+	if = {
+		limit = { tnt_val_ob_succ_value < 0 }
+		value = tnt_interest_ob_succ_r_factor_value
+	}
+}
+
+tnt_interest_ob_succ_percent_value = {
+	value = tnt_interest_ob_succ_p_percent_value
+	if = {
+		limit = { tnt_val_ob_succ_value < 0 }
+		value = tnt_interest_ob_succ_r_percent_value
+	}
+}
+
+tnt_interest_ob_succ_effective_value = {
+	value = tnt_val_ob_succ_value
+	multiply = tnt_interest_ob_succ_factor_value
+}
+
+

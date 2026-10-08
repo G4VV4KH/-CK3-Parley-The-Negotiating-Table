@@ -1,0 +1,1794 @@
+﻿# Native-informed currency interests; all public p/r values run on the table owner.
+# p = evaluator var:tnt_partner RECEIVES, r = that evaluator SURRENDERS.
+# Native stock/capacity helpers run on any character and can be reused by AI-world
+# adapters. No persistent variables, resource writes, budget effects or randomness.
+#
+# Net amount is used ONLY for scoring. The caller must validate BOTH gross legs
+# for affordability/permissions before settlement. Netting grants no permission.
+#
+# For fixed native capacity C, receiving integrates marginal weights 1 below C,
+# 1/(1+s) between C and 2C, and 0 above 2C. Surrender integrates marginal costs
+# 1 above C, 1+s below C, and 1+3s below C/4. These are differences of continuous
+# piecewise-linear potentials. The overlap implementation avoids subtracting two
+# large accumulated potentials. Amount splitting telescopes at fixed context.
+# Changing government, land, war state or native capacity is a new context; these
+# per-resource helpers alone do not claim cross-resource arbitrage prevention.
+#
+# Existing arrogant/humble/zealous/ambitious and greed/rationality/boldness prices
+# remain in the point-conversion layer below and are applied exactly once.
+# Capacity bonuses indicate concrete resource use/strategic budget priorities.
+#
+# Native evidence (installed CK3 1.20.0.4):
+# common/script_values/00_ai_values.txt:280 budget numeric reads; :1887 prestige MAA
+# common/scripted_triggers/00_ai_value_triggers.txt economic strategy predicates
+# common/defines/ai/00_ai.txt:163 desired war chest tracks 18 months maintenance
+# common/casus_belli_types/00_religious_war.txt:20 religious spending prerequisites
+# common/character_interactions/00_perk_interactions.txt:910 sanctioned loopholes
+# common/governments/00_government_types.txt government_has_influence flag
+#
+# Native capacity is capped at 100000; each income/budget input is bounded before
+# arithmetic. Currency stock is read as-is: clipping stock would introduce a
+# discontinuity and let successive small transfers evade the clipping threshold.
+# Display shares are bounded 0..1, guarded divisors >=0.001, receiving
+# factors 0..1, surrender factors 1..7. The documented 1% willingness safety floor
+# cannot bind with these bands; no unreported numerical floor is applied.
+
+tnt_interest_gold_native_stock_value = { value = gold }
+tnt_interest_prestige_native_stock_value = { value = prestige }
+tnt_interest_piety_native_stock_value = { value = piety }
+tnt_interest_influence_native_stock_value = { value = this.influence }
+
+tnt_interest_gold_native_capacity_value = {
+	value = 100
+	desc = tnt_interest_bd_gold_capacity
+	add = {
+		value = yearly_character_income
+		min = 0
+		max = 25000
+		multiply = 2
+		desc = tnt_interest_bd_income_capacity
+	}
+	# A treasury government funds state reserves with treasury, not personal gold.
+	if = {
+		limit = { has_treasury = no }
+		add = {
+			value = war_chest_gold_maximum
+			min = 0
+			max = 25000
+			add = { value = reserved_gold_maximum min = 0 max = 25000 }
+			desc = tnt_interest_bd_military_capacity
+		}
+		if = {
+			limit = {
+				OR = {
+					ai_has_warlike_personality = yes
+					ai_has_cautious_personality = yes
+					ai_has_conqueror_personality = yes
+				}
+			}
+			add = {
+				value = war_chest_gold_maximum
+				min = 0
+				max = 25000
+				desc = tnt_interest_bd_strategy_capacity
+			}
+		}
+		if = {
+			limit = { is_at_war = yes }
+			add = {
+				value = monthly_character_expenses
+				min = 0
+				max = 2000
+				multiply = 12
+				desc = tnt_interest_bd_military_capacity
+			}
+		}
+	}
+	if = {
+		limit = {
+			OR = {
+				ai_has_economical_boom_personality = yes
+				ai_has_pious_builder_personality = yes
+				ai_should_focus_on_building_in_their_capital = yes
+			}
+		}
+		add = {
+			value = yearly_character_income
+			min = 0
+			max = 25000
+			desc = tnt_interest_bd_strategy_capacity
+		}
+	}
+	min = 100
+	max = 100000
+}
+
+tnt_interest_prestige_native_capacity_value = {
+	value = 300
+	desc = tnt_interest_bd_resource_capacity
+	add = {
+		value = monthly_character_men_at_arms_expense_prestige
+		min = 0
+		max = 2000
+		multiply = 24
+		desc = tnt_interest_bd_military_capacity
+	}
+	if = {
+		limit = { government_has_flag = government_is_tribal }
+		add = { value = 750 desc = tnt_interest_bd_military_capacity }
+	}
+	if = {
+		limit = { can_use_conquest_cbs_trigger = yes }
+		add = { value = 1000 desc = tnt_interest_bd_military_capacity }
+	}
+	if = {
+		limit = { ai_has_conqueror_personality = yes }
+		add = { value = 500 desc = tnt_interest_bd_strategy_capacity }
+	}
+	min = 100
+	max = 100000
+}
+
+tnt_interest_piety_native_capacity_value = {
+	value = 250
+	desc = tnt_interest_bd_resource_capacity
+	# General eligibility is a spending opportunity, not a claimed future war.
+	if = {
+		limit = {
+			is_landed = yes
+			faith ?= {
+				NOR = {
+					has_doctrine_parameter = unreformed
+					has_doctrine_parameter = holy_wars_forbidden
+				}
+			}
+			NOR = {
+				government_has_flag = government_is_landless_adventurer
+				government_has_flag = government_is_nomadic
+				government_has_flag = government_is_celestial
+			}
+		}
+		add = { value = 500 desc = tnt_interest_bd_religious_capacity }
+	}
+	if = {
+		limit = { has_perk = sanctioned_loopholes_perk }
+		add = { value = 500 desc = tnt_interest_bd_religious_capacity }
+	}
+	min = 100
+	max = 100000
+}
+
+tnt_interest_influence_native_capacity_value = {
+	value = 0
+	if = {
+		limit = { government_has_flag = government_has_influence }
+		add = { value = 250 desc = tnt_interest_bd_political_capacity }
+		add = {
+			value = highest_held_title_tier
+			min = 0
+			max = 6
+			multiply = 50
+			desc = tnt_interest_bd_political_capacity
+		}
+	}
+	max = 100000
+}
+
+
+# GOLD: owner-scope bindings; native helpers above are character-scoped.
+tnt_interest_gold_capacity_value = {
+	value = 0
+	var:tnt_partner ?= { add = tnt_interest_gold_native_capacity_value }
+	min = 1
+}
+tnt_interest_gold_stock_value = {
+	value = 0
+	var:tnt_partner ?= { add = tnt_interest_gold_native_stock_value }
+}
+tnt_interest_gold_p_amount_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_gold_p }
+		add = var:tnt_gold_p
+	}
+	if = {
+		limit = { exists = var:tnt_gold_r }
+		subtract = var:tnt_gold_r
+	}
+	min = 0
+}
+tnt_interest_gold_r_amount_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_gold_r }
+		add = var:tnt_gold_r
+	}
+	if = {
+		limit = { exists = var:tnt_gold_p }
+		subtract = var:tnt_gold_p
+	}
+	min = 0
+}
+tnt_interest_gold_p_full_share_value = {
+	value = tnt_interest_gold_p_full_amount_value
+	divide = { value = tnt_interest_gold_p_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_gold_p_tail_share_value = {
+	value = tnt_interest_gold_p_tail_amount_value
+	divide = { value = tnt_interest_gold_p_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_gold_r_reserve_share_value = {
+	value = tnt_interest_gold_r_reserve_amount_value
+	divide = { value = tnt_interest_gold_r_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_gold_r_critical_share_value = {
+	value = tnt_interest_gold_r_critical_amount_value
+	divide = { value = tnt_interest_gold_r_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_gold_p_standard_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_p_amount_value > 0
+		}
+		value = tnt_interest_gold_p_standard_weighted_amount_value
+		divide = { value = tnt_interest_gold_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_gold_p_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_p_amount_value > 0
+		}
+		value = tnt_interest_gold_p_weighted_amount_value
+		divide = { value = tnt_interest_gold_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_gold_r_standard_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_r_amount_value > 0
+		}
+		value = tnt_interest_gold_r_standard_weighted_amount_value
+		divide = { value = tnt_interest_gold_r_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 4
+}
+tnt_interest_gold_r_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_r_amount_value > 0
+		}
+		value = tnt_interest_gold_r_weighted_amount_value
+		divide = { value = tnt_interest_gold_r_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+tnt_interest_gold_p_percent_value = {
+	value = 100
+	desc = tnt_interest_bd_base
+	add = {
+		value = tnt_interest_gold_p_standard_ratio_percent_value
+		subtract = 100
+		desc = tnt_interest_bd_receiving_demand
+	}
+	add = {
+		value = tnt_interest_gold_p_ratio_percent_value
+		subtract = tnt_interest_gold_p_standard_ratio_percent_value
+		desc = tnt_interest_bd_rule_strength
+	}
+}
+tnt_interest_gold_r_percent_value = {
+	value = 100
+	desc = tnt_interest_bd_base
+	add = {
+		value = tnt_interest_gold_r_standard_ratio_percent_value
+		subtract = 100
+		desc = tnt_interest_bd_surrender_reserve
+	}
+	add = {
+		value = tnt_interest_gold_r_ratio_percent_value
+		subtract = tnt_interest_gold_r_standard_ratio_percent_value
+		desc = tnt_interest_bd_rule_strength
+	}
+}
+
+# PRESTIGE: owner-scope bindings; native helpers above are character-scoped.
+tnt_interest_prestige_capacity_value = {
+	value = 0
+	var:tnt_partner ?= { add = tnt_interest_prestige_native_capacity_value }
+	min = 1
+}
+tnt_interest_prestige_stock_value = {
+	value = 0
+	var:tnt_partner ?= { add = tnt_interest_prestige_native_stock_value }
+}
+tnt_interest_prestige_p_amount_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_prestige_p }
+		add = var:tnt_prestige_p
+	}
+	if = {
+		limit = { exists = var:tnt_prestige_r }
+		subtract = var:tnt_prestige_r
+	}
+	min = 0
+}
+tnt_interest_prestige_r_amount_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_prestige_r }
+		add = var:tnt_prestige_r
+	}
+	if = {
+		limit = { exists = var:tnt_prestige_p }
+		subtract = var:tnt_prestige_p
+	}
+	min = 0
+}
+tnt_interest_prestige_p_full_share_value = {
+	value = tnt_interest_prestige_p_full_amount_value
+	divide = { value = tnt_interest_prestige_p_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_prestige_p_tail_share_value = {
+	value = tnt_interest_prestige_p_tail_amount_value
+	divide = { value = tnt_interest_prestige_p_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_prestige_r_reserve_share_value = {
+	value = tnt_interest_prestige_r_reserve_amount_value
+	divide = { value = tnt_interest_prestige_r_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_prestige_r_critical_share_value = {
+	value = tnt_interest_prestige_r_critical_amount_value
+	divide = { value = tnt_interest_prestige_r_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_prestige_p_standard_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_p_amount_value > 0
+		}
+		value = tnt_interest_prestige_p_standard_weighted_amount_value
+		divide = { value = tnt_interest_prestige_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_prestige_p_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_p_amount_value > 0
+		}
+		value = tnt_interest_prestige_p_weighted_amount_value
+		divide = { value = tnt_interest_prestige_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_prestige_r_standard_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_r_amount_value > 0
+		}
+		value = tnt_interest_prestige_r_standard_weighted_amount_value
+		divide = { value = tnt_interest_prestige_r_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 4
+}
+tnt_interest_prestige_r_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_r_amount_value > 0
+		}
+		value = tnt_interest_prestige_r_weighted_amount_value
+		divide = { value = tnt_interest_prestige_r_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+tnt_interest_prestige_p_percent_value = {
+	value = 100
+	desc = tnt_interest_bd_base
+	add = {
+		value = tnt_interest_prestige_p_standard_ratio_percent_value
+		subtract = 100
+		desc = tnt_interest_bd_receiving_demand
+	}
+	add = {
+		value = tnt_interest_prestige_p_ratio_percent_value
+		subtract = tnt_interest_prestige_p_standard_ratio_percent_value
+		desc = tnt_interest_bd_rule_strength
+	}
+}
+tnt_interest_prestige_r_percent_value = {
+	value = 100
+	desc = tnt_interest_bd_base
+	add = {
+		value = tnt_interest_prestige_r_standard_ratio_percent_value
+		subtract = 100
+		desc = tnt_interest_bd_surrender_reserve
+	}
+	add = {
+		value = tnt_interest_prestige_r_ratio_percent_value
+		subtract = tnt_interest_prestige_r_standard_ratio_percent_value
+		desc = tnt_interest_bd_rule_strength
+	}
+}
+
+# PIETY: owner-scope bindings; native helpers above are character-scoped.
+tnt_interest_piety_capacity_value = {
+	value = 0
+	var:tnt_partner ?= { add = tnt_interest_piety_native_capacity_value }
+	min = 1
+}
+tnt_interest_piety_stock_value = {
+	value = 0
+	var:tnt_partner ?= { add = tnt_interest_piety_native_stock_value }
+}
+tnt_interest_piety_p_amount_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_piety_p }
+		add = var:tnt_piety_p
+	}
+	if = {
+		limit = { exists = var:tnt_piety_r }
+		subtract = var:tnt_piety_r
+	}
+	min = 0
+}
+tnt_interest_piety_r_amount_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_piety_r }
+		add = var:tnt_piety_r
+	}
+	if = {
+		limit = { exists = var:tnt_piety_p }
+		subtract = var:tnt_piety_p
+	}
+	min = 0
+}
+tnt_interest_piety_p_full_share_value = {
+	value = tnt_interest_piety_p_full_amount_value
+	divide = { value = tnt_interest_piety_p_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_piety_p_tail_share_value = {
+	value = tnt_interest_piety_p_tail_amount_value
+	divide = { value = tnt_interest_piety_p_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_piety_r_reserve_share_value = {
+	value = tnt_interest_piety_r_reserve_amount_value
+	divide = { value = tnt_interest_piety_r_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_piety_r_critical_share_value = {
+	value = tnt_interest_piety_r_critical_amount_value
+	divide = { value = tnt_interest_piety_r_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_piety_p_standard_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_p_amount_value > 0
+		}
+		value = tnt_interest_piety_p_standard_weighted_amount_value
+		divide = { value = tnt_interest_piety_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_piety_p_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_p_amount_value > 0
+		}
+		value = tnt_interest_piety_p_weighted_amount_value
+		divide = { value = tnt_interest_piety_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_piety_r_standard_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_r_amount_value > 0
+		}
+		value = tnt_interest_piety_r_standard_weighted_amount_value
+		divide = { value = tnt_interest_piety_r_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 4
+}
+tnt_interest_piety_r_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_r_amount_value > 0
+		}
+		value = tnt_interest_piety_r_weighted_amount_value
+		divide = { value = tnt_interest_piety_r_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+tnt_interest_piety_p_percent_value = {
+	value = 100
+	desc = tnt_interest_bd_base
+	add = {
+		value = tnt_interest_piety_p_standard_ratio_percent_value
+		subtract = 100
+		desc = tnt_interest_bd_receiving_demand
+	}
+	add = {
+		value = tnt_interest_piety_p_ratio_percent_value
+		subtract = tnt_interest_piety_p_standard_ratio_percent_value
+		desc = tnt_interest_bd_rule_strength
+	}
+}
+tnt_interest_piety_r_percent_value = {
+	value = 100
+	desc = tnt_interest_bd_base
+	add = {
+		value = tnt_interest_piety_r_standard_ratio_percent_value
+		subtract = 100
+		desc = tnt_interest_bd_surrender_reserve
+	}
+	add = {
+		value = tnt_interest_piety_r_ratio_percent_value
+		subtract = tnt_interest_piety_r_standard_ratio_percent_value
+		desc = tnt_interest_bd_rule_strength
+	}
+}
+
+# INFLUENCE: owner-scope bindings; native helpers above are character-scoped.
+tnt_interest_influence_capacity_value = {
+	value = 0
+	var:tnt_partner ?= { add = tnt_interest_influence_native_capacity_value }
+	min = 1
+}
+tnt_interest_influence_stock_value = {
+	value = 0
+	var:tnt_partner ?= { add = tnt_interest_influence_native_stock_value }
+}
+tnt_interest_influence_p_amount_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_influence_p }
+		add = var:tnt_influence_p
+	}
+	if = {
+		limit = { exists = var:tnt_influence_r }
+		subtract = var:tnt_influence_r
+	}
+	min = 0
+}
+tnt_interest_influence_r_amount_value = {
+	value = 0
+	if = {
+		limit = { exists = var:tnt_influence_r }
+		add = var:tnt_influence_r
+	}
+	if = {
+		limit = { exists = var:tnt_influence_p }
+		subtract = var:tnt_influence_p
+	}
+	min = 0
+}
+tnt_interest_influence_p_full_share_value = {
+	value = tnt_interest_influence_p_full_amount_value
+	divide = { value = tnt_interest_influence_p_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_influence_p_tail_share_value = {
+	value = tnt_interest_influence_p_tail_amount_value
+	divide = { value = tnt_interest_influence_p_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_influence_r_reserve_share_value = {
+	value = tnt_interest_influence_r_reserve_amount_value
+	divide = { value = tnt_interest_influence_r_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_influence_r_critical_share_value = {
+	value = tnt_interest_influence_r_critical_amount_value
+	divide = { value = tnt_interest_influence_r_amount_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_influence_p_standard_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_p_amount_value > 0
+		}
+		value = tnt_interest_influence_p_standard_weighted_amount_value
+		divide = { value = tnt_interest_influence_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_influence_p_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_p_amount_value > 0
+		}
+		value = tnt_interest_influence_p_weighted_amount_value
+		divide = { value = tnt_interest_influence_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_influence_r_standard_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_r_amount_value > 0
+		}
+		value = tnt_interest_influence_r_standard_weighted_amount_value
+		divide = { value = tnt_interest_influence_r_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 4
+}
+tnt_interest_influence_r_factor_value = {
+	value = 1
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_r_amount_value > 0
+		}
+		value = tnt_interest_influence_r_weighted_amount_value
+		divide = { value = tnt_interest_influence_r_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+tnt_interest_influence_p_percent_value = {
+	value = 100
+	desc = tnt_interest_bd_base
+	add = {
+		value = tnt_interest_influence_p_standard_ratio_percent_value
+		subtract = 100
+		desc = tnt_interest_bd_receiving_demand
+	}
+	add = {
+		value = tnt_interest_influence_p_ratio_percent_value
+		subtract = tnt_interest_influence_p_standard_ratio_percent_value
+		desc = tnt_interest_bd_rule_strength
+	}
+}
+tnt_interest_influence_r_percent_value = {
+	value = 100
+	desc = tnt_interest_bd_base
+	add = {
+		value = tnt_interest_influence_r_standard_ratio_percent_value
+		subtract = 100
+		desc = tnt_interest_bd_surrender_reserve
+	}
+	add = {
+		value = tnt_interest_influence_r_ratio_percent_value
+		subtract = tnt_interest_influence_r_standard_ratio_percent_value
+		desc = tnt_interest_bd_rule_strength
+	}
+}
+
+# Currency-amount integrals are authoritative. Never multiply a base quote by a
+# quantized 0..1 factor: large offers would lose their finite useful-demand value.
+# Divide the bounded tail AMOUNT, not an already quantized tail ratio. The point
+# adapters convert once at the existing rates and apply existing trait prices
+# once, using the actual evaluator. Off delegates to the unchanged gross quote.
+
+tnt_interest_gold_p_full_amount_value = {
+	value = tnt_interest_gold_capacity_value
+	subtract = tnt_interest_gold_stock_value
+	min = 0
+	max = tnt_interest_gold_p_amount_value
+}
+
+tnt_interest_gold_p_tail_amount_value = {
+	value = tnt_interest_gold_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_stock_value
+	min = 0
+	max = tnt_interest_gold_p_amount_value
+	subtract = tnt_interest_gold_p_full_amount_value
+	min = 0
+}
+
+tnt_interest_gold_r_reserve_amount_value = {
+	value = tnt_interest_gold_r_amount_value
+	subtract = {
+		value = tnt_interest_gold_stock_value
+		subtract = tnt_interest_gold_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_interest_gold_r_amount_value
+}
+
+tnt_interest_gold_r_critical_amount_value = {
+	value = tnt_interest_gold_r_amount_value
+	subtract = {
+		value = tnt_interest_gold_stock_value
+		subtract = { value = tnt_interest_gold_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_interest_gold_r_amount_value
+}
+
+tnt_interest_gold_p_standard_weighted_amount_value = {
+	value = tnt_interest_gold_p_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_p_amount_value > 0
+		}
+		value = tnt_interest_gold_p_full_amount_value
+		add = {
+			value = tnt_interest_gold_p_tail_amount_value
+			divide = 2
+		}
+	}
+	min = 0
+}
+
+tnt_interest_gold_p_standard_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_p_amount_value > 0
+		}
+		value = tnt_interest_gold_p_standard_weighted_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_gold_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 100
+}
+
+tnt_interest_gold_p_weighted_amount_value = {
+	value = tnt_interest_gold_p_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_p_amount_value > 0
+		}
+		value = tnt_interest_gold_p_full_amount_value
+		add = {
+			value = tnt_interest_gold_p_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_gold_p_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_p_amount_value > 0
+		}
+		value = tnt_interest_gold_p_weighted_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_gold_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 100
+}
+
+tnt_interest_gold_p_net_base_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_gold_p_amount_value
+			divide = { value = tnt_gold_per_point_value min = 1 }
+		}
+	}
+	else = { value = tnt_val_gold_p_value }
+}
+
+tnt_interest_gold_p_net_adjusted_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_gold_p_weighted_amount_value
+			divide = { value = tnt_gold_per_point_value min = 1 }
+		}
+	}
+	else = { value = tnt_val_gold_p_value }
+}
+
+tnt_interest_gold_r_standard_weighted_amount_value = {
+	value = tnt_interest_gold_r_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_r_amount_value > 0
+		}
+		add = {
+			value = tnt_interest_gold_r_reserve_amount_value
+			add = { value = tnt_interest_gold_r_critical_amount_value multiply = 2 }
+			multiply = 1
+		}
+	}
+	min = 0
+}
+
+tnt_interest_gold_r_standard_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_r_amount_value > 0
+		}
+		value = tnt_interest_gold_r_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_gold_r_standard_weighted_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_gold_r_weighted_amount_value = {
+	value = tnt_interest_gold_r_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_r_amount_value > 0
+		}
+		add = {
+			value = tnt_interest_gold_r_reserve_amount_value
+			add = { value = tnt_interest_gold_r_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_gold_r_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_gold_r_amount_value > 0
+		}
+		value = tnt_interest_gold_r_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_gold_r_weighted_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_gold_r_net_base_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_gold_r_amount_value
+			divide = { value = tnt_gold_per_point_value min = 1 }
+		}
+	}
+	else = { value = tnt_val_gold_r_value }
+}
+
+tnt_interest_gold_r_net_adjusted_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_gold_r_weighted_amount_value
+			divide = { value = tnt_gold_per_point_value min = 1 }
+		}
+	}
+	else = { value = tnt_val_gold_r_value }
+}
+
+tnt_interest_prestige_p_full_amount_value = {
+	value = tnt_interest_prestige_capacity_value
+	subtract = tnt_interest_prestige_stock_value
+	min = 0
+	max = tnt_interest_prestige_p_amount_value
+}
+
+tnt_interest_prestige_p_tail_amount_value = {
+	value = tnt_interest_prestige_capacity_value
+	multiply = 2
+	subtract = tnt_interest_prestige_stock_value
+	min = 0
+	max = tnt_interest_prestige_p_amount_value
+	subtract = tnt_interest_prestige_p_full_amount_value
+	min = 0
+}
+
+tnt_interest_prestige_r_reserve_amount_value = {
+	value = tnt_interest_prestige_r_amount_value
+	subtract = {
+		value = tnt_interest_prestige_stock_value
+		subtract = tnt_interest_prestige_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_interest_prestige_r_amount_value
+}
+
+tnt_interest_prestige_r_critical_amount_value = {
+	value = tnt_interest_prestige_r_amount_value
+	subtract = {
+		value = tnt_interest_prestige_stock_value
+		subtract = { value = tnt_interest_prestige_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_interest_prestige_r_amount_value
+}
+
+tnt_interest_prestige_p_standard_weighted_amount_value = {
+	value = tnt_interest_prestige_p_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_p_amount_value > 0
+		}
+		value = tnt_interest_prestige_p_full_amount_value
+		add = {
+			value = tnt_interest_prestige_p_tail_amount_value
+			divide = 2
+		}
+	}
+	min = 0
+}
+
+tnt_interest_prestige_p_standard_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_p_amount_value > 0
+		}
+		value = tnt_interest_prestige_p_standard_weighted_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_prestige_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 100
+}
+
+tnt_interest_prestige_p_weighted_amount_value = {
+	value = tnt_interest_prestige_p_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_p_amount_value > 0
+		}
+		value = tnt_interest_prestige_p_full_amount_value
+		add = {
+			value = tnt_interest_prestige_p_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_prestige_p_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_p_amount_value > 0
+		}
+		value = tnt_interest_prestige_p_weighted_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_prestige_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 100
+}
+
+tnt_interest_prestige_p_net_base_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_prestige_p_amount_value
+			divide = { value = tnt_prestige_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = arrogant } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { var:tnt_partner ?= { has_trait = humble } }
+				multiply = 0.5
+			}
+		}
+	}
+	else = { value = tnt_val_prestige_p_value }
+}
+
+tnt_interest_prestige_p_net_adjusted_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_prestige_p_weighted_amount_value
+			divide = { value = tnt_prestige_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = arrogant } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { var:tnt_partner ?= { has_trait = humble } }
+				multiply = 0.5
+			}
+		}
+	}
+	else = { value = tnt_val_prestige_p_value }
+}
+
+tnt_interest_prestige_r_standard_weighted_amount_value = {
+	value = tnt_interest_prestige_r_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_r_amount_value > 0
+		}
+		add = {
+			value = tnt_interest_prestige_r_reserve_amount_value
+			add = { value = tnt_interest_prestige_r_critical_amount_value multiply = 2 }
+			multiply = 1
+		}
+	}
+	min = 0
+}
+
+tnt_interest_prestige_r_standard_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_r_amount_value > 0
+		}
+		value = tnt_interest_prestige_r_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_prestige_r_standard_weighted_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_prestige_r_weighted_amount_value = {
+	value = tnt_interest_prestige_r_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_r_amount_value > 0
+		}
+		add = {
+			value = tnt_interest_prestige_r_reserve_amount_value
+			add = { value = tnt_interest_prestige_r_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_prestige_r_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_prestige_r_amount_value > 0
+		}
+		value = tnt_interest_prestige_r_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_prestige_r_weighted_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_prestige_r_net_base_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_prestige_r_amount_value
+			divide = { value = tnt_prestige_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = arrogant } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { var:tnt_partner ?= { has_trait = humble } }
+				multiply = 0.5
+			}
+		}
+	}
+	else = { value = tnt_val_prestige_r_value }
+}
+
+tnt_interest_prestige_r_net_adjusted_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_prestige_r_weighted_amount_value
+			divide = { value = tnt_prestige_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = arrogant } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { var:tnt_partner ?= { has_trait = humble } }
+				multiply = 0.5
+			}
+		}
+	}
+	else = { value = tnt_val_prestige_r_value }
+}
+
+tnt_interest_piety_p_full_amount_value = {
+	value = tnt_interest_piety_capacity_value
+	subtract = tnt_interest_piety_stock_value
+	min = 0
+	max = tnt_interest_piety_p_amount_value
+}
+
+tnt_interest_piety_p_tail_amount_value = {
+	value = tnt_interest_piety_capacity_value
+	multiply = 2
+	subtract = tnt_interest_piety_stock_value
+	min = 0
+	max = tnt_interest_piety_p_amount_value
+	subtract = tnt_interest_piety_p_full_amount_value
+	min = 0
+}
+
+tnt_interest_piety_r_reserve_amount_value = {
+	value = tnt_interest_piety_r_amount_value
+	subtract = {
+		value = tnt_interest_piety_stock_value
+		subtract = tnt_interest_piety_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_interest_piety_r_amount_value
+}
+
+tnt_interest_piety_r_critical_amount_value = {
+	value = tnt_interest_piety_r_amount_value
+	subtract = {
+		value = tnt_interest_piety_stock_value
+		subtract = { value = tnt_interest_piety_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_interest_piety_r_amount_value
+}
+
+tnt_interest_piety_p_standard_weighted_amount_value = {
+	value = tnt_interest_piety_p_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_p_amount_value > 0
+		}
+		value = tnt_interest_piety_p_full_amount_value
+		add = {
+			value = tnt_interest_piety_p_tail_amount_value
+			divide = 2
+		}
+	}
+	min = 0
+}
+
+tnt_interest_piety_p_standard_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_p_amount_value > 0
+		}
+		value = tnt_interest_piety_p_standard_weighted_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_piety_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 100
+}
+
+tnt_interest_piety_p_weighted_amount_value = {
+	value = tnt_interest_piety_p_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_p_amount_value > 0
+		}
+		value = tnt_interest_piety_p_full_amount_value
+		add = {
+			value = tnt_interest_piety_p_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_piety_p_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_p_amount_value > 0
+		}
+		value = tnt_interest_piety_p_weighted_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_piety_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 100
+}
+
+tnt_interest_piety_p_net_base_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_piety_p_amount_value
+			divide = { value = tnt_piety_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = zealous } }
+				multiply = 1.5
+			}
+		}
+	}
+	else = { value = tnt_val_piety_p_value }
+}
+
+tnt_interest_piety_p_net_adjusted_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_piety_p_weighted_amount_value
+			divide = { value = tnt_piety_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = zealous } }
+				multiply = 1.5
+			}
+		}
+	}
+	else = { value = tnt_val_piety_p_value }
+}
+
+tnt_interest_piety_r_standard_weighted_amount_value = {
+	value = tnt_interest_piety_r_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_r_amount_value > 0
+		}
+		add = {
+			value = tnt_interest_piety_r_reserve_amount_value
+			add = { value = tnt_interest_piety_r_critical_amount_value multiply = 2 }
+			multiply = 1
+		}
+	}
+	min = 0
+}
+
+tnt_interest_piety_r_standard_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_r_amount_value > 0
+		}
+		value = tnt_interest_piety_r_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_piety_r_standard_weighted_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_piety_r_weighted_amount_value = {
+	value = tnt_interest_piety_r_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_r_amount_value > 0
+		}
+		add = {
+			value = tnt_interest_piety_r_reserve_amount_value
+			add = { value = tnt_interest_piety_r_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_piety_r_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			tnt_interest_piety_r_amount_value > 0
+		}
+		value = tnt_interest_piety_r_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_piety_r_weighted_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_piety_r_net_base_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_piety_r_amount_value
+			divide = { value = tnt_piety_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = zealous } }
+				multiply = 1.5
+			}
+		}
+	}
+	else = { value = tnt_val_piety_r_value }
+}
+
+tnt_interest_piety_r_net_adjusted_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+			}
+			value = tnt_interest_piety_r_weighted_amount_value
+			divide = { value = tnt_piety_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = zealous } }
+				multiply = 1.5
+			}
+		}
+	}
+	else = { value = tnt_val_piety_r_value }
+}
+
+tnt_interest_influence_p_full_amount_value = {
+	value = tnt_interest_influence_capacity_value
+	subtract = tnt_interest_influence_stock_value
+	min = 0
+	max = tnt_interest_influence_p_amount_value
+}
+
+tnt_interest_influence_p_tail_amount_value = {
+	value = tnt_interest_influence_capacity_value
+	multiply = 2
+	subtract = tnt_interest_influence_stock_value
+	min = 0
+	max = tnt_interest_influence_p_amount_value
+	subtract = tnt_interest_influence_p_full_amount_value
+	min = 0
+}
+
+tnt_interest_influence_r_reserve_amount_value = {
+	value = tnt_interest_influence_r_amount_value
+	subtract = {
+		value = tnt_interest_influence_stock_value
+		subtract = tnt_interest_influence_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_interest_influence_r_amount_value
+}
+
+tnt_interest_influence_r_critical_amount_value = {
+	value = tnt_interest_influence_r_amount_value
+	subtract = {
+		value = tnt_interest_influence_stock_value
+		subtract = { value = tnt_interest_influence_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_interest_influence_r_amount_value
+}
+
+tnt_interest_influence_p_standard_weighted_amount_value = {
+	value = tnt_interest_influence_p_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_p_amount_value > 0
+		}
+		value = tnt_interest_influence_p_full_amount_value
+		add = {
+			value = tnt_interest_influence_p_tail_amount_value
+			divide = 2
+		}
+	}
+	min = 0
+}
+
+tnt_interest_influence_p_standard_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_p_amount_value > 0
+		}
+		value = tnt_interest_influence_p_standard_weighted_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_influence_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 100
+}
+
+tnt_interest_influence_p_weighted_amount_value = {
+	value = tnt_interest_influence_p_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_p_amount_value > 0
+		}
+		value = tnt_interest_influence_p_full_amount_value
+		add = {
+			value = tnt_interest_influence_p_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_influence_p_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_p_amount_value > 0
+		}
+		value = tnt_interest_influence_p_weighted_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_influence_p_amount_value min = 0.001 }
+	}
+	min = 0
+	max = 100
+}
+
+tnt_interest_influence_p_net_base_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				government_has_flag = government_has_influence
+				var:tnt_partner = { government_has_flag = government_has_influence }
+				tnt_influence_ok_value > 0
+			}
+			value = tnt_interest_influence_p_amount_value
+			divide = { value = tnt_influence_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = ambitious } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { var:tnt_partner ?= { has_trait = content } }
+				multiply = 0.5
+			}
+		}
+	}
+	else = { value = tnt_val_influence_p_value }
+}
+
+tnt_interest_influence_p_net_adjusted_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				government_has_flag = government_has_influence
+				var:tnt_partner = { government_has_flag = government_has_influence }
+				tnt_influence_ok_value > 0
+			}
+			value = tnt_interest_influence_p_weighted_amount_value
+			divide = { value = tnt_influence_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = ambitious } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { var:tnt_partner ?= { has_trait = content } }
+				multiply = 0.5
+			}
+		}
+	}
+	else = { value = tnt_val_influence_p_value }
+}
+
+tnt_interest_influence_r_standard_weighted_amount_value = {
+	value = tnt_interest_influence_r_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_r_amount_value > 0
+		}
+		add = {
+			value = tnt_interest_influence_r_reserve_amount_value
+			add = { value = tnt_interest_influence_r_critical_amount_value multiply = 2 }
+			multiply = 1
+		}
+	}
+	min = 0
+}
+
+tnt_interest_influence_r_standard_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_r_amount_value > 0
+		}
+		value = tnt_interest_influence_r_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_influence_r_standard_weighted_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_influence_r_weighted_amount_value = {
+	value = tnt_interest_influence_r_amount_value
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_r_amount_value > 0
+		}
+		add = {
+			value = tnt_interest_influence_r_reserve_amount_value
+			add = { value = tnt_interest_influence_r_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_influence_r_ratio_percent_value = {
+	value = 100
+	if = {
+		limit = {
+			tnt_interests_enabled_value > 0
+			exists = var:tnt_partner
+			government_has_flag = government_has_influence
+			var:tnt_partner = { government_has_flag = government_has_influence }
+			tnt_interest_influence_r_amount_value > 0
+		}
+		value = tnt_interest_influence_r_amount_value
+		multiply = 100
+		divide = { value = tnt_interest_influence_r_weighted_amount_value min = 0.001 }
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_influence_r_net_base_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				government_has_flag = government_has_influence
+				var:tnt_partner = { government_has_flag = government_has_influence }
+				tnt_influence_ok_value > 0
+			}
+			value = tnt_interest_influence_r_amount_value
+			divide = { value = tnt_influence_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = ambitious } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { var:tnt_partner ?= { has_trait = content } }
+				multiply = 0.5
+			}
+		}
+	}
+	else = { value = tnt_val_influence_r_value }
+}
+
+tnt_interest_influence_r_net_adjusted_points_value = {
+	value = 0
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		if = {
+			limit = {
+				exists = var:tnt_partner
+				government_has_flag = government_has_influence
+				var:tnt_partner = { government_has_flag = government_has_influence }
+				tnt_influence_ok_value > 0
+			}
+			value = tnt_interest_influence_r_weighted_amount_value
+			divide = { value = tnt_influence_per_point_value min = 1 }
+			if = {
+				limit = { var:tnt_partner ?= { has_trait = ambitious } }
+				multiply = 1.5
+			}
+			else_if = {
+				limit = { var:tnt_partner ?= { has_trait = content } }
+				multiply = 0.5
+			}
+		}
+	}
+	else = { value = tnt_val_influence_r_value }
+}

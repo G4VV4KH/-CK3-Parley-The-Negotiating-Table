@@ -1611,7 +1611,7 @@ vbox = {
 		### that says the word will be kept. It wraps.
 		text_multi = {
 			name = "tnt_offer_row_word_kept"
-			visible = "[TntNeg('tnt_ai_accept_value')]"
+			visible = "[And( TntNeg('tnt_ai_accept_value'), TntNeg('tnt_interests_enabled_value') )]"
 			layoutpolicy_horizontal = expanding
 			autoresize = yes
 			max_width = 470

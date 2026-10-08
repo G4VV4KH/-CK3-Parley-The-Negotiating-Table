@@ -411,7 +411,7 @@ class ScaledPeopleTests(unittest.TestCase):
         for relative in ("common/script_values/tnt_58_person_values.txt", "common/scripted_effects/tnt_37_ai_offer.txt", "common/scripted_triggers/tnt_43_preflight.txt"):
             path = shared.SOURCE / relative
             previous = subprocess.check_output(["git", "show", f"{shared.CLASSIC_BASELINE}:{path.relative_to(repo).as_posix()}"], cwd=repo)
-            current = classic_ast(parse(path.read_text(encoding="utf-8-sig")))
+            current = classic_ast(shared.without_currency_exclusivity(parse(path.read_text(encoding="utf-8-sig"))))
             if relative == "common/scripted_effects/tnt_37_ai_offer.txt":
                 current = unlimited_ai_cooldown_ast(current)
             self.assertEqual(current, parse(previous.decode("utf-8-sig")))

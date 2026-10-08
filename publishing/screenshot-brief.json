@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "created_date": "2026-09-30",
-  "updated_date": "2026-10-06",
-  "revision_scope": "Parley game-rules capture only replaced on 2026-10-06. Other scenes and the historical workflow below retain their earlier provenance. The replacement has per-capture provenance and does not establish an exact CK3 patch.",
+  "updated_date": "2026-10-08",
+  "revision_scope": "Added negotiation interests preview for Parley 1.3.0 preparation. The authentic capture has a user-authorized text-only annotation; its per-capture provenance overrides historical no-overlay wording. Older captures retain their earlier provenance and are not recertified by this update.",
   "status": "screenshots_selected",
-  "selected_image_count": 7,
+  "selected_image_count": 8,
   "workflow": {
     "assistant": "Defined visible feature evidence and reviewed the selected captures.",
     "user": "Chose characters, framing and final images; performed manual capture steps.",
@@ -32,6 +32,15 @@
   "path_conventions": "Gallery manifest paths are relative to the Parley repository root. Scene and completed-capture file paths are relative to their owning mod repository root.",
   "historical_material": "Retired temporary screenshots and the earlier RC2 smoke candidate are not selected. Their historical evidence remains outside these publication galleries.",
   "scenes": [
+    {
+      "id": "parley-negotiation-interests",
+      "mod": "parley",
+      "status": "selected",
+      "purpose": "Show directional clear-state interest percentages before terms are chosen.",
+      "visible_requirements": ["Both negotiation columns", "Colored percentages below option labels", "Empty draft and central Interest row"],
+      "selected_file": "publishing/screenshots/05-negotiation-interests-preview.png",
+      "caption_brief_en": "Negotiation interests preview"
+    },
     {
       "id": "parley-negotiation",
       "mod": "parley",
@@ -127,6 +136,22 @@
     }
   ],
   "completed_captures": [
+    {
+      "scene_id": "parley-negotiation-interests",
+      "mod": "parley",
+      "status": "selected",
+      "file": "publishing/screenshots/05-negotiation-interests-preview.png",
+      "file_reference_root": "owning mod repository",
+      "sha256": "d6be5b1358445a2e01d9748d4f7567a315becd8dbdec140f1d9828943e01ce27",
+      "language": "English",
+      "resolution": [1920, 1080],
+      "caption_en": "Negotiation interests preview: directional percentages show the partner's interest before selecting terms.",
+      "received_date": "2026-10-08",
+      "original": "publishing/media-sources/05-negotiation-interests-original.png",
+      "original_sha256": "a4f4df366517203571e15387e3edaba24e162775919b08d2d81c72615659145f",
+      "provenance": "Authentic user screenshot with explicitly authorized deterministic caption. Zero changed pixels outside the caption rectangle. No generated redraw used.",
+      "capture_game_patch": "Not independently established by the image."
+    },
     {
       "scene_id": "parley-negotiation",
       "mod": "parley",

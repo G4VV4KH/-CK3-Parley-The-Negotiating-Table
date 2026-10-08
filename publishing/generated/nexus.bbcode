@@ -3,11 +3,12 @@
 [size=5][b]At a glance[/b][/size]
 
 [list]
-[*]🟢 [b]Version 1.2.2[/b] · Targets CK3 [b]1.20.0.4[/b].
+[*]🟢 [b]Version 1.3.0[/b] · Targets CK3 [b]1.20.0.4[/b].
 [*]🟢 [b]Standalone:[/b] no other mod required.
 [*]🟢 [b]Negotiate marriage, money and allegiance in one treaty.[/b]
 [*]🟢 [b]Languages:[/b] English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070]來自無壹的中文翻譯[/url] and Spanish.
 [*]🔴 [b]Changes gameplay:[/b] treaties can transfer money, people, land and vassalage.
+[*]🔴 [b]WARNING — New rule: Negotiation interests.[/b] [b]Standard[/b] is the new-campaign default; unwanted payments lose value and wanted assets cost more to surrender. Choose [b]Off[/b] for the earlier valuation.
 [*]🔴 [b]AGOT compatibility: awaiting the AGOT update for CK3 1.20.[/b]
 [*]🔴 [b]Direct ruler negotiations only.[/b] Puppet proxy mode is unavailable.
 [/list]
@@ -16,7 +17,7 @@
 
 Negotiate marriage, money and allegiance with both sides and your counterpart's valuation visible.
 
-[b]Auto-balance[/b] adjusts currencies toward [b]+1[/b] acceptance or reports it cannot; relationships and concessions affect the result.
+[b]Auto-balance[/b] adjusts currencies toward [b]+1[/b] acceptance or reports it cannot.
 
 AI envoys bring offers and demands: accept, negotiate or turn them away.
 
@@ -30,33 +31,24 @@ AI envoys bring offers and demands: accept, negotiate or turn them away.
 [*][b]Favors and pressure:[/b] promise or use a hook, or threaten a ruler with sufficient army, prestige and dread. Player and AI threats share the same minimum.
 [/list]
 
-Tooltips explain eligibility and rules. Eligible marriages can create alliances, but alliances are not sold separately.
+Tooltips explain eligibility. Marriages can form alliances; alliances are not sold separately.
 
 [size=5][b]Reading the central panel[/b][/size]
 
-[b]Their Answer[/b] combines benefits, costs, standing, extra demands and pressure into acceptance from your counterpart's perspective.
+[b]Their Answer[/b] combines benefits, costs, standing, demands and pressure from your partner's perspective.
 
-This historical AGOT example gives [b]197 + 136 - 322 - 10 = +1[/b], with no pressure:
-
-[list]
-[*][b]They receive: 197[/b] — gold, the marriage's positive factors and its alliance.
-[*][b]Standing, share: +136[/b] — the relationship adjustment, applied to that positive offer.
-[*][b]What they give up: 322[/b] — fealty and the marriage's negative factors.
-[*][b]Wanted on top, share: -10[/b] — their extra demand, also based on the positive offer.
-[/list]
-
-The individual treaty rows use a different breakdown:
+With [b]Negotiation interests[/b] enabled, each term's percentage is a [b]valuation, not an acceptance chance[/b]:
 
 [list]
-[*][b]Gold: 88[/b] — the point value of this offer's [b]1,324 gold[/b].
-[*][b]Patrilineal: -32[/b] — the marriage's positive factors minus its costs, excluding the alliance and shared relationship adjustments.
-[*][b]Military alliance: 68[/b] — this marriage's alliance value, counted once.
-[*][b]Swear fealty: 250[/b] — the counterpart's submission cost in this example.
+[*][b]You offer:[/b] the partner's interest in receiving. A base 100-point term at 50% contributes 50 points.
+[*][b]They offer:[/b] the partner's willingness to surrender. A base 100-point term at 50% costs 200 points.
 [/list]
 
-[b]Why can -32 improve the treaty by about +100?[/b] The alliance adds value, while positive marriage components change standing and extra-demand shares. Those shares use positive value, not the net -32 row. The panel implies roughly [b]106-107 points[/b] gained from this marriage-and-alliance package; this is an inference, not a measured before-and-after result.
+Higher percentages favor you in both directions. Rounded badges are red below [b]50%[/b], white at [b]50%[/b], green above it. Hover for components and selected base/adjusted points. Empty rows preview interest, not prices or trading permission.
 
-Rounding can make rows differ slightly from totals. These example values are not universal prices.
+The table shows [b]base points[/b]. [b]Interest[/b] deducts receiving discounts, surrender premiums and their effect on standing/bargaining once. Threats and called-in hooks remain separate pressure, without interest badges.
+
+With interests enabled, ordinary agreements need an answer [b]above zero[/b]. Rounding affects display, not settlement. These are treaty points, not fixed gold prices.
 
 [size=5][b]Getting started[/b][/size]
 
@@ -70,9 +62,9 @@ Rounding can make rows differ slightly from totals. These example values are not
 
 [size=5][b]Game rules guide[/b][/size]
 
-Choose these rules in [b]Game Rules[/b] before starting a campaign. Updating the mod does not replace the choices already stored in a save. Parley's eight public rules are independent: choose the combination you want rather than treating one setting as a master switch.
+Choose these rules in [b]Game Rules[/b] before starting a campaign. Updating the mod does not replace the choices already stored in a save. Parley's nine public rules are independent: choose the combination you want rather than treating one setting as a master switch. Check an older campaign's recorded rules rather than assuming it receives the new-campaign defaults.
 
-[b]Default setup:[/b] advanced terms [b]Enabled[/b]; advanced term valuation [b]Classic[/b]; prestige and piety [b]Available[/b]; threat strength [b]Normal[/b]; threat frequency [b]0 years[/b]; AI-to-AI treaties and offers sent to you [b]Frequent[/b].
+[b]Default setup:[/b] advanced terms [b]Enabled[/b]; advanced term valuation [b]Classic[/b]; negotiation interests [b]Standard[/b]; prestige and piety [b]Available[/b]; threat strength [b]Normal[/b]; threat frequency [b]0 years[/b]; AI-to-AI treaties and offers sent to you [b]Frequent[/b].
 
 [size=5][b]1. Advanced terms[/b][/size]
 
@@ -110,7 +102,34 @@ Family members who accompany a selected courtier under the game's normal transfe
 
 Scaled is useful if land expansion feels too inexpensive, but it is not a universal difficulty setting. It does not stop a piety-rich ruler selling piety, remove all sources of wealth, or guarantee that every exchange is equally attractive to the player and AI. Combine it with the separate currency rules if you want to restrict those transfers.
 
-[size=5][b]3. Prestige trading[/b][/size]
+[size=5][b]3. 🔴 WARNING — Negotiation interests (new in 1.3.0)[/b][/size]
+
+[b]This new rule materially changes treaty valuations. Standard is enabled by default for new campaigns.[/b] Select [b]Off[/b] if you want the earlier interest-free evaluation; the other game rules remain independent.
+
+[list]
+[*][b]Off:[/b] no interest adjustments or percentage badges. It does not remove the one-direction currency safeguard described below.
+[*][b]Mild:[/b] half the Standard strength; softer demand discounts and surrender premiums.
+[*][b]Standard[/b] (new-campaign default): normal interest strength.
+[*][b]Strict:[/b] twice the Standard strength; unwanted incoming terms are discounted more and wanted assets cost more to surrender. It is not a promise that every treaty costs exactly twice as much.
+[/list]
+
+[b]Whose interest?[/b] The table evaluates your negotiating partner. Under [b]You offer[/b], the percentage measures their interest in receiving; under [b]They offer[/b], it measures their willingness to surrender. Your own character's simulated preferences do not force you to accept an AI letter. A percentage is never the probability of acceptance.
+
+[b]What changes?[/b] Gold, prestige, piety and eligible influence use current stocks and useful spending needs: extra units may become less useful, while giving away useful reserves costs more. Land, vassals, fealty, independence, courtiers, hostages, artifacts, promised hooks, marriages and contract changes use their relevant context. Examples include domain or vassal capacity, court vacancies, equipped alternatives, protection and autonomy. Existing intrinsic prices and Classic/Scaled still apply; the rule does not unlock a forbidden term or replace fame, faith, resource or transfer restrictions.
+
+[b]Reading the calculation.[/b] At 100%, a term retains its base point value. Receiving interest discounts the benefit; willingness to surrender divides the base cost. Thus a 100-point term at 50% is worth [b]50[/b] when received but costs [b]200[/b] when surrendered. More incoming currency is priced across the useful-demand bands it crosses, not by applying the final unit's percentage to the whole offer. The badge summarizes the complete selected amount. The central [b]Interest[/b] line deducts the difference once, including the associated relationship and bargaining changes.
+
+[b]Mild and Strict are strength settings, not flat price multipliers.[/b] For a single raw interest score [b]x[/b] between 0 and 1, the effective score is [b]x / (s + (1 - s) × x)[/b], with strength [b]s = 0.5 / 1 / 2[/b]. A raw 50% score therefore becomes about [b]66.67% / 50% / 33.33%[/b]. Currency bands are adjusted before being combined. A genuinely unwanted incoming term can remain at 0%; surrender calculations have a numerical floor rather than dividing by zero.
+
+[b]Before selecting anything,[/b] the badge shows a preliminary preview for the current context. A currency preview describes the next marginal unit, not a selected quantity or a zero-sized treaty. Selecting an amount or object replaces it with that actual selection's evaluation; clearing the row restores the preview. Hover separates percentage-point reasons from the [b]Useful stock target (resource units)[/b] and current stock. That resource target is an input, not extra treaty points. Rounded badges and more precise tooltip totals can differ slightly.
+
+[b]AI and Auto-balance.[/b] Manual negotiations, incoming offers and Auto-balance use the revised table quote, with ordinary acceptance checked again before settlement. Existing voluntary AI-to-AI deal types also apply interest to both rulers and recheck at execution, while retaining that system's own relationship and bargaining baseline. This does not add new AI deal types or guarantee a profitable offer on a schedule. Auto-balance can report that available payments cannot reach agreement.
+
+[b]Pressure stays separate.[/b] A threat or a called-in hook is not an unwanted gift and receives no interest percentage. The assets demanded in return still have their normal interest-adjusted value. Threat strength, eligibility, refusal consequences and cooldowns retain their own rules; a human may still choose to pay a valid coercive demand.
+
+The model uses live needs, not a forecast of future income after every possible territorial or court change. Multi-object rows give an aggregate contextual score, not a separate interest breakdown for every selected object. It is not a guarantee against every profitable exchange or a universal difficulty setting.
+
+[size=5][b]4. Prestige trading[/b][/size]
 
 [list]
 [*][b]Available[/b] (default): prestige may be offered or requested from any eligible partner.
@@ -122,7 +141,7 @@ Scaled is useful if land expansion feels too inexpensive, but it is not a univer
 
 The directional rules compare [b]level of fame[/b], not stored prestige, title rank or who initiated negotiations. With fame levels 4 and 2, [b]Lower fame only[/b] permits 4 → 2, but not 2 → 4. At equal levels, neither direction is allowed in strict mode; [b]Peers and lesser only[/b] permits both. The giver must still have enough spendable prestige.
 
-[size=5][b]4. Piety trading[/b][/size]
+[size=5][b]5. Piety trading[/b][/size]
 
 [list]
 [*][b]Available[/b] (default): piety may be offered or requested regardless of faith.
@@ -139,13 +158,15 @@ The strict-devotion option compares [b]level of devotion[/b], not the amount of 
 
 [size=5][b]How currency restrictions affect a deal[/b][/size]
 
-Each direction is checked separately. A prestige or piety row can appear on only one side of the table; unavailable rows disappear. [b]Auto-balance and AI proposals use the same restrictions[/b], including when pricing a counteroffer. Gold is unaffected by these two rules.
+Each direction's trading permission is checked separately; a prestige or piety row may be available on only one side, and unavailable rows disappear. [b]Auto-balance and AI proposals use the same restrictions[/b], including when pricing a counteroffer. Gold is unaffected by these two permission rules.
+
+[b]New in 1.3.0: gold, prestige and piety can each have a positive amount on only one side of a treaty.[/b] Selecting one direction locks the opposite direction's add buttons and amount presets. Reducing the selected amount to zero, choosing [b]None[/b], or clearing the draft restores the opposite direction when trading permission allows it. This safeguard also applies with Negotiation interests [b]Off[/b]. Old drafts with both directions selected cannot be sent or settled; Auto-balance converts the opposing amounts into one net transfer before solving. Influence retains net valuation with both full transfers checked for permission and affordability.
 
 The final agreement is checked again before execution. If a ruler's faith or fame/devotion level changes and a positive currency term is no longer permitted, an old draft cannot bypass the rule: revise or reopen the deal. Restrictions govern negotiated payments, not unrelated resource gains, costs or consequences such as the prestige loss for refusing a threat.
 
 The prestige and piety rules are separate choices. For the faith-based exchange suggested by the community, choose [b]Prestige: Same faith only[/b] and [b]Piety: Different faiths only[/b]. Compliance does not mean the AI must include prestige or piety in every offer; a gold-only proposal is still valid.
 
-[size=5][b]5. Threat strength[/b][/size]
+[size=5][b]6. Threat strength[/b][/size]
 
 These labels adjust [b]how much pressure military superiority provides[/b], not a guaranteed schedule of incoming demands:
 
@@ -162,7 +183,7 @@ The target must be an independent ruler, cannot be your ally, and neither ruler 
 
 Threatening adds pressure to negotiations; it is not an automatic declaration of war. A large army does not guarantee a demand letter or the annexation of neighbors. This rule has no [b]Disabled[/b] option; incoming demands can instead be silenced with the incoming-offer rule or the embassy decision below.
 
-[size=5][b]6. Threat frequency[/b][/size]
+[size=5][b]7. Threat frequency[/b][/size]
 
 Choose [b]0 years[/b] (default), [b]1 year[/b], [b]5 years[/b] or [b]10 years[/b] between uses. This is a [b]global cooldown on the ruler making the threat[/b], applying equally to the player and AI: changing targets cannot bypass it. It does not change the pressure calculation or stop ordinary diplomacy.
 
@@ -170,7 +191,7 @@ The cooldown starts when a treaty using a threat is concluded. An AI demand cons
 
 [b]0 years[/b] means no additional global cooldown, not unlimited threats against the same victim. The existing [b]15-year same-pair restriction[/b], incoming-letter limits and AI-to-AI bargain cooldown remain separate. A timed cooldown belongs to the individual character and survives saving/reloading or closing the table; it is not inherited by a successor.
 
-[size=5][b]7. AI-to-AI treaties[/b][/size]
+[size=5][b]8. AI-to-AI treaties[/b][/size]
 
 [list]
 [*][b]Disabled[/b]: stops the autonomous system for bargains between AI rulers. It does not stop you opening talks or receiving AI offers.
@@ -182,7 +203,7 @@ This separate system can arrange payments, favors, artifacts, eligible land tran
 
 Frequency changes opportunities, not a guaranteed number of treaties per year, and it does not make the AI's prices more generous. [b]Advanced terms[/b] is not a universal switch for this system.
 
-[size=5][b]8. Offers sent to you[/b][/size]
+[size=5][b]9. Offers sent to you[/b][/size]
 
 [list]
 [*][b]Never[/b]: stops unsolicited AI offers and demands. You can still initiate negotiations; AI-to-AI treaties retain their own setting.
@@ -200,7 +221,9 @@ During a campaign, [b]Receive No More Embassies[/b] silences incoming treaty env
 [size=5][b]Suggested combinations[/b][/size]
 
 [list]
-[*][b]Start with the defaults[/b] for the full negotiating table and unrestricted prestige/piety payments.
+[*][b]Start with the defaults[/b] for the full negotiating table, Standard interests and unrestricted prestige/piety trading permissions.
+[*][b]Earlier valuation:[/b] negotiation interests [b]Off[/b], advanced term valuation [b]Classic[/b]. The one-direction currency safeguard remains active.
+[*][b]Stronger needs-based bargaining:[/b] negotiation interests [b]Strict[/b]. Use [b]Mild[/b] for a gentler adjustment; neither changes trading permissions.
 [*][b]Territory-sensitive expansion:[/b] advanced term valuation [b]Scaled[/b]. Large realms cost more; ordinary courtiers no longer all start at 10 points.
 [*][b]Less frequent extortion:[/b] threat frequency [b]5 years[/b] or [b]10 years[/b]. A ruler must wait before threatening another target, even with overwhelming dread and military strength.
 [*][b]Faith-based exchange:[/b] prestige [b]Same faith only[/b], piety [b]Different faiths only[/b].
@@ -214,7 +237,7 @@ When acting for a puppet, Parley's opener and marriage picker are hidden. Person
 
 [size=5][b]Compatibility and load order[/b][/size]
 
-[b]Vanilla file replacements: none.[/b] Other mods and overhauls can still alter mechanics treaties rely on and need compatibility work.
+[b]Vanilla file replacements: none.[/b] Overhauls can still change treaty mechanics and need compatibility work.
 
 [b]Optional vanilla load order:[/b]
 
@@ -223,7 +246,7 @@ When acting for a puppet, Parley's opener and marriage picker are hidden. Person
 [*]Marriage Calculation Assistant
 [/list]
 
-[b]AGOT is not supported by this CK3 1.20 release.[/b] Its integration is disabled pending an AGOT update and fresh checks. The calculation above is a historical example from CK3 1.19.0.6 with AGOT 0.5.2.1. Both marriage assistants are optional; neither is a general Parley compatibility patch.
+[b]AGOT is unsupported on CK3 1.20.[/b] Integration is disabled pending its update and checks. Both marriage assistants are optional, not general compatibility patches.
 
 [b]Submods and companion mods:[/b]
 
@@ -232,19 +255,21 @@ When acting for a puppet, Parley's opener and marriage picker are hidden. Person
 [*][url=https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant]AGOT: Marriage Calculation Assistant[/url]: AGOT scoring for MCA; current compatibility is on hold.
 [/list]
 
-No other compatibility patches are included. Enable one copy of each mod.
+Enable one copy of each mod; no other patches are included.
 
 [size=5][b]Saves and known limits[/b][/size]
 
 Before removal, use [b]Fold Away the Negotiating Table[/b] under [b]Mod Removal Decisions[/b], save, then disable Parley. This clears negotiation and AI state, but completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
 
-Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package.
+Title transfers exclude fealty/independence; overlapping courtier and hostage selections can invalidate a package.
 
-The negotiation screenshots were captured on [b]CK3 1.19.0.6[/b]; some interface details may differ. [b]Multiplayer and long campaigns remain unverified.[/b]
+With interests enabled, consequence previews for an already-refused manual offer are unavailable; refusal and retry remain possible.
+
+Captions distinguish older [b]CK3 1.19.0.6[/b] screenshots from newer captures. [b]Multiplayer and long campaigns remain unverified.[/b]
 
 [size=5][b]Feedback and support[/b][/size]
 
-For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.
+For bugs, include versions, load order, UI scale, steps and a screenshot. Try reproducing with this family alone.
 
 [url=https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table/issues]Report an issue on GitHub[/url]
 

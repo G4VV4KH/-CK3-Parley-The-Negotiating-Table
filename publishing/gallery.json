@@ -4,6 +4,18 @@
   "source_gallery": "publishing/screenshot-brief.json",
   "items": [
     {
+      "file": "publishing/screenshots/05-negotiation-interests-preview.png",
+      "caption_en": "Negotiation interests preview: directional percentages show the partner's interest before selecting terms. Authentic gameplay capture with an added caption.",
+      "sha256": "d6be5b1358445a2e01d9748d4f7567a315becd8dbdec140f1d9828943e01ce27",
+      "provenance": {
+        "source": "User-supplied authentic gameplay screenshot, received 2026-10-08.",
+        "original": "publishing/media-sources/05-negotiation-interests-original.png",
+        "original_sha256": "a4f4df366517203571e15387e3edaba24e162775919b08d2d81c72615659145f",
+        "capture_game_patch": "Exact loaded game patch and runtime hash are not established by the image.",
+        "transformation": "User-authorized deterministic text overlay only; all pixels outside the caption rectangle are unchanged. No AI redraw used."
+      }
+    },
+    {
       "file": "publishing/screenshots/01-negotiating-table.png",
       "caption_en": "Captured on CK3 1.19.0.6: Offer gold and prestige in exchange for fealty, with acceptance shown at the table.",
       "sha256": "58b620c97c65907e6fe768699786e3be57f7250e1def19f9db7388b12bb3b2c0"

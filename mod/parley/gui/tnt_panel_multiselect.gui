@@ -1054,7 +1054,7 @@ types TwdMultiSelect
 
 		blockoverride "tnt_multi_title" { text = "tnt_picker_title_title" }
 		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_title_p" }
-		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_shown_title_multi_p_value')|+=0]" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_interest_title_p_display_value')|+=0]" }
 		### No "tnt_multi_cap_visible" override: the cap is gone and the warning
 		### slot must stay at its hidden type default (section 2 header).
 		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_title_p_clear')]"  tooltip = "tnt_btn_none" }
@@ -1153,7 +1153,7 @@ types TwdMultiSelect
 
 		blockoverride "tnt_multi_title" { text = "tnt_picker_title_title" }
 		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_title_r" }
-		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_display_title_multi_r_value')|+=0]" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_interest_title_r_display_value')|+=0]" }
 		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_title_r_clear')]"  tooltip = "tnt_btn_none" }
 
 		blockoverride "tnt_multi_available_empty"
@@ -1433,7 +1433,7 @@ types TwdMultiSelect
 
 		blockoverride "tnt_multi_title" { text = "tnt_picker_title_artifact" }
 		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_artifact_p" }
-		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_shown_artifact_multi_p_value')|+=0]" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_interest_artifact_p_display_value')|+=0]" }
 		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_artifact_p_clear')]"  tooltip = "tnt_btn_none" }
 
 		blockoverride "tnt_multi_available_empty"
@@ -1505,7 +1505,7 @@ types TwdMultiSelect
 
 		blockoverride "tnt_multi_title" { text = "tnt_picker_title_artifact" }
 		blockoverride "tnt_multi_counter" { text = "tnt_sel_count_artifact_r" }
-		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_display_artifact_multi_r_value')|+=0]" }
+		blockoverride "tnt_multi_points_value" { text = "[TntSV('tnt_interest_artifact_r_display_value')|+=0]" }
 		blockoverride "tnt_multi_clear_click" { onclick = "[TntExec('tnt_sel_artifact_r_clear')]"  tooltip = "tnt_btn_none" }
 
 		blockoverride "tnt_multi_available_empty"
@@ -1744,7 +1744,7 @@ types TwdMultiSelect
 			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds" }
 			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_title" }
 			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_title_p" }
-			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_shown_title_multi_p_value')|0]" }
+			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_interest_title_p_display_value')|0]" }
 			### Gate-free whole-group clear (tnt_22b_multiselect.txt:580).
 			blockoverride "tnt_multi_sheet_remove"
 			{
@@ -1812,7 +1812,7 @@ types TwdMultiSelect
 			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_transfer_county.dds" }
 			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_title" }
 			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_title_r" }
-			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_display_title_multi_r_value')|0]" }
+			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_interest_title_r_display_value')|0]" }
 			### Gate-free whole-group clear (tnt_22b_multiselect.txt:593).
 			blockoverride "tnt_multi_sheet_remove"
 			{
@@ -1997,7 +1997,7 @@ types TwdMultiSelect
 			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/artifact.dds" }
 			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_artifact" }
 			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_artifact_p" }
-			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_shown_artifact_multi_p_value')|0]" }
+			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_interest_artifact_p_display_value')|0]" }
 			### Gate-free whole-group clear (tnt_22b_multiselect.txt:634).
 			blockoverride "tnt_multi_sheet_remove"
 			{
@@ -2051,7 +2051,7 @@ types TwdMultiSelect
 			blockoverride "tnt_multi_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/artifact.dds" }
 			blockoverride "tnt_multi_sheet_name"    { text = "tnt_item_artifact" }
 			blockoverride "tnt_multi_sheet_detail"  { text = "tnt_sel_count_artifact_r" }
-			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_display_artifact_multi_r_value')|0]" }
+			blockoverride "tnt_multi_sheet_points"  { text = "[TntSV('tnt_interest_artifact_r_display_value')|0]" }
 			### Gate-free whole-group clear (tnt_22b_multiselect.txt:644).
 			blockoverride "tnt_multi_sheet_remove"
 			{

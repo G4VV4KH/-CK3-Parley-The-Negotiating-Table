@@ -1,0 +1,1616 @@
+﻿# AI-world negotiation interests. No root or table-owner variable dependency.
+# These adapters consume only existing actor/recipient/object scopes. They create
+# no shadow table, numeric scope cache, persistent variable or native mutation.
+# Active world proposals are synchronous: their tnt_ai_deal_* quote is recomputed
+# in the final pre-mutation limit. Off leaves every previous score unchanged.
+#
+# Gold marginal bands are the same continuous interval integral as tnt61. Amount
+# names are fixed by each world archetype; *_gold_* factors run on the evaluating
+# character. Native capacity/stock primitives are shared with manual quotations.
+# The table and this adapter's single-object advanced factors are parity-tested.
+# Territory/income changes are not simulated here; full cross-resource context
+# remains a native acceptance limit, not an invented future-plan prediction.
+#
+# Bilateral voluntary score = min(recipient score, actor score). Each ruler has
+# its own relation and bargaining threshold; positive relation is multiplied by
+# its receiving factor so an unwanted gift earns no separate friendship payment.
+# Pressure is preserved verbatim. Ultimatum/hookcall alter demanded gold cost
+# and require the actor to have positive use for receiving it; they do not
+# discount threat strength or an already-held hook as an unwanted gift.
+
+tnt_interest_ai_actor_gold_per_point_value = {
+	value = 10
+	if = { limit = { scope:actor ?= { highest_held_title_tier >= tier_duchy } } add = 5 }
+	min = 1
+}
+tnt_interest_ai_actor_tier_edge_value = {
+	value = tnt_ai_tier_edge_value
+	multiply = -1
+}
+
+tnt_interest_ai_actor_relation_value = {
+	value = 0
+	if = {
+		limit = {
+			exists = scope:recipient
+			exists = scope:actor
+		}
+		scope:actor = {
+			add = { value = "opinion(scope:recipient)"  multiply = 0.75 }
+
+			# No branch for a shared faith: it scores 0, exactly as in vanilla.
+			if = {
+				limit = {
+					faith ?= {
+						faith_hostility_level = {
+							target = scope:recipient.faith
+							value >= faith_hostile_level
+						}
+					}
+				}
+				add = -35
+			}
+			else_if = {
+				limit = { NOT = { faith = scope:recipient.faith } }
+				add = -10
+			}
+
+			if = {
+				limit = { has_same_culture_as = scope:recipient }
+				add = 5
+			}
+			else_if = {
+				limit = {
+					culture ?= {
+						NOT = { has_same_culture_heritage = scope:recipient.culture }
+					}
+				}
+				add = -10
+			}
+
+			if = {
+				limit = { is_close_or_extended_family_of = scope:recipient }
+				add = 10
+			}
+
+			if = {
+				limit = { is_allied_to = scope:recipient }
+				add = 10
+			}
+		}
+	}
+	round = yes
+}
+
+tnt_interest_ai_actor_threshold_value = {
+	value = 0
+	if = {
+		limit = { exists = scope:actor }
+		scope:actor = {
+			add = {
+				value = ai_greed
+				multiply = 0.1
+			}
+			add = {
+				value = ai_boldness
+				multiply = 0.05
+			}
+			subtract = {
+				value = ai_rationality
+				multiply = 0.05
+			}
+		}
+	}
+	if = {
+		limit = { tnt_interest_ai_actor_tier_edge_value <= -2 }
+		add = 20
+	}
+	else_if = {
+		limit = { tnt_interest_ai_actor_tier_edge_value < 0 }
+		add = 10
+	}
+	min = 0
+	max = 40
+	round = yes
+}
+
+# hook_low: gold amount is tnt_ai_gold_low_value, independent of the current evaluator.
+tnt_interest_ai_hook_low_gold_full_share_value = {
+	value = tnt_interest_ai_hook_low_gold_full_amount_value
+	divide = { value = tnt_ai_gold_low_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_low_gold_tail_share_value = {
+	value = tnt_interest_ai_hook_low_gold_tail_amount_value
+	divide = { value = tnt_ai_gold_low_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_low_gold_reserve_share_value = {
+	value = tnt_interest_ai_hook_low_gold_reserve_amount_value
+	divide = { value = tnt_ai_gold_low_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_low_gold_critical_share_value = {
+	value = tnt_interest_ai_hook_low_gold_critical_amount_value
+	divide = { value = tnt_ai_gold_low_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_low_gold_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_gold_low_value > 0 }
+		value = tnt_interest_ai_hook_low_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_gold_low_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_low_gold_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_gold_low_value > 0 }
+		value = tnt_interest_ai_hook_low_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_gold_low_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+
+# hook_high: gold amount is tnt_ai_gold_high_value, independent of the current evaluator.
+tnt_interest_ai_hook_high_gold_full_share_value = {
+	value = tnt_interest_ai_hook_high_gold_full_amount_value
+	divide = { value = tnt_ai_gold_high_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_high_gold_tail_share_value = {
+	value = tnt_interest_ai_hook_high_gold_tail_amount_value
+	divide = { value = tnt_ai_gold_high_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_high_gold_reserve_share_value = {
+	value = tnt_interest_ai_hook_high_gold_reserve_amount_value
+	divide = { value = tnt_ai_gold_high_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_high_gold_critical_share_value = {
+	value = tnt_interest_ai_hook_high_gold_critical_amount_value
+	divide = { value = tnt_ai_gold_high_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_high_gold_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_gold_high_value > 0 }
+		value = tnt_interest_ai_hook_high_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_gold_high_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_high_gold_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_gold_high_value > 0 }
+		value = tnt_interest_ai_hook_high_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_gold_high_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+
+# ultimatum: gold amount is tnt_ai_demand_gold_value, independent of the current evaluator.
+tnt_interest_ai_ultimatum_gold_full_share_value = {
+	value = tnt_interest_ai_ultimatum_gold_full_amount_value
+	divide = { value = tnt_ai_demand_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_ultimatum_gold_tail_share_value = {
+	value = tnt_interest_ai_ultimatum_gold_tail_amount_value
+	divide = { value = tnt_ai_demand_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_ultimatum_gold_reserve_share_value = {
+	value = tnt_interest_ai_ultimatum_gold_reserve_amount_value
+	divide = { value = tnt_ai_demand_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_ultimatum_gold_critical_share_value = {
+	value = tnt_interest_ai_ultimatum_gold_critical_amount_value
+	divide = { value = tnt_ai_demand_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_ultimatum_gold_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_demand_gold_value > 0 }
+		value = tnt_interest_ai_ultimatum_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_demand_gold_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_ultimatum_gold_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_demand_gold_value > 0 }
+		value = tnt_interest_ai_ultimatum_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_demand_gold_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+
+# hookcall: gold amount is tnt_ai_hookcall_gold_value, independent of the current evaluator.
+tnt_interest_ai_hookcall_gold_full_share_value = {
+	value = tnt_interest_ai_hookcall_gold_full_amount_value
+	divide = { value = tnt_ai_hookcall_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hookcall_gold_tail_share_value = {
+	value = tnt_interest_ai_hookcall_gold_tail_amount_value
+	divide = { value = tnt_ai_hookcall_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hookcall_gold_reserve_share_value = {
+	value = tnt_interest_ai_hookcall_gold_reserve_amount_value
+	divide = { value = tnt_ai_hookcall_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hookcall_gold_critical_share_value = {
+	value = tnt_interest_ai_hookcall_gold_critical_amount_value
+	divide = { value = tnt_ai_hookcall_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hookcall_gold_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_hookcall_gold_value > 0 }
+		value = tnt_interest_ai_hookcall_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_hookcall_gold_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hookcall_gold_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_hookcall_gold_value > 0 }
+		value = tnt_interest_ai_hookcall_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_hookcall_gold_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+
+# title: gold amount is tnt_ai_title_gold_value, independent of the current evaluator.
+tnt_interest_ai_title_gold_full_share_value = {
+	value = tnt_interest_ai_title_gold_full_amount_value
+	divide = { value = tnt_ai_title_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_title_gold_tail_share_value = {
+	value = tnt_interest_ai_title_gold_tail_amount_value
+	divide = { value = tnt_ai_title_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_title_gold_reserve_share_value = {
+	value = tnt_interest_ai_title_gold_reserve_amount_value
+	divide = { value = tnt_ai_title_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_title_gold_critical_share_value = {
+	value = tnt_interest_ai_title_gold_critical_amount_value
+	divide = { value = tnt_ai_title_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_title_gold_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_title_gold_value > 0 }
+		value = tnt_interest_ai_title_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_title_gold_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_title_gold_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_title_gold_value > 0 }
+		value = tnt_interest_ai_title_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_title_gold_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+
+# vassal: gold amount is tnt_ai_vassal_gold_value, independent of the current evaluator.
+tnt_interest_ai_vassal_gold_full_share_value = {
+	value = tnt_interest_ai_vassal_gold_full_amount_value
+	divide = { value = tnt_ai_vassal_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_vassal_gold_tail_share_value = {
+	value = tnt_interest_ai_vassal_gold_tail_amount_value
+	divide = { value = tnt_ai_vassal_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_vassal_gold_reserve_share_value = {
+	value = tnt_interest_ai_vassal_gold_reserve_amount_value
+	divide = { value = tnt_ai_vassal_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_vassal_gold_critical_share_value = {
+	value = tnt_interest_ai_vassal_gold_critical_amount_value
+	divide = { value = tnt_ai_vassal_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_vassal_gold_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_vassal_gold_value > 0 }
+		value = tnt_interest_ai_vassal_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_vassal_gold_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_vassal_gold_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_vassal_gold_value > 0 }
+		value = tnt_interest_ai_vassal_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_vassal_gold_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+
+# artifact: gold amount is tnt_ai_artifact_gold_value, independent of the current evaluator.
+tnt_interest_ai_artifact_gold_full_share_value = {
+	value = tnt_interest_ai_artifact_gold_full_amount_value
+	divide = { value = tnt_ai_artifact_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_artifact_gold_tail_share_value = {
+	value = tnt_interest_ai_artifact_gold_tail_amount_value
+	divide = { value = tnt_ai_artifact_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_artifact_gold_reserve_share_value = {
+	value = tnt_interest_ai_artifact_gold_reserve_amount_value
+	divide = { value = tnt_ai_artifact_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_artifact_gold_critical_share_value = {
+	value = tnt_interest_ai_artifact_gold_critical_amount_value
+	divide = { value = tnt_ai_artifact_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_artifact_gold_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_artifact_gold_value > 0 }
+		value = tnt_interest_ai_artifact_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_artifact_gold_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_artifact_gold_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_artifact_gold_value > 0 }
+		value = tnt_interest_ai_artifact_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_artifact_gold_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+
+# wed: gold amount is tnt_ai_wed_gold_value, independent of the current evaluator.
+tnt_interest_ai_wed_gold_full_share_value = {
+	value = tnt_interest_ai_wed_gold_full_amount_value
+	divide = { value = tnt_ai_wed_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_wed_gold_tail_share_value = {
+	value = tnt_interest_ai_wed_gold_tail_amount_value
+	divide = { value = tnt_ai_wed_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_wed_gold_reserve_share_value = {
+	value = tnt_interest_ai_wed_gold_reserve_amount_value
+	divide = { value = tnt_ai_wed_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_wed_gold_critical_share_value = {
+	value = tnt_interest_ai_wed_gold_critical_amount_value
+	divide = { value = tnt_ai_wed_gold_value min = 0.001 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_wed_gold_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_wed_gold_value > 0 }
+		value = tnt_interest_ai_wed_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_wed_gold_value min = 0.001 }
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_wed_gold_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_wed_gold_value > 0 }
+		value = tnt_interest_ai_wed_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_wed_gold_value min = 0.001 }
+	}
+	min = 1
+	max = 7
+}
+
+# Single-object advanced motives. Current scope is the receiving/surrendering
+# ruler; selected county/artifact uses the existing world transaction scopes.
+tnt_interest_ai_title_receive_raw_value = {
+	value = 0.9
+	subtract = {
+		value = domain_size
+		add = 1
+		subtract = domain_limit
+		min = 0
+		max = 1
+		multiply = 0.6
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_title_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_title_receive_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ai_title_receive_raw_value
+			add = tnt_interest_strength_value
+			min = 0.001
+		}
+	}
+	min = 0
+	max = 1
+}
+
+tnt_interest_ai_title_surrender_raw_value = {
+	value = 0.6
+	add = {
+		value = domain_size
+		subtract = domain_limit
+		min = 0
+		max = 1
+		multiply = 0.3
+	}
+	min = 0.001
+	max = 1
+}
+tnt_interest_ai_title_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = 1
+		divide = { value = tnt_interest_ai_title_surrender_raw_value min = 0.001 }
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_ai_vassal_receive_raw_value = {
+	value = 0.85
+	if = { limit = { vassal_limit_available <= 0 } subtract = 0.45 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_vassal_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_vassal_receive_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ai_vassal_receive_raw_value
+			add = tnt_interest_strength_value
+			min = 0.001
+		}
+	}
+	min = 0
+	max = 1
+}
+
+tnt_interest_ai_vassal_surrender_raw_value = {
+	value = 0.4
+	if = { limit = { is_at_war = yes } add = 0.25 }
+	min = 0.001
+	max = 1
+}
+tnt_interest_ai_vassal_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = 1
+		divide = { value = tnt_interest_ai_vassal_surrender_raw_value min = 0.001 }
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_ai_hook_receive_raw_value = {
+	value = 0.7
+	if = { limit = { scope:recipient ?= { is_ruler = yes } } add = 0.15 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_hook_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_hook_receive_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ai_hook_receive_raw_value
+			add = tnt_interest_strength_value
+			min = 0.001
+		}
+	}
+	min = 0
+	max = 1
+}
+
+tnt_interest_ai_hook_surrender_raw_value = {
+	value = 0.55
+	if = { limit = { is_ruler = yes } subtract = 0.2 }
+	min = 0.001
+	max = 1
+}
+tnt_interest_ai_hook_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = 1
+		divide = { value = tnt_interest_ai_hook_surrender_raw_value min = 0.001 }
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_ai_wed_receive_raw_value = {
+	value = 0.85
+	if = { limit = { is_at_war = yes } add = 0.1 }
+	min = 0
+	max = 1
+}
+tnt_interest_ai_wed_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_wed_receive_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ai_wed_receive_raw_value
+			add = tnt_interest_strength_value
+			min = 0.001
+		}
+	}
+	min = 0
+	max = 1
+}
+
+tnt_interest_ai_wed_surrender_raw_value = {
+	value = 0.7
+	if = { limit = { is_at_war = yes } subtract = 0.1 }
+	min = 0.001
+	max = 1
+}
+tnt_interest_ai_wed_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = 1
+		divide = { value = tnt_interest_ai_wed_surrender_raw_value min = 0.001 }
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+	min = 1
+	max = 100
+}
+
+tnt_interest_ai_artifact_receive_raw_value = {
+	value = 0.85
+	if = {
+		limit = {
+			OR = {
+				AND = {
+					scope:tnt_deal_artifact ?= { artifact_slot_type = primary_armament }
+					any_equipped_character_artifact = { artifact_slot_type = primary_armament }
+				}
+				AND = {
+					scope:tnt_deal_artifact ?= { artifact_slot_type = armor }
+					any_equipped_character_artifact = { artifact_slot_type = armor }
+				}
+				AND = {
+					scope:tnt_deal_artifact ?= { artifact_slot_type = regalia }
+					any_equipped_character_artifact = { artifact_slot_type = regalia }
+				}
+				AND = {
+					scope:tnt_deal_artifact ?= { artifact_slot_type = helmet }
+					any_equipped_character_artifact = { artifact_slot_type = helmet }
+				}
+			}
+		}
+		subtract = 0.25
+	}
+	min = 0
+	max = 1
+}
+tnt_interest_ai_artifact_receive_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_artifact_receive_raw_value
+		divide = {
+			value = 1
+			subtract = tnt_interest_strength_value
+			multiply = tnt_interest_ai_artifact_receive_raw_value
+			add = tnt_interest_strength_value
+			min = 0.001
+		}
+	}
+	min = 0
+	max = 1
+}
+
+tnt_interest_ai_artifact_surrender_raw_value = {
+	value = 0.75
+	if = { limit = { scope:tnt_deal_artifact ?= { is_equipped = yes } } subtract = 0.35 }
+	min = 0.001
+	max = 1
+}
+tnt_interest_ai_artifact_surrender_factor_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = 1
+		divide = { value = tnt_interest_ai_artifact_surrender_raw_value min = 0.001 }
+		subtract = 1
+		multiply = tnt_interest_strength_value
+		add = 1
+	}
+	min = 1
+	max = 100
+}
+
+# hook_low: actor receives the non-gold term; recipient receives gold.
+tnt_interest_ai_hook_low_recipient_relation_value = {
+	value = tnt_ai_relation_value
+	if = {
+		limit = { tnt_ai_relation_value > 0 }
+		multiply = scope:recipient.tnt_interest_ai_hook_low_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_gold_low_value min = 0.001 }
+	}
+}
+tnt_interest_ai_hook_low_actor_relation_value = {
+	value = tnt_interest_ai_actor_relation_value
+	if = {
+		limit = { tnt_interest_ai_actor_relation_value > 0 }
+		multiply = scope:actor.tnt_interest_ai_hook_receive_factor_value
+	}
+}
+tnt_interest_ai_hook_low_recipient_score_value = {
+	value = scope:recipient.tnt_interest_ai_hook_low_gold_receive_weighted_amount_value
+	divide = { value = tnt_ai_gold_per_point_value min = 1 }
+	subtract = {
+		value = tnt_ai_hook_cost_value
+		multiply = scope:recipient.tnt_interest_ai_hook_surrender_factor_value
+	}
+	add = tnt_interest_ai_hook_low_recipient_relation_value
+	subtract = tnt_ai_threshold_value
+}
+tnt_interest_ai_hook_low_actor_score_value = {
+	value = tnt_ai_hook_cost_value
+	multiply = scope:actor.tnt_interest_ai_hook_receive_factor_value
+	subtract = {
+		value = scope:actor.tnt_interest_ai_hook_low_gold_surrender_weighted_amount_value
+		divide = { value = tnt_interest_ai_actor_gold_per_point_value min = 1 }
+	}
+	add = tnt_interest_ai_hook_low_actor_relation_value
+	subtract = tnt_interest_ai_actor_threshold_value
+}
+tnt_interest_ai_deal_hook_low_value = {
+	value = -100000
+	if = {
+		limit = { exists = scope:actor exists = scope:recipient }
+		value = tnt_interest_ai_hook_low_recipient_score_value
+		max = tnt_interest_ai_hook_low_actor_score_value
+	}
+	round = yes
+}
+
+# hook_high: actor receives the non-gold term; recipient receives gold.
+tnt_interest_ai_hook_high_recipient_relation_value = {
+	value = tnt_ai_relation_value
+	if = {
+		limit = { tnt_ai_relation_value > 0 }
+		multiply = scope:recipient.tnt_interest_ai_hook_high_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_gold_high_value min = 0.001 }
+	}
+}
+tnt_interest_ai_hook_high_actor_relation_value = {
+	value = tnt_interest_ai_actor_relation_value
+	if = {
+		limit = { tnt_interest_ai_actor_relation_value > 0 }
+		multiply = scope:actor.tnt_interest_ai_hook_receive_factor_value
+	}
+}
+tnt_interest_ai_hook_high_recipient_score_value = {
+	value = scope:recipient.tnt_interest_ai_hook_high_gold_receive_weighted_amount_value
+	divide = { value = tnt_ai_gold_per_point_value min = 1 }
+	subtract = {
+		value = tnt_ai_hook_cost_value
+		multiply = scope:recipient.tnt_interest_ai_hook_surrender_factor_value
+	}
+	add = tnt_interest_ai_hook_high_recipient_relation_value
+	subtract = tnt_ai_threshold_value
+}
+tnt_interest_ai_hook_high_actor_score_value = {
+	value = tnt_ai_hook_cost_value
+	multiply = scope:actor.tnt_interest_ai_hook_receive_factor_value
+	subtract = {
+		value = scope:actor.tnt_interest_ai_hook_high_gold_surrender_weighted_amount_value
+		divide = { value = tnt_interest_ai_actor_gold_per_point_value min = 1 }
+	}
+	add = tnt_interest_ai_hook_high_actor_relation_value
+	subtract = tnt_interest_ai_actor_threshold_value
+}
+tnt_interest_ai_deal_hook_high_value = {
+	value = -100000
+	if = {
+		limit = { exists = scope:actor exists = scope:recipient }
+		value = tnt_interest_ai_hook_high_recipient_score_value
+		max = tnt_interest_ai_hook_high_actor_score_value
+	}
+	round = yes
+}
+
+# title: actor receives the non-gold term; recipient receives gold.
+tnt_interest_ai_title_recipient_relation_value = {
+	value = tnt_ai_relation_value
+	if = {
+		limit = { tnt_ai_relation_value > 0 }
+		multiply = scope:recipient.tnt_interest_ai_title_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_title_gold_value min = 0.001 }
+	}
+}
+tnt_interest_ai_title_actor_relation_value = {
+	value = tnt_interest_ai_actor_relation_value
+	if = {
+		limit = { tnt_interest_ai_actor_relation_value > 0 }
+		multiply = scope:actor.tnt_interest_ai_title_receive_factor_value
+	}
+}
+tnt_interest_ai_title_recipient_score_value = {
+	value = scope:recipient.tnt_interest_ai_title_gold_receive_weighted_amount_value
+	divide = { value = tnt_ai_gold_per_point_value min = 1 }
+	subtract = {
+		value = tnt_ai_title_points_value
+		multiply = scope:recipient.tnt_interest_ai_title_surrender_factor_value
+	}
+	add = tnt_interest_ai_title_recipient_relation_value
+	subtract = tnt_ai_threshold_value
+}
+tnt_interest_ai_title_actor_score_value = {
+	value = tnt_ai_title_points_value
+	multiply = scope:actor.tnt_interest_ai_title_receive_factor_value
+	subtract = {
+		value = scope:actor.tnt_interest_ai_title_gold_surrender_weighted_amount_value
+		divide = { value = tnt_interest_ai_actor_gold_per_point_value min = 1 }
+	}
+	add = tnt_interest_ai_title_actor_relation_value
+	subtract = tnt_interest_ai_actor_threshold_value
+}
+tnt_interest_ai_deal_title_value = {
+	value = -100000
+	if = {
+		limit = { exists = scope:actor exists = scope:recipient }
+		value = tnt_interest_ai_title_recipient_score_value
+		max = tnt_interest_ai_title_actor_score_value
+	}
+	round = yes
+}
+
+# vassal: actor receives the non-gold term; recipient receives gold.
+tnt_interest_ai_vassal_recipient_relation_value = {
+	value = tnt_ai_relation_value
+	if = {
+		limit = { tnt_ai_relation_value > 0 }
+		multiply = scope:recipient.tnt_interest_ai_vassal_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_vassal_gold_value min = 0.001 }
+	}
+}
+tnt_interest_ai_vassal_actor_relation_value = {
+	value = tnt_interest_ai_actor_relation_value
+	if = {
+		limit = { tnt_interest_ai_actor_relation_value > 0 }
+		multiply = scope:actor.tnt_interest_ai_vassal_receive_factor_value
+	}
+}
+tnt_interest_ai_vassal_recipient_score_value = {
+	value = scope:recipient.tnt_interest_ai_vassal_gold_receive_weighted_amount_value
+	divide = { value = tnt_ai_gold_per_point_value min = 1 }
+	subtract = {
+		value = tnt_ai_vassal_cost_value
+		multiply = scope:recipient.tnt_interest_ai_vassal_surrender_factor_value
+	}
+	add = tnt_interest_ai_vassal_recipient_relation_value
+	subtract = tnt_ai_threshold_value
+}
+tnt_interest_ai_vassal_actor_score_value = {
+	value = tnt_ai_vassal_cost_value
+	multiply = scope:actor.tnt_interest_ai_vassal_receive_factor_value
+	subtract = {
+		value = scope:actor.tnt_interest_ai_vassal_gold_surrender_weighted_amount_value
+		divide = { value = tnt_interest_ai_actor_gold_per_point_value min = 1 }
+	}
+	add = tnt_interest_ai_vassal_actor_relation_value
+	subtract = tnt_interest_ai_actor_threshold_value
+}
+tnt_interest_ai_deal_vassal_value = {
+	value = -100000
+	if = {
+		limit = { exists = scope:actor exists = scope:recipient }
+		value = tnt_interest_ai_vassal_recipient_score_value
+		max = tnt_interest_ai_vassal_actor_score_value
+	}
+	round = yes
+}
+
+# artifact: actor receives the non-gold term; recipient receives gold.
+tnt_interest_ai_artifact_recipient_relation_value = {
+	value = tnt_ai_relation_value
+	if = {
+		limit = { tnt_ai_relation_value > 0 }
+		multiply = scope:recipient.tnt_interest_ai_artifact_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_artifact_gold_value min = 0.001 }
+	}
+}
+tnt_interest_ai_artifact_actor_relation_value = {
+	value = tnt_interest_ai_actor_relation_value
+	if = {
+		limit = { tnt_interest_ai_actor_relation_value > 0 }
+		multiply = scope:actor.tnt_interest_ai_artifact_receive_factor_value
+	}
+}
+tnt_interest_ai_artifact_recipient_score_value = {
+	value = scope:recipient.tnt_interest_ai_artifact_gold_receive_weighted_amount_value
+	divide = { value = tnt_ai_gold_per_point_value min = 1 }
+	subtract = {
+		value = tnt_ai_artifact_points_value
+		multiply = scope:recipient.tnt_interest_ai_artifact_surrender_factor_value
+	}
+	add = tnt_interest_ai_artifact_recipient_relation_value
+	subtract = tnt_ai_threshold_value
+}
+tnt_interest_ai_artifact_actor_score_value = {
+	value = tnt_ai_artifact_points_value
+	multiply = scope:actor.tnt_interest_ai_artifact_receive_factor_value
+	subtract = {
+		value = scope:actor.tnt_interest_ai_artifact_gold_surrender_weighted_amount_value
+		divide = { value = tnt_interest_ai_actor_gold_per_point_value min = 1 }
+	}
+	add = tnt_interest_ai_artifact_actor_relation_value
+	subtract = tnt_interest_ai_actor_threshold_value
+}
+tnt_interest_ai_deal_artifact_value = {
+	value = -100000
+	if = {
+		limit = { exists = scope:actor exists = scope:recipient }
+		value = tnt_interest_ai_artifact_recipient_score_value
+		max = tnt_interest_ai_artifact_actor_score_value
+	}
+	round = yes
+}
+
+# wed: actor receives the non-gold term; recipient receives gold.
+tnt_interest_ai_wed_recipient_relation_value = {
+	value = tnt_ai_relation_value
+	if = {
+		limit = { tnt_ai_relation_value > 0 }
+		multiply = scope:recipient.tnt_interest_ai_wed_gold_receive_weighted_amount_value
+		divide = { value = tnt_ai_wed_gold_value min = 0.001 }
+	}
+}
+tnt_interest_ai_wed_actor_relation_value = {
+	value = tnt_interest_ai_actor_relation_value
+	if = {
+		limit = { tnt_interest_ai_actor_relation_value > 0 }
+		multiply = scope:actor.tnt_interest_ai_wed_receive_factor_value
+	}
+}
+tnt_interest_ai_wed_recipient_score_value = {
+	value = scope:recipient.tnt_interest_ai_wed_gold_receive_weighted_amount_value
+	divide = { value = tnt_ai_gold_per_point_value min = 1 }
+	subtract = {
+		value = tnt_ai_wed_cost_value
+		multiply = scope:recipient.tnt_interest_ai_wed_surrender_factor_value
+	}
+	add = tnt_interest_ai_wed_recipient_relation_value
+	subtract = tnt_ai_threshold_value
+}
+tnt_interest_ai_wed_actor_score_value = {
+	value = tnt_ai_wed_cost_value
+	multiply = scope:actor.tnt_interest_ai_wed_receive_factor_value
+	subtract = {
+		value = scope:actor.tnt_interest_ai_wed_gold_surrender_weighted_amount_value
+		divide = { value = tnt_interest_ai_actor_gold_per_point_value min = 1 }
+	}
+	add = tnt_interest_ai_wed_actor_relation_value
+	subtract = tnt_interest_ai_actor_threshold_value
+}
+tnt_interest_ai_deal_wed_value = {
+	value = -100000
+	if = {
+		limit = { exists = scope:actor exists = scope:recipient }
+		value = tnt_interest_ai_wed_recipient_score_value
+		max = tnt_interest_ai_wed_actor_score_value
+	}
+	round = yes
+}
+
+# ultimatum: pressure remains exact; receiving utility belongs to the coercer.
+tnt_interest_ai_ultimatum_recipient_score_value = {
+	value = tnt_ai_threat_points_value
+	add = {
+		value = scope:recipient.tnt_interest_ai_ultimatum_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_gold_per_point_value min = 1 }
+		multiply = -1
+	}
+	add = tnt_ai_relation_value
+	subtract = tnt_ai_threshold_value
+}
+tnt_interest_ai_ultimatum_actor_score_value = {
+	value = scope:actor.tnt_interest_ai_ultimatum_gold_receive_weighted_amount_value
+	divide = { value = tnt_interest_ai_actor_gold_per_point_value min = 1 }
+}
+tnt_interest_ai_deal_ultimatum_value = {
+	value = -100000
+	if = {
+		limit = { exists = scope:actor exists = scope:recipient }
+		value = tnt_interest_ai_ultimatum_recipient_score_value
+		max = tnt_interest_ai_ultimatum_actor_score_value
+	}
+	round = yes
+}
+
+# hookcall: pressure remains exact; receiving utility belongs to the coercer.
+tnt_interest_ai_hookcall_recipient_score_value = {
+	value = tnt_ai_hookcall_points_value
+	add = {
+		value = scope:recipient.tnt_interest_ai_hookcall_gold_surrender_weighted_amount_value
+		divide = { value = tnt_ai_gold_per_point_value min = 1 }
+		multiply = -1
+	}
+	add = tnt_ai_relation_value
+	subtract = tnt_ai_threshold_value
+}
+tnt_interest_ai_hookcall_actor_score_value = {
+	value = scope:actor.tnt_interest_ai_hookcall_gold_receive_weighted_amount_value
+	divide = { value = tnt_interest_ai_actor_gold_per_point_value min = 1 }
+}
+tnt_interest_ai_deal_hookcall_value = {
+	value = -100000
+	if = {
+		limit = { exists = scope:actor exists = scope:recipient }
+		value = tnt_interest_ai_hookcall_recipient_score_value
+		max = tnt_interest_ai_hookcall_actor_score_value
+	}
+	round = yes
+}
+
+# Submission has its own selected target, deliberately independent of a stale
+# scope:recipient. The existing pair trigger has already established the threat
+# aliases for actor/target before this final extra cost check is reached.
+tnt_interest_ai_submission_cost_value = {
+	value = 50
+	if = {
+		limit = { tnt_scaled_valuation_enabled_value > 0 exists = scope:tnt_submission_target }
+		value = scope:tnt_submission_target.tnt_scaled_fealty_demand_value
+	}
+}
+tnt_interest_ai_submission_score_value = {
+	value = 1
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = -100000
+		if = {
+			limit = { exists = scope:actor exists = scope:tnt_submission_target }
+			value = tnt_ai_threat_points_value
+			subtract = {
+				value = tnt_interest_ai_submission_cost_value
+				multiply = scope:tnt_submission_target.tnt_interest_ai_vassal_surrender_factor_value
+			}
+			max = {
+				value = tnt_interest_ai_submission_cost_value
+				multiply = scope:actor.tnt_interest_ai_vassal_receive_factor_value
+			}
+		}
+	}
+	round = yes
+}
+
+# Authoritative bounded-band amount integrals. Production gold pricing divides
+# these amounts by its evaluator rate; factor helpers above are display/tests
+# only. This avoids precision loss from dividing by the full offer first.
+
+tnt_interest_ai_hook_low_gold_full_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_gold_low_value
+}
+
+tnt_interest_ai_hook_low_gold_tail_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_gold_low_value
+	subtract = tnt_interest_ai_hook_low_gold_full_amount_value
+	min = 0
+}
+
+tnt_interest_ai_hook_low_gold_reserve_amount_value = {
+	value = tnt_ai_gold_low_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = tnt_interest_gold_native_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_gold_low_value
+}
+
+tnt_interest_ai_hook_low_gold_critical_amount_value = {
+	value = tnt_ai_gold_low_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = { value = tnt_interest_gold_native_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_gold_low_value
+}
+
+tnt_interest_ai_hook_low_gold_receive_weighted_amount_value = {
+	value = tnt_ai_gold_low_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_gold_low_value > 0 }
+		value = tnt_interest_ai_hook_low_gold_full_amount_value
+		add = {
+			value = tnt_interest_ai_hook_low_gold_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_hook_low_gold_surrender_weighted_amount_value = {
+	value = tnt_ai_gold_low_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_gold_low_value > 0 }
+		add = {
+			value = tnt_interest_ai_hook_low_gold_reserve_amount_value
+			add = { value = tnt_interest_ai_hook_low_gold_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_hook_high_gold_full_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_gold_high_value
+}
+
+tnt_interest_ai_hook_high_gold_tail_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_gold_high_value
+	subtract = tnt_interest_ai_hook_high_gold_full_amount_value
+	min = 0
+}
+
+tnt_interest_ai_hook_high_gold_reserve_amount_value = {
+	value = tnt_ai_gold_high_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = tnt_interest_gold_native_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_gold_high_value
+}
+
+tnt_interest_ai_hook_high_gold_critical_amount_value = {
+	value = tnt_ai_gold_high_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = { value = tnt_interest_gold_native_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_gold_high_value
+}
+
+tnt_interest_ai_hook_high_gold_receive_weighted_amount_value = {
+	value = tnt_ai_gold_high_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_gold_high_value > 0 }
+		value = tnt_interest_ai_hook_high_gold_full_amount_value
+		add = {
+			value = tnt_interest_ai_hook_high_gold_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_hook_high_gold_surrender_weighted_amount_value = {
+	value = tnt_ai_gold_high_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_gold_high_value > 0 }
+		add = {
+			value = tnt_interest_ai_hook_high_gold_reserve_amount_value
+			add = { value = tnt_interest_ai_hook_high_gold_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_ultimatum_gold_full_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_demand_gold_value
+}
+
+tnt_interest_ai_ultimatum_gold_tail_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_demand_gold_value
+	subtract = tnt_interest_ai_ultimatum_gold_full_amount_value
+	min = 0
+}
+
+tnt_interest_ai_ultimatum_gold_reserve_amount_value = {
+	value = tnt_ai_demand_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = tnt_interest_gold_native_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_demand_gold_value
+}
+
+tnt_interest_ai_ultimatum_gold_critical_amount_value = {
+	value = tnt_ai_demand_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = { value = tnt_interest_gold_native_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_demand_gold_value
+}
+
+tnt_interest_ai_ultimatum_gold_receive_weighted_amount_value = {
+	value = tnt_ai_demand_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_demand_gold_value > 0 }
+		value = tnt_interest_ai_ultimatum_gold_full_amount_value
+		add = {
+			value = tnt_interest_ai_ultimatum_gold_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_ultimatum_gold_surrender_weighted_amount_value = {
+	value = tnt_ai_demand_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_demand_gold_value > 0 }
+		add = {
+			value = tnt_interest_ai_ultimatum_gold_reserve_amount_value
+			add = { value = tnt_interest_ai_ultimatum_gold_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_hookcall_gold_full_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_hookcall_gold_value
+}
+
+tnt_interest_ai_hookcall_gold_tail_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_hookcall_gold_value
+	subtract = tnt_interest_ai_hookcall_gold_full_amount_value
+	min = 0
+}
+
+tnt_interest_ai_hookcall_gold_reserve_amount_value = {
+	value = tnt_ai_hookcall_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = tnt_interest_gold_native_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_hookcall_gold_value
+}
+
+tnt_interest_ai_hookcall_gold_critical_amount_value = {
+	value = tnt_ai_hookcall_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = { value = tnt_interest_gold_native_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_hookcall_gold_value
+}
+
+tnt_interest_ai_hookcall_gold_receive_weighted_amount_value = {
+	value = tnt_ai_hookcall_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_hookcall_gold_value > 0 }
+		value = tnt_interest_ai_hookcall_gold_full_amount_value
+		add = {
+			value = tnt_interest_ai_hookcall_gold_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_hookcall_gold_surrender_weighted_amount_value = {
+	value = tnt_ai_hookcall_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_hookcall_gold_value > 0 }
+		add = {
+			value = tnt_interest_ai_hookcall_gold_reserve_amount_value
+			add = { value = tnt_interest_ai_hookcall_gold_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_title_gold_full_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_title_gold_value
+}
+
+tnt_interest_ai_title_gold_tail_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_title_gold_value
+	subtract = tnt_interest_ai_title_gold_full_amount_value
+	min = 0
+}
+
+tnt_interest_ai_title_gold_reserve_amount_value = {
+	value = tnt_ai_title_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = tnt_interest_gold_native_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_title_gold_value
+}
+
+tnt_interest_ai_title_gold_critical_amount_value = {
+	value = tnt_ai_title_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = { value = tnt_interest_gold_native_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_title_gold_value
+}
+
+tnt_interest_ai_title_gold_receive_weighted_amount_value = {
+	value = tnt_ai_title_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_title_gold_value > 0 }
+		value = tnt_interest_ai_title_gold_full_amount_value
+		add = {
+			value = tnt_interest_ai_title_gold_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_title_gold_surrender_weighted_amount_value = {
+	value = tnt_ai_title_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_title_gold_value > 0 }
+		add = {
+			value = tnt_interest_ai_title_gold_reserve_amount_value
+			add = { value = tnt_interest_ai_title_gold_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_vassal_gold_full_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_vassal_gold_value
+}
+
+tnt_interest_ai_vassal_gold_tail_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_vassal_gold_value
+	subtract = tnt_interest_ai_vassal_gold_full_amount_value
+	min = 0
+}
+
+tnt_interest_ai_vassal_gold_reserve_amount_value = {
+	value = tnt_ai_vassal_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = tnt_interest_gold_native_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_vassal_gold_value
+}
+
+tnt_interest_ai_vassal_gold_critical_amount_value = {
+	value = tnt_ai_vassal_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = { value = tnt_interest_gold_native_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_vassal_gold_value
+}
+
+tnt_interest_ai_vassal_gold_receive_weighted_amount_value = {
+	value = tnt_ai_vassal_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_vassal_gold_value > 0 }
+		value = tnt_interest_ai_vassal_gold_full_amount_value
+		add = {
+			value = tnt_interest_ai_vassal_gold_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_vassal_gold_surrender_weighted_amount_value = {
+	value = tnt_ai_vassal_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_vassal_gold_value > 0 }
+		add = {
+			value = tnt_interest_ai_vassal_gold_reserve_amount_value
+			add = { value = tnt_interest_ai_vassal_gold_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_artifact_gold_full_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_artifact_gold_value
+}
+
+tnt_interest_ai_artifact_gold_tail_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_artifact_gold_value
+	subtract = tnt_interest_ai_artifact_gold_full_amount_value
+	min = 0
+}
+
+tnt_interest_ai_artifact_gold_reserve_amount_value = {
+	value = tnt_ai_artifact_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = tnt_interest_gold_native_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_artifact_gold_value
+}
+
+tnt_interest_ai_artifact_gold_critical_amount_value = {
+	value = tnt_ai_artifact_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = { value = tnt_interest_gold_native_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_artifact_gold_value
+}
+
+tnt_interest_ai_artifact_gold_receive_weighted_amount_value = {
+	value = tnt_ai_artifact_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_artifact_gold_value > 0 }
+		value = tnt_interest_ai_artifact_gold_full_amount_value
+		add = {
+			value = tnt_interest_ai_artifact_gold_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_artifact_gold_surrender_weighted_amount_value = {
+	value = tnt_ai_artifact_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_artifact_gold_value > 0 }
+		add = {
+			value = tnt_interest_ai_artifact_gold_reserve_amount_value
+			add = { value = tnt_interest_ai_artifact_gold_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_wed_gold_full_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_wed_gold_value
+}
+
+tnt_interest_ai_wed_gold_tail_amount_value = {
+	value = tnt_interest_gold_native_capacity_value
+	multiply = 2
+	subtract = tnt_interest_gold_native_stock_value
+	min = 0
+	max = tnt_ai_wed_gold_value
+	subtract = tnt_interest_ai_wed_gold_full_amount_value
+	min = 0
+}
+
+tnt_interest_ai_wed_gold_reserve_amount_value = {
+	value = tnt_ai_wed_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = tnt_interest_gold_native_capacity_value
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_wed_gold_value
+}
+
+tnt_interest_ai_wed_gold_critical_amount_value = {
+	value = tnt_ai_wed_gold_value
+	subtract = {
+		value = tnt_interest_gold_native_stock_value
+		subtract = { value = tnt_interest_gold_native_capacity_value multiply = 0.25 }
+		min = 0
+	}
+	min = 0
+	max = tnt_ai_wed_gold_value
+}
+
+tnt_interest_ai_wed_gold_receive_weighted_amount_value = {
+	value = tnt_ai_wed_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_wed_gold_value > 0 }
+		value = tnt_interest_ai_wed_gold_full_amount_value
+		add = {
+			value = tnt_interest_ai_wed_gold_tail_amount_value
+			divide = { value = 1 add = tnt_interest_strength_value min = 1 }
+		}
+	}
+	min = 0
+}
+
+tnt_interest_ai_wed_gold_surrender_weighted_amount_value = {
+	value = tnt_ai_wed_gold_value
+	if = {
+		limit = { tnt_interests_enabled_value > 0 exists = scope:actor exists = scope:recipient tnt_ai_wed_gold_value > 0 }
+		add = {
+			value = tnt_interest_ai_wed_gold_reserve_amount_value
+			add = { value = tnt_interest_ai_wed_gold_critical_amount_value multiply = 2 }
+			multiply = tnt_interest_strength_value
+		}
+	}
+	min = 0
+}

@@ -60,50 +60,59 @@
 
 tnt_gold_p_add = {
 	scope = character
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_currency_opposite_selected
+			tnt_currency_p_unlocked_trigger = { CURRENCY = gold }
+		}
+	}
 
 	effect = {
 		if = {
-			limit = { exists = var:tnt_gold_p }
-			change_variable = {
-				name = tnt_gold_p
-				add = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_gold_p
-				value = 10
-			}
-		}
-		# AFFORDABILITY (user item 14). Root is the player, and the player is the giver
-		# on the _p side, so the stock is read bare off root. `max = gold` bare on root
-		# is vanilla-proven: GAME\common\script_values\03_dlc_fp2_script_values.txt:235
-		# and GAME\common\script_values\07_ep3_values.txt:4938.
-		#
-		# THE `>= 1` LADDER IS NOT OPTIONAL AND MUST NEVER BE FLATTENED TO A BARE
-		# `max = gold`. Gold goes NEGATIVE in CK3, and a negative max would clamp the
-		# row to a negative maximum. A giver below 1 gold lands on the else branch and
-		# the amount is forced to 0 — the same convention the 24 prestige/piety/
-		# influence steppers use (tnt_22_v2.txt, groups V1a-V1c). `min` nested inside a
-		# `max = { }` block has ZERO vanilla call sites, which is why it is a ladder.
-		#
-		# tnt_send_offer.is_valid stays the second line of defence (tnt_gold_shortfall_value
-		# below): the stock can fall between composing the offer and pressing Propose.
-		if = {
-			limit = { gold >= 1 }
-			set_variable = {
-				name = tnt_gold_p
-				value = {
-					value = var:tnt_gold_p
-					min = 0
-					max = gold
+			limit = { tnt_currency_p_unlocked_trigger = { CURRENCY = gold } }
+			if = {
+				limit = { exists = var:tnt_gold_p }
+				change_variable = {
+					name = tnt_gold_p
+					add = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_gold_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_gold_p
+					value = 10
+				}
+			}
+			# AFFORDABILITY (user item 14). Root is the player, and the player is the giver
+			# on the _p side, so the stock is read bare off root. `max = gold` bare on root
+			# is vanilla-proven: GAME\common\script_values\03_dlc_fp2_script_values.txt:235
+			# and GAME\common\script_values\07_ep3_values.txt:4938.
+			#
+			# THE `>= 1` LADDER IS NOT OPTIONAL AND MUST NEVER BE FLATTENED TO A BARE
+			# `max = gold`. Gold goes NEGATIVE in CK3, and a negative max would clamp the
+			# row to a negative maximum. A giver below 1 gold lands on the else branch and
+			# the amount is forced to 0 — the same convention the 24 prestige/piety/
+			# influence steppers use (tnt_22_v2.txt, groups V1a-V1c). `min` nested inside a
+			# `max = { }` block has ZERO vanilla call sites, which is why it is a ladder.
+			#
+			# tnt_send_offer.is_valid stays the second line of defence (tnt_gold_shortfall_value
+			# below): the stock can fall between composing the offer and pressing Propose.
+			if = {
+				limit = { gold >= 1 }
+				set_variable = {
+					name = tnt_gold_p
+					value = {
+						value = var:tnt_gold_p
+						min = 0
+						max = gold
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_gold_p
+					value = 0
+				}
 			}
 		}
 	}
@@ -111,36 +120,45 @@ tnt_gold_p_add = {
 
 tnt_gold_p_add_big = {
 	scope = character
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_currency_opposite_selected
+			tnt_currency_p_unlocked_trigger = { CURRENCY = gold }
+		}
+	}
 
 	effect = {
 		if = {
-			limit = { exists = var:tnt_gold_p }
-			change_variable = {
-				name = tnt_gold_p
-				add = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_gold_p
-				value = 100
-			}
-		}
-		if = {
-			limit = { gold >= 1 }
-			set_variable = {
-				name = tnt_gold_p
-				value = {
-					value = var:tnt_gold_p
-					min = 0
-					max = gold
+			limit = { tnt_currency_p_unlocked_trigger = { CURRENCY = gold } }
+			if = {
+				limit = { exists = var:tnt_gold_p }
+				change_variable = {
+					name = tnt_gold_p
+					add = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_gold_p
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_gold_p
+					value = 100
+				}
+			}
+			if = {
+				limit = { gold >= 1 }
+				set_variable = {
+					name = tnt_gold_p
+					value = {
+						value = var:tnt_gold_p
+						min = 0
+						max = gold
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_gold_p
+					value = 0
+				}
 			}
 		}
 	}
@@ -235,42 +253,51 @@ tnt_gold_p_sub_big = {
 # `max = scope:x.gold`: GAME\events\relations_events\friendship_events.txt:1398.
 tnt_gold_r_add = {
 	scope = character
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_currency_opposite_selected
+			tnt_currency_r_unlocked_trigger = { CURRENCY = gold }
+		}
+	}
 
 	effect = {
 		if = {
-			limit = { exists = var:tnt_gold_r }
-			change_variable = {
-				name = tnt_gold_r
-				add = 10
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_gold_r
-				value = 10
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { gold >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_gold_r
-				value = {
-					value = var:tnt_gold_r
-					min = 0
-					max = scope:tnt_cap_giver.gold
+			limit = { tnt_currency_r_unlocked_trigger = { CURRENCY = gold } }
+			if = {
+				limit = { exists = var:tnt_gold_r }
+				change_variable = {
+					name = tnt_gold_r
+					add = 10
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_gold_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_gold_r
+					value = 10
+				}
+			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { gold >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_gold_r
+					value = {
+						value = var:tnt_gold_r
+						min = 0
+						max = scope:tnt_cap_giver.gold
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_gold_r
+					value = 0
+				}
 			}
 		}
 	}
@@ -278,42 +305,51 @@ tnt_gold_r_add = {
 
 tnt_gold_r_add_big = {
 	scope = character
+	is_valid = {
+		custom_tooltip = {
+			text = tnt_err_currency_opposite_selected
+			tnt_currency_r_unlocked_trigger = { CURRENCY = gold }
+		}
+	}
 
 	effect = {
 		if = {
-			limit = { exists = var:tnt_gold_r }
-			change_variable = {
-				name = tnt_gold_r
-				add = 100
-			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_gold_r
-				value = 100
-			}
-		}
-		if = {
-			limit = {
-				exists = var:tnt_partner
-				var:tnt_partner ?= { gold >= 1 }
-			}
-			var:tnt_partner ?= {
-				save_temporary_scope_as = tnt_cap_giver
-			}
-			set_variable = {
-				name = tnt_gold_r
-				value = {
-					value = var:tnt_gold_r
-					min = 0
-					max = scope:tnt_cap_giver.gold
+			limit = { tnt_currency_r_unlocked_trigger = { CURRENCY = gold } }
+			if = {
+				limit = { exists = var:tnt_gold_r }
+				change_variable = {
+					name = tnt_gold_r
+					add = 100
 				}
 			}
-		}
-		else = {
-			set_variable = {
-				name = tnt_gold_r
-				value = 0
+			else = {
+				set_variable = {
+					name = tnt_gold_r
+					value = 100
+				}
+			}
+			if = {
+				limit = {
+					exists = var:tnt_partner
+					var:tnt_partner ?= { gold >= 1 }
+				}
+				var:tnt_partner ?= {
+					save_temporary_scope_as = tnt_cap_giver
+				}
+				set_variable = {
+					name = tnt_gold_r
+					value = {
+						value = var:tnt_gold_r
+						min = 0
+						max = scope:tnt_cap_giver.gold
+					}
+				}
+			}
+			else = {
+				set_variable = {
+					name = tnt_gold_r
+					value = 0
+				}
 			}
 		}
 	}
@@ -1524,6 +1560,10 @@ tnt_send_offer = {
 		custom_tooltip = {
 			text = tnt_err_both_vassal
 			tnt_no_double_vassal_trigger = yes
+		}
+		custom_tooltip = {
+			text = tnt_err_currency_opposite_selected
+			tnt_currencies_exclusive_trigger = yes
 		}
 		# ITEM 19'S CROSS-TERM GUARD, AND IT HAD NO CALLER UNTIL THIS LINE.
 		# tnt_people_pair_trigger (tnt_42_people_gates.txt) refuses the

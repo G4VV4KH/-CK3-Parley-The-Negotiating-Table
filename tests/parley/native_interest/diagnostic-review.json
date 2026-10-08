@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "portability_revision": "relative-baseline-members-r1",
+  "reviewed_utc": "2026-10-08T12:06:41Z",
+  "baseline": "Parley 1.2.2 frozen release 2026-10-07-parley-1.2.2-rc1, resolved from release-workflow.json published_release.game_path.",
+  "scope": "Exactly two unchanged intentionally player-only interaction discovery diagnostics. This is not a namespace or general production-error allowlist.",
+  "entries": [
+    {
+      "classification": "UNCHANGED_PLAYER_ONLY_AI_DISCOVERY_DISABLED",
+      "function": "tnt_open_negotiations",
+      "runtime_file": "common/character_interactions/tnt_10_interaction.txt",
+      "baseline_member": "common/character_interactions/tnt_10_interaction.txt",
+      "sha256": "74e8b2df1ae7203029b7b06451fabd871fb2908141bf1b94822282c72c1bf12e",
+      "exact_message_without_timestamp": "[E][character_interaction.cpp:1262]: tnt_open_negotiations: 'ai_frequency' or 'ai_frequency_by_tier' scripted, but no 'ai_targets', won't be used",
+      "max_occurrences": 1,
+      "reason": "The exact frozen release file is unchanged in the tested runtime. Lines 519-545 explicitly document this loader diagnostic: is_ai=no, ai_frequency=0 and absent ai_targets intentionally prevent AI initiation. The diagnostic describes disabled AI discovery, not a failed player interaction or the separate active AI-world negotiation path. Preserve this lock; no runtime failure is waived."
+    },
+    {
+      "classification": "UNCHANGED_PLAYER_ONLY_AI_DISCOVERY_DISABLED",
+      "function": "tnt_stage_marriage_interaction",
+      "runtime_file": "common/character_interactions/tnt_12_marriage_picker.txt",
+      "baseline_member": "common/character_interactions/tnt_12_marriage_picker.txt",
+      "sha256": "78acf29ceeeee46659340bd72d44f3fed8db352a5129a2076d5f3cf600699ad5",
+      "exact_message_without_timestamp": "[E][character_interaction.cpp:1262]: tnt_stage_marriage_interaction: 'ai_frequency' or 'ai_frequency_by_tier' scripted, but no 'ai_targets', won't be used",
+      "max_occurrences": 1,
+      "reason": "The exact frozen release file is unchanged in the tested runtime. Lines 926-938 explicitly document its three player-only AI-discovery locks: is_ai=no, ai_frequency=0, absent ai_targets. This warning is the desired lack of automatic AI initiation for the manual marriage picker, not an MCA valuation or settlement error. No other diagnostic is waived."
+    }
+  ]
+}

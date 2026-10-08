@@ -1079,6 +1079,42 @@ tnt_offer_nonempty_trigger = {
 	tnt_items_count_value > 0
 }
 
+# One currency may travel in only one direction. Missing/zero rows do not lock
+# the opposite side. CURRENCY is gold, prestige or piety; influence is unchanged.
+# These pure gates are independent of the negotiation-interest game rule.
+tnt_currency_p_unlocked_trigger = {
+	NOT = {
+		AND = {
+			exists = var:tnt_$CURRENCY$_r
+			var:tnt_$CURRENCY$_r > 0
+		}
+	}
+}
+
+tnt_currency_r_unlocked_trigger = {
+	NOT = {
+		AND = {
+			exists = var:tnt_$CURRENCY$_p
+			var:tnt_$CURRENCY$_p > 0
+		}
+	}
+}
+
+tnt_currencies_exclusive_trigger = {
+	OR = {
+		tnt_currency_p_unlocked_trigger = { CURRENCY = gold }
+		tnt_currency_r_unlocked_trigger = { CURRENCY = gold }
+	}
+	OR = {
+		tnt_currency_p_unlocked_trigger = { CURRENCY = prestige }
+		tnt_currency_r_unlocked_trigger = { CURRENCY = prestige }
+	}
+	OR = {
+		tnt_currency_p_unlocked_trigger = { CURRENCY = piety }
+		tnt_currency_r_unlocked_trigger = { CURRENCY = piety }
+	}
+}
+
 
 # =============================================================================
 # T11  tnt_no_double_vassal_trigger = yes

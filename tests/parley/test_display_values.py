@@ -78,6 +78,13 @@ class DisplayValueTests(unittest.TestCase):
         for path in (shared.SOURCE / "common").rglob("*.txt"):
             if path == shared.SOURCE / DISPLAY_FILE:
                 continue
+            if path.name == "tnt_63_interest_ledger_values.txt":
+                # The new presentation dispatchers preserve the original rounded
+                # labels in Off. No quote/settlement definition may consume them.
+                for name, _, body in parse(path.read_text(encoding="utf-8-sig")):
+                    if not name.endswith("_display_value"):
+                        self.assertNotRegex(repr(body), r"\btnt_display_", name)
+                continue
             live = "\n".join(line for line in path.read_text(encoding="utf-8-sig").splitlines()
                              if not line.lstrip().startswith("#"))
             self.assertNotRegex(live, r"\btnt_display_", str(path))
@@ -93,7 +100,14 @@ class DisplayValueTests(unittest.TestCase):
                 self.assertIn(name, self.definitions())
         panels = (shared.SOURCE / GUI_FILES[0]).read_text(encoding="utf-8-sig")
         for term in ("courtier", "subject"):
-            self.assertIn(f"TntSV('tnt_shown_{term}_multi_p_value')|0", panels)
+            self.assertIn(f"TntSV('tnt_interest_{term}_p_display_value')|0", panels)
+            world = ValuationWorld()
+            world.root.stats["tnt_interests_enabled_value"] = D(0)
+            world.root.stats[f"tnt_shown_{term}_multi_p_value"] = D(7)
+            self.assertEqual(world.value(f"tnt_interest_{term}_p_display_value"), 7)
+            world.root.stats["tnt_interests_enabled_value"] = D(1)
+            world.root.stats[f"tnt_interest_{term}_p_base_value"] = D("18.5")
+            self.assertEqual(world.value(f"tnt_interest_{term}_p_display_value"), 19)
 
     def test_native_maria_half_point_and_multi_sum(self):
         world, player, partner = self.table()

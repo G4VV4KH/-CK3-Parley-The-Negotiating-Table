@@ -1168,21 +1168,33 @@ tnt_ai_deal_ally_high_value = {
 # gives up one favour. This is the archetype that most often fails its > 0 test,
 # which is correct — nobody sells a hook on themselves cheaply.
 tnt_ai_deal_hook_low_value = {
-	value = 0
-	add = tnt_ai_gold_low_points_value
-	add = { value = tnt_ai_hook_cost_value  multiply = -1 }
-	add = tnt_ai_relation_value
-	add = { value = tnt_ai_threshold_value  multiply = -1 }
-	round = yes
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_deal_hook_low_value
+	}
+	else = {
+		value = 0
+		add = tnt_ai_gold_low_points_value
+		add = { value = tnt_ai_hook_cost_value  multiply = -1 }
+		add = tnt_ai_relation_value
+		add = { value = tnt_ai_threshold_value  multiply = -1 }
+		round = yes
+	}
 }
 
 tnt_ai_deal_hook_high_value = {
-	value = 0
-	add = tnt_ai_gold_high_points_value
-	add = { value = tnt_ai_hook_cost_value  multiply = -1 }
-	add = tnt_ai_relation_value
-	add = { value = tnt_ai_threshold_value  multiply = -1 }
-	round = yes
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_deal_hook_high_value
+	}
+	else = {
+		value = 0
+		add = tnt_ai_gold_high_points_value
+		add = { value = tnt_ai_hook_cost_value  multiply = -1 }
+		add = tnt_ai_relation_value
+		add = { value = tnt_ai_threshold_value  multiply = -1 }
+		round = yes
+	}
 }
 
 
@@ -1485,12 +1497,18 @@ tnt_ai_ultimatum_gold_points_value = {
 # he receives (here: nothing but the absence of trouble - the pressure itself),
 # what he pays, the standing between them, minus what he wants on top.
 tnt_ai_deal_ultimatum_value = {
-	value = 0
-	add = tnt_ai_threat_points_value
-	add = tnt_ai_ultimatum_gold_points_value
-	add = tnt_ai_relation_value
-	add = { value = tnt_ai_threshold_value  multiply = -1 }
-	round = yes
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_deal_ultimatum_value
+	}
+	else = {
+		value = 0
+		add = tnt_ai_threat_points_value
+		add = tnt_ai_ultimatum_gold_points_value
+		add = tnt_ai_relation_value
+		add = { value = tnt_ai_threshold_value  multiply = -1 }
+		round = yes
+	}
 }
 
 
@@ -1661,12 +1679,18 @@ tnt_ai_hookcall_gold_points_value = {
 }
 
 tnt_ai_deal_hookcall_value = {
-	value = 0
-	add = tnt_ai_hookcall_points_value
-	add = tnt_ai_hookcall_gold_points_value
-	add = tnt_ai_relation_value
-	add = { value = tnt_ai_threshold_value  multiply = -1 }
-	round = yes
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_deal_hookcall_value
+	}
+	else = {
+		value = 0
+		add = tnt_ai_hookcall_points_value
+		add = tnt_ai_hookcall_gold_points_value
+		add = tnt_ai_relation_value
+		add = { value = tnt_ai_threshold_value  multiply = -1 }
+		round = yes
+	}
 }
 
 
@@ -1863,12 +1887,18 @@ tnt_ai_title_gold_points_value = {
 # The SELLER's view (the recipient gives up the county): coin in, land out,
 # standing, minus the greed floor. One tier, > 0 to proceed — E17's shape.
 tnt_ai_deal_title_value = {
-	value = 0
-	add = tnt_ai_title_gold_points_value
-	add = tnt_ai_relation_value
-	add = { value = tnt_ai_title_points_value  multiply = -1 }
-	add = { value = tnt_ai_threshold_value  multiply = -1 }
-	round = yes
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_deal_title_value
+	}
+	else = {
+		value = 0
+		add = tnt_ai_title_gold_points_value
+		add = tnt_ai_relation_value
+		add = { value = tnt_ai_title_points_value  multiply = -1 }
+		add = { value = tnt_ai_threshold_value  multiply = -1 }
+		round = yes
+	}
 }
 
 
@@ -1992,12 +2022,18 @@ tnt_ai_vassal_gold_points_value = {
 # extortion-then-purchase chain to exploit, while overwhelming AI realms can use
 # threat for the territorial result the user now explicitly requested.
 tnt_ai_deal_vassal_value = {
-	value = 0
-	add = tnt_ai_vassal_gold_points_value
-	add = tnt_ai_relation_value
-	add = { value = tnt_ai_vassal_cost_value  multiply = -1 }
-	add = { value = tnt_ai_threshold_value  multiply = -1 }
-	round = yes
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_deal_vassal_value
+	}
+	else = {
+		value = 0
+		add = tnt_ai_vassal_gold_points_value
+		add = tnt_ai_relation_value
+		add = { value = tnt_ai_vassal_cost_value  multiply = -1 }
+		add = { value = tnt_ai_threshold_value  multiply = -1 }
+		round = yes
+	}
 }
 
 
@@ -2090,12 +2126,18 @@ tnt_ai_artifact_gold_points_value = {
 # The SELLER's view (the recipient gives up the piece): coin in, treasure out,
 # standing, minus the greed floor. One tier, > 0 to proceed — S-TITLE's shape.
 tnt_ai_deal_artifact_value = {
-	value = 0
-	add = tnt_ai_artifact_gold_points_value
-	add = tnt_ai_relation_value
-	add = { value = tnt_ai_artifact_points_value  multiply = -1 }
-	add = { value = tnt_ai_threshold_value  multiply = -1 }
-	round = yes
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_deal_artifact_value
+	}
+	else = {
+		value = 0
+		add = tnt_ai_artifact_gold_points_value
+		add = tnt_ai_relation_value
+		add = { value = tnt_ai_artifact_points_value  multiply = -1 }
+		add = { value = tnt_ai_threshold_value  multiply = -1 }
+		round = yes
+	}
 }
 
 
@@ -2162,12 +2204,18 @@ tnt_ai_wed_gold_points_value = {
 # house and takes the dowry): coin in, match out, standing, minus the greed
 # floor. One tier, > 0 to proceed.
 tnt_ai_deal_wed_value = {
-	value = 0
-	add = tnt_ai_wed_gold_points_value
-	add = tnt_ai_relation_value
-	add = { value = tnt_ai_wed_cost_value  multiply = -1 }
-	add = { value = tnt_ai_threshold_value  multiply = -1 }
-	round = yes
+	if = {
+		limit = { tnt_interests_enabled_value > 0 }
+		value = tnt_interest_ai_deal_wed_value
+	}
+	else = {
+		value = 0
+		add = tnt_ai_wed_gold_points_value
+		add = tnt_ai_relation_value
+		add = { value = tnt_ai_wed_cost_value  multiply = -1 }
+		add = { value = tnt_ai_threshold_value  multiply = -1 }
+		round = yes
+	}
 }
 
 

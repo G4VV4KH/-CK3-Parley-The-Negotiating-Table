@@ -157,6 +157,24 @@ tnt_apply_deal_effect = {
 			exists = scope:tnt_deal_partner
 			scope:tnt_deal_partner = { is_alive = yes }
 			tnt_deal_preflight_trigger = { PLAYER = root  PARTNER = scope:tnt_deal_partner }
+			# Reprice the intact package before the first consequence. A remembered
+			# quote is not consent from an AI whose economic position has changed.
+			# Off retains the historical caller policies, including letter grace.
+			trigger_if = {
+				limit = { tnt_interests_enabled_value > 0 }
+				OR = {
+					tnt_ai_accept_value > 0
+					# Only the human's explicit Pay option creates this transient marker.
+					# A pending arch21 character variable alone cannot exempt a treaty.
+					AND = {
+						exists = scope:tnt_deal_coercive_demand
+						scope:tnt_deal_coercive_demand = 1
+						exists = var:tnt_ai_offer_arch
+						var:tnt_ai_offer_arch = 21
+						is_ai = no
+					}
+				}
+			}
 		}
 
 		#===============================================================

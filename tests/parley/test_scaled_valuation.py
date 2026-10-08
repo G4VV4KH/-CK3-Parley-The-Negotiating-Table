@@ -16,6 +16,7 @@ import subprocess
 import unittest
 
 from test_autobalance import DEFAULT_SOURCE, one, parse
+from currency_exclusivity_baseline import without_currency_exclusivity
 
 D = Decimal
 SOURCE = DEFAULT_SOURCE
@@ -301,6 +302,39 @@ def classic_ast(nodes):
     return result
 
 
+def interest_off_ast(nodes):
+    """Project proven Off aliases; never discard unrelated gameplay edits.
+
+    The new ledger's Off paths are checked structurally here as well as executed
+    in test_interest_ledger. Only those two exact aliases and the zero penalty
+    additions are normalized for the older Classic+Off whole-AST comparison.
+    """
+    ledger = dict((k, v) for k, _, v in parse((SOURCE / "common/script_values/tnt_63_interest_ledger_values.txt").read_text(encoding="utf-8-sig")))
+    aliases = {}
+    for kind in ("gain", "loss"):
+        name = f"tnt_interest_quote_{kind}_value"
+        expected = parse(f"{name} = {{ value = 0 if = {{ limit = {{ tnt_interests_enabled_value > 0 }} add = tnt_interest_{kind}_base_value }} else = {{ add = tnt_{kind}_total_value }} }}")[0][2]
+        if ledger[name] != expected:
+            raise AssertionError(f"Off alias changed: {name}")
+        aliases[name] = f"tnt_{kind}_total_value"
+    for name in ("tnt_interest_gain_discount_value", "tnt_interest_loss_premium_value"):
+        body = ledger[name]
+        if body[0] != ("value", "=", "0") or len(body) != 2 or body[1][0] != "if" or one(body[1][2], "limit") != [("tnt_interests_enabled_value", ">", "0")]:
+            raise AssertionError(f"Penalty no longer neutral when Off: {name}")
+    expected_penalty = parse("p = { value = 0 add = { value = tnt_interest_gain_discount_value desc = tnt_interest_bd_gain_discount } add = { value = tnt_interest_loss_premium_value desc = tnt_interest_bd_loss_premium } }")[0][2]
+    if ledger["tnt_interest_penalty_value"] != expected_penalty:
+        raise AssertionError("Unexpected penalty members")
+
+    def project(block):
+        result = []
+        for key, op, body in block:
+            if key == "add" and (body == "tnt_interest_penalty_value" or body == [("value", "=", "tnt_interest_penalty_value"), ("multiply", "=", "-1"), ("desc", "=", "tnt_interest_penalty_title")]):
+                continue
+            result.append((key, op, project(body) if isinstance(body, list) else aliases.get(body, body)))
+        return result
+    return project(nodes)
+
+
 class ScaledValuationTests(unittest.TestCase):
     def world(self, rule="scaled"):
         return ValuationWorld(rule=rule)
@@ -411,7 +445,10 @@ class ScaledValuationTests(unittest.TestCase):
             old = subprocess.check_output(["git", "show", f"{CLASSIC_BASELINE}:{relative}"], cwd=repo)
             old_ast = parse(old.decode("utf-8-sig"))
             live_ast = parse(path.read_text(encoding="utf-8-sig"))
-            self.assertEqual(classic_ast(live_ast), old_ast, filename)
+            # The later currency exclusivity rule is intentionally active even
+            # with interests Off. Strictly project only that checked delta;
+            # preserve whole-file equality for every other classic AST node.
+            self.assertEqual(classic_ast(interest_off_ast(without_currency_exclusivity(live_ast))), old_ast, filename)
 
     def test_scaled_solver_budgets_bound_actual_county_and_fealty_prices(self):
         world = self.world()

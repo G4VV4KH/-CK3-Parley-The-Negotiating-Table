@@ -571,7 +571,7 @@ types TwdPanels
 
 			block "tnt_sheet_points"
 			{
-				text = "[TntSV('tnt_display_gold_p_value')|0]"
+				text = "[TntSV('tnt_interest_gold_p_display_value')|0]"
 			}
 		}
 	}
@@ -697,7 +697,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_gold" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_gold_p')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_gold_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_gold_p_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -720,7 +720,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_prestige" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_prestige_p')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_prestige_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_prestige_p_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -740,7 +740,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_piety" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_piety_p')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_piety_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_piety_p_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -758,7 +758,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_influence_01.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_influence" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_influence_p')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_influence_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_influence_p_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1158,7 +1158,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_icon.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_hook" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntHookTier('tnt_hook_p')]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_hook_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_hook_p_display_value')|0]" }
 			### X wired to tnt_hook_p_clear (tnt_22c_hooks_contracts.txt, V5): the
 			### tier controls step up/down, this removes the term outright,
 			### whatever the tier.
@@ -1223,7 +1223,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_vassal" }
 			blockoverride "tnt_sheet_detail"  { text = "" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_vassal_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_vassal_p_display_value')|0]" }
 			### The fealty row's own gated toggle - 2b header's rebind note.
 			blockoverride "tnt_sheet_remove"
 			{
@@ -1265,7 +1265,7 @@ types TwdPanels
 			### hidden - it is the row's only expanding child, and hiding it would
 			### pull the points column 170 px left of every other row.
 			blockoverride "tnt_sheet_detail"  { text = "" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_indep_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_indep_p_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1301,7 +1301,7 @@ types TwdPanels
 			### tooltips keep NoTooltip because a tooltip inside a tooltip is the one
 			### place the link must not fire.
 			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_hostage_p').Char.GetUIName]"  alwaystransparent = no }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_hostage_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_hostage_p_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1362,7 +1362,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_courtier_p" }
 			# Scaled wrapper, not the base price - same rule as the picker panel
 			# (tnt_58_person_values.txt:516-527).
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_shown_courtier_multi_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_courtier_p_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1395,7 +1395,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_subject_p" }
 			# Scaled wrapper, not the base price - same rule as the picker panel
 			# and the same defect (D4) it was written to prevent.
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_shown_subject_multi_p_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_subject_p_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1586,7 +1586,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_gold.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_gold" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_gold_r')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_gold_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_gold_r_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1609,7 +1609,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPrestigeLevelTexture]" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_prestige" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_prestige_r')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_prestige_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_prestige_r_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1629,7 +1629,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "[GetPlayer.GetPietyLevelTexture]" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_piety" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_piety_r')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_piety_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_piety_r_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1647,7 +1647,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_influence_01.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_influence" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntNum('tnt_influence_r')|0]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_influence_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_influence_r_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1748,7 +1748,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/hook_icon.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_hook" }
 			blockoverride "tnt_sheet_detail"  { text = "[TntHookTier('tnt_hook_r')]" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_hook_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_hook_r_display_value')|0]" }
 			### X wired to tnt_hook_r_clear - the mirror of hook_p's, see there.
 			blockoverride "tnt_sheet_remove"
 			{
@@ -1800,7 +1800,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_vassal" }
 			blockoverride "tnt_sheet_detail"  { text = "" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_vassal_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_vassal_r_display_value')|0]" }
 			### The fealty row's own gated toggle - 2b header's rebind note.
 			blockoverride "tnt_sheet_remove"
 			{
@@ -1826,7 +1826,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/independence.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_indep" }
 			blockoverride "tnt_sheet_detail"  { text = "" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_indep_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_indep_r_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1845,7 +1845,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_hostage" }
 			### User item 2: linked name - the full note is on tnt_sheet_hostage_p.
 			blockoverride "tnt_sheet_detail"  { text = "[TntVar('tnt_hostage_r').Char.GetUIName]"  alwaystransparent = no }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_hostage_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_hostage_r_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1884,7 +1884,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/courtier_interaction.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_courtier" }
 			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_courtier_r" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_courtier_multi_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_courtier_r_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -1905,7 +1905,7 @@ types TwdPanels
 			blockoverride "tnt_sheet_icon"    { texture = "gfx/interface/icons/character_interactions/icon_vassal.dds" }
 			blockoverride "tnt_sheet_name"    { text = "tnt_item_subject" }
 			blockoverride "tnt_sheet_detail"  { text = "tnt_sel_count_subject_r" }
-			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_display_subject_multi_r_value')|0]" }
+			blockoverride "tnt_sheet_points"  { text = "[TntSV('tnt_interest_subject_r_display_value')|0]" }
 			blockoverride "tnt_sheet_remove"
 			{
 				button_cancel_small = {
@@ -2604,6 +2604,7 @@ types TwdPanels
 				text = "tnt_item_vassal"
 			}
 		}
+		block "tnt_contract_interest" {}
 
 		widget = {
 			name = "tnt_toggle_line_box_holder"
@@ -2659,6 +2660,7 @@ types TwdPanels
 		spacing = 6
 		margin = { 4 4 }
 		alwaystransparent = no
+		ignoreinvisible = yes
 
 		block "tnt_action_line_visible" {}
 
@@ -2677,6 +2679,7 @@ types TwdPanels
 			block "tnt_action_line_tooltip" { tooltip = "tnt_btn_stage_marriage_full" }
 			block "tnt_action_line_click"   {}
 		}
+		block "tnt_action_line_interest" {}
 	}
 
 

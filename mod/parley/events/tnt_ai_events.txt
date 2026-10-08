@@ -1279,7 +1279,12 @@ tnt_ai_offer.0002 = {
 			# "he is no longer keen but he keeps his word" is stated rather than
 			# implied. Everything the deal actually MOVES is still re-validated
 			# below and inside tnt_apply_deal_effect.
-			tnt_ai_accept_value > -15
+			# Legacy letters honour marginal drift. With interests enabled, keep
+			# the option clickable so a failed live quote reaches explicit cleanup.
+			trigger_if = {
+				limit = { tnt_interests_enabled_value <= 0 }
+				tnt_ai_accept_value > -15
+			}
 
 			# Executability is deliberately NOT duplicated here. A stale empty
 			# package, an unaffordable currency promise or an invalidated term must
@@ -1298,6 +1303,10 @@ tnt_ai_offer.0002 = {
 				tnt_deal_preflight_trigger = {
 					PLAYER = root
 					PARTNER = scope:tnt_deal_partner
+				}
+				trigger_if = {
+					limit = { tnt_interests_enabled_value > 0 }
+					tnt_ai_accept_value > 0
 				}
 			}
 
@@ -1332,9 +1341,10 @@ tnt_ai_offer.0002 = {
 		#   * the saved partner and living-character belt-and-braces rows;
 		#   * no open manual table and exact partner identity, which prevent a
 		#     delayed letter from targeting somebody else's package;
-		#   * tnt_ai_accept_value > -15, the letter-specific honour/sanity
-		#     policy. It is not a package-validity row and preflight does not
-		#     replace it.
+		#   * Off retains tnt_ai_accept_value > -15, the honour/sanity policy.
+		#     Enabled interests reprice >0 in the effect branch above, so a
+		#     stale economic quote takes the same no-transfer cleanup as a
+		#     stale physical package instead of leaving a disabled Accept button.
 		#
 		# FAILURE SEMANTICS. The event prints tnt_err_deal_changed, sends the
 		# generic bad toast, records OUTCOME what=stale_at_accept path=letter,
@@ -1769,6 +1779,10 @@ tnt_ai_offer.0003 = {
 		# save_scope_value_as on a visible option effect path is vanilla's shape,
 		# GAME\events\decisions_events\pledge_loyalty_to_liege_events.txt:200.)
 			save_scope_value_as = { name = tnt_deal_from_letter  value = 1 }
+			# This execution-local marker exempts only an explicit human payment
+			# of a coercive demand from voluntary interest acceptance. Physical
+			# preflight and the threat cooldown above still govern the whole deal.
+			save_scope_value_as = { name = tnt_deal_coercive_demand  value = 1 }
 
 			tnt_apply_deal_effect = yes
 

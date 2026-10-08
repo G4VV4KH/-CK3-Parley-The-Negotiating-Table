@@ -1,0 +1,13 @@
+# Parley 1.3.0 — Negotiation interests
+
+- Added **Parley: Negotiation interests — Off / Mild / Standard / Strict**. **Standard is the default for new campaigns.** Off removes interest adjustments and badges without changing the separate trading permissions or threat rules.
+- Receiving unwanted terms now discounts their benefit; surrendering wanted assets raises their cost. Currency valuation accounts for useful demand and reserves across the amount traded. Advanced terms use contextual needs alongside their existing Classic/Scaled base prices.
+- Added directional percentages: **You offer** shows the partner's interest in receiving; **They offer** shows their willingness to surrender. These are valuation percentages, not acceptance chances. Below 50% is red, 50% is white and above 50% is green, based on the displayed rounded value.
+- Empty rows show preliminary interest previews. Selected rows use the actual amount or objects, and clearing a row restores its preview. Hover explanations distinguish percentage adjustments, useful stock targets in resource units, and selected base/adjusted treaty points.
+- Kept base points on the table and added a central **Interest** deduction, including the associated standing and bargaining changes. Threats and called-in hooks remain separate pressure with no interest badge.
+- Integrated interests with Auto-balance, incoming offers and the existing voluntary AI-to-AI deal types. Ordinary offers are repriced before settlement; voluntary AI-world deals check both rulers. Valid coercive demands retain the player's choice to pay and existing physical and threat checks.
+- Prevented simultaneous positive gold, prestige or piety offers in both directions, including with interests Off. Opposite add buttons and presets lock until the selected side is cleared or reduced to zero. Old conflicting drafts are rejected at settlement; Auto-balance first converts them into net transfers. Influence keeps its existing net-valued handling and full-transfer checks.
+- Stabilized the percentage label's position between empty and selected rows and kept an effective percentage total in both hover states. Repaired the tooltip container nesting that could cause a stack-overflow crash.
+- Expanded the Game Rules guide with the new rule, defaults, percentage examples, AI and pressure behavior, previews and currency-direction safeguards. The nine public rules remain independent.
+
+Interest is a live contextual valuation, not a complete forecast of future income or a guarantee against every profitable exchange. Existing term eligibility and transfer restrictions remain in force.

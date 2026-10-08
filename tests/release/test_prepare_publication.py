@@ -74,11 +74,15 @@ class PreparationTests(unittest.TestCase):
             with self.subTest(public=public), self.assertRaises(kit.PreparationError):
                 kit.validate_runtime_inventory(files, public=public)
 
-    def test_actual_authoring_runtime_matches_reviewed_versioned_inventory(self):
+    def test_legacy_preparer_rejects_current_130_authoring_runtime(self):
         repo = SCRIPT.parents[2]
-        files = kit.runtime_inputs(repo)
+        with self.assertRaisesRegex(kit.PreparationError, "Unreviewed Parley version"):
+            kit.runtime_inputs(repo)
+        # The historical 1.2.2 profile remains accepted without adding 1.3.0 to
+        # this deliberately frozen release route.
+        files = self.runtime_fixture('1.2.2')
         self.assertEqual(len(files), 83)
-        self.assertTrue(kit.PARLEY_121_ADDITIONS <= files.keys())
+        kit.validate_runtime_inventory(files)
 
     def test_steam_identity_overlay_is_only_descriptor_delta(self):
         source = {"descriptor.mod": b'version="1.2.0"\nname="Parley: The Negotiating Table"\n', "common/x.txt": b'x=yes\n'}

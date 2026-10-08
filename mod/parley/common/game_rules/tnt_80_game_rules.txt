@@ -47,6 +47,17 @@ tnt_advanced_valuation = {
 	tnt_advanced_valuation_scaled = { }
 }
 
+# Independent valuation policy; neither term availability nor trading permission.
+# The evaluator explicitly recognizes enabled settings; absent settings use Off.
+tnt_negotiation_interests = {
+	categories = { game_modes ai tweaks }
+	default = tnt_interests_standard
+	tnt_interests_off = { }
+	tnt_interests_mild = { }
+	tnt_interests_standard = { }
+	tnt_interests_strict = { }
+}
+
 # Prestige: same faith, strictly lower receiver fame, or the retained legacy
 # equal-or-lower setting. Fame means prestige_level, not spendable prestige.
 tnt_trade_prestige = {

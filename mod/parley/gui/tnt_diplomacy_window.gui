@@ -455,6 +455,31 @@ window = {
 					### 1 - GOLD (fine LMB +/-10 RMB +/-100, coarse +/-1000, presets)
 					tnt_item_row_currency = {
 						name = "tnt_row_gold_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_gold_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_gold_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { raw_text = "[Localize('tnt_item_gold')]: [TntNum('tnt_gold_p')|2]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntOn('tnt_gold_p') )]" text = "tnt_interest_preview_currency" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntOn('tnt_gold_p') )]" datacontext = "[TntBreakdown('tnt_interest_gold_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntOn('tnt_gold_p')]" datacontext = "[TntBreakdown('tnt_interest_gold_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntOn('tnt_gold_p')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_gold_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_gold_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_gold_p_adjusted_value')|3]" }
+											blockoverride "tnt_interest_capacity_state" { visible = yes }
+											blockoverride "tnt_interest_capacity_target" { raw_text = "[Localize('tnt_interest_capacity_target')]: [TntSV('tnt_interest_gold_capacity_value')|2]" }
+											blockoverride "tnt_interest_capacity_stock" { raw_text = "[Localize('tnt_interest_current_stock')]: [TntSV('tnt_interest_gold_stock_value')|2]" }
+											blockoverride "tnt_interest_capacity_breakdown" { datacontext = "[TntBreakdown('tnt_interest_gold_capacity_value')]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_gold_p')]"
 
@@ -471,13 +496,14 @@ window = {
 								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_gold_p_sub_huge')]" }
 								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_gold_p_sub')]" }
 								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_gold_p_sub_big')]" }
-								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_gold_p_add')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_gold_p_add')]" enabled = "[TntValid('tnt_gold_p_add')]" }
 								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_gold_p_add_big')]" }
-								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_gold_p_add_huge')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_gold_p_add_huge')]" enabled = "[TntValid('tnt_gold_p_add_huge')]" }
+								blockoverride "tnt_stepper_tt_huge_plus" { tooltip = "[Select_CString( TntValid('tnt_gold_p_add_huge'), Localize('tnt_tt_step_huge_add'), TntTip('tnt_gold_p_add_huge') )]" }
 								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_gold_p')|0]" }
 								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_tt" }
-								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_tt" }
-								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'gold_p' )]" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "[Select_CString( TntValid('tnt_gold_p_add'), Localize('tnt_stepper_tt'), TntTip('tnt_gold_p_add') )]" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'gold_p' )]" enabled = "[TntValid('tnt_gold_p_add')]" tooltip = "[TntTip('tnt_gold_p_add')]" }
 							}
 						}
 					}
@@ -511,6 +537,31 @@ window = {
 					### a datacontext - but only in THIS file, never in the sheet.
 					tnt_item_row_currency = {
 						name = "tnt_row_prestige_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_prestige_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_prestige_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { raw_text = "[Localize('tnt_item_prestige')]: [TntNum('tnt_prestige_p')|2]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntOn('tnt_prestige_p') )]" text = "tnt_interest_preview_currency" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntOn('tnt_prestige_p') )]" datacontext = "[TntBreakdown('tnt_interest_prestige_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntOn('tnt_prestige_p')]" datacontext = "[TntBreakdown('tnt_interest_prestige_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntOn('tnt_prestige_p')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_prestige_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_prestige_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_prestige_p_adjusted_value')|3]" }
+											blockoverride "tnt_interest_capacity_state" { visible = yes }
+											blockoverride "tnt_interest_capacity_target" { raw_text = "[Localize('tnt_interest_capacity_target')]: [TntSV('tnt_interest_prestige_capacity_value')|2]" }
+											blockoverride "tnt_interest_capacity_stock" { raw_text = "[Localize('tnt_interest_current_stock')]: [TntSV('tnt_interest_prestige_stock_value')|2]" }
+											blockoverride "tnt_interest_capacity_breakdown" { datacontext = "[TntBreakdown('tnt_interest_prestige_capacity_value')]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						### A cheap current-pair gate keeps direction and live faith/fame correct.
 						### If a selected term becomes forbidden, the deal-sheet remove stays usable.
@@ -529,13 +580,14 @@ window = {
 								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_prestige_p_sub_huge')]" }
 								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_prestige_p_sub')]" }
 								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_prestige_p_sub_big')]" }
-								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_prestige_p_add')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_prestige_p_add')]" enabled = "[TntValid('tnt_prestige_p_add')]" }
 								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_prestige_p_add_big')]" }
-								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_prestige_p_add_huge')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_prestige_p_add_huge')]" enabled = "[TntValid('tnt_prestige_p_add_huge')]" }
+								blockoverride "tnt_stepper_tt_huge_plus" { tooltip = "[Select_CString( TntValid('tnt_prestige_p_add_huge'), Localize('tnt_tt_step_huge_add'), TntTip('tnt_prestige_p_add_huge') )]" }
 								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_prestige_p')|0]" }
 								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_prestige_tt" }
-								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_prestige_tt" }
-								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'prestige_p' )]" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "[Select_CString( TntValid('tnt_prestige_p_add'), Localize('tnt_stepper_prestige_tt'), TntTip('tnt_prestige_p_add') )]" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'prestige_p' )]" enabled = "[TntValid('tnt_prestige_p_add')]" tooltip = "[TntTip('tnt_prestige_p_add')]" }
 							}
 						}
 					}
@@ -547,6 +599,31 @@ window = {
 					### texture from GAME\gui\hud.gui:6586-6590.
 					tnt_item_row_currency = {
 						name = "tnt_row_piety_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_piety_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_piety_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { raw_text = "[Localize('tnt_item_piety')]: [TntNum('tnt_piety_p')|2]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntOn('tnt_piety_p') )]" text = "tnt_interest_preview_currency" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntOn('tnt_piety_p') )]" datacontext = "[TntBreakdown('tnt_interest_piety_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntOn('tnt_piety_p')]" datacontext = "[TntBreakdown('tnt_interest_piety_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntOn('tnt_piety_p')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_piety_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_piety_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_piety_p_adjusted_value')|3]" }
+											blockoverride "tnt_interest_capacity_state" { visible = yes }
+											blockoverride "tnt_interest_capacity_target" { raw_text = "[Localize('tnt_interest_capacity_target')]: [TntSV('tnt_interest_piety_capacity_value')|2]" }
+											blockoverride "tnt_interest_capacity_stock" { raw_text = "[Localize('tnt_interest_current_stock')]: [TntSV('tnt_interest_piety_stock_value')|2]" }
+											blockoverride "tnt_interest_capacity_breakdown" { datacontext = "[TntBreakdown('tnt_interest_piety_capacity_value')]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntValid('tnt_trade_piety_p_available')]"
 
@@ -563,13 +640,14 @@ window = {
 								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_piety_p_sub_huge')]" }
 								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_piety_p_sub')]" }
 								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_piety_p_sub_big')]" }
-								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_piety_p_add')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_piety_p_add')]" enabled = "[TntValid('tnt_piety_p_add')]" }
 								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_piety_p_add_big')]" }
-								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_piety_p_add_huge')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_piety_p_add_huge')]" enabled = "[TntValid('tnt_piety_p_add_huge')]" }
+								blockoverride "tnt_stepper_tt_huge_plus" { tooltip = "[Select_CString( TntValid('tnt_piety_p_add_huge'), Localize('tnt_tt_step_huge_add'), TntTip('tnt_piety_p_add_huge') )]" }
 								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_piety_p')|0]" }
 								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_piety_tt" }
-								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_piety_tt" }
-								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'piety_p' )]" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "[Select_CString( TntValid('tnt_piety_p_add'), Localize('tnt_stepper_piety_tt'), TntTip('tnt_piety_p_add') )]" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'piety_p' )]" enabled = "[TntValid('tnt_piety_p_add')]" tooltip = "[TntTip('tnt_piety_p_add')]" }
 							}
 						}
 					}
@@ -603,6 +681,31 @@ window = {
 					### GAME\gfx\interface\icons\character_interactions\icon_influence_01.dds
 					tnt_item_row_currency = {
 						name = "tnt_row_influence_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_influence_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_influence_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { raw_text = "[Localize('tnt_item_influence')]: [TntNum('tnt_influence_p')|2]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntOn('tnt_influence_p') )]" text = "tnt_interest_preview_currency" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntOn('tnt_influence_p') )]" datacontext = "[TntBreakdown('tnt_interest_influence_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntOn('tnt_influence_p')]" datacontext = "[TntBreakdown('tnt_interest_influence_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntOn('tnt_influence_p')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_influence_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_influence_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_influence_p_adjusted_value')|3]" }
+											blockoverride "tnt_interest_capacity_state" { visible = yes }
+											blockoverride "tnt_interest_capacity_target" { raw_text = "[Localize('tnt_interest_capacity_target')]: [TntSV('tnt_interest_influence_capacity_value')|2]" }
+											blockoverride "tnt_interest_capacity_stock" { raw_text = "[Localize('tnt_interest_current_stock')]: [TntSV('tnt_interest_influence_stock_value')|2]" }
+											blockoverride "tnt_interest_capacity_breakdown" { datacontext = "[TntBreakdown('tnt_interest_influence_capacity_value')]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntPos('tnt_influence_ok_value')]"
 
@@ -824,6 +927,27 @@ window = {
 					###     that panel's own "clear all" button calls.
 					tnt_item_row_picker = {
 						name = "tnt_row_title_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_title_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_title_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_title_p_selected_value')]" raw_text = "[Localize('tnt_item_title')]: [TntSV('tnt_count_sel_title_p_value')|0]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_title_p_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_title_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_title_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_title_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_title_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_title_p_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_title_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_title_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_title_p_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[And( TntRow('tnt_show_title_p'), TntOn('tnt_advanced') )]"
 
@@ -1141,6 +1265,27 @@ window = {
 					###     (60-BUILD2-REPORT section 2 R-5).
 					tnt_item_row_hook = {
 						name = "tnt_row_hook_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_hook_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_hook_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { text = "tnt_item_hook" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_hook_p_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_hook_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_hook_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_hook_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_hook_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_hook_p_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_hook_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_hook_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_hook_p_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_hook_p')]"
 
@@ -1189,6 +1334,27 @@ window = {
 					###      one row needs no new code.
 					tnt_item_row_picker = {
 						name = "tnt_row_artifact_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_artifact_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_artifact_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_artifact_p_selected_value')]" raw_text = "[Localize('tnt_item_artifact')]: [TntSV('tnt_count_sel_artifact_p_value')|0]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_artifact_p_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_artifact_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_artifact_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_artifact_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_artifact_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_artifact_p_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_artifact_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_artifact_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_artifact_p_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_artifact_p')]"
 
@@ -1293,6 +1459,27 @@ window = {
 					###      contract to edit and nothing per-side to open.
 					tnt_item_row_toggle = {
 						name = "tnt_row_vassal_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_vassal_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_vassal_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { text = "tnt_item_vassal" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_vassal_p_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_vassal_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_vassal_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_vassal_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_vassal_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_vassal_p_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_vassal_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_vassal_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_vassal_p_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[And( TntRow('tnt_show_vassal_p'), TntOn('tnt_advanced') )]"
 
@@ -1375,6 +1562,27 @@ window = {
 					###      i.e. gfx/interface/icons/character_interactions/independence.dds.
 					tnt_item_row_toggle = {
 						name = "tnt_row_indep_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_indep_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_indep_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { text = "tnt_item_indep" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_indep_p_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_indep_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_indep_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_indep_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_indep_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_indep_p_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_indep_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_indep_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_indep_p_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						### V19: THE tnt_advanced CONJUNCT WAS MISSING HERE AND ON THE _r ROW.
 						### tnt_rule_conformance.ps1 reported both as its only two FAILs for
@@ -1414,6 +1622,27 @@ window = {
 					###      GAME\gui\window_war_overview.gui:3127.
 					tnt_item_row_picker = {
 						name = "tnt_row_hostage_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_hostage_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_hostage_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_hostage_p_selected_value')]" raw_text = "[Localize('tnt_item_hostage')]: [TntVar('tnt_hostage_p').Char.GetUINameNoTooltip]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_hostage_p_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_hostage_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_hostage_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_hostage_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_hostage_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_hostage_p_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_hostage_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_hostage_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_hostage_p_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_hostage_p')]"
 
@@ -1549,6 +1778,27 @@ window = {
 					###      (GAME\common\character_interactions\00_tributary_interactions.txt:3005).
 					tnt_item_row_picker = {
 						name = "tnt_row_courtier_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_courtier_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_courtier_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_courtier_p_selected_value')]" raw_text = "[Localize('tnt_item_courtier')]: [TntSV('tnt_count_sel_courtier_p_value')|0]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_courtier_p_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_courtier_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_courtier_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_courtier_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_courtier_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_courtier_p_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_courtier_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_courtier_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_courtier_p_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_courtier_p')]"
 
@@ -1618,6 +1868,27 @@ window = {
 					###      i.e. gfx/interface/icons/character_interactions/icon_vassal.dds.
 					tnt_item_row_picker = {
 						name = "tnt_row_subject_p"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_subject_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_subject_p_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_subject_p_selected_value')]" raw_text = "[Localize('tnt_item_subject')]: [TntSV('tnt_count_sel_subject_p_value')|0]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_subject_p_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_subject_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_subject_p_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_subject_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_subject_p_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_subject_p_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_subject_p_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_subject_p_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_subject_p_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[And( TntRow('tnt_show_subject_p'), TntOn('tnt_advanced') )]"
 
@@ -2081,6 +2352,48 @@ window = {
 						### the mouse can hit.
 						tnt_action_line = {
 							name = "tnt_mutual_marriage"
+							blockoverride "tnt_action_line_interest" {
+								tnt_interest_badge = {
+									name = "tnt_interest_marriage_p"
+									blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+									blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_marriage_p_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_marriage_p_badge_percent_value')|0]%" }
+									blockoverride "tnt_interest_tooltip" {
+										tooltipwidget = {
+											tnt_interest_tooltip = {
+												blockoverride "tnt_interest_heading" { text = "tnt_interest_receive" }
+												blockoverride "tnt_interest_detail" { text = "tnt_item_marriage" }
+												blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_marriage_p_selected_value') )]" text = "tnt_interest_preview_context" }
+												blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_marriage_p_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_marriage_p_preview_percent_value')]" }
+												blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_marriage_p_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_marriage_p_percent_value')]" }
+												blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_marriage_p_selected_value')]" }
+												blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_marriage_p_display_percent_value')|2]%" }
+												blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_marriage_p_base_value')|3]" }
+												blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_marriage_p_adjusted_value')|3]" }
+											}
+										}
+									}
+								}
+								tnt_interest_badge = {
+									name = "tnt_interest_marriage_r"
+									blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+									blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_marriage_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_marriage_r_badge_percent_value')|0]%" }
+									blockoverride "tnt_interest_tooltip" {
+										tooltipwidget = {
+											tnt_interest_tooltip = {
+												blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+												blockoverride "tnt_interest_detail" { text = "tnt_item_marriage" }
+												blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_marriage_r_selected_value') )]" text = "tnt_interest_preview_context" }
+												blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_marriage_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_marriage_r_preview_percent_value')]" }
+												blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_marriage_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_marriage_r_percent_value')]" }
+												blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_marriage_r_selected_value')]" }
+												blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_marriage_r_display_percent_value')|2]%" }
+												blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_marriage_r_base_value')|3]" }
+												blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_marriage_r_adjusted_value')|3]" }
+											}
+										}
+									}
+								}
+							}
 
 							blockoverride "tnt_action_line_visible" { visible = "[And( TntRow('tnt_show_marriage_p'), TntOn('tnt_advanced') )]" }
 
@@ -2158,6 +2471,31 @@ window = {
 					### bottom of this file.
 					tnt_item_row_currency = {
 						name = "tnt_row_gold_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_gold_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_gold_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { raw_text = "[Localize('tnt_item_gold')]: [TntNum('tnt_gold_r')|2]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntOn('tnt_gold_r') )]" text = "tnt_interest_preview_currency" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntOn('tnt_gold_r') )]" datacontext = "[TntBreakdown('tnt_interest_gold_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntOn('tnt_gold_r')]" datacontext = "[TntBreakdown('tnt_interest_gold_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntOn('tnt_gold_r')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_gold_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_gold_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_gold_r_adjusted_value')|3]" }
+											blockoverride "tnt_interest_capacity_state" { visible = yes }
+											blockoverride "tnt_interest_capacity_target" { raw_text = "[Localize('tnt_interest_capacity_target')]: [TntSV('tnt_interest_gold_capacity_value')|2]" }
+											blockoverride "tnt_interest_capacity_stock" { raw_text = "[Localize('tnt_interest_current_stock')]: [TntSV('tnt_interest_gold_stock_value')|2]" }
+											blockoverride "tnt_interest_capacity_breakdown" { datacontext = "[TntBreakdown('tnt_interest_gold_capacity_value')]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_gold_r')]"
 
@@ -2174,13 +2512,14 @@ window = {
 								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_gold_r_sub_huge')]" }
 								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_gold_r_sub')]" }
 								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_gold_r_sub_big')]" }
-								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_gold_r_add')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_gold_r_add')]" enabled = "[TntValid('tnt_gold_r_add')]" }
 								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_gold_r_add_big')]" }
-								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_gold_r_add_huge')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_gold_r_add_huge')]" enabled = "[TntValid('tnt_gold_r_add_huge')]" }
+								blockoverride "tnt_stepper_tt_huge_plus" { tooltip = "[Select_CString( TntValid('tnt_gold_r_add_huge'), Localize('tnt_tt_step_huge_add'), TntTip('tnt_gold_r_add_huge') )]" }
 								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_gold_r')|0]" }
 								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_tt" }
-								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_tt" }
-								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'gold_r' )]" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "[Select_CString( TntValid('tnt_gold_r_add'), Localize('tnt_stepper_tt'), TntTip('tnt_gold_r_add') )]" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'gold_r' )]" enabled = "[TntValid('tnt_gold_r_add')]" tooltip = "[TntTip('tnt_gold_r_add')]" }
 							}
 						}
 					}
@@ -2191,6 +2530,31 @@ window = {
 					### 13 - PRESTIGE (item 2.4). NEW.
 					tnt_item_row_currency = {
 						name = "tnt_row_prestige_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_prestige_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_prestige_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { raw_text = "[Localize('tnt_item_prestige')]: [TntNum('tnt_prestige_r')|2]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntOn('tnt_prestige_r') )]" text = "tnt_interest_preview_currency" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntOn('tnt_prestige_r') )]" datacontext = "[TntBreakdown('tnt_interest_prestige_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntOn('tnt_prestige_r')]" datacontext = "[TntBreakdown('tnt_interest_prestige_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntOn('tnt_prestige_r')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_prestige_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_prestige_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_prestige_r_adjusted_value')|3]" }
+											blockoverride "tnt_interest_capacity_state" { visible = yes }
+											blockoverride "tnt_interest_capacity_target" { raw_text = "[Localize('tnt_interest_capacity_target')]: [TntSV('tnt_interest_prestige_capacity_value')|2]" }
+											blockoverride "tnt_interest_capacity_stock" { raw_text = "[Localize('tnt_interest_current_stock')]: [TntSV('tnt_interest_prestige_stock_value')|2]" }
+											blockoverride "tnt_interest_capacity_breakdown" { datacontext = "[TntBreakdown('tnt_interest_prestige_capacity_value')]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntValid('tnt_trade_prestige_r_available')]"
 
@@ -2207,13 +2571,14 @@ window = {
 								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_prestige_r_sub_huge')]" }
 								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_prestige_r_sub')]" }
 								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_prestige_r_sub_big')]" }
-								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_prestige_r_add')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_prestige_r_add')]" enabled = "[TntValid('tnt_prestige_r_add')]" }
 								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_prestige_r_add_big')]" }
-								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_prestige_r_add_huge')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_prestige_r_add_huge')]" enabled = "[TntValid('tnt_prestige_r_add_huge')]" }
+								blockoverride "tnt_stepper_tt_huge_plus" { tooltip = "[Select_CString( TntValid('tnt_prestige_r_add_huge'), Localize('tnt_tt_step_huge_add'), TntTip('tnt_prestige_r_add_huge') )]" }
 								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_prestige_r')|0]" }
 								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_prestige_tt" }
-								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_prestige_tt" }
-								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'prestige_r' )]" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "[Select_CString( TntValid('tnt_prestige_r_add'), Localize('tnt_stepper_prestige_tt'), TntTip('tnt_prestige_r_add') )]" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'prestige_r' )]" enabled = "[TntValid('tnt_prestige_r_add')]" tooltip = "[TntTip('tnt_prestige_r_add')]" }
 							}
 						}
 					}
@@ -2221,6 +2586,31 @@ window = {
 					### 14 - PIETY (item 2.4). NEW.
 					tnt_item_row_currency = {
 						name = "tnt_row_piety_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_piety_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_piety_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { raw_text = "[Localize('tnt_item_piety')]: [TntNum('tnt_piety_r')|2]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntOn('tnt_piety_r') )]" text = "tnt_interest_preview_currency" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntOn('tnt_piety_r') )]" datacontext = "[TntBreakdown('tnt_interest_piety_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntOn('tnt_piety_r')]" datacontext = "[TntBreakdown('tnt_interest_piety_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntOn('tnt_piety_r')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_piety_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_piety_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_piety_r_adjusted_value')|3]" }
+											blockoverride "tnt_interest_capacity_state" { visible = yes }
+											blockoverride "tnt_interest_capacity_target" { raw_text = "[Localize('tnt_interest_capacity_target')]: [TntSV('tnt_interest_piety_capacity_value')|2]" }
+											blockoverride "tnt_interest_capacity_stock" { raw_text = "[Localize('tnt_interest_current_stock')]: [TntSV('tnt_interest_piety_stock_value')|2]" }
+											blockoverride "tnt_interest_capacity_breakdown" { datacontext = "[TntBreakdown('tnt_interest_piety_capacity_value')]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntValid('tnt_trade_piety_r_available')]"
 
@@ -2237,13 +2627,14 @@ window = {
 								blockoverride "tnt_stepper_huge_minus" { onclick = "[TntExec('tnt_piety_r_sub_huge')]" }
 								blockoverride "tnt_stepper_minus"      { onclick = "[TntExec('tnt_piety_r_sub')]" }
 								blockoverride "tnt_stepper_minus_big"  { onrightclick = "[TntExec('tnt_piety_r_sub_big')]" }
-								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_piety_r_add')]" }
+								blockoverride "tnt_stepper_plus"       { onclick = "[TntExec('tnt_piety_r_add')]" enabled = "[TntValid('tnt_piety_r_add')]" }
 								blockoverride "tnt_stepper_plus_big"   { onrightclick = "[TntExec('tnt_piety_r_add_big')]" }
-								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_piety_r_add_huge')]" }
+								blockoverride "tnt_stepper_huge_plus"  { onclick = "[TntExec('tnt_piety_r_add_huge')]" enabled = "[TntValid('tnt_piety_r_add_huge')]" }
+								blockoverride "tnt_stepper_tt_huge_plus" { tooltip = "[Select_CString( TntValid('tnt_piety_r_add_huge'), Localize('tnt_tt_step_huge_add'), TntTip('tnt_piety_r_add_huge') )]" }
 								blockoverride "tnt_stepper_text"       { text = "[TntNum('tnt_piety_r')|0]" }
 								blockoverride "tnt_stepper_tt_minus"   { tooltip = "tnt_stepper_piety_tt" }
-								blockoverride "tnt_stepper_tt_plus"    { tooltip = "tnt_stepper_piety_tt" }
-								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'piety_r' )]" }
+								blockoverride "tnt_stepper_tt_plus"    { tooltip = "[Select_CString( TntValid('tnt_piety_r_add'), Localize('tnt_stepper_piety_tt'), TntTip('tnt_piety_r_add') )]" }
+								blockoverride "tnt_stepper_preset_open" { onclick = "[GetVariableSystem.Set( 'tnt_preset_menu', 'piety_r' )]" enabled = "[TntValid('tnt_piety_r_add')]" tooltip = "[TntTip('tnt_piety_r_add')]" }
 							}
 						}
 					}
@@ -2254,6 +2645,31 @@ window = {
 					###      tnt_row_influence_p above.
 					tnt_item_row_currency = {
 						name = "tnt_row_influence_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_influence_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_influence_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { raw_text = "[Localize('tnt_item_influence')]: [TntNum('tnt_influence_r')|2]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntOn('tnt_influence_r') )]" text = "tnt_interest_preview_currency" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntOn('tnt_influence_r') )]" datacontext = "[TntBreakdown('tnt_interest_influence_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntOn('tnt_influence_r')]" datacontext = "[TntBreakdown('tnt_interest_influence_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntOn('tnt_influence_r')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_influence_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_influence_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_influence_r_adjusted_value')|3]" }
+											blockoverride "tnt_interest_capacity_state" { visible = yes }
+											blockoverride "tnt_interest_capacity_target" { raw_text = "[Localize('tnt_interest_capacity_target')]: [TntSV('tnt_interest_influence_capacity_value')|2]" }
+											blockoverride "tnt_interest_capacity_stock" { raw_text = "[Localize('tnt_interest_current_stock')]: [TntSV('tnt_interest_influence_stock_value')|2]" }
+											blockoverride "tnt_interest_capacity_breakdown" { datacontext = "[TntBreakdown('tnt_interest_influence_capacity_value')]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntPos('tnt_influence_ok_value')]"
 
@@ -2345,6 +2761,27 @@ window = {
 					### 6 - CEDE TITLES (item 2.2, MULTI-SELECT - see the _p twin)
 					tnt_item_row_picker = {
 						name = "tnt_row_title_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_title_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_title_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_title_r_selected_value')]" raw_text = "[Localize('tnt_item_title')]: [TntSV('tnt_count_sel_title_r_value')|0]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_title_r_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_title_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_title_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_title_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_title_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_title_r_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_title_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_title_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_title_r_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[And( TntRow('tnt_show_title_r'), TntOn('tnt_advanced') )]"
 
@@ -2486,6 +2923,27 @@ window = {
 					###     reasoning and for the fallback recipe)
 					tnt_item_row_hook = {
 						name = "tnt_row_hook_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_hook_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_hook_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { text = "tnt_item_hook" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_hook_r_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_hook_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_hook_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_hook_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_hook_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_hook_r_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_hook_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_hook_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_hook_r_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_hook_r')]"
 
@@ -2525,6 +2983,27 @@ window = {
 					### 10 - ARTIFACTS (item 2.2, MULTI-SELECT - see the _p twin)
 					tnt_item_row_picker = {
 						name = "tnt_row_artifact_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_artifact_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_artifact_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_artifact_r_selected_value')]" raw_text = "[Localize('tnt_item_artifact')]: [TntSV('tnt_count_sel_artifact_r_value')|0]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_artifact_r_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_artifact_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_artifact_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_artifact_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_artifact_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_artifact_r_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_artifact_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_artifact_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_artifact_r_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_artifact_r')]"
 
@@ -2601,6 +3080,27 @@ window = {
 					###      overlay index 12, same opener - see the _p twin.
 					tnt_item_row_toggle = {
 						name = "tnt_row_vassal_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_vassal_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_vassal_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { text = "tnt_item_vassal" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_vassal_r_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_vassal_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_vassal_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_vassal_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_vassal_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_vassal_r_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_vassal_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_vassal_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_vassal_r_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[And( TntRow('tnt_show_vassal_r'), TntOn('tnt_advanced') )]"
 
@@ -2652,6 +3152,27 @@ window = {
 					###      and the inverse of the _p row, not a second copy of it.
 					tnt_item_row_toggle = {
 						name = "tnt_row_indep_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_indep_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_indep_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { text = "tnt_item_indep" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_indep_r_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_indep_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_indep_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_indep_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_indep_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_indep_r_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_indep_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_indep_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_indep_r_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						### V19: the mirror of the _p row above - same missing conjunct, same
 						### reason, same shape. See the box at tnt_row_indep_p.
@@ -2671,6 +3192,27 @@ window = {
 					### 16 - HOSTAGES (the partner's hostage, panel 16 / side 1)
 					tnt_item_row_picker = {
 						name = "tnt_row_hostage_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_hostage_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_hostage_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_hostage_r_selected_value')]" raw_text = "[Localize('tnt_item_hostage')]: [TntVar('tnt_hostage_r').Char.GetUINameNoTooltip]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_hostage_r_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_hostage_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_hostage_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_hostage_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_hostage_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_hostage_r_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_hostage_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_hostage_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_hostage_r_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_hostage_r')]"
 
@@ -2747,6 +3289,27 @@ window = {
 					###      its _p twin - no count value is registered for this term.
 					tnt_item_row_picker = {
 						name = "tnt_row_courtier_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_courtier_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_courtier_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_courtier_r_selected_value')]" raw_text = "[Localize('tnt_item_courtier')]: [TntSV('tnt_count_sel_courtier_r_value')|0]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_courtier_r_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_courtier_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_courtier_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_courtier_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_courtier_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_courtier_r_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_courtier_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_courtier_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_courtier_r_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[TntRow('tnt_show_courtier_r')]"
 
@@ -2786,6 +3349,27 @@ window = {
 					###      side, so both rows read tnt_advanced or neither does.
 					tnt_item_row_picker = {
 						name = "tnt_row_subject_r"
+						blockoverride "tnt_row_interest" {
+							tnt_interest_badge = {
+								blockoverride "tnt_interest_state" { visible = "[TntPos('tnt_interests_enabled_value')]" }
+								blockoverride "tnt_interest_value" { fontcolor = "[TntInterestColor('tnt_interest_subject_r_badge_percent_value')]" raw_text = "[TntSV('tnt_interest_subject_r_badge_percent_value')|0]%" }
+								blockoverride "tnt_interest_tooltip" {
+									tooltipwidget = {
+										tnt_interest_tooltip = {
+											blockoverride "tnt_interest_heading" { text = "tnt_interest_surrender" }
+											blockoverride "tnt_interest_detail" { visible = "[TntPos('tnt_interest_subject_r_selected_value')]" raw_text = "[Localize('tnt_item_subject')]: [TntSV('tnt_count_sel_subject_r_value')|0]" }
+											blockoverride "tnt_interest_empty_state" { visible = "[Not( TntPos('tnt_interest_subject_r_selected_value') )]" text = "tnt_interest_preview_context" }
+											blockoverride "tnt_interest_preview_breakdown" { visible = "[Not( TntPos('tnt_interest_subject_r_selected_value') )]" datacontext = "[TntBreakdown('tnt_interest_subject_r_preview_percent_value')]" }
+											blockoverride "tnt_interest_breakdown" { visible = "[TntPos('tnt_interest_subject_r_selected_value')]" datacontext = "[TntBreakdown('tnt_interest_subject_r_percent_value')]" }
+											blockoverride "tnt_interest_points" { visible = "[TntPos('tnt_interest_subject_r_selected_value')]" }
+											blockoverride "tnt_interest_points_effective" { raw_text = "[Localize('tnt_interest_effective_percent')]: [TntSV('tnt_interest_subject_r_display_percent_value')|2]%" }
+											blockoverride "tnt_interest_points_base" { raw_text = "[Localize('tnt_interest_base_points')]: [TntSV('tnt_interest_subject_r_base_value')|3]" }
+											blockoverride "tnt_interest_points_adjusted" { raw_text = "[Localize('tnt_interest_adjusted_points')]: [TntSV('tnt_interest_subject_r_adjusted_value')|3]" }
+										}
+									}
+								}
+							}
+						}
 						layoutpolicy_horizontal = expanding
 						visible = "[And( TntRow('tnt_show_subject_r'), TntOn('tnt_advanced') )]"
 
@@ -3517,11 +4101,13 @@ window = {
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
 
 				blockoverride "tnt_preset_lbl_std"  { text = "tnt_preset_std_gold" }
-				blockoverride "tnt_preset_tt_std"   { tooltip = "tnt_tt_preset_std_gold" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_gold_p_std'), Localize('tnt_tt_preset_std_gold'), TntTip('tnt_gold_p_std') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_gold_p_half'), Localize('tnt_tt_preset_half'), TntTip('tnt_gold_p_half') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_gold_p_max'), Localize('tnt_tt_preset_max'), TntTip('tnt_gold_p_max') )]" }
 
-				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_gold_p_std')]" }
-				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_gold_p_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_gold_p_max')]" }
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_gold_p_std')]" enabled = "[TntValid('tnt_gold_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_gold_p_half')]" enabled = "[TntValid('tnt_gold_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_gold_p_max')]" enabled = "[TntValid('tnt_gold_p_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_gold_p_none')]" }
 			}
 
@@ -3533,12 +4119,14 @@ window = {
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
 
 				blockoverride "tnt_preset_lbl_std"  { text = "tnt_preset_std_gold" }
-				blockoverride "tnt_preset_tt_std"   { tooltip = "tnt_tt_preset_std_gold" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_gold_r_std'), Localize('tnt_tt_preset_std_gold'), TntTip('tnt_gold_r_std') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_gold_r_half'), Localize('tnt_tt_preset_half'), TntTip('tnt_gold_r_half') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_gold_r_max'), Localize('tnt_tt_preset_max'), TntTip('tnt_gold_r_max') )]" }
 				blockoverride "tnt_preset_lbl_max"  { text = "tnt_preset_max_r" }
 
-				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_gold_r_std')]" }
-				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_gold_r_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_gold_r_max')]" }
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_gold_r_std')]" enabled = "[TntValid('tnt_gold_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_gold_r_half')]" enabled = "[TntValid('tnt_gold_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_gold_r_max')]" enabled = "[TntValid('tnt_gold_r_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_gold_r_none')]" }
 			}
 
@@ -3554,13 +4142,13 @@ window = {
 				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_prestige" }
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
 
-				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_p_available'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_trade_prestige_p_available') )]" }
-				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_p_available'), Localize('tnt_tt_preset_half'), TntTip('tnt_trade_prestige_p_available') )]" }
-				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_p_available'), Localize('tnt_tt_preset_max'), TntTip('tnt_trade_prestige_p_available') )]" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_prestige_p_add'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_prestige_p_add') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_prestige_p_add'), Localize('tnt_tt_preset_half'), TntTip('tnt_prestige_p_add') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_prestige_p_add'), Localize('tnt_tt_preset_max'), TntTip('tnt_prestige_p_add') )]" }
 
-				blockoverride "tnt_preset_sgui_std"  { enabled = "[TntValid('tnt_trade_prestige_p_available')]" onclick = "[TntExec('tnt_prestige_p_std')]" }
-				blockoverride "tnt_preset_sgui_half" { enabled = "[TntValid('tnt_trade_prestige_p_available')]" onclick = "[TntExec('tnt_prestige_p_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { enabled = "[TntValid('tnt_trade_prestige_p_available')]" onclick = "[TntExec('tnt_prestige_p_max')]" }
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_prestige_p_std')]" enabled = "[TntValid('tnt_prestige_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_prestige_p_half')]" enabled = "[TntValid('tnt_prestige_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_prestige_p_max')]" enabled = "[TntValid('tnt_prestige_p_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_prestige_p_none')]" }
 			}
 
@@ -3572,13 +4160,13 @@ window = {
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
 				blockoverride "tnt_preset_lbl_max"       { text = "tnt_preset_max_r" }
 
-				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_r_available'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_trade_prestige_r_available') )]" }
-				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_r_available'), Localize('tnt_tt_preset_half'), TntTip('tnt_trade_prestige_r_available') )]" }
-				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_trade_prestige_r_available'), Localize('tnt_tt_preset_max'), TntTip('tnt_trade_prestige_r_available') )]" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_prestige_r_add'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_prestige_r_add') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_prestige_r_add'), Localize('tnt_tt_preset_half'), TntTip('tnt_prestige_r_add') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_prestige_r_add'), Localize('tnt_tt_preset_max'), TntTip('tnt_prestige_r_add') )]" }
 
-				blockoverride "tnt_preset_sgui_std"  { enabled = "[TntValid('tnt_trade_prestige_r_available')]" onclick = "[TntExec('tnt_prestige_r_std')]" }
-				blockoverride "tnt_preset_sgui_half" { enabled = "[TntValid('tnt_trade_prestige_r_available')]" onclick = "[TntExec('tnt_prestige_r_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { enabled = "[TntValid('tnt_trade_prestige_r_available')]" onclick = "[TntExec('tnt_prestige_r_max')]" }
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_prestige_r_std')]" enabled = "[TntValid('tnt_prestige_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_prestige_r_half')]" enabled = "[TntValid('tnt_prestige_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_prestige_r_max')]" enabled = "[TntValid('tnt_prestige_r_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_prestige_r_none')]" }
 			}
 
@@ -3589,13 +4177,13 @@ window = {
 				blockoverride "tnt_preset_menu_currency" { text = "tnt_item_piety" }
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_actor" }
 
-				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_p_available'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_trade_piety_p_available') )]" }
-				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_p_available'), Localize('tnt_tt_preset_half'), TntTip('tnt_trade_piety_p_available') )]" }
-				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_p_available'), Localize('tnt_tt_preset_max'), TntTip('tnt_trade_piety_p_available') )]" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_piety_p_add'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_piety_p_add') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_piety_p_add'), Localize('tnt_tt_preset_half'), TntTip('tnt_piety_p_add') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_piety_p_add'), Localize('tnt_tt_preset_max'), TntTip('tnt_piety_p_add') )]" }
 
-				blockoverride "tnt_preset_sgui_std"  { enabled = "[TntValid('tnt_trade_piety_p_available')]" onclick = "[TntExec('tnt_piety_p_std')]" }
-				blockoverride "tnt_preset_sgui_half" { enabled = "[TntValid('tnt_trade_piety_p_available')]" onclick = "[TntExec('tnt_piety_p_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { enabled = "[TntValid('tnt_trade_piety_p_available')]" onclick = "[TntExec('tnt_piety_p_max')]" }
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_piety_p_std')]" enabled = "[TntValid('tnt_piety_p_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_piety_p_half')]" enabled = "[TntValid('tnt_piety_p_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_piety_p_max')]" enabled = "[TntValid('tnt_piety_p_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_piety_p_none')]" }
 			}
 
@@ -3607,13 +4195,13 @@ window = {
 				blockoverride "tnt_preset_menu_whose"    { text = "tnt_col_partner" }
 				blockoverride "tnt_preset_lbl_max"       { text = "tnt_preset_max_r" }
 
-				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_r_available'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_trade_piety_r_available') )]" }
-				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_r_available'), Localize('tnt_tt_preset_half'), TntTip('tnt_trade_piety_r_available') )]" }
-				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_trade_piety_r_available'), Localize('tnt_tt_preset_max'), TntTip('tnt_trade_piety_r_available') )]" }
+				blockoverride "tnt_preset_tt_std" { tooltip = "[Select_CString( TntValid('tnt_piety_r_add'), Localize('tnt_tt_preset_std_gift'), TntTip('tnt_piety_r_add') )]" }
+				blockoverride "tnt_preset_tt_half" { tooltip = "[Select_CString( TntValid('tnt_piety_r_add'), Localize('tnt_tt_preset_half'), TntTip('tnt_piety_r_add') )]" }
+				blockoverride "tnt_preset_tt_max" { tooltip = "[Select_CString( TntValid('tnt_piety_r_add'), Localize('tnt_tt_preset_max'), TntTip('tnt_piety_r_add') )]" }
 
-				blockoverride "tnt_preset_sgui_std"  { enabled = "[TntValid('tnt_trade_piety_r_available')]" onclick = "[TntExec('tnt_piety_r_std')]" }
-				blockoverride "tnt_preset_sgui_half" { enabled = "[TntValid('tnt_trade_piety_r_available')]" onclick = "[TntExec('tnt_piety_r_half')]" }
-				blockoverride "tnt_preset_sgui_max"  { enabled = "[TntValid('tnt_trade_piety_r_available')]" onclick = "[TntExec('tnt_piety_r_max')]" }
+				blockoverride "tnt_preset_sgui_std"  { onclick = "[TntExec('tnt_piety_r_std')]" enabled = "[TntValid('tnt_piety_r_std')]" }
+				blockoverride "tnt_preset_sgui_half" { onclick = "[TntExec('tnt_piety_r_half')]" enabled = "[TntValid('tnt_piety_r_half')]" }
+				blockoverride "tnt_preset_sgui_max"  { onclick = "[TntExec('tnt_piety_r_max')]" enabled = "[TntValid('tnt_piety_r_max')]" }
 				blockoverride "tnt_preset_sgui_none" { onclick = "[TntExec('tnt_piety_r_none')]" }
 			}
 

@@ -2,11 +2,12 @@ Parley: The Negotiating Table
 
 At a glance
 
-- 🟢 Version 1.2.2 · Targets CK3 1.20.0.4.
+- 🟢 Version 1.3.0 · Targets CK3 1.20.0.4.
 - 🟢 Standalone: no other mod required.
 - 🟢 Negotiate marriage, money and allegiance in one treaty.
 - 🟢 Languages: English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, 來自無壹的中文翻譯: https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070 and Spanish.
 - 🔴 Changes gameplay: treaties can transfer money, people, land and vassalage.
+- 🔴 WARNING — New rule: Negotiation interests. Standard is the new-campaign default; unwanted payments lose value and wanted assets cost more to surrender. Choose Off for the earlier valuation.
 - 🔴 AGOT compatibility: awaiting the AGOT update for CK3 1.20.
 - 🔴 Direct ruler negotiations only. Puppet proxy mode is unavailable.
 
@@ -14,7 +15,7 @@ A wedding can win what a war cannot
 
 Negotiate marriage, money and allegiance with both sides and your counterpart's valuation visible.
 
-Auto-balance adjusts currencies toward +1 acceptance or reports it cannot; relationships and concessions affect the result.
+Auto-balance adjusts currencies toward +1 acceptance or reports it cannot.
 
 AI envoys bring offers and demands: accept, negotiate or turn them away.
 
@@ -26,29 +27,22 @@ What you can negotiate
 - People and possessions: exchange artifacts, pledge relatives as hostages, or transfer eligible courtiers and accompanying families.
 - Favors and pressure: promise or use a hook, or threaten a ruler with sufficient army, prestige and dread. Player and AI threats share the same minimum.
 
-Tooltips explain eligibility and rules. Eligible marriages can create alliances, but alliances are not sold separately.
+Tooltips explain eligibility. Marriages can form alliances; alliances are not sold separately.
 
 Reading the central panel
 
-Their Answer combines benefits, costs, standing, extra demands and pressure into acceptance from your counterpart's perspective.
+Their Answer combines benefits, costs, standing, demands and pressure from your partner's perspective.
 
-This historical AGOT example gives 197 + 136 - 322 - 10 = +1, with no pressure:
+With Negotiation interests enabled, each term's percentage is a valuation, not an acceptance chance:
 
-- They receive: 197 — gold, the marriage's positive factors and its alliance.
-- Standing, share: +136 — the relationship adjustment, applied to that positive offer.
-- What they give up: 322 — fealty and the marriage's negative factors.
-- Wanted on top, share: -10 — their extra demand, also based on the positive offer.
+- You offer: the partner's interest in receiving. A base 100-point term at 50% contributes 50 points.
+- They offer: the partner's willingness to surrender. A base 100-point term at 50% costs 200 points.
 
-The individual treaty rows use a different breakdown:
+Higher percentages favor you in both directions. Rounded badges are red below 50%, white at 50%, green above it. Hover for components and selected base/adjusted points. Empty rows preview interest, not prices or trading permission.
 
-- Gold: 88 — the point value of this offer's 1,324 gold.
-- Patrilineal: -32 — the marriage's positive factors minus its costs, excluding the alliance and shared relationship adjustments.
-- Military alliance: 68 — this marriage's alliance value, counted once.
-- Swear fealty: 250 — the counterpart's submission cost in this example.
+The table shows base points. Interest deducts receiving discounts, surrender premiums and their effect on standing/bargaining once. Threats and called-in hooks remain separate pressure, without interest badges.
 
-Why can -32 improve the treaty by about +100? The alliance adds value, while positive marriage components change standing and extra-demand shares. Those shares use positive value, not the net -32 row. The panel implies roughly 106-107 points gained from this marriage-and-alliance package; this is an inference, not a measured before-and-after result.
-
-Rounding can make rows differ slightly from totals. These example values are not universal prices.
+With interests enabled, ordinary agreements need an answer above zero. Rounding affects display, not settlement. These are treaty points, not fixed gold prices.
 
 Getting started
 
@@ -57,40 +51,42 @@ Getting started
 3. Read Their Answer, adjust the package or use Auto-balance.
 4. Review and confirm. The mod rechecks that the agreement can be carried out.
 
-Set rules before play. Currency limits apply to each giver, Auto-balance and AI pricing. Classic valuation is default; Scaled adjusts territory and people prices. Threat strength and the global 0/1/5/10-year threat cooldown are separate. Full rules, defaults and examples: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table#game-rules-guide.
+🔴 WARNING — Negotiation interests is new in 1.3.0: Off / Mild / Standard (new-campaign default) / Strict. It changes valuations, not trading permissions or threat strength. Classic/Scaled base prices and currency restrictions remain separate. Gold, prestige and piety can each be selected on only one side. Full rules, defaults and examples: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table#game-rules-guide.
 
 
 When acting for a puppet, Parley's opener and marriage picker are hidden. Personal Rites determine marriage defaults and lineality pricing; native marriage eligibility checks still apply.
 
 Compatibility and load order
 
-Vanilla file replacements: none. Other mods and overhauls can still alter mechanics treaties rely on and need compatibility work.
+Vanilla file replacements: none. Overhauls can still change treaty mechanics and need compatibility work.
 
 Optional vanilla load order:
 
 1. Parley: The Negotiating Table
 2. Marriage Calculation Assistant
 
-AGOT is not supported by this CK3 1.20 release. Its integration is disabled pending an AGOT update and fresh checks. The calculation above is a historical example from CK3 1.19.0.6 with AGOT 0.5.2.1. Both marriage assistants are optional; neither is a general Parley compatibility patch.
+AGOT is unsupported on CK3 1.20. Integration is disabled pending its update and checks. Both marriage assistants are optional, not general compatibility patches.
 
 Submods and companion mods:
 
 - Marriage Calculation Assistant: https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163: marriage-candidate scores, breakdowns and sorting.
 - AGOT: Marriage Calculation Assistant: https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant: AGOT scoring for MCA; current compatibility is on hold.
 
-No other compatibility patches are included. Enable one copy of each mod.
+Enable one copy of each mod; no other patches are included.
 
 Saves and known limits
 
 Before removal, use Fold Away the Negotiating Table under Mod Removal Decisions, save, then disable Parley. This clears negotiation and AI state, but completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
 
-Title transfers cannot be bundled with fealty or independence. Overlapping courtier and hostage selections can invalidate a package.
+Title transfers exclude fealty/independence; overlapping courtier and hostage selections can invalidate a package.
 
-The negotiation screenshots were captured on CK3 1.19.0.6; some interface details may differ. Multiplayer and long campaigns remain unverified.
+With interests enabled, consequence previews for an already-refused manual offer are unavailable; refusal and retry remain possible.
+
+Captions distinguish older CK3 1.19.0.6 screenshots from newer captures. Multiplayer and long campaigns remain unverified.
 
 Feedback and support
 
-For bugs, include versions, load order, UI scale, steps and a screenshot; check whether this family alone reproduces it.
+For bugs, include versions, load order, UI scale, steps and a screenshot. Try reproducing with this family alone.
 
 Report an issue on GitHub: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table/issues
 

@@ -870,6 +870,9 @@ tnt_ai_world_do_submission_effect = {
 				A = scope:actor
 				B = scope:tnt_submission_target
 			}
+			# Recompute interest against the selected target before any realm mutation.
+			# Off is exactly neutral; native threat/cooldown/ratio gates above stay intact.
+			tnt_interest_ai_submission_score_value > 0
 			NOT = {
 				any_player = {
 					exists = var:tnt_partner
