@@ -106,3 +106,7 @@ Use [the shared journal CLI](tools/release/README.md#release-chain-journals) to 
 Runtime hashes determine whether dev still matches game. GitHub's published commit is tracked separately, so a documentation-only commit can require a GitHub push without invalidating the game build. `UPLOADED` and `VERIFIED` require a publication URL, artifact identity and evidence; recording an upload does not verify its downloaded result.
 
 RC3 retains its CK3 1.19.0.6 / AGOT 0.5.2.1 evidence scope. Parley 1.1.0 has a reviewed CK3 1.20.0.2 source adaptation; its [compatibility record](docs/CK3-1.20-COMPATIBILITY.md) separates the scoped RC6/RC7 observations, RC7 rejection, RC8 native mutation and natural-offer passes, same-save vanilla control and remaining coverage gaps. AGOT 0.5.2.1 still belongs to the old baseline. The release workspace's `release-workflow.json` manages the publication hold.
+
+## CAA family metadata revision
+
+The current publication copy includes all seven other maintained mods, with Steam Workshop links. Update only the canonical My other mods block and project that block into the existing README and platform outputs; preserve the rest of each platform description. Parley and Vassalization Extended Steam exports use whitespace-only BBCode compaction to remain within the 8,000-byte UTF-8 CRLF form limit. Recheck the current shared publication contract and scoped release metadata guide before publishing. Runtime, version, archives, media, and prior localization evidence are unchanged.

@@ -34,7 +34,11 @@
     "TCA_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3815381275",
     "TCA_PARADOX_URL": "https://mods.paradoxplaza.com/mods/162345/Any",
     "TCA_NEXUS_URL": "https://www.nexusmods.com/crusaderkings3/mods/410",
-    "TCA_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Tax-Collection-Automation"
+    "TCA_GITHUB_URL": "https://github.com/G4VV4KH/-CK3-Tax-Collection-Automation",
+    "CAA_STEAM_URL": "https://steamcommunity.com/sharedfiles/filedetails/?id=3815689627",
+    "CAA_GITHUB_URL": "https://github.com/G4VV4KH/council_assignment_automation",
+    "CAA_PARADOX_URL": null,
+    "CAA_NEXUS_URL": null
   },
   "workshop_ids": {
     "parley": "3811090081",
@@ -44,7 +48,8 @@
     "vassalization_extended": "3813943691",
     "court_automation": "3814028714",
     "nomad_autorefill": "3814793283",
-    "tax_collection_automation": "3815381275"
+    "tax_collection_automation": "3815381275",
+    "council_assignment_automation": "3815689627"
   },
   "github_remotes": {
     "parley": "https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table.git",
@@ -54,7 +59,8 @@
     "vassalization_extended": "https://github.com/G4VV4KH/-CK3-Vassalization-Extended.git",
     "court_automation": "https://github.com/G4VV4KH/-CK3-Court-Automation.git",
     "nomad_autorefill": "https://github.com/G4VV4KH/-CK3-Nomad-Autorefill.git",
-    "tax_collection_automation": "https://github.com/G4VV4KH/-CK3-Tax-Collection-Automation.git"
+    "tax_collection_automation": "https://github.com/G4VV4KH/-CK3-Tax-Collection-Automation.git",
+    "council_assignment_automation": "https://github.com/G4VV4KH/council_assignment_automation.git"
   },
-  "notes": "Previous six-member public metadata verified on 2026-10-06. TCA assigned URLs added on 2026-10-07 after Steam public metadata and all 29 delivered runtime files were verified. Seven-member sibling description updates and applicable localization gates remain pending; this catalog is not evidence of those updates. TCA remaining-platform reconciliation is owned by its publication task. The held AGOT adapter retains its assigned GitHub URL and unavailable store destinations. Archive-delivery status is tracked separately in the release registry."
+  "notes": "The previous seven-member publication workflow closed on 2026-10-08 at 03:29 UTC. CAA joined the maintained Steam family after public identity and 20 delivered runtime files were verified; its initial GitHub source and release are verified. The new eight-member/32-page family update is pending. Browser verification is NOT_VERIFIED; CAA Nexus/Paradox identities are pending. Related-mod links use assigned Steam URLs only. Held AGOT and historical payload evidence remain separate."
 }
