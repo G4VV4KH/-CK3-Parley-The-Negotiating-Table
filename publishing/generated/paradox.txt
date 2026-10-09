@@ -13,52 +13,52 @@ At a glance
 
 A wedding can win what a war cannot
 
-Negotiate marriage, money and allegiance with both sides and your counterpart's valuation visible.
+See both sides of the treaty and your counterpart's valuation.
 
 Auto-balance adjusts currencies toward +1 acceptance or reports it cannot.
 
-AI envoys bring offers and demands: accept, negotiate or turn them away.
+Accept, negotiate or reject offers and demands from AI envoys.
 
 What you can negotiate
 
 - Payments: gold, with prestige and piety governed by game rules; influence when both governments support it.
-- Marriage pacts: choose couples and marriage form, combine marriages, arrange eligible betrothals or promise a grand wedding.
+- Marriage pacts: choose couples and marriage form, combine marriages, arrange eligible betrothals or promise grand weddings.
 - Land and allegiance: cede eligible titles, swear fealty with an editable contract, grant independence, or transfer eligible direct vassals.
-- People and possessions: exchange artifacts, pledge relatives as hostages, or transfer eligible courtiers and accompanying families.
-- Favors and pressure: promise or use a hook, or threaten a ruler with sufficient army, prestige and dread. Player and AI threats share the same minimum.
+- People and possessions: trade artifacts, pledge relatives as hostages, transfer eligible courtiers with their families.
+- Favors and pressure: promise or use hooks or threaten with sufficient army, prestige and dread; player and AI share the threat minimum.
 
-Tooltips explain eligibility. Marriages can form alliances; alliances are not sold separately.
+Tooltips show eligibility. Marriages may form alliances; alliances cannot be sold separately.
 
 Reading the central panel
 
-Their Answer combines benefits, costs, standing, demands and pressure from your partner's perspective.
+Their Answer totals benefits, costs, standing, demands and pressure from your partner's perspective.
 
-With Negotiation interests enabled, each term's percentage is a valuation, not an acceptance chance:
+With Negotiation interests enabled, percentages show valuation, not acceptance chance:
 
 - You offer: the partner's interest in receiving. A base 100-point term at 50% contributes 50 points.
 - They offer: the partner's willingness to surrender. A base 100-point term at 50% costs 200 points.
 
-Higher percentages favor you in both directions. Rounded badges are red below 50%, white at 50%, green above it. Hover for components and selected base/adjusted points. Empty rows preview interest, not prices or trading permission.
+Higher percentages favor you both ways. Rounded badges: red below 50%, white at 50%, green above. Hover for components and selected base/adjusted points. Empty rows preview interest, not prices or permission.
 
-The table shows base points. Interest deducts receiving discounts, surrender premiums and their effect on standing/bargaining once. Threats and called-in hooks remain separate pressure, without interest badges.
+Rows show base points. Interest deducts receiving discounts, surrender premiums and standing/bargaining effects once. Threats and called-in hooks add separate pressure without interest badges.
 
-With interests enabled, ordinary agreements need an answer above zero. Rounding affects display, not settlement. These are treaty points, not fixed gold prices.
+With interests enabled, ordinary agreements need an answer above zero. Rounding affects display, not settlement. Points are not fixed gold prices.
 
 Getting started
 
 1. Right-click an eligible landed ruler: Diplomacy > Negotiate a Treaty.
 2. Add terms in You offer and They offer.
 3. Read Their Answer, adjust the package or use Auto-balance.
-4. Review and confirm. The mod rechecks that the agreement can be carried out.
+4. Review and confirm; the mod rechecks the terms.
 
 🔴 WARNING — Negotiation interests is new in 1.3.0: Off / Mild / Standard (new-campaign default) / Strict. It changes valuations, not trading permissions or threat strength. Classic/Scaled base prices and currency restrictions remain separate. Gold, prestige and piety can each be selected on only one side. Full rules, defaults and examples: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table#game-rules-guide.
 
 
-When acting for a puppet, Parley's opener and marriage picker are hidden. Personal Rites determine marriage defaults and lineality pricing; native marriage eligibility checks still apply.
+While acting for a puppet, the opener and marriage picker are hidden. Personal Rites set marriage defaults and lineality prices; native marriage eligibility still applies.
 
 Compatibility and load order
 
-Vanilla file replacements: none. Overhauls can still change treaty mechanics and need compatibility work.
+Vanilla file replacements: none. Overhaul changes to treaty mechanics may need compatibility work.
 
 Optional vanilla load order:
 
@@ -72,21 +72,21 @@ Submods and companion mods:
 - Marriage Calculation Assistant: https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163: marriage-candidate scores, breakdowns and sorting.
 - AGOT: Marriage Calculation Assistant: https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant: AGOT scoring for MCA; current compatibility is on hold.
 
-Enable one copy of each mod; no other patches are included.
+Use one copy per mod; no other patches included.
 
 Saves and known limits
 
-Before removal, use Fold Away the Negotiating Table under Mod Removal Decisions, save, then disable Parley. This clears negotiation and AI state, but completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
+To remove: use Fold Away the Negotiating Table under Mod Removal Decisions, save, then disable Parley. Negotiation/AI state clears; completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
 
-Title transfers exclude fealty/independence; overlapping courtier and hostage selections can invalidate a package.
+Title transfers exclude fealty/independence; courtier/hostage overlap can invalidate a package.
 
-With interests enabled, consequence previews for an already-refused manual offer are unavailable; refusal and retry remain possible.
+With interests enabled, refused manual offers lack consequence previews; refusal and retry still work.
 
-Captions distinguish older CK3 1.19.0.6 screenshots from newer captures. Multiplayer and long campaigns remain unverified.
+Captions identify older CK3 1.19.0.6 captures. Multiplayer and long campaigns remain unverified.
 
 Feedback and support
 
-For bugs, include versions, load order, UI scale, steps and a screenshot. Try reproducing with this family alone.
+Report versions, load order, UI scale, steps and a screenshot; try this family alone.
 
 Report an issue on GitHub: https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table/issues
 
@@ -103,6 +103,8 @@ Find this mod elsewhere
 
 My other mods
 
+Standalone mods
+
 - Marriage Calculation Assistant: https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163 — compare and sort marriage candidates.
 - Your Own Hegemony: https://steamcommunity.com/sharedfiles/filedetails/?id=3811201582 — found a custom hegemony.
 - Vassalization Extended: https://steamcommunity.com/sharedfiles/filedetails/?id=3813943691 — choose Forced Vassalization terms without a county limit.
@@ -111,4 +113,6 @@ My other mods
 - Tax Collection Automation: https://steamcommunity.com/sharedfiles/filedetails/?id=3815381275 — automatically assign tax collectors and optimize tax jurisdictions.
 - Council Assignment Automation: https://steamcommunity.com/sharedfiles/filedetails/?id=3815689627 — automate council appointments and optimize councillor assignments.
 
-These mods are optional.
+Compatibility patches
+
+- [compatch] CAA + CA: https://steamcommunity.com/sharedfiles/filedetails/?id=3816373375 — use Council Assignment Automation and Council Autopilot together.
