@@ -2,7 +2,7 @@
 
 ## At a glance
 
-- 🟢 **Version 1.3.0** · Targets CK3 **1.20.0.4**.
+- 🟢 **Version 1.3.0** · Targets CK3 **1.20.1**.
 - 🟢 **Standalone:** no other mod required.
 - 🟢 **Negotiate marriage, money and allegiance in one treaty.**
 - 🟢 **Languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [來自無壹的中文翻譯](https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070) and Spanish.
@@ -272,22 +272,11 @@ Email: g4vv4kh@gmail.com
 
 ## Screenshots
 
-![Negotiation interests preview: directional percentages show the partner's interest before selecting terms. Authentic gameplay capture with an added caption.](publishing/screenshots/05-negotiation-interests-preview.png)
+![Negotiation table and live valuation](docs/images/01.jpg)
 
-Negotiation interests preview: directional percentages show the partner's interest before selecting terms. Authentic gameplay capture with an added caption.
+![AI negotiation letter](docs/images/02.jpg)
 
-![Captured on CK3 1.19.0.6: Offer gold and prestige in exchange for fealty, with acceptance shown at the table.](publishing/screenshots/01-negotiating-table.png)
+![Game-rule choices](docs/images/03.jpg)
 
-Captured on CK3 1.19.0.6: Offer gold and prestige in exchange for fealty, with acceptance shown at the table.
+![Negotiation interest detail](docs/images/04.jpg)
 
-![Captured on CK3 1.19.0.6: Other rulers make offers of their own: gold today in exchange for a favor later.](publishing/screenshots/02-incoming-ai-offer.png)
-
-Captured on CK3 1.19.0.6: Other rulers make offers of their own: gold today in exchange for a favor later.
-
-![Parley 1.2.1 game rules: Scaled valuation and a five-year threat cooldown selected (not defaults).](publishing/screenshots/04-game-rules.png)
-
-Parley 1.2.1 game rules: Scaled valuation and a five-year threat cooldown selected (not defaults).
-
-## Contributing
-
-See [dev.md](dev.md) for the source layout, checks and pull-request workflow.

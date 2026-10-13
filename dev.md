@@ -96,3 +96,11 @@ RC3 retains its CK3 1.19.0.6 / AGOT 0.5.2.1 evidence scope. Parley 1.1.0 has a r
 ## CAA family metadata revision
 
 The current publication copy includes all seven other maintained mods, with Steam Workshop links. Update only the canonical My other mods block and project that block into the existing README and platform outputs; preserve the rest of each platform description. Parley and Vassalization Extended Steam exports use whitespace-only BBCode compaction to remain within the 8,000-byte UTF-8 CRLF form limit. Recheck the current shared publication contract and scoped release metadata guide before publishing. Runtime, version, archives, media, and prior localization evidence are unchanged.
+
+## Compatibility metadata update 1.3.0 — CK3 1.20.1
+
+Parley: The Negotiating Table 1.3.0 — CK3 1.20.1
+
+Compatibility metadata now targets CK3 1.20.1. Mod version, gameplay files and existing download archives remain unchanged.
+
+Current publication follows contract 1.8.0: static localization coverage for all CK3 languages; tested development gameplay evidence may be inherited after exact source checks; no duplicate production run or mandatory Paradox/Nexus re-download. Older instructions above retain their historical scope. This metadata-only update preserves this repository’s existing developer runtime and all distributed release archives. The public version remains 1.3.0. Evidence is scoped; this is not a blanket multiplayer, visual or full-campaign compatibility claim.
