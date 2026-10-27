@@ -15,9 +15,9 @@
 
 See both sides of the treaty and your counterpart's valuation.
 
-**Auto-balance** adjusts currencies toward **+1** acceptance or reports it cannot.
+**Auto-balance** adjusts currencies toward **+1** acceptance or reports failure.
 
-Accept, negotiate or reject offers and demands from AI envoys.
+Accept, negotiate or reject AI envoys' offers and demands.
 
 ## What you can negotiate
 
@@ -27,22 +27,22 @@ Accept, negotiate or reject offers and demands from AI envoys.
 - **People and possessions:** trade artifacts, pledge relatives as hostages, transfer eligible courtiers with their families.
 - **Favors and pressure:** promise or use hooks or threaten with sufficient army, prestige and dread; player and AI share the threat minimum.
 
-Tooltips show eligibility. Marriages may form alliances; alliances cannot be sold separately.
+Tooltips show eligibility. Marriage may form alliances; alliances cannot be sold separately.
 
 ## Reading the central panel
 
 **Their Answer** totals benefits, costs, standing, demands and pressure from your partner's perspective.
 
-With **Negotiation interests** enabled, percentages show **valuation, not acceptance chance**:
+With **Negotiation interests**, percentages show **valuation, not acceptance chance**:
 
 - **You offer:** the partner's interest in receiving. A base 100-point term at 50% contributes 50 points.
 - **They offer:** the partner's willingness to surrender. A base 100-point term at 50% costs 200 points.
 
-Higher percentages favor you both ways. Rounded badges: red below **50%**, white at **50%**, green above. Hover for components and selected base/adjusted points. Empty rows preview interest, not prices or permission.
+Higher percentages favor you both ways. Rounded badges: red below **50%**, white at **50%**, green above. Hover for components and base/adjusted points. Empty rows preview interest, not prices or permission.
 
-Rows show **base points**. **Interest** deducts receiving discounts, surrender premiums and standing/bargaining effects once. Threats and called-in hooks add separate pressure without interest badges.
+Rows show **base points**. **Interest** deducts receiving discounts, surrender premiums and standing/bargaining effects once. Threats and called-in hooks add pressure without interest badges.
 
-With interests enabled, ordinary agreements need an answer **above zero**. Rounding affects display, not settlement. Points are not fixed gold prices.
+With interests enabled, ordinary agreements need an answer **above zero**. Rounding changes only display. Points are not fixed gold prices.
 
 ## Getting started
 
@@ -207,7 +207,7 @@ During a campaign, **Receive No More Embassies** silences incoming treaty envoys
 
 These are suggested combinations of the existing rules, not additional built-in presets.
 
-While acting for a puppet, the opener and marriage picker are hidden. Personal Rites set marriage defaults and lineality prices; native marriage eligibility still applies.
+For puppets, the opener and marriage picker are hidden. Personal Rites set marriage defaults and lineality prices; native marriage eligibility applies.
 
 ## Compatibility and load order
 
@@ -231,15 +231,15 @@ Use one copy per mod; no other patches included.
 
 To remove: use **Fold Away the Negotiating Table** under **Mod Removal Decisions**, save, then disable Parley. Negotiation/AI state clears; completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
 
-Title transfers exclude fealty/independence; courtier/hostage overlap can invalidate a package.
+Title transfers exclude fealty/independence; courtier/hostage overlap can invalidate deals.
 
-With interests enabled, refused manual offers lack consequence previews; refusal and retry still work.
+With interests, refused manual offers lack consequence previews; refusal and retry work.
 
-Captions identify older **CK3 1.19.0.6** captures. **Multiplayer and long campaigns remain unverified.**
+Captions identify **CK3 1.19.0.6** captures. **Multiplayer and long campaigns remain unverified.**
 
 ## Feedback and support
 
-Report versions, load order, UI scale, steps and a screenshot; try this family alone.
+Report versions, load order, UI scale, steps and a screenshot; test this family alone.
 
 [Report an issue on GitHub](https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table/issues)
 
@@ -266,6 +266,7 @@ Email: g4vv4kh@gmail.com
 - [Tax Collection Automation](https://steamcommunity.com/sharedfiles/filedetails/?id=3815381275) — automatically assign tax collectors and optimize tax jurisdictions.
 - [Council Assignment Automation](https://steamcommunity.com/sharedfiles/filedetails/?id=3815689627) — automate council appointments and optimize councillor assignments.
 - [Strategist Assistant](https://steamcommunity.com/sharedfiles/filedetails/?id=3827659479) — plan armies, recruitment and wars.
+- [Title Domination](https://steamcommunity.com/sharedfiles/filedetails/?id=3828276945) — proclaim uncreated titles through diplomacy and war.
 
 ### Compatibility patches
 
