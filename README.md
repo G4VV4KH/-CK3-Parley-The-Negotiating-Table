@@ -13,7 +13,7 @@
 
 ## A wedding can win what a war cannot
 
-See both sides of the treaty and your counterpart's valuation.
+See both treaty sides and your counterpart's valuation.
 
 **Auto-balance** adjusts currencies toward **+1** acceptance or reports failure.
 
@@ -21,35 +21,35 @@ Accept, negotiate or reject AI envoys' offers and demands.
 
 ## What you can negotiate
 
-- **Payments:** gold, with prestige and piety governed by game rules; influence when both governments support it.
-- **Marriage pacts:** choose couples and marriage form, combine marriages, arrange eligible betrothals or promise grand weddings.
-- **Land and allegiance:** cede eligible titles, swear fealty with an editable contract, grant independence, or transfer eligible direct vassals.
-- **People and possessions:** trade artifacts, pledge relatives as hostages, transfer eligible courtiers with their families.
-- **Favors and pressure:** promise or use hooks or threaten with sufficient army, prestige and dread; player and AI share the threat minimum.
+- **Payments:** gold; prestige/piety under game rules; influence if both governments support it.
+- **Marriage pacts:** choose couples and marriage form; combine marriages, arrange eligible betrothals or promise grand weddings.
+- **Land and allegiance:** transfer eligible titles/direct vassals, swear fealty with an editable contract or grant independence.
+- **People and possessions:** trade artifacts, pledge relatives as hostages or transfer eligible courtiers and their families.
+- **Favors and pressure:** promise/use hooks or threaten with enough army, prestige and dread; player and AI share the threat minimum.
 
-Tooltips show eligibility. Marriage may form alliances; alliances cannot be sold separately.
+Tooltips show eligibility. Marriage may form alliances; no separate alliance sales.
 
 ## Reading the central panel
 
-**Their Answer** totals benefits, costs, standing, demands and pressure from your partner's perspective.
+**Their Answer** totals partner benefits, costs, standing, demands and pressure.
 
 With **Negotiation interests**, percentages show **valuation, not acceptance chance**:
 
 - **You offer:** the partner's interest in receiving. A base 100-point term at 50% contributes 50 points.
 - **They offer:** the partner's willingness to surrender. A base 100-point term at 50% costs 200 points.
 
-Higher percentages favor you both ways. Rounded badges: red below **50%**, white at **50%**, green above. Hover for components and base/adjusted points. Empty rows preview interest, not prices or permission.
+Higher percentages favor you both ways. Rounded badges: red below **50%**, white at **50%**, green above. Hover: components and base/adjusted points. Empty rows preview interest, not prices or permission.
 
-Rows show **base points**. **Interest** deducts receiving discounts, surrender premiums and standing/bargaining effects once. Threats and called-in hooks add pressure without interest badges.
+Rows show **base points**. **Interest** deducts receiving discounts, surrender premiums and standing/bargaining effects once. Threats and called-in hooks add pressure, without badges.
 
-With interests enabled, ordinary agreements need an answer **above zero**. Rounding changes only display. Points are not fixed gold prices.
+With interests, ordinary agreements need an answer **above zero**. Rounding only changes display. Points are not fixed gold prices.
 
 ## Getting started
 
 1. Right-click an eligible landed ruler: **Diplomacy > Negotiate a Treaty**.
 2. Add terms in **You offer** and **They offer**.
 3. Read **Their Answer**, adjust the package or use **Auto-balance**.
-4. Review and confirm; the mod rechecks the terms.
+4. Review and confirm; terms are rechecked.
 
 
 ### Game rules guide
@@ -207,29 +207,29 @@ During a campaign, **Receive No More Embassies** silences incoming treaty envoys
 
 These are suggested combinations of the existing rules, not additional built-in presets.
 
-For puppets, the opener and marriage picker are hidden. Personal Rites set marriage defaults and lineality prices; native marriage eligibility applies.
+Puppets hide the opener and marriage picker. Personal Rites set marriage defaults and lineality prices; native marriage eligibility applies.
 
 ## Compatibility and load order
 
-**Vanilla file replacements: none.** Overhaul changes to treaty mechanics may need compatibility work.
+**Vanilla file replacements: none.** Overhauls changing treaty mechanics may need compatibility work.
 
 **Optional vanilla load order:**
 
 1. Parley: The Negotiating Table
 2. Marriage Calculation Assistant
 
-**AGOT is unsupported on CK3 1.20.** Integration is disabled pending its update and checks. Both marriage assistants are optional, not general compatibility patches.
+**AGOT is unsupported on CK3 1.20.** Integration disabled pending update and checks. Both marriage assistants are optional, not general compatches.
 
 **Submods and companion mods:**
 
 - [Marriage Calculation Assistant](https://steamcommunity.com/sharedfiles/filedetails/?id=3811100163): marriage-candidate scores, breakdowns and sorting.
-- [AGOT: Marriage Calculation Assistant](https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant): AGOT scoring for MCA; current compatibility is on hold.
+- [AGOT: Marriage Calculation Assistant](https://github.com/G4VV4KH/-CK3-AGOT-Marriage-Calculation-Assistant): AGOT scores for MCA; compatibility on hold.
 
 Use one copy per mod; no other patches included.
 
 ## Saves and known limits
 
-To remove: use **Fold Away the Negotiating Table** under **Mod Removal Decisions**, save, then disable Parley. Negotiation/AI state clears; completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
+To remove: use **Mod Removal Decisions > Fold Away the Negotiating Table**, save, then disable Parley. Negotiation/AI state clears; completed marriages, payments and transfers persist. Close MCA's picker before saving or removing MCA.
 
 Title transfers exclude fealty/independence; courtier/hostage overlap can invalidate deals.
 
@@ -239,7 +239,7 @@ Captions identify **CK3 1.19.0.6** captures. **Multiplayer and long campaigns re
 
 ## Feedback and support
 
-Report versions, load order, UI scale, steps and a screenshot; test this family alone.
+Report versions, load order, UI scale, steps and screenshot; test this family alone.
 
 [Report an issue on GitHub](https://github.com/G4VV4KH/-CK3-Parley-The-Negotiating-Table/issues)
 
@@ -267,6 +267,7 @@ Email: g4vv4kh@gmail.com
 - [Council Assignment Automation](https://steamcommunity.com/sharedfiles/filedetails/?id=3815689627) — automate council appointments and optimize councillor assignments.
 - [Strategist Assistant](https://steamcommunity.com/sharedfiles/filedetails/?id=3827659479) — plan armies, recruitment and wars.
 - [Title Domination](https://steamcommunity.com/sharedfiles/filedetails/?id=3828276945) — proclaim uncreated titles through diplomacy and war.
+- [Accolade Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3836819350) — choose accolade attributes or knights first and set rank limits.
 
 ### Compatibility patches
 
