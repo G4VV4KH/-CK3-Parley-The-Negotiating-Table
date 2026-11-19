@@ -262,7 +262,7 @@
  setting_tnt_advanced_valuation_classic:0 "经典"
  setting_tnt_advanced_valuation_classic_desc:0 "使用高级条款的原有价格及其上限。此项为默认设置，也适用于没有此设置的旧存档。"
  setting_tnt_advanced_valuation_scaled:0 "动态"
- setting_tnt_advanced_valuation_scaled_desc:0 "土地及统治者转移的价值取决于实际领土和发展度，人物价值取决于其能力和政治重要性。对玩家与AI均生效。不会解锁条款或改变资源交易规则。"
+ setting_tnt_advanced_valuation_scaled_desc:0 "土地及统治者转移的价值取决于实际领土和繁荣度，人物价值取决于其能力和政治重要性。对玩家与AI均生效。不会解锁条款或改变资源交易规则。"
 
  # Negotiation interests: percentages are valuations, never acceptance chances.
  tnt_interest_choose:0 "选择条款或数量以计算兴趣。"
@@ -482,7 +482,7 @@
  tnt_ob_fort_label:0 "筑城权"
  tnt_ob_fort_desc:0 "臣属修建城堡更为便宜，且每一座要塞的等级都高出一级。\n\n#weak 这会让领主损失本契约所得赋税的十分之一，并且需要领主的[culture|E]已经解锁#high $innovation_battlements$#!。#!"
  tnt_ob_coin_label:0 "铸币权"
- tnt_ob_coin_desc:0 "臣属铸造自己的货币：其都城[county|E]的每月[development|E]#high +0.3#!。\n\n#weak 领主为此损失自身2%的发展度增长，并且需要领主的[culture|E]已经解锁#high $innovation_currency_02$#!。#!"
+ tnt_ob_coin_desc:0 "封臣首都[county|E]的每月[prosperity_growth|E]#high +0.3#!。\n\n#weak 领主的繁荣度增长降低2%。领主的[culture|E]须已解锁#high $innovation_currency_02$#!革新。#!"
  tnt_ob_succ_label:0 "强行分割继承"
  tnt_ob_succ_desc:0 "#N 此条款有利于领主，而不是臣属。#!臣属被锁死在分割继承制中，永远无法立法脱身：对其领主的好感#high -5#!。\n\n#weak 勾选它会让天平朝另一个方向倾斜——这是你在取，不是你在给。#!"
  tnt_ob_req_feudal:0 "只有封建臣属才有赋税、征召兵与权利可谈：请先在两栏之一中打开#high 宣誓效忠#!。"

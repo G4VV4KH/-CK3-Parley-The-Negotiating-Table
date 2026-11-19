@@ -263,7 +263,7 @@
  setting_tnt_advanced_valuation_classic:0 "Klasyczna"
  setting_tnt_advanced_valuation_classic_desc:0 "Oryginalne ceny rozszerzonych warunków wraz z dotychczasowymi limitami. Tryb domyślny, używany także w starszych zapisach bez tego ustawienia."
  setting_tnt_advanced_valuation_scaled:0 "Skalowana"
- setting_tnt_advanced_valuation_scaled_desc:0 "Wartość ziem i przekazywania władców zależy od rzeczywistego terytorium i rozwoju, a ludzi — od ich użyteczności i znaczenia politycznego. Działa dla gracza i SI. Nie odblokowuje warunków ani nie zmienia zasad handlu zasobami."
+ setting_tnt_advanced_valuation_scaled_desc:0 "Wartość ziem i przekazywania władców zależy od rzeczywistego terytorium i dobrobytu, a ludzi — od ich użyteczności i znaczenia politycznego. Działa dla gracza i SI. Nie odblokowuje warunków ani nie zmienia zasad handlu zasobami."
 
  # Negotiation interests: percentages are valuations, never acceptance chances.
  tnt_interest_choose:0 "Wybierz warunek lub ilość, aby obliczyć zainteresowanie."
@@ -483,7 +483,7 @@
  tnt_ob_fort_label:0 "Prawa budowy fortec"
  tnt_ob_fort_desc:0 "Poddany buduje zamki taniej i trzyma każdą fortecę o poziom wyżej.\n\n#weak Kosztuje to seniora dziesiątą część podatku, który daje ten kontrakt, i wymaga, by [Concept('culture', 'kultura')|E] seniora odblokowała innowację #high $innovation_battlements$#!.#!"
  tnt_ob_coin_label:0 "Prawa bicia monet"
- tnt_ob_coin_desc:0 "Poddany bije własną monetę: #high +0,3#! miesięcznego [Concept('development', 'rozwoju')|E] w jego stołecznym [Concept('county', 'hrabstwie')|E].\n\n#weak Senior traci za to 2% własnego przyrostu rozwoju, a rzecz wymaga, by [Concept('culture', 'kultura')|E] seniora odblokowała innowację #high $innovation_currency_02$#!.#!"
+ tnt_ob_coin_desc:0 "Stołeczne [Concept('county', 'hrabstwo')|E] wasala zyskuje co miesiąc #high +0,3#! do [Concept('prosperity_growth', 'wzrostu dobrobytu')|E].\n\n#weak Wzrost dobrobytu seniora spada o 2%. Jego [culture|E] musi mieć odblokowaną innowację #high $innovation_currency_02$#!.#!"
  tnt_ob_succ_label:0 "Wymuszony podział"
  tnt_ob_succ_desc:0 "#N Ten warunek sprzyja seniorowi, a nie poddanemu.#! Poddany zostaje zamknięty w sukcesji podziałowej i nigdy nie wyjdzie z niej drogą prawa: #high -5#! do opinii o seniorze.\n\n#weak Zaznaczenie go przesuwa szalę w drugą stronę – to rzecz, którą bierzesz, a nie dajesz.#!"
  tnt_ob_req_feudal:0 "Tylko poddany feudalny ma podatki, pospolite ruszenie i prawa do negocjowania – najpierw włącz #high Przysięgę wierności#! w jednej z dwóch kolumn."

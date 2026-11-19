@@ -263,7 +263,7 @@
  setting_tnt_advanced_valuation_classic:0 "Clásica"
  setting_tnt_advanced_valuation_classic_desc:0 "Usa los precios originales de los términos avanzados, incluidos sus límites. Es la opción predeterminada y se aplica a partidas antiguas sin este ajuste."
  setting_tnt_advanced_valuation_scaled:0 "Escalada"
- setting_tnt_advanced_valuation_scaled_desc:0 "El valor de las tierras y los traspasos de gobernantes depende del territorio real y su desarrollo; el de las personas, de su utilidad e importancia política. Se aplica al jugador y a la IA. No habilita términos ni cambia las reglas de comercio de recursos."
+ setting_tnt_advanced_valuation_scaled_desc:0 "El valor de las tierras y los traspasos de gobernantes depende del territorio real y su prosperidad; el de las personas, de su utilidad e importancia política. Se aplica al jugador y a la IA. No habilita términos ni cambia las reglas de comercio de recursos."
 
  # Negotiation interests: percentages are valuations, never acceptance chances.
  tnt_interest_choose:0 "Elige una condición o cantidad para calcular el interés."
@@ -483,7 +483,7 @@
  tnt_ob_fort_label:0 "Derechos de fortificación"
  tnt_ob_fort_desc:0 "El súbdito construye castillos más baratos y mantiene cada fortificación un nivel más alta.\n\n#weak Le cuesta al señor la décima parte de los impuestos que rinde este pacto, y exige que la [culture|E] del señor haya desbloqueado #high $innovation_battlements$#!.#!"
  tnt_ob_coin_label:0 "Derechos de acuñación"
- tnt_ob_coin_desc:0 "El súbdito acuña su propia moneda: #high +0.3#! de [development|E] mensual en su [county|E] capital.\n\n#weak Al señor le cuesta un 2 % de su propio crecimiento de desarrollo, y exige que la [culture|E] del señor haya desbloqueado #high $innovation_currency_02$#!.#!"
+ tnt_ob_coin_desc:0 "El [county|E] de la capital del vasallo recibe #high +0,3#! de [Concept('prosperity_growth', 'crecimiento de la prosperidad')|E] mensual.\n\n#weak El crecimiento de la prosperidad del señor se reduce un 2 %. Su [culture|E] debe haber descubierto la innovación #high $innovation_currency_02$#!.#!"
  tnt_ob_succ_label:0 "Reparto forzado"
  tnt_ob_succ_desc:0 "#N Este término favorece al señor, no al súbdito.#! El súbdito queda encerrado en la sucesión por reparto y jamás podrá legislar para salir de ella: #high -5#! de opinión sobre su señor.\n\n#weak Marcarlo mueve el equilibrio en sentido contrario: es algo que tomas, no algo que das.#!"
  tnt_ob_req_feudal:0 "Solo un súbdito feudal tiene impuestos, levas y derechos que negociar: activa antes #high Jurar lealtad#! en una de las dos columnas."

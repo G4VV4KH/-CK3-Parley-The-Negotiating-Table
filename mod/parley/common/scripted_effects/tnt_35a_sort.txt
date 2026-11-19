@@ -116,7 +116,7 @@
 #             GAME\common\script_values\07_ep3_values.txt:978-982;
 #             order_by = tier on a player-facing title list:
 #             GAME\common\important_actions\00_title_actions.txt:72-75.
-#             development_level as an order_by on a title element:
+#             prosperity_level as an order_by on a title element:
 #             GAME\common\decisions\dlc_decisions\mpo\mpo_decisions.txt:4696-4699.
 #             Tier is what the price is built on too
 #             (common\script_values\tnt_54_multiselect_values.txt), so a
@@ -223,7 +223,7 @@ tnt_sort_title_list_effect = {
 				if = {
 					limit = { tier = tier_county }
 					add = {
-						value = development_level
+						value = prosperity_level
 						min = 0
 						max = 999
 						floor = yes

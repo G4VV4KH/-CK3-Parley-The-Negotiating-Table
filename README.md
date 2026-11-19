@@ -2,13 +2,13 @@
 
 ## At a glance
 
-- 🟢 **Version 1.3.0** · Targets CK3 **1.20.1.2**.
+- 🟢 **Version 1.3.1** · Targets CK3 **1.21.0.3**.
 - 🟢 **Standalone:** no other mod required.
 - 🟢 **Negotiate marriage, money and allegiance in one treaty.**
 - 🟢 **Languages:** English, French, German, Japanese, Korean, Polish, Russian, Simplified Chinese, [來自無壹的中文翻譯](https://steamcommunity.com/sharedfiles/filedetails/?id=3090564070) and Spanish.
 - 🔴 **Changes gameplay:** treaties can transfer money, people, land and vassalage.
 - 🔴 **WARNING — New rule: Negotiation interests.** **Standard** is the new-campaign default; unwanted payments lose value and wanted assets cost more to surrender. Choose **Off** for the earlier valuation.
-- 🔴 **AGOT compatibility: awaiting the AGOT update for CK3 1.20.**
+- 🔴 **AGOT compatibility: awaiting the AGOT update for CK3 1.21.**
 - 🔴 **Direct ruler negotiations only.** Puppet proxy mode is unavailable.
 
 ## A wedding can win what a war cannot
@@ -72,9 +72,9 @@ This is not a universal restriction on the separate AI-to-AI treaty system. To s
 
 This changes **prices**, not permissions. It does not enable a forbidden term, change who can be transferred, or override prestige/piety trading rules. Prices are points used to evaluate an entire treaty, not fixed gold fees or guarantees of acceptance.
 
-**Land and allegiance.** Each actual county contributes **20 + half its development**. A ruler's territorial value includes counties held through subordinate vassals, counted once. Add one authority premium for the ruler's primary rank: **duke 20, king 40, emperor 60, hegemon 80**. Additional title names do not count the same land again. County cession prices only the county actually transferred, with the existing contextual adjustments; higher-rank title cession remains unavailable.
+**Land and allegiance.** Each actual county contributes **20 + half its prosperity**. A ruler's territorial value includes counties held through subordinate vassals, counted once. Add one authority premium for the ruler's primary rank: **duke 20, king 40, emperor 60, hegemon 80**. Additional title names do not count the same land again. County cession prices only the county actually transferred, with the existing contextual adjustments; higher-rank title cession remains unavailable.
 
-Before the existing contextual adjustments, a transferred vassal costs **40 + territorial value**. Voluntary fealty offers use **50 + territorial value**; requested fealty and independence use **100 + territorial value**. The old 200/250-point ceilings do not apply in Scaled. For example, a duke controlling twelve counties at development 10 has a territorial value of **12 × 25 + 20 = 320**: transferring that vassal starts at **360**, requesting their submission at **420**. A count with one equally developed county starts at **65** for a vassal transfer. De jure interest and the rest of the treaty can change the final result.
+Before the existing contextual adjustments, a transferred vassal costs **40 + territorial value**. Voluntary fealty offers use **50 + territorial value**; requested fealty and independence use **100 + territorial value**. The old 200/250-point ceilings do not apply in Scaled. For example, a duke controlling twelve counties at prosperity 10 has a territorial value of **12 × 25 + 20 = 320**: transferring that vassal starts at **360**, requesting their submission at **420**. A count with one equally developed county starts at **65** for a vassal transfer. De jure interest and the rest of the treaty can change the final result.
 
 **Courtiers.** The minimum starts at **1**, not 10. The strongest of the five regular skills and prowess are assessed separately, with larger bonuses for exceptional ability. Inspiration, physician training, beneficial congenital traits, dynasty standing and the strongest relevant explicit claim can add value. Multiple claims do not stack; unpressed claims count less. Family attachment and an existing friendship or romance with the receiving ruler add small bounded adjustments. This does not make spouses, heirs, serving councillors, knights or employed court-position holders newly tradable. AI courtier proposals select useful candidates instead of treating every ordinary courtier as a meaningful payment.
 
@@ -90,7 +90,7 @@ Family members who accompany a selected courtier under the game's normal transfe
 
 Scaled is useful if land expansion feels too inexpensive, but it is not a universal difficulty setting. It does not stop a piety-rich ruler selling piety, remove all sources of wealth, or guarantee that every exchange is equally attractive to the player and AI. Combine it with the separate currency rules if you want to restrict those transfers.
 
-#### 3. 🔴 WARNING — Negotiation interests (new in 1.3.0)
+#### 3. 🔴 WARNING — Negotiation interests (new in 1.3.1)
 
 **This new rule materially changes treaty valuations. Standard is enabled by default for new campaigns.** Select **Off** if you want the earlier interest-free evaluation; the other game rules remain independent.
 
@@ -142,7 +142,7 @@ The strict-devotion option compares **level of devotion**, not the amount of pie
 
 Each direction's trading permission is checked separately; a prestige or piety row may be available on only one side, and unavailable rows disappear. **Auto-balance and AI proposals use the same restrictions**, including when pricing a counteroffer. Gold is unaffected by these two permission rules.
 
-**New in 1.3.0: gold, prestige and piety can each have a positive amount on only one side of a treaty.** Selecting one direction locks the opposite direction's add buttons and amount presets. Reducing the selected amount to zero, choosing **None**, or clearing the draft restores the opposite direction when trading permission allows it. This safeguard also applies with Negotiation interests **Off**. Old drafts with both directions selected cannot be sent or settled; Auto-balance converts the opposing amounts into one net transfer before solving. Influence retains net valuation with both full transfers checked for permission and affordability.
+**New in 1.3.1: gold, prestige and piety can each have a positive amount on only one side of a treaty.** Selecting one direction locks the opposite direction's add buttons and amount presets. Reducing the selected amount to zero, choosing **None**, or clearing the draft restores the opposite direction when trading permission allows it. This safeguard also applies with Negotiation interests **Off**. Old drafts with both directions selected cannot be sent or settled; Auto-balance converts the opposing amounts into one net transfer before solving. Influence retains net valuation with both full transfers checked for permission and affordability.
 
 The final agreement is checked again before execution. If a ruler's faith or fame/devotion level changes and a positive currency term is no longer permitted, an old draft cannot bypass the rule: revise or reopen the deal. Restrictions govern negotiated payments, not unrelated resource gains, costs or consequences such as the prestige loss for refusing a threat.
 
@@ -218,7 +218,7 @@ Puppets hide the opener and marriage picker. Personal Rites set marriage default
 1. Parley: The Negotiating Table
 2. Marriage Calculation Assistant
 
-**AGOT is unsupported on CK3 1.20.** Integration disabled pending update and checks. Both marriage assistants are optional, not general compatches.
+**AGOT is unsupported on CK3 1.21.** Integration disabled pending update and checks. Both marriage assistants are optional, not general compatches.
 
 **Submods and companion mods:**
 

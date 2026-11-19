@@ -263,7 +263,7 @@
  setting_tnt_advanced_valuation_classic:0 "Classique"
  setting_tnt_advanced_valuation_classic_desc:0 "Utilise les prix d’origine des termes avancés, avec leurs limites. Mode par défaut, également utilisé par les anciennes sauvegardes sans ce réglage."
  setting_tnt_advanced_valuation_scaled:0 "Proportionnelle"
- setting_tnt_advanced_valuation_scaled_desc:0 "La valeur des terres et des transferts de dirigeants dépend du territoire réel et du développement ; celle des personnes, de leur utilité et de leur importance politique. Pour le joueur et l’IA. Ne débloque aucun terme et ne modifie pas les règles d’échange de ressources."
+ setting_tnt_advanced_valuation_scaled_desc:0 "La valeur des terres et des transferts de dirigeants dépend du territoire réel et de la prospérité ; celle des personnes, de leur utilité et de leur importance politique. Pour le joueur et l’IA. Ne débloque aucun terme et ne modifie pas les règles d’échange de ressources."
 
  # Negotiation interests: percentages are valuations, never acceptance chances.
  tnt_interest_choose:0 "Choisissez une condition ou une quantité pour calculer son intérêt."
@@ -483,7 +483,7 @@
  tnt_ob_fort_label:0 "Droits de fortification"
  tnt_ob_fort_desc:0 "Le sujet bâtit des châteaux à moindre coût et tient chaque fort d’un niveau plus haut.\n\n#weak Cela coûte au seigneur lige un dixième de l’impôt que ce contrat rapporte, et exige que la [culture|E] du seigneur lige ait débloqué #high $innovation_battlements$#!.#!"
  tnt_ob_coin_label:0 "Droit de battre monnaie"
- tnt_ob_coin_desc:0 "Le sujet bat sa propre monnaie : #high +0.3#! de [development|E] mensuel dans son [county|E] de capitale.\n\n#weak Le seigneur lige y perd 2 % de sa propre croissance de développement, et cela exige que la [culture|E] du seigneur lige ait débloqué #high $innovation_currency_02$#!.#!"
+ tnt_ob_coin_desc:0 "Le [county|E] de la capitale du vassal bénéficie de #high +0,3#! de [Concept('prosperity_growth', 'croissance de la prospérité')|E] par mois.\n\n#weak La croissance de la prospérité du seigneur lige diminue de 2 %. Sa [culture|E] doit avoir découvert l’innovation #high $innovation_currency_02$#!.#!"
  tnt_ob_succ_label:0 "Partage forcé"
  tnt_ob_succ_desc:0 "#N Ce terme favorise le seigneur lige, non le sujet.#! Le sujet est enfermé dans la succession par partage et ne pourra jamais en sortir par la loi : #high -5#! d’opinion envers son seigneur lige.\n\n#weak Le cocher déplace la balance dans l’autre sens : c’est une chose que vous prenez, non que vous donnez.#!"
  tnt_ob_req_feudal:0 "Seul un sujet féodal a des impôts, des levées et des droits à négocier : activez d’abord #high Jurer fidélité#! dans l’une des deux colonnes."

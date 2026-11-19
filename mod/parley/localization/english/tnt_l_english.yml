@@ -222,7 +222,7 @@
  # [artifact_i]. Concept links: [prestige|E] [piety|E] [influence|E] [vassal|E]
  # [claim|E] [truce|E] [vassal_contract|E] [obligation|E] [domain_limit|E]
  # [prestige_level|E] [culture|E] [innovation|E] [matrilineal|E]
- # [patrilineal|E] [county|E] [development|E] - all attested in vanilla loc.
+ # [patrilineal|E] [county|E] [prosperity_growth|E] - all attested in vanilla loc.
  # Loc-key tokens: $innovation_battlements$ $innovation_currency_02$
  # $confederate_partition_succession_law$ - vanilla keys, self-translating.
  #
@@ -1009,7 +1009,7 @@
  setting_tnt_advanced_valuation_classic:0 "Classic"
  setting_tnt_advanced_valuation_classic_desc:0 "Uses the original advanced-term prices, including their existing limits. Default; also used when an older save has no setting."
  setting_tnt_advanced_valuation_scaled:0 "Scaled"
- setting_tnt_advanced_valuation_scaled_desc:0 "Land and ruler transfers scale with actual territory and development; people with their usefulness and political importance. Applies to players and AI. Does not unlock terms or change currency-trading rules."
+ setting_tnt_advanced_valuation_scaled_desc:0 "Land and ruler transfers scale with actual territory and prosperity; people with their usefulness and political importance. Applies to players and AI. Does not unlock terms or change currency-trading rules."
 
  # Negotiation interests: percentages are valuations, never acceptance chances.
  tnt_interest_choose:0 "Choose a term or an amount to calculate its interest."
@@ -1450,7 +1450,7 @@
  tnt_ob_fort_label:0 "Fortification rights"
  tnt_ob_fort_desc:0 "The subject builds castles more cheaply and holds every fort one level higher.\n\n#weak It costs the liege a tenth of the tax this contract yields, and it requires the liege's [culture|E] to have unlocked #high $innovation_battlements$#!.#!"
  tnt_ob_coin_label:0 "Coinage rights"
- tnt_ob_coin_desc:0 "The subject strikes their own coin: #high +0.3#! monthly [development|E] in their capital [county|E].\n\n#weak The liege loses 2% of their own development growth for it, and it requires the liege's [culture|E] to have unlocked #high $innovation_currency_02$#!.#!"
+ tnt_ob_coin_desc:0 "The subject's capital [county|E] gains #high +0.3#! monthly [prosperity_growth|E].\n\n#weak The liege's prosperity growth is reduced by 2%. The liege's [culture|E] must have unlocked #high $innovation_currency_02$#!.#!"
  tnt_ob_succ_label:0 "Forced partition"
  tnt_ob_succ_desc:0 "#N This term favors the liege, not the subject.#! The subject is locked into partition succession and may never legislate their way out of it: #high -5#! opinion of their liege.\n\n#weak Ticking it moves the balance the other way - it is something you take, not something you give.#!"
  #

@@ -1,5 +1,11 @@
 # Contributing to Parley
 
+## 1.3.1 for CK3 1.21.0.3
+
+Updated for CK3 1.21.0.3 Florin. Scaled land values and the title picker now use county prosperity. All nine languages explain the current effects of coinage rights.
+
+## Earlier development notes
+
 Parley 1.3.0 is developed in `mod/parley/` for CK3 1.20.0.4. This working tree adds Negotiation interests and is not the published 1.2.2 snapshot. Candidate preparation uses `tools/release/prepare_parley_1_3_candidate.py`; the historical 1.2.2 publication guard must not be repinned or bypassed. The new projection contains 88 runtime files and 720 public localization keys per language, with developer diagnostics removed. All-language native localization and exact-candidate acceptance remain release gates; a version number, static pass or prepared candidate does not establish publication. Read actual delivery status from the current release registry. Historical records below retain their original dates and limits.
 
 The player guide remains canonical in `publishing/description.en.md`; README and store variants are generated. Version 1.3.0 adds an explicitly highlighted Negotiation interests rule and a text-annotated authentic screenshot. Its original capture is preserved in `publishing/media-sources/`; the rejected AI-redrawn attempt is not publication media. The deterministic annotation helper verifies zero changed pixels outside the caption rectangle.

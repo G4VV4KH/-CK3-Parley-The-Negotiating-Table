@@ -261,7 +261,7 @@
  setting_tnt_advanced_valuation_classic:0 "従来"
  setting_tnt_advanced_valuation_classic_desc:0 "上限を含め、従来の高度な条件の価格を使用します。既定の設定です。この設定がない古いセーブにも適用されます。"
  setting_tnt_advanced_valuation_scaled:0 "規模連動"
- setting_tnt_advanced_valuation_scaled_desc:0 "土地や統治者の移譲は実際の領土と開発度に、人物は有用性と政治的重要性に応じて評価されます。プレイヤーとAIの両方に適用されます。条件の解禁や資源取引ルールの変更は行いません。"
+ setting_tnt_advanced_valuation_scaled_desc:0 "土地や統治者の移譲は実際の領土と繁栄度に、人物は有用性と政治的重要性に応じて評価されます。プレイヤーとAIの両方に適用されます。条件の解禁や資源取引ルールの変更は行いません。"
 
  # Negotiation interests: percentages are valuations, never acceptance chances.
  tnt_interest_choose:0 "条件または数量を選ぶと関心度を計算します。"
@@ -481,7 +481,7 @@
  tnt_ob_fort_label:0 "要塞建造の権利"
  tnt_ob_fort_desc:0 "臣従者は城をより安く建て、すべての砦を一段高い水準で保ちます。\n\n#weak 主君はこの契約から得る税の十分の一を失います。また、主君の[culture|E]が#high $innovation_battlements$#!を解禁している必要があります。#!"
  tnt_ob_coin_label:0 "貨幣発行の権利"
- tnt_ob_coin_desc:0 "臣従者は自らの貨幣を鋳ます。首都の[county|E]で月あたり[development|E]#high +0.3#!。\n\n#weak 主君はその代わりに自らの開発度の伸びを2%失います。また、主君の[culture|E]が#high $innovation_currency_02$#!を解禁している必要があります。#!"
+ tnt_ob_coin_desc:0 "臣下の首都[county|E]では、毎月の[prosperity_growth|E]が#high +0.3#!されます。\n\n#weak 主君の繁栄度の成長率は2%低下します。主君の[culture|E]が#high $innovation_currency_02$#!を発見している必要があります。#!"
  tnt_ob_succ_label:0 "分割の強制"
  tnt_ob_succ_desc:0 "#N この条項は臣従者ではなく主君に有利です。#! 臣従者は分割相続に固定され、法によってそこから抜け出すことが決してできなくなります。主君への好感度#high -5#!。\n\n#weak これを入れると釣り合いは逆へ動きます。与えるものではなく、取るものだからです。#!"
  tnt_ob_req_feudal:0 "税金と徴募兵と権利を交渉できるのは封建の臣従者だけです。まずどちらかの列で#high 忠誠を誓う#!を入れてください。"

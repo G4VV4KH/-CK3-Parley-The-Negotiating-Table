@@ -8,7 +8,7 @@
 # when that ruler is himself a vassal. It counts each county once. This is the
 # installed 1.20.0.3 vanilla script-value pattern in 00_law_values.txt:7-9,
 # 00_invasion_values.txt:8-11 and 00_hold_court_values.txt:11-14.
-# County development as a script-value field: 00_council_values.txt:112;
+# County prosperity as a script-value field: 00_council_values.txt:112;
 # tier constants through hegemony: 00_title_tiers_values.txt:1-7.
 #
 # County-only cession remains county-only. tnt_can_cede_title_trigger refuses
@@ -17,7 +17,7 @@
 ###############################################################################
 
 # LANDED COUNTY TITLE scope. Twenty points per actual county, plus half its
-# development (prosperity). Development is the only local prosperity input:
+# prosperity. Prosperity is the only local prosperity input:
 # there is no speculative income, building or unowned de jure land valuation.
 tnt_scaled_county_land_value = {
 	value = 0
@@ -25,7 +25,7 @@ tnt_scaled_county_land_value = {
 		limit = { tier = tier_county }
 		add = 20
 		add = {
-			value = development_level
+			value = prosperity_level
 			min = 0
 			multiply = 0.5
 		}

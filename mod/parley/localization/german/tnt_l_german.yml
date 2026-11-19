@@ -258,7 +258,7 @@
  setting_tnt_advanced_valuation_classic:0 "Klassisch"
  setting_tnt_advanced_valuation_classic_desc:0 "Verwendet die ursprünglichen Preise für erweiterte Bedingungen samt bisherigen Obergrenzen. Standard; gilt auch für ältere Spielstände ohne diese Einstellung."
  setting_tnt_advanced_valuation_scaled:0 "Skaliert"
- setting_tnt_advanced_valuation_scaled_desc:0 "Land- und Herrscherübertragungen werden nach tatsächlichem Gebiet und Entwicklung bewertet, Personen nach Nutzen und politischer Bedeutung. Gilt für Spieler und KI. Schaltet keine Bedingungen frei und ändert keine Ressourcenhandelsregeln."
+ setting_tnt_advanced_valuation_scaled_desc:0 "Land- und Herrscherübertragungen werden nach tatsächlichem Gebiet und Wohlstand bewertet, Personen nach Nutzen und politischer Bedeutung. Gilt für Spieler und KI. Schaltet keine Bedingungen frei und ändert keine Ressourcenhandelsregeln."
 
  # Negotiation interests: percentages are valuations, never acceptance chances.
  tnt_interest_choose:0 "Wählt eine Bedingung oder Menge, um das Interesse zu berechnen."
@@ -478,7 +478,7 @@
  tnt_ob_fort_label:0 "Befestigungsrecht"
  tnt_ob_fort_desc:0 "Der Untergebene baut Burgen billiger und hält jede Festung eine Stufe höher.\n\n#weak Es kostet den Lehnsherrn ein Zehntel der Steuern, die dieser Vertrag einbringt, und setzt voraus, dass die [culture|E] des Lehnsherrn #high $innovation_battlements$#! freigeschaltet hat.#!"
  tnt_ob_coin_label:0 "Prägerecht"
- tnt_ob_coin_desc:0 "Der Untergebene prägt eigene Münzen: #high +0,3#! monatliche [development|E] in der [county|E] seiner Hauptstadt.\n\n#weak Der Lehnsherr verliert dafür 2 % seines eigenen Entwicklungswachstums, und es setzt voraus, dass die [culture|E] des Lehnsherrn #high $innovation_currency_02$#! freigeschaltet hat.#!"
+ tnt_ob_coin_desc:0 "Die Hauptstadtsgrafschaft des Vasallen erhält monatlich #high +0,3#! [Concept('prosperity_growth', 'Wohlstandswachstum')|E].\n\n#weak Das Wohlstandswachstum des Lehnsherrn sinkt um 2 %. Seine [culture|E] muss die Innovation #high $innovation_currency_02$#! freigeschaltet haben.#!"
  tnt_ob_succ_label:0 "Zwangsteilung"
  tnt_ob_succ_desc:0 "#N Diese Bedingung begünstigt den Lehnsherrn, nicht den Untergebenen.#! Der Untergebene ist auf Erbteilung festgelegt und kann sich niemals per Gesetz daraus befreien: #high -5#! Meinung über seinen Lehnsherrn.\n\n#weak Sie anzuhaken verschiebt die Waage in die andere Richtung: Es ist etwas, das Ihr nehmt, nicht etwas, das Ihr gebt.#!"
  tnt_ob_req_feudal:0 "Nur ein feudaler Untergebener hat Steuern, Aufgebote und Rechte zu verhandeln. Schaltet zuerst #high Treue schwören#! in einer der beiden Spalten ein."
